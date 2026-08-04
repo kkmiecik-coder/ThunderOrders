@@ -218,7 +218,7 @@
                 {% if shipping_requests %}
                 <div class="sr-cards-grid">
                     {% for sr in shipping_requests %}
-                    <div class="sr-card {% if sr.status == 'oplacone' %}sr-card-paid{% endif %}" data-request-id="{{ sr.id }}" data-client-id="{{ sr.user.id if sr.user else '' }}" onclick="toggleCardSelection(this, event)">
+                    <div class="sr-card {% if sr.status == 'oplacone' %}sr-card-paid{% endif %}" data-request-id="{{ sr.id }}" data-status="{{ sr.status }}" data-client-id="{{ sr.user.id if sr.user else '' }}" onclick="toggleCardSelection(this, event)">
                         <div class="sr-card-header">
                             <div class="sr-card-header-left">
                                 <label class="sr-checkbox-wrapper" onclick="event.stopPropagation();">
@@ -357,12 +357,23 @@
                                 </svg>
                                 Dodaj koszty
                             </button>
-                            <button type="button" class="btn btn-sm btn-wms" onclick="event.stopPropagation(); handleGoToWMS({{ sr.id }});" title="Zabierz do WMS">
+                            {% if sr.status == 'spakowane' %}
+                            <button type="button" class="btn btn-sm btn-success" onclick="event.stopPropagation(); openShipModal([{{ sr.id }}]);" title="Oznacz jako wysłane">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 2L11 13"></path>
+                                    <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+                                </svg>
+                                Oznacz jako wysłane
+                            </button>
+                            {% endif %}
+                            {% if sr.status not in ['wyslane', 'dostarczone'] %}
+                            <button type="button" class="btn btn-sm btn-wms" onclick="event.stopPropagation(); handleGoToWMS({{ sr.id }}, '{{ sr.status }}', '{{ sr.request_number }}');" title="Zabierz do WMS">
                                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                                     <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                                 </svg>
                                 Zabierz do WMS
                             </button>
+                            {% endif %}
                             {% if sr.tracking_number and sr.tracking_url %}
                             <a href="{{ sr.tracking_url }}" target="_blank" class="btn btn-sm btn-secondary" onclick="event.stopPropagation();" title="Śledź przesyłkę">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -784,6 +795,14 @@
                     </span>
                 </button>
 
+                <button type="button" class="bulk-menu-item" data-action="mark-shipped" id="btnBulkMarkShipped" role="menuitem">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 2L11 13"></path>
+                        <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+                    </svg>
+                    <span>Oznacz jako wysłane</span>
+                </button>
+
                 <button type="button" class="bulk-menu-item" data-action="wms" role="menuitem">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
                         <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
@@ -820,6 +839,35 @@
 
 <!-- Shipping Request Edit Modal -->
 {% if active_tab == 'shipping' %}
+<!-- Wybór trybu powrotu spakowanego zlecenia do WMS -->
+<div id="wmsReopenModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 id="wmsReopenTitle">Zlecenie jest już spakowane</h2>
+            <button type="button" class="modal-close" id="wmsReopenClose" aria-label="Zamknij">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Wariant dla pojedynczego zlecenia (przycisk na karcie) -->
+            <p class="wms-reopen-lead" id="wmsReopenLeadSingle">Zlecenie <strong id="wmsReopenNumber"></strong> zostało już spakowane. Jak chcesz je otworzyć?</p>
+            <!-- Wariant zbiorczy (akcja "Zabierz do WMS" dla wielu zaznaczonych zleceń) -->
+            <p class="wms-reopen-lead" id="wmsReopenLeadMulti" hidden>Zaznaczono <strong id="wmsReopenCount"></strong> <span id="wmsReopenCountWord"></span> — część z nich jest już spakowana. Jak chcesz je otworzyć?</p>
+            <div class="wms-reopen-options">
+                <button type="button" class="wms-reopen-option" data-mode="full">
+                    <span class="wms-reopen-option-title">Pełna sesja od nowa</span>
+                    <span class="wms-reopen-option-desc">Odhaczone pozycje zostaną wyczyszczone — przejdziesz zbieranie i pakowanie.</span>
+                </button>
+                <button type="button" class="wms-reopen-option" data-mode="repack">
+                    <span class="wms-reopen-option-title">Tylko przepakowanie</span>
+                    <span class="wms-reopen-option-desc">Pozycje zostają zebrane — przechodzisz od razu do pakowania.</span>
+                </button>
+            </div>
+            <p class="wms-reopen-note">W obu przypadkach opakowanie wróci na stan magazynowy.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="wmsReopenCancel">Anuluj</button>
+        </div>
+    </div>
+</div>
 {% include 'admin/orders/_shipping_request_modal.html' %}
 {% endif %}
 

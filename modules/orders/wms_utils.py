@@ -173,3 +173,228 @@ def suggest_packaging(order):
         'total_weight': round(total_weight, 2),
         'total_volume': round(needed_volume, 2),
     }
+
+
+# ====================
+# WYSYŁKA ZLECENIA
+# ====================
+
+
+COURIER_NAMES = {
+    'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
+    'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
+    'ups': 'UPS', 'fedex': 'FedEx', 'pocztex': 'Pocztex', 'other': 'Inny',
+}
+
+
+class ShippingRequestAlreadyShipped(Exception):
+    """Zlecenie ma już status 'wyslane' — drugi raz go nie wysyłamy."""
+
+
+class ShippingRequestUnpaid(Exception):
+    """Zlecenie jest w statusie przedpłatnym (klient jeszcze nie zapłacił) —
+    nie da się go wysłać, niezależnie od tego, którą drogą (lista zleceń
+    czy panel w sesji WMS)."""
+
+
+# Statusy przedpłatne — zanim za zlecenie zapłacono, nie wolno go wysłać.
+# Celowo NIE blokujemy tu wszystkiego poza 'spakowane': część zamówień
+# zlecenia może pakować się w innej, wciąż otwartej sesji WMS, więc samo
+# zlecenie nie ma jeszcze statusu 'spakowane' — twardy warunek "tylko
+# spakowane" zablokowałby wysyłkę takiego (już opłaconego) zlecenia całkowicie.
+UNPAID_SR_STATUSES = ('czeka_na_wycene', 'czeka_na_oplacenie')
+
+
+def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size=None,
+                          shipping_cost=None, order_costs=None, user=None, wms_session=None):
+    """Oznacza zlecenie wysyłki jako wysłane.
+
+    Wspólne dla panelu w sesji WMS i dla listy zleceń — jedno miejsce, w którym
+    zmieniają się statusy, powstaje wpis przesyłki i idą powiadomienia do klienta.
+
+    Numer przesyłki jest nieobowiązkowy. Gdy go nie ma, nie powstaje OrderShipment
+    (wpis bez numeru niczego nie wnosi), a klient dostaje powiadomienie o zmianie
+    statusu zamiast powiadomienia o trackingu.
+
+    Numer przesyłki bez wybranego kuriera dostaje kuriera zastępczego 'other'
+    ("Inny") — zarówno na zleceniu, jak i we wpisie przesyłki — żeby nie próbować
+    zapisać pustego kuriera (kolumna jest NOT NULL).
+
+    Statusy zleceń/zamówień i wpis przesyłki lądują w jednym commicie: albo
+    wszystko, albo nic. Powiadomienia idą dopiero po commicie i błąd maila/pusha
+    nie cofa już zapisanej wysyłki.
+    """
+    from flask import current_app
+
+    from extensions import db
+    from modules.orders.models import Order, OrderShipment, OrderStatus
+    from utils.activity_logger import log_activity
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    if sr.status == 'wyslane':
+        raise ShippingRequestAlreadyShipped(f'Zlecenie {sr.request_number} jest już wysłane')
+
+    if sr.status in UNPAID_SR_STATUSES:
+        raise ShippingRequestUnpaid(
+            f'Zlecenie {sr.request_number} nie zostało jeszcze opłacone '
+            f'(status: „{sr.status_display_name}") — nie można go wysłać'
+        )
+
+    old_status = sr.status
+    tracking_number = (tracking_number or '').strip()
+
+    # Puste pole nie kasuje tego, co już jest na zleceniu.
+    if courier:
+        sr.courier = courier
+    if tracking_number:
+        sr.tracking_number = tracking_number
+        if not sr.courier:
+            sr.courier = 'other'
+    if parcel_size:
+        sr.parcel_size = parcel_size
+    sr.status = 'wyslane'
+
+    if shipping_cost:
+        try:
+            sr.total_shipping_cost = float(shipping_cost)
+        except (ValueError, TypeError):
+            pass
+
+    for cost_data in (order_costs or []):
+        oid = cost_data.get('order_id')
+        cost = cost_data.get('shipping_cost')
+        if oid and cost:
+            order = db.session.get(Order, oid)
+            if order:
+                try:
+                    order.shipping_cost = float(cost)
+                except (ValueError, TypeError):
+                    pass
+
+    # Nazwy starych statusów potrzebne do maila — zbierane przed podmianą.
+    old_order_status_names = {o.id: o.status_display_name for o in sr.orders}
+    changed_status_order_ids = set()
+
+    order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
+    if order_status:
+        for o in sr.orders:
+            if o.status != 'wyslane':
+                o.status = 'wyslane'
+                changed_status_order_ids.add(o.id)
+
+    courier_name = COURIER_NAMES.get(sr.courier, sr.courier or 'Kurier')
+
+    # Tylko zamówienia z NOWO powstałym wpisem przesyłki dostają powiadomienie
+    # o trackingu — inaczej klient, który już dostał maila z oknem "Dodaj koszty",
+    # dostałby identycznego maila drugi raz przy "Oznacz jako wysłane".
+    new_shipment_order_ids = set()
+    if tracking_number:
+        for order in sr.orders:
+            existing = OrderShipment.query.filter_by(
+                order_id=order.id, tracking_number=tracking_number
+            ).first()
+            if not existing:
+                db.session.add(OrderShipment(
+                    order_id=order.id,
+                    tracking_number=tracking_number,
+                    courier=sr.courier,
+                    notes=(f'Z sesji WMS #{wms_session.id}, zlecenie {sr.request_number}'
+                           if wms_session else f'Zlecenie {sr.request_number}'),
+                    created_by=user.id if user else None,
+                ))
+                new_shipment_order_ids.add(order.id)
+
+    # Jeden commit na wszystkie dane — statusy i wpis przesyłki razem albo wcale.
+    db.session.commit()
+
+    for order in sr.orders:
+        try:
+            if order.id in new_shipment_order_ids:
+                EmailManager.notify_tracking_added(
+                    order, tracking_number=tracking_number, courier=sr.courier,
+                    courier_name=courier_name, tracking_url=sr.tracking_url)
+                PushManager.notify_tracking_added(
+                    order, tracking_number=tracking_number, courier_name=courier_name)
+            elif order_status and order.id in changed_status_order_ids:
+                # Powiadomienie o zmianie statusu tylko wtedy, gdy status faktycznie
+                # się zmienił — inaczej zamówienie już "wyslane" dostałoby maila
+                # "Wysłane -> Wysłane".
+                old_name = old_order_status_names.get(order.id, '')
+                EmailManager.notify_status_change(order, old_name, order_status.name)
+                PushManager.notify_status_change(order, old_name, order_status.name)
+        except Exception as err:
+            current_app.logger.error(
+                f'Powiadomienie o wysyłce {sr.request_number}, zam. {order.order_number}: {err}')
+
+    log_activity(
+        user=user,
+        action='shipping_request_shipped',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        old_value={'status': old_status},
+        new_value={
+            'status': 'wyslane',
+            'tracking_number': tracking_number or None,
+            'courier': sr.courier,
+            'wms_session_id': wms_session.id if wms_session else None,
+            'source': 'wms_session' if wms_session else 'lista_zlecen',
+        },
+    )
+
+    return {
+        'id': sr.id,
+        'request_number': sr.request_number,
+        'status': 'wyslane',
+        'tracking_number': sr.tracking_number,
+    }
+
+
+# ====================
+# POWRÓT DO WMS
+# ====================
+
+
+REOPEN_MODES = ('full', 'repack')
+
+
+def reopen_orders_for_wms(orders, mode, shipping_requests=()):
+    """Cofa spakowane zamówienia do stanu roboczego WMS.
+
+    mode='full'   — czyści też odhaczone pozycje; sesja startuje od zbierania
+    mode='repack' — pozycje zostają zebrane; sesja startuje od pakowania
+
+    Opakowanie wraca na stan i przypisanie się czyści, żeby ponowne pakowanie
+    odjęło je normalnie — dzięki temu stan magazynowy nie rozjeżdża się przy
+    wielokrotnym cofaniu tego samego zlecenia.
+
+    Zamówienia w innym statusie niż 'spakowane' są pomijane bez zmian —
+    zlecenie może być mieszane.
+    """
+    from extensions import db
+
+    for order in orders:
+        if order.status != 'spakowane':
+            continue
+
+        order.status = 'dostarczone_gom'
+        order.packed_at = None
+        order.packed_by = None
+
+        if order.packaging_material_id:
+            mat = db.session.get(PackagingMaterial, order.packaging_material_id)
+            if mat:   # materiał mógł zostać skasowany od czasu pakowania
+                mat.quantity_in_stock = (mat.quantity_in_stock or 0) + 1
+            order.packaging_material_id = None
+
+        if mode == 'full':
+            for item in order.items:
+                item.picked = False
+                item.picked_quantity = 0
+                item.picked_at = None
+                item.picked_by = None
+                item.wms_status = 'do_zebrania'
+
+    for sr in shipping_requests:
+        if sr.status == 'spakowane':
+            sr.status = 'oplacone'

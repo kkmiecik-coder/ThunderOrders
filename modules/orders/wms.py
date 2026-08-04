@@ -27,7 +27,10 @@ from modules.orders.models import (
 from modules.orders.wms_models import (
     WmsSession, WmsSessionOrder, WmsSessionShippingRequest, PackagingMaterial
 )
-from modules.orders.wms_utils import suggest_packaging
+from modules.orders.wms_utils import (
+    suggest_packaging, ship_shipping_request, ShippingRequestAlreadyShipped,
+    ShippingRequestUnpaid, reopen_orders_for_wms, REOPEN_MODES,
+)
 from extensions import db, socketio
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
@@ -42,9 +45,11 @@ WMS_LOCK_TIMEOUT_MINUTES = 10
 # ====================
 
 
-def _validate_orders_for_wms(order_ids):
+def _validate_orders_for_wms(order_ids, allow_packed=False):
     """
     Validate that orders can enter a WMS session.
+    allow_packed=True wpuszcza też zamówienia spakowane — wyłącznie przy
+    świadomym powrocie zlecenia do WMS (reopen_mode).
     Returns (valid_orders, errors) tuple.
     """
     errors = []
@@ -52,15 +57,23 @@ def _validate_orders_for_wms(order_ids):
     now = get_local_now()
     lock_cutoff = now - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
 
+    allowed_statuses = {'dostarczone_gom'}
+    if allow_packed:
+        allowed_statuses.add('spakowane')
+
     for oid in order_ids:
         order = db.session.get(Order, oid)
         if not order:
             errors.append(f'Zamówienie #{oid} nie istnieje')
             continue
 
-        if order.status != 'dostarczone_gom':
+        if order.status not in allowed_statuses:
+            required_desc = (
+                'status "Dostarczone GOM" lub "Spakowane"' if allow_packed
+                else 'status "Dostarczone GOM"'
+            )
             errors.append(
-                f'{order.order_number}: wymagany status "Dostarczone GOM", '
+                f'{order.order_number}: wymagany {required_desc}, '
                 f'obecny: "{order.status_display_name}"'
             )
             continue
@@ -324,7 +337,9 @@ def shipping_requests_filtered_ids():
     """ID zleceń pasujących do aktywnych filtrów — dla „zaznacz na wszystkich stronach".
 
     Zwraca też ID klienta, bo pasek akcji potrzebuje go do oceny, czy
-    zaznaczone zlecenia da się scalić.
+    zaznaczone zlecenia da się scalić, oraz status — zaznaczone spoza bieżącej
+    strony nie mają karty w DOM, więc np. akcja "Oznacz jako wysłane" musi umieć
+    ocenić je bez karty.
     """
     query = build_shipping_requests_query(
         request.args.get('status', ''),
@@ -332,11 +347,16 @@ def shipping_requests_filtered_ids():
         request.args.get('search', ''),
     )
 
-    rows = query.with_entities(ShippingRequest.id, ShippingRequest.user_id).all()
+    rows = query.with_entities(
+        ShippingRequest.id, ShippingRequest.user_id, ShippingRequest.status
+    ).all()
 
     return jsonify({
         'success': True,
-        'requests': [{'id': sr_id, 'client_id': user_id} for sr_id, user_id in rows],
+        'requests': [
+            {'id': sr_id, 'client_id': user_id, 'status': status}
+            for sr_id, user_id, status in rows
+        ],
     })
 
 
@@ -451,6 +471,13 @@ def wms_create_session():
         order_ids = data.get('order_ids', [])
         sr_ids = data.get('shipping_request_ids', [])
 
+        reopen_mode = data.get('reopen_mode') or None
+        if reopen_mode and reopen_mode not in REOPEN_MODES:
+            return jsonify({
+                'success': False,
+                'message': f'Nieznany tryb powrotu do WMS: {reopen_mode}'
+            }), 400
+
         # Fallback to form data
         if not order_ids and not sr_ids:
             order_ids_str = request.form.get('order_ids', '')
@@ -485,7 +512,9 @@ def wms_create_session():
             }), 400
 
         # Validate orders
-        valid_orders, validation_errors = _validate_orders_for_wms(order_ids)
+        valid_orders, validation_errors = _validate_orders_for_wms(
+            order_ids, allow_packed=bool(reopen_mode)
+        )
         all_errors.extend(validation_errors)
 
         if not valid_orders:
@@ -494,6 +523,24 @@ def wms_create_session():
                 'message': 'Żadne zamówienie nie spełnia wymagań WMS',
                 'errors': all_errors
             }), 400
+
+        # Powrót spakowanego zlecenia — cofnięcie musi się wydarzyć przed założeniem sesji,
+        # żeby sesja widziała zamówienia już w stanie roboczym.
+        if reopen_mode:
+            # sr_objects zawiera tylko zlecenia przekazane wprost przez shipping_request_ids.
+            # Jeśli żądanie cofa zamówienia podane samymi order_ids (bez shipping_request_ids),
+            # musimy doszukać ich zleceń przez Order.shipping_request — inaczej zlecenie
+            # zostałoby w statusie "spakowane", mimo że jego zamówienia wróciły do zbierania.
+            # Nie "upraszczać" z powrotem do samego sr_objects.
+            reopen_sr_objects = list(sr_objects)
+            reopen_sr_ids = {sr.id for sr in reopen_sr_objects}
+            for order in valid_orders:
+                order_sr = order.shipping_request
+                if order_sr and order_sr.id not in reopen_sr_ids:
+                    reopen_sr_objects.append(order_sr)
+                    reopen_sr_ids.add(order_sr.id)
+
+            reopen_orders_for_wms(valid_orders, reopen_mode, reopen_sr_objects)
 
         # Create session
         now = get_local_now()
@@ -529,6 +576,23 @@ def wms_create_session():
             db.session.add(session_sr)
 
         db.session.commit()
+
+        # Cofnięcie zamówień do WMS trafia do bazy razem z sesją w powyższym commicie.
+        # log_activity() samo commituje, więc wołamy je DOPIERO teraz — sesja już
+        # istnieje w bazie. Wywołane przed commitem wyżej utrwaliłoby cofnięcie,
+        # zanim sesja powstała: awaria zakładania sesji zostawiłaby cofnięte
+        # zamówienia bez żadnej sesji.
+        if reopen_mode:
+            log_activity(
+                user=current_user,
+                action='wms_session_reopened',
+                entity_type='shipping_request',
+                entity_id=sr_objects[0].id if sr_objects else None,
+                new_value={
+                    'mode': reopen_mode,
+                    'orders': [o.order_number for o in valid_orders],
+                },
+            )
 
         # Activity log
         log_activity(
@@ -880,9 +944,8 @@ def wms_pack_order(session_id):
 @role_required('admin', 'mod')
 def wms_ship_sr(session_id):
     """
-    Mark a ShippingRequest as shipped from within a WMS session.
-    Sets courier, tracking_number, parcel_size, status='wyslane'.
-    Creates OrderShipment records and sends emails.
+    Oznacza zlecenie wysyłki jako wysłane z poziomu sesji WMS.
+    Logika wspólna z listą zleceń — patrz wms_utils.ship_shipping_request().
     """
     try:
         session = WmsSession.query.get_or_404(session_id)
@@ -896,128 +959,94 @@ def wms_ship_sr(session_id):
         if not sr:
             return jsonify({'success': False, 'message': 'Zlecenie wysyłki nie istnieje'}), 404
 
-        courier = data.get('courier')
-        tracking_number = data.get('tracking_number', '').strip()
-        parcel_size = data.get('parcel_size')
-        shipping_cost = data.get('shipping_cost')
-        order_costs = data.get('order_costs', [])
-
-        if not tracking_number:
-            return jsonify({'success': False, 'message': 'Numer tracking jest wymagany'}), 400
-
-        old_status = sr.status
-
-        # Update SR fields
-        sr.courier = courier or sr.courier
-        sr.tracking_number = tracking_number
-        sr.parcel_size = parcel_size or sr.parcel_size
-        sr.status = 'wyslane'
-
-        if shipping_cost:
-            try:
-                sr.total_shipping_cost = float(shipping_cost)
-            except (ValueError, TypeError):
-                pass
-
-        # Update individual order shipping costs
-        for cost_data in order_costs:
-            oid = cost_data.get('order_id')
-            cost = cost_data.get('shipping_cost')
-            if oid and cost:
-                order = db.session.get(Order, oid)
-                if order:
-                    try:
-                        order.shipping_cost = float(cost)
-                    except (ValueError, TypeError):
-                        pass
-
-        # Change order statuses to 'wyslane'
-        from modules.orders.models import OrderStatus, OrderShipment
-        order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
-        if order_status:
-            for o in sr.orders:
-                if o.status != 'wyslane':
-                    o.status = 'wyslane'
-
-        db.session.commit()
-
-        # Create OrderShipment records and send tracking emails
-        from utils.email_manager import EmailManager
-        courier_names = {
-            'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
-            'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
-            'ups': 'UPS', 'fedex': 'FedEx', 'pocztex': 'Pocztex', 'other': 'Inny'
-        }
-
-        for order in sr.orders:
-            # Auto-create OrderShipment record
-            existing = OrderShipment.query.filter_by(
-                order_id=order.id,
-                tracking_number=tracking_number
-            ).first()
-            if not existing:
-                shipment = OrderShipment(
-                    order_id=order.id,
-                    tracking_number=tracking_number,
-                    courier=sr.courier,
-                    notes=f'Z sesji WMS #{session.id}, zlecenie {sr.request_number}',
-                    created_by=current_user.id
-                )
-                db.session.add(shipment)
-
-            # Send tracking email + push
-            try:
-                EmailManager.notify_tracking_added(
-                    order,
-                    tracking_number=tracking_number,
-                    courier=sr.courier,
-                    courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier'),
-                    tracking_url=sr.tracking_url
-                )
-                from utils.push_manager import PushManager
-                PushManager.notify_tracking_added(
-                    order,
-                    tracking_number=tracking_number,
-                    courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier')
-                )
-            except Exception as email_err:
-                current_app.logger.error(f'WMS ship SR email error: {email_err}')
-
-        db.session.commit()
-
-        # Activity log
-        log_activity(
+        result = ship_shipping_request(
+            sr,
+            courier=data.get('courier'),
+            tracking_number=data.get('tracking_number'),
+            parcel_size=data.get('parcel_size'),
+            shipping_cost=data.get('shipping_cost'),
+            order_costs=data.get('order_costs', []),
             user=current_user,
-            action='shipping_request_shipped_from_wms',
-            entity_type='shipping_request',
-            entity_id=sr.id,
-            old_value={'status': old_status},
-            new_value={
-                'status': 'wyslane',
-                'tracking_number': tracking_number,
-                'courier': sr.courier,
-                'wms_session_id': session.id,
-            }
+            wms_session=session,
         )
 
         return jsonify({
             'success': True,
             'message': f'Zlecenie {sr.request_number} oznaczone jako wysłane',
-            'shipping_request': {
-                'id': sr.id,
-                'request_number': sr.request_number,
-                'status': 'wyslane',
-                'tracking_number': tracking_number,
-            }
+            'shipping_request': result,
         })
 
+    except (ShippingRequestAlreadyShipped, ShippingRequestUnpaid) as e:
+        return jsonify({'success': False, 'message': str(e)}), 409
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'WMS ship SR error: {e}')
         return jsonify({
             'success': False,
-            'message': f'Błąd: {str(e)}'
+            'message': 'Nie udało się oznaczyć zlecenia jako wysłane — szczegóły w logach.'
         }), 500
+
+
+def _wms_lock_blocking_session(sr):
+    """Id otwartej sesji WMS blokującej którekolwiek zamówienie zlecenia, albo None."""
+    lock_cutoff = get_local_now() - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
+    for order in sr.orders:
+        if order.wms_locked_at and order.wms_locked_at > lock_cutoff:
+            return order.wms_session_id
+    return None
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:sr_id>/ship', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_ship_shipping_request(sr_id):
+    """
+    Oznacza spakowane zlecenie jako wysłane — poza sesją WMS, z listy zleceń.
+    Logika wspólna z panelem w sesji — patrz wms_utils.ship_shipping_request().
+    """
+    sr = ShippingRequest.query.get_or_404(sr_id)
+    data = request.get_json(silent=True) or {}
+
+    if sr.status not in ('spakowane', 'wyslane'):
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} nie jest spakowane '
+                        f'(status: „{sr.status_display_name}")'),
+        }), 400
+
+    blocking_session_id = _wms_lock_blocking_session(sr)
+    if blocking_session_id:
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} jest w otwartej sesji WMS '
+                        f'#{blocking_session_id} — dokończ ją albo anuluj'),
+        }), 409
+
+    try:
+        result = ship_shipping_request(
+            sr,
+            courier=data.get('courier'),
+            tracking_number=data.get('tracking_number'),
+            parcel_size=data.get('parcel_size'),
+            shipping_cost=data.get('shipping_cost'),
+            order_costs=data.get('order_costs', []),
+            user=current_user,
+        )
+    except (ShippingRequestAlreadyShipped, ShippingRequestUnpaid) as e:
+        return jsonify({'success': False, 'message': str(e)}), 409
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Ship SR from list error: {e}')
+        return jsonify({
+            'success': False,
+            'message': 'Nie udało się oznaczyć zlecenia jako wysłane — szczegóły w logach.'
+        }), 500
+
+    return jsonify({
+        'success': True,
+        'message': f'Zlecenie {sr.request_number} oznaczone jako wysłane',
+        'shipping_request': result,
+    })
 
 
 @orders_bp.route('/admin/orders/wms/<int:session_id>/complete', methods=['POST'])

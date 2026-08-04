@@ -10,6 +10,10 @@
 let selectedRequests = new Set();
 // Store client IDs for selected requests (key: requestId, value: clientId)
 let selectedRequestClients = new Map();
+// Status zleceń zaznaczonych przez "zaznacz na wszystkich stronach" — te zlecenia
+// nie mają karty w DOM (są poza bieżącą stroną), więc akcje zbiorcze czytające
+// status z karty potrzebują tego zapasowego źródła (patrz bulkMarkShipped).
+let selectedRequestStatuses = new Map();
 
 /**
  * Toggle card selection when clicking on the card
@@ -41,10 +45,12 @@ function handleCheckboxChange(checkbox) {
     if (checkbox.checked) {
         selectedRequests.add(requestId);
         selectedRequestClients.set(requestId, clientId);
+        selectedRequestStatuses.set(requestId, card.dataset.status || '');
         card.classList.add('selected');
     } else {
         selectedRequests.delete(requestId);
         selectedRequestClients.delete(requestId);
+        selectedRequestStatuses.delete(requestId);
         card.classList.remove('selected');
     }
 
@@ -83,10 +89,18 @@ function updateBulkToolbar() {
     const pasek = getBulkPasek();
     const mergeBtn = document.getElementById('btnBulkMerge');
     const mergeTooltip = document.getElementById('bulkMergeTooltip');
+    const markShippedBtn = document.getElementById('btnBulkMarkShipped');
 
     if (!pasek) return;
 
     const count = selectedRequests.size;
+
+    // Pasek i tak chowa się przy zerze zaznaczonych, ale pozycja menu ma być
+    // wyłączona tak samo jak "Scal zlecenia" — spójnie, na wypadek gdyby menu
+    // zostało otwarte w trakcie zmiany zaznaczenia.
+    if (markShippedBtn) {
+        markShippedBtn.disabled = count === 0;
+    }
 
     // Update merge button state and tooltip
     if (mergeBtn) {
@@ -117,6 +131,7 @@ function updateBulkToolbar() {
 function clearSelection() {
     selectedRequests.clear();
     selectedRequestClients.clear();
+    selectedRequestStatuses.clear();
 
     // Uncheck all checkboxes
     document.querySelectorAll('.sr-checkbox').forEach(checkbox => {
@@ -186,10 +201,12 @@ async function selectAllPages() {
 
         selectedRequests.clear();
         selectedRequestClients.clear();
+        selectedRequestStatuses.clear();
         data.requests.forEach(row => {
             const id = String(row.id);
             selectedRequests.add(id);
             selectedRequestClients.set(id, row.client_id ? String(row.client_id) : '');
+            selectedRequestStatuses.set(id, row.status || '');
         });
 
         syncCheckboxesWithSelection();
@@ -364,39 +381,177 @@ async function bulkMergeRequests() {
 // WMS ACTIONS
 // ============================================
 
+// Referencja do "finish" oczekującego (jeszcze nierozwiązanego) wywołania askReopenMode.
+// Pozwala domknąć poprzednie wywołanie, gdy otwierane jest kolejne, żeby w danym
+// momencie żyło najwyżej jedno wywołanie i jego komplet nasłuchów.
+let pendingReopenFinish = null;
+
+/**
+ * Pyta o tryb powrotu spakowanego zlecenia (lub zaznaczenia) do WMS.
+ * @param {string} [requestNumber] - numer zlecenia do wyświetlenia (przy count === 1)
+ * @param {number} [count] - liczba zaznaczonych zleceń; > 1 pokazuje treść zbiorczą
+ * @returns {Promise<'full'|'repack'|null>} wybrany tryb albo null przy anulowaniu
+ */
+function askReopenMode(requestNumber, count = 1) {
+    return new Promise(resolve => {
+        const modal = document.getElementById('wmsReopenModal');
+        if (!modal) { resolve(null); return; }
+
+        // Jeśli poprzednie wywołanie wciąż czeka na wybór, domknij je z wynikiem null
+        // (odepnie jego nasłuchy i rozwiąże jego obietnicę), zanim otworzymy okno ponownie.
+        if (pendingReopenFinish) {
+            pendingReopenFinish(null);
+        }
+
+        const isMulti = count > 1;
+        const title = document.getElementById('wmsReopenTitle');
+        const leadSingle = document.getElementById('wmsReopenLeadSingle');
+        const leadMulti = document.getElementById('wmsReopenLeadMulti');
+
+        if (title) title.textContent = isMulti ? 'Zlecenia są już spakowane' : 'Zlecenie jest już spakowane';
+        if (leadSingle) leadSingle.hidden = isMulti;
+        if (leadMulti) leadMulti.hidden = !isMulti;
+
+        if (isMulti) {
+            document.getElementById('wmsReopenCount').textContent = String(count);
+            document.getElementById('wmsReopenCountWord').textContent = pluralizeRequests(count);
+        } else {
+            document.getElementById('wmsReopenNumber').textContent = requestNumber || '';
+        }
+
+        modal.classList.add('active');
+
+        function finish(mode) {
+            modal.classList.remove('active');
+            modal.querySelectorAll('.wms-reopen-option').forEach(btn => {
+                btn.removeEventListener('click', onOption);
+            });
+            document.getElementById('wmsReopenCancel').removeEventListener('click', onCancel);
+            document.getElementById('wmsReopenClose').removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onOverlayClick);
+            document.removeEventListener('keydown', onKeydown);
+            if (pendingReopenFinish === finish) {
+                pendingReopenFinish = null;
+            }
+            resolve(mode);
+        }
+        function onOption(e) { finish(e.currentTarget.dataset.mode); }
+        function onCancel() { finish(null); }
+        function onOverlayClick(e) {
+            if (e.target === modal) finish(null);
+        }
+        function onKeydown(e) {
+            if (e.key === 'Escape') finish(null);
+        }
+
+        pendingReopenFinish = finish;
+
+        modal.querySelectorAll('.wms-reopen-option').forEach(btn => {
+            btn.addEventListener('click', onOption);
+        });
+        document.getElementById('wmsReopenCancel').addEventListener('click', onCancel);
+        document.getElementById('wmsReopenClose').addEventListener('click', onCancel);
+        modal.addEventListener('click', onOverlayClick);
+        document.addEventListener('keydown', onKeydown);
+    });
+}
+
 /**
  * Go to WMS for a single shipping request
  * @param {number} shippingRequestId - The shipping request ID
+ * @param {string} [status] - status zlecenia; 'spakowane' uruchamia pytanie o tryb
+ * @param {string} [requestNumber] - numer zlecenia do okna wyboru
  */
-async function handleGoToWMS(shippingRequestId) {
+async function handleGoToWMS(shippingRequestId, status, requestNumber) {
+    if (status === 'spakowane') {
+        const mode = await askReopenMode(requestNumber);
+        if (!mode) return;
+        await createWmsSession([shippingRequestId], mode);
+        return;
+    }
     await createWmsSession([shippingRequestId]);
 }
 
 /**
  * Go to WMS for all selected shipping requests (bulk action)
+ *
+ * Jeśli wśród zaznaczonych jest choć jedno spakowane zlecenie, pytamy raz
+ * o tryb powrotu (jak przy przycisku na karcie) i stosujemy wybór do całego
+ * zaznaczenia — inaczej zaznaczenie spakowanych zleceń kończyłoby się błędem
+ * z serwera (sesji WMS nie da się założyć wprost dla spakowanego zlecenia).
  */
 async function bulkGoToWMS() {
     const ids = getSelectedRequestIds();
     if (ids.length === 0) return;
 
-    await createWmsSession(ids.map(id => parseInt(id)));
+    const hasPacked = ids.some(id => {
+        const card = document.querySelector(`.sr-card[data-request-id="${id}"]`);
+        const status = card ? card.dataset.status : selectedRequestStatuses.get(id);
+        return status === 'spakowane';
+    });
+
+    let mode;
+    if (hasPacked) {
+        let requestNumber;
+        if (ids.length === 1) {
+            const numberEl = document.querySelector(`.sr-card[data-request-id="${ids[0]}"] .sr-card-number`);
+            requestNumber = numberEl ? numberEl.textContent.trim() : '';
+        }
+        mode = await askReopenMode(requestNumber, ids.length);
+        if (!mode) return;
+    }
+
+    await createWmsSession(ids.map(id => parseInt(id)), mode);
+}
+
+/**
+ * Oznacza zaznaczone zlecenia jako wysłane — otwiera scalony modal w trybie wysyłki.
+ * Zlecenia inne niż spakowane odpadają przed otwarciem, żeby modal nie obiecywał
+ * czegoś, co i tak odbije się błędem po stronie serwera.
+ */
+function bulkMarkShipped() {
+    const ids = getSelectedRequestIds();
+    if (ids.length === 0) return;
+
+    const packed = [];
+    const skipped = [];
+    ids.forEach(id => {
+        const card = document.querySelector(`.sr-card[data-request-id="${id}"]`);
+        // Zaznaczenie "na wszystkich stronach" dociąga zlecenia spoza bieżącej
+        // strony — te nie mają karty w DOM, więc status bierzemy z mapy zebranej
+        // przy zaznaczaniu (selectAllPages). Nieznany status = pomijamy.
+        const status = card ? card.dataset.status : selectedRequestStatuses.get(id);
+        if (status === 'spakowane') packed.push(id);
+        else skipped.push(id);
+    });
+
+    if (skipped.length) {
+        const msg = `Pominięto ${skipped.length} ${pluralizeRequests(skipped.length)} — oznaczyć jako wysłane można tylko spakowane`;
+        if (typeof window.showToast === 'function') window.showToast(msg, 'warning');
+        else alert(msg);
+    }
+    if (!packed.length) return;
+
+    window.openShipModal(packed);
 }
 
 /**
  * Create a WMS session from shipping request IDs
  * @param {number[]} shippingRequestIds - Array of shipping request IDs
+ * @param {'full'|'repack'} [reopenMode] - tryb powrotu spakowanego zlecenia
  */
-async function createWmsSession(shippingRequestIds) {
+async function createWmsSession(shippingRequestIds, reopenMode) {
     try {
+        const body = { shipping_request_ids: shippingRequestIds };
+        if (reopenMode) body.reopen_mode = reopenMode;
+
         const response = await fetch('/admin/orders/wms/create-session', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             },
-            body: JSON.stringify({
-                shipping_request_ids: shippingRequestIds
-            })
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
@@ -404,11 +559,21 @@ async function createWmsSession(shippingRequestIds) {
         if (response.ok && data.redirect_url) {
             window.location.href = data.redirect_url;
         } else {
-            const errorMsg = data.error || 'Nie udało się utworzyć sesji WMS';
+            // Backend (wms_create_session) zwraca 'message' (i ewentualnie listę
+            // powodów w 'errors'), nigdy 'error' — bez tego komunikaty typu
+            // "Nieznany tryb powrotu do WMS" albo "zablokowane 14:32" nie docierały.
+            const errorMsg = data.message || data.error || 'Nie udało się utworzyć sesji WMS';
             if (typeof window.showToast === 'function') {
                 window.showToast(errorMsg, 'error');
             } else {
                 alert(errorMsg);
+            }
+            if (data.errors && data.errors.length) {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(formatExportWarnings(data.errors), 'warning', 12000);
+                } else {
+                    alert(data.errors.join('\n'));
+                }
             }
         }
     } catch (error) {
@@ -560,6 +725,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (ids.length) window.openShippingRequestsModal(ids);
             },
             'merge': bulkMergeRequests,
+            'mark-shipped': bulkMarkShipped,
             'wms': bulkGoToWMS,
             'export-inpost': exportSelectedToInpost,
             'delete': bulkDeleteRequests,
