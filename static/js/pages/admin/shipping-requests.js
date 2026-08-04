@@ -387,11 +387,12 @@ async function bulkMergeRequests() {
 let pendingReopenFinish = null;
 
 /**
- * Pyta o tryb powrotu spakowanego zlecenia do WMS.
- * @param {string} requestNumber - numer zlecenia do wyświetlenia
+ * Pyta o tryb powrotu spakowanego zlecenia (lub zaznaczenia) do WMS.
+ * @param {string} [requestNumber] - numer zlecenia do wyświetlenia (przy count === 1)
+ * @param {number} [count] - liczba zaznaczonych zleceń; > 1 pokazuje treść zbiorczą
  * @returns {Promise<'full'|'repack'|null>} wybrany tryb albo null przy anulowaniu
  */
-function askReopenMode(requestNumber) {
+function askReopenMode(requestNumber, count = 1) {
     return new Promise(resolve => {
         const modal = document.getElementById('wmsReopenModal');
         if (!modal) { resolve(null); return; }
@@ -402,7 +403,22 @@ function askReopenMode(requestNumber) {
             pendingReopenFinish(null);
         }
 
-        document.getElementById('wmsReopenNumber').textContent = requestNumber || '';
+        const isMulti = count > 1;
+        const title = document.getElementById('wmsReopenTitle');
+        const leadSingle = document.getElementById('wmsReopenLeadSingle');
+        const leadMulti = document.getElementById('wmsReopenLeadMulti');
+
+        if (title) title.textContent = isMulti ? 'Zlecenia są już spakowane' : 'Zlecenie jest już spakowane';
+        if (leadSingle) leadSingle.hidden = isMulti;
+        if (leadMulti) leadMulti.hidden = !isMulti;
+
+        if (isMulti) {
+            document.getElementById('wmsReopenCount').textContent = String(count);
+            document.getElementById('wmsReopenCountWord').textContent = pluralizeRequests(count);
+        } else {
+            document.getElementById('wmsReopenNumber').textContent = requestNumber || '';
+        }
+
         modal.classList.add('active');
 
         function finish(mode) {
@@ -458,12 +474,34 @@ async function handleGoToWMS(shippingRequestId, status, requestNumber) {
 
 /**
  * Go to WMS for all selected shipping requests (bulk action)
+ *
+ * Jeśli wśród zaznaczonych jest choć jedno spakowane zlecenie, pytamy raz
+ * o tryb powrotu (jak przy przycisku na karcie) i stosujemy wybór do całego
+ * zaznaczenia — inaczej zaznaczenie spakowanych zleceń kończyłoby się błędem
+ * z serwera (sesji WMS nie da się założyć wprost dla spakowanego zlecenia).
  */
 async function bulkGoToWMS() {
     const ids = getSelectedRequestIds();
     if (ids.length === 0) return;
 
-    await createWmsSession(ids.map(id => parseInt(id)));
+    const hasPacked = ids.some(id => {
+        const card = document.querySelector(`.sr-card[data-request-id="${id}"]`);
+        const status = card ? card.dataset.status : selectedRequestStatuses.get(id);
+        return status === 'spakowane';
+    });
+
+    let mode;
+    if (hasPacked) {
+        let requestNumber;
+        if (ids.length === 1) {
+            const numberEl = document.querySelector(`.sr-card[data-request-id="${ids[0]}"] .sr-card-number`);
+            requestNumber = numberEl ? numberEl.textContent.trim() : '';
+        }
+        mode = await askReopenMode(requestNumber, ids.length);
+        if (!mode) return;
+    }
+
+    await createWmsSession(ids.map(id => parseInt(id)), mode);
 }
 
 /**

@@ -843,11 +843,14 @@
 <div id="wmsReopenModal" class="modal-overlay">
     <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h2>Zlecenie jest już spakowane</h2>
+            <h2 id="wmsReopenTitle">Zlecenie jest już spakowane</h2>
             <button type="button" class="modal-close" id="wmsReopenClose" aria-label="Zamknij">&times;</button>
         </div>
         <div class="modal-body">
-            <p class="wms-reopen-lead">Zlecenie <strong id="wmsReopenNumber"></strong> zostało już spakowane. Jak chcesz je otworzyć?</p>
+            <!-- Wariant dla pojedynczego zlecenia (przycisk na karcie) -->
+            <p class="wms-reopen-lead" id="wmsReopenLeadSingle">Zlecenie <strong id="wmsReopenNumber"></strong> zostało już spakowane. Jak chcesz je otworzyć?</p>
+            <!-- Wariant zbiorczy (akcja "Zabierz do WMS" dla wielu zaznaczonych zleceń) -->
+            <p class="wms-reopen-lead" id="wmsReopenLeadMulti" hidden>Zaznaczono <strong id="wmsReopenCount"></strong> <span id="wmsReopenCountWord"></span> — część z nich jest już spakowana. Jak chcesz je otworzyć?</p>
             <div class="wms-reopen-options">
                 <button type="button" class="wms-reopen-option" data-mode="full">
                     <span class="wms-reopen-option-title">Pełna sesja od nowa</span>
