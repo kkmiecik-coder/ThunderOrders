@@ -68,8 +68,12 @@ def _validate_orders_for_wms(order_ids, allow_packed=False):
             continue
 
         if order.status not in allowed_statuses:
+            required_desc = (
+                'status "Dostarczone GOM" lub "Spakowane"' if allow_packed
+                else 'status "Dostarczone GOM"'
+            )
             errors.append(
-                f'{order.order_number}: wymagany status "Dostarczone GOM", '
+                f'{order.order_number}: wymagany {required_desc}, '
                 f'obecny: "{order.status_display_name}"'
             )
             continue
@@ -333,7 +337,9 @@ def shipping_requests_filtered_ids():
     """ID zleceń pasujących do aktywnych filtrów — dla „zaznacz na wszystkich stronach".
 
     Zwraca też ID klienta, bo pasek akcji potrzebuje go do oceny, czy
-    zaznaczone zlecenia da się scalić.
+    zaznaczone zlecenia da się scalić, oraz status — zaznaczone spoza bieżącej
+    strony nie mają karty w DOM, więc np. akcja "Oznacz jako wysłane" musi umieć
+    ocenić je bez karty.
     """
     query = build_shipping_requests_query(
         request.args.get('status', ''),
@@ -341,11 +347,16 @@ def shipping_requests_filtered_ids():
         request.args.get('search', ''),
     )
 
-    rows = query.with_entities(ShippingRequest.id, ShippingRequest.user_id).all()
+    rows = query.with_entities(
+        ShippingRequest.id, ShippingRequest.user_id, ShippingRequest.status
+    ).all()
 
     return jsonify({
         'success': True,
-        'requests': [{'id': sr_id, 'client_id': user_id} for sr_id, user_id in rows],
+        'requests': [
+            {'id': sr_id, 'client_id': user_id, 'status': status}
+            for sr_id, user_id, status in rows
+        ],
     })
 
 
@@ -530,16 +541,6 @@ def wms_create_session():
                     reopen_sr_ids.add(order_sr.id)
 
             reopen_orders_for_wms(valid_orders, reopen_mode, reopen_sr_objects)
-            log_activity(
-                user=current_user,
-                action='wms_session_reopened',
-                entity_type='shipping_request',
-                entity_id=sr_objects[0].id if sr_objects else None,
-                new_value={
-                    'mode': reopen_mode,
-                    'orders': [o.order_number for o in valid_orders],
-                },
-            )
 
         # Create session
         now = get_local_now()
@@ -575,6 +576,23 @@ def wms_create_session():
             db.session.add(session_sr)
 
         db.session.commit()
+
+        # Cofnięcie zamówień do WMS trafia do bazy razem z sesją w powyższym commicie.
+        # log_activity() samo commituje, więc wołamy je DOPIERO teraz — sesja już
+        # istnieje w bazie. Wywołane przed commitem wyżej utrwaliłoby cofnięcie,
+        # zanim sesja powstała: awaria zakładania sesji zostawiłaby cofnięte
+        # zamówienia bez żadnej sesji.
+        if reopen_mode:
+            log_activity(
+                user=current_user,
+                action='wms_session_reopened',
+                entity_type='shipping_request',
+                entity_id=sr_objects[0].id if sr_objects else None,
+                new_value={
+                    'mode': reopen_mode,
+                    'orders': [o.order_number for o in valid_orders],
+                },
+            )
 
         # Activity log
         log_activity(

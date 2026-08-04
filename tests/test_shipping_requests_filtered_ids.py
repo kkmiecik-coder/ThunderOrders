@@ -50,6 +50,22 @@ def test_returns_client_id_for_merge_check(client, db, make_user, login):
     assert row['client_id'] == user.id
 
 
+def test_filtered_ids_returns_status(client, db, make_user, login):
+    """Zaznaczanie "na wszystkich stronach" dociąga zlecenia bez karty w DOM —
+    JS potrzebuje statusu wprost z API, żeby np. akcja "Oznacz jako wysłane"
+    mogła je poprawnie ocenić (patrz bulkMarkShipped w shipping-requests.js)."""
+    login(_admin(make_user))
+    user = make_user()
+    spakowane = _sr(db, user, status='spakowane')
+    oplacone = _sr(db, user, status='oplacone')
+
+    data = client.get(URL).get_json()
+    rows_by_id = {r['id']: r for r in data['requests']}
+
+    assert rows_by_id[spakowane.id]['status'] == 'spakowane'
+    assert rows_by_id[oplacone.id]['status'] == 'oplacone'
+
+
 def test_status_filter_narrows_results(client, db, make_user, login):
     login(_admin(make_user))
     user = make_user()
