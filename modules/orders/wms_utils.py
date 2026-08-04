@@ -308,3 +308,53 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
         'status': 'wyslane',
         'tracking_number': sr.tracking_number,
     }
+
+
+# ====================
+# POWRÓT DO WMS
+# ====================
+
+
+REOPEN_MODES = ('full', 'repack')
+
+
+def reopen_orders_for_wms(orders, mode, shipping_requests=()):
+    """Cofa spakowane zamówienia do stanu roboczego WMS.
+
+    mode='full'   — czyści też odhaczone pozycje; sesja startuje od zbierania
+    mode='repack' — pozycje zostają zebrane; sesja startuje od pakowania
+
+    Opakowanie wraca na stan i przypisanie się czyści, żeby ponowne pakowanie
+    odjęło je normalnie — dzięki temu stan magazynowy nie rozjeżdża się przy
+    wielokrotnym cofaniu tego samego zlecenia.
+
+    Zamówienia w innym statusie niż 'spakowane' są pomijane bez zmian —
+    zlecenie może być mieszane.
+    """
+    from extensions import db
+
+    for order in orders:
+        if order.status != 'spakowane':
+            continue
+
+        order.status = 'dostarczone_gom'
+        order.packed_at = None
+        order.packed_by = None
+
+        if order.packaging_material_id:
+            mat = db.session.get(PackagingMaterial, order.packaging_material_id)
+            if mat:   # materiał mógł zostać skasowany od czasu pakowania
+                mat.quantity_in_stock = (mat.quantity_in_stock or 0) + 1
+            order.packaging_material_id = None
+
+        if mode == 'full':
+            for item in order.items:
+                item.picked = False
+                item.picked_quantity = 0
+                item.picked_at = None
+                item.picked_by = None
+                item.wms_status = 'do_zebrania'
+
+    for sr in shipping_requests:
+        if sr.status == 'spakowane':
+            sr.status = 'oplacone'

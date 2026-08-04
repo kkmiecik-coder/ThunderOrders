@@ -29,6 +29,7 @@ from modules.orders.wms_models import (
 )
 from modules.orders.wms_utils import (
     suggest_packaging, ship_shipping_request, ShippingRequestAlreadyShipped,
+    reopen_orders_for_wms, REOPEN_MODES,
 )
 from extensions import db, socketio
 from utils.decorators import role_required
@@ -44,9 +45,11 @@ WMS_LOCK_TIMEOUT_MINUTES = 10
 # ====================
 
 
-def _validate_orders_for_wms(order_ids):
+def _validate_orders_for_wms(order_ids, allow_packed=False):
     """
     Validate that orders can enter a WMS session.
+    allow_packed=True wpuszcza też zamówienia spakowane — wyłącznie przy
+    świadomym powrocie zlecenia do WMS (reopen_mode).
     Returns (valid_orders, errors) tuple.
     """
     errors = []
@@ -54,13 +57,17 @@ def _validate_orders_for_wms(order_ids):
     now = get_local_now()
     lock_cutoff = now - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
 
+    allowed_statuses = {'dostarczone_gom'}
+    if allow_packed:
+        allowed_statuses.add('spakowane')
+
     for oid in order_ids:
         order = db.session.get(Order, oid)
         if not order:
             errors.append(f'Zamówienie #{oid} nie istnieje')
             continue
 
-        if order.status != 'dostarczone_gom':
+        if order.status not in allowed_statuses:
             errors.append(
                 f'{order.order_number}: wymagany status "Dostarczone GOM", '
                 f'obecny: "{order.status_display_name}"'
@@ -453,6 +460,13 @@ def wms_create_session():
         order_ids = data.get('order_ids', [])
         sr_ids = data.get('shipping_request_ids', [])
 
+        reopen_mode = data.get('reopen_mode') or None
+        if reopen_mode and reopen_mode not in REOPEN_MODES:
+            return jsonify({
+                'success': False,
+                'message': f'Nieznany tryb powrotu do WMS: {reopen_mode}'
+            }), 400
+
         # Fallback to form data
         if not order_ids and not sr_ids:
             order_ids_str = request.form.get('order_ids', '')
@@ -487,7 +501,9 @@ def wms_create_session():
             }), 400
 
         # Validate orders
-        valid_orders, validation_errors = _validate_orders_for_wms(order_ids)
+        valid_orders, validation_errors = _validate_orders_for_wms(
+            order_ids, allow_packed=bool(reopen_mode)
+        )
         all_errors.extend(validation_errors)
 
         if not valid_orders:
@@ -496,6 +512,21 @@ def wms_create_session():
                 'message': 'Żadne zamówienie nie spełnia wymagań WMS',
                 'errors': all_errors
             }), 400
+
+        # Powrót spakowanego zlecenia — cofnięcie musi się wydarzyć przed założeniem sesji,
+        # żeby sesja widziała zamówienia już w stanie roboczym.
+        if reopen_mode:
+            reopen_orders_for_wms(valid_orders, reopen_mode, sr_objects)
+            log_activity(
+                user=current_user,
+                action='wms_session_reopened',
+                entity_type='shipping_request',
+                entity_id=sr_objects[0].id if sr_objects else None,
+                new_value={
+                    'mode': reopen_mode,
+                    'orders': [o.order_number for o in valid_orders],
+                },
+            )
 
         # Create session
         now = get_local_now()

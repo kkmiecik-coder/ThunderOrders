@@ -187,3 +187,88 @@ def test_ship_from_list_rejects_order_locked_in_session(client, db, make_user, m
     assert r.status_code == 409
     db.session.refresh(sr)
     assert sr.status == 'spakowane'
+
+
+# ---------- Task 3: powrót do WMS ----------
+
+def _packed_with_material(db, make_user, make_order):
+    """Spakowane zlecenie z pozycją odhaczoną i przypisanym materiałem."""
+    from modules.orders.models import OrderItem
+    from modules.orders.wms_models import PackagingMaterial
+    sr, orders = _sr_packed(db, make_user, make_order)
+    mat = PackagingMaterial(name='Karton B', type='karton', quantity_in_stock=7, is_active=True)
+    db.session.add(mat)
+    db.session.commit()
+
+    order = orders[0]
+    order.packaging_material_id = mat.id
+    # price i total są NOT NULL w OrderItem — muszą być podane wprost.
+    item = OrderItem(order_id=order.id, custom_name='Figurka', is_custom=True, quantity=2,
+                     price=50.00, total=100.00,
+                     picked=True, picked_quantity=2, wms_status='zebrane')
+    db.session.add(item)
+    db.session.commit()
+    return sr, order, mat, item
+
+
+def test_reopen_full_resets_picking(client, db, make_user, make_order, login):
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, order, mat, item = _packed_with_material(db, make_user, make_order)
+
+    r = client.post('/admin/orders/wms/create-session',
+                    json={'shipping_request_ids': [sr.id], 'reopen_mode': 'full'})
+
+    assert r.status_code == 200
+    db.session.refresh(sr); db.session.refresh(order); db.session.refresh(mat); db.session.refresh(item)
+    assert order.status == 'dostarczone_gom'
+    assert sr.status == 'oplacone'
+    assert item.picked is False
+    assert item.picked_quantity == 0
+    assert item.wms_status == 'do_zebrania'
+    assert mat.quantity_in_stock == 8              # opakowanie wróciło na stan
+    assert order.packaging_material_id is None
+
+
+def test_reopen_repack_keeps_picking(client, db, make_user, make_order, login):
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, order, mat, item = _packed_with_material(db, make_user, make_order)
+
+    r = client.post('/admin/orders/wms/create-session',
+                    json={'shipping_request_ids': [sr.id], 'reopen_mode': 'repack'})
+
+    assert r.status_code == 200
+    db.session.refresh(sr); db.session.refresh(order); db.session.refresh(mat); db.session.refresh(item)
+    assert order.status == 'dostarczone_gom'
+    assert sr.status == 'oplacone'
+    assert item.picked is True                     # zebranie zachowane
+    assert item.wms_status == 'zebrane'
+    assert mat.quantity_in_stock == 8
+
+
+def test_packed_order_still_rejected_without_reopen_mode(client, db, make_user, make_order, login):
+    """Zwykłe zakładanie sesji nie wpuszcza spakowanych — tylko świadomy powrót."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+
+    r = client.post('/admin/orders/wms/create-session',
+                    json={'shipping_request_ids': [sr.id]})
+
+    assert r.status_code == 400
+    db.session.refresh(orders[0])
+    assert orders[0].status == 'spakowane'
+
+
+def test_reopen_rejects_unknown_mode(client, db, make_user, make_order, login):
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+
+    r = client.post('/admin/orders/wms/create-session',
+                    json={'shipping_request_ids': [sr.id], 'reopen_mode': 'cokolwiek'})
+
+    assert r.status_code == 400
+    db.session.refresh(orders[0])
+    assert orders[0].status == 'spakowane'
