@@ -14,7 +14,7 @@ from decimal import Decimal
 from flask import current_app, url_for
 from extensions import db
 from modules.offers.models import OfferPage, OfferSection, OfferSetItem
-from modules.orders.models import Order, OrderItem
+from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirmation
 from modules.auth.models import Settings, User
 from utils.transfer_title import render_transfer_title
 
@@ -1470,3 +1470,184 @@ def send_closure_emails(page_id, payment_deadline=None):
     if email_messages:
         current_app.logger.info(f"Sending {len(email_messages)} closure emails in batch for page {page_id}")
         send_email_batch(email_messages)
+
+
+# ============================================
+# Masowe anulowanie zamówień (po zamknięciu)
+# ============================================
+
+# Statusy, których masowe anulowanie nie nadpisuje — sprawa jest już zamknięta.
+CLOSED_ORDER_STATUSES = ('anulowane', 'do_zwrotu', 'zwrocone', 'czesciowo_zwrocone')
+
+
+def order_has_payment(order):
+    """
+    Czy zamówienie ma wpłatę zatwierdzoną albo czekającą na zatwierdzenie.
+
+    'pending' liczy się celowo — pieniądze mogą już być na koncie, mimo że
+    potwierdzenie nie zostało jeszcze sprawdzone przez admina. Lepiej wrzucić
+    zamówienie do zwrotu i sprawdzić, niż anulować cudzą wpłatę.
+    """
+    return order.payment_confirmations.filter(
+        PaymentConfirmation.status.in_(('approved', 'pending'))
+    ).first() is not None
+
+
+def cancel_offer_orders(page_id, order_ids, reason, admin_user_id, notify=True):
+    """
+    Masowo anuluje wskazane zamówienia z zamkniętej strony Offer.
+
+    Nieopłacone dostają status 'anulowane', opłacone 'do_zwrotu'. Kwoty i
+    potwierdzenia płatności zostają nietknięte — oba statusy i tak wypadają
+    z sekcji "do zapłaty" u klienta i z ponagleń o zaległości.
+
+    Args:
+        page_id: ID OfferPage
+        order_ids: lista ID zamówień do anulowania
+        reason: powód anulowania (wymagany, trafia do maila i komentarza)
+        admin_user_id: ID admina wykonującego operację
+        notify: czy wysłać maile i push do klientów
+
+    Returns:
+        dict: {'cancelled': int, 'to_refund': int, 'skipped': int, 'notified': int}
+
+    Raises:
+        ValueError: pusty powód, pusta lista, nieistniejąca strona, ID spoza strony
+    """
+    from utils.activity_logger import log_activity
+
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValueError('Powód anulowania jest wymagany')
+
+    page = db.session.get(OfferPage, page_id)
+    if not page:
+        raise ValueError(f'Strona Offer o ID {page_id} nie istnieje')
+
+    unique_ids = list(dict.fromkeys(order_ids or []))
+    if not unique_ids:
+        raise ValueError('Nie wskazano żadnych zamówień')
+
+    orders = Order.query.filter(
+        Order.id.in_(unique_ids),
+        Order.offer_page_id == page_id
+    ).all()
+
+    if len(orders) != len(unique_ids):
+        found = {o.id for o in orders}
+        obce = [oid for oid in unique_ids if oid not in found]
+        raise ValueError(f'Zamówienia spoza tej strony sprzedaży: {obce}')
+
+    result = {'cancelled': 0, 'to_refund': 0, 'skipped': 0, 'notified': 0}
+    changed = []  # [(order, old_status, new_status), ...]
+
+    for order in orders:
+        if order.status in CLOSED_ORDER_STATUSES:
+            result['skipped'] += 1
+            continue
+
+        old_status = order.status
+        new_status = 'do_zwrotu' if order_has_payment(order) else 'anulowane'
+
+        order.status = new_status
+        order.updated_at = datetime.now()
+
+        db.session.add(OrderComment(
+            order_id=order.id,
+            user_id=admin_user_id,
+            comment=f'Zamówienie anulowane z podsumowania zbiórki. Powód: {reason}',
+            is_internal=False,
+        ))
+
+        if new_status == 'do_zwrotu':
+            result['to_refund'] += 1
+        else:
+            result['cancelled'] += 1
+
+        changed.append((order, old_status, new_status))
+
+    # Jedna transakcja na całość — albo wszystko, albo nic.
+    db.session.commit()
+
+    # log_activity robi własny commit, więc dopiero po zapisaniu statusów —
+    # inaczej rozbiłby transakcję na kawałki i przy błędzie w połowie pętli
+    # część zamówień zostałaby zmieniona.
+    admin_user = db.session.get(User, admin_user_id) if admin_user_id else None
+    for order, old_status, new_status in changed:
+        log_activity(
+            user=admin_user,
+            action='order_cancelled_bulk',
+            entity_type='order',
+            entity_id=order.id,
+            old_value={'status': old_status},
+            new_value={'status': new_status, 'reason': reason},
+        )
+
+    if notify and changed:
+        result['notified'] = notify_cancelled_orders(changed, reason, page)
+
+    return result
+
+
+def notify_cancelled_orders(changed, reason, page):
+    """
+    Wysyła maile i push do klientów po masowym anulowaniu.
+
+    Wołane dopiero po udanym commicie — nie informujemy klientów o zmianie,
+    która się nie zapisała. Błąd wysyłki nie wycofuje zmiany statusów.
+
+    Args:
+        changed: lista krotek (order, old_status, new_status)
+        reason: powód anulowania
+        page: OfferPage
+
+    Returns:
+        int: liczba klientów, do których poszła wiadomość
+    """
+    from utils.email_sender import prepare_email, send_email_batch
+    from utils.push_manager import PushManager
+
+    messages = []
+    notified = 0
+
+    for order, _old_status, new_status in changed:
+        refund_pending = new_status == 'do_zwrotu'
+
+        if order.customer_email:
+            subject = (
+                f'Zamówienie {order.order_number} anulowane — zwrot wpłaty'
+                if refund_pending
+                else f'Zamówienie {order.order_number} zostało anulowane'
+            )
+            try:
+                msg = prepare_email(
+                    to=order.customer_email,
+                    subject=subject,
+                    template='offer_order_cancelled',
+                    customer_name=order.customer_name,
+                    order_number=order.order_number,
+                    page_name=page.name,
+                    reason=reason,
+                    refund_pending=refund_pending,
+                )
+            except Exception as exc:
+                current_app.logger.error(
+                    f'Nie udało się przygotować maila o anulowaniu {order.order_number}: {exc}'
+                )
+                msg = None
+
+            if msg is not None:
+                messages.append(msg)
+                notified += 1
+
+        try:
+            PushManager.notify_order_cancelled(order, refund_pending=refund_pending)
+        except Exception as exc:
+            current_app.logger.error(
+                f'Push o anulowaniu {order.order_number} nie poszedł: {exc}'
+            )
+
+    if messages:
+        send_email_batch(messages)
+
+    return notified
