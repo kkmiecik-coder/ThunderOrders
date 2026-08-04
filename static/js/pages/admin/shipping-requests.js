@@ -10,6 +10,10 @@
 let selectedRequests = new Set();
 // Store client IDs for selected requests (key: requestId, value: clientId)
 let selectedRequestClients = new Map();
+// Status zleceń zaznaczonych przez "zaznacz na wszystkich stronach" — te zlecenia
+// nie mają karty w DOM (są poza bieżącą stroną), więc akcje zbiorcze czytające
+// status z karty potrzebują tego zapasowego źródła (patrz bulkMarkShipped).
+let selectedRequestStatuses = new Map();
 
 /**
  * Toggle card selection when clicking on the card
@@ -41,10 +45,12 @@ function handleCheckboxChange(checkbox) {
     if (checkbox.checked) {
         selectedRequests.add(requestId);
         selectedRequestClients.set(requestId, clientId);
+        selectedRequestStatuses.set(requestId, card.dataset.status || '');
         card.classList.add('selected');
     } else {
         selectedRequests.delete(requestId);
         selectedRequestClients.delete(requestId);
+        selectedRequestStatuses.delete(requestId);
         card.classList.remove('selected');
     }
 
@@ -83,10 +89,18 @@ function updateBulkToolbar() {
     const pasek = getBulkPasek();
     const mergeBtn = document.getElementById('btnBulkMerge');
     const mergeTooltip = document.getElementById('bulkMergeTooltip');
+    const markShippedBtn = document.getElementById('btnBulkMarkShipped');
 
     if (!pasek) return;
 
     const count = selectedRequests.size;
+
+    // Pasek i tak chowa się przy zerze zaznaczonych, ale pozycja menu ma być
+    // wyłączona tak samo jak "Scal zlecenia" — spójnie, na wypadek gdyby menu
+    // zostało otwarte w trakcie zmiany zaznaczenia.
+    if (markShippedBtn) {
+        markShippedBtn.disabled = count === 0;
+    }
 
     // Update merge button state and tooltip
     if (mergeBtn) {
@@ -117,6 +131,7 @@ function updateBulkToolbar() {
 function clearSelection() {
     selectedRequests.clear();
     selectedRequestClients.clear();
+    selectedRequestStatuses.clear();
 
     // Uncheck all checkboxes
     document.querySelectorAll('.sr-checkbox').forEach(checkbox => {
@@ -186,10 +201,12 @@ async function selectAllPages() {
 
         selectedRequests.clear();
         selectedRequestClients.clear();
+        selectedRequestStatuses.clear();
         data.requests.forEach(row => {
             const id = String(row.id);
             selectedRequests.add(id);
             selectedRequestClients.set(id, row.client_id ? String(row.client_id) : '');
+            selectedRequestStatuses.set(id, row.status || '');
         });
 
         syncCheckboxesWithSelection();
@@ -462,7 +479,11 @@ function bulkMarkShipped() {
     const skipped = [];
     ids.forEach(id => {
         const card = document.querySelector(`.sr-card[data-request-id="${id}"]`);
-        if (card && card.dataset.status === 'spakowane') packed.push(id);
+        // Zaznaczenie "na wszystkich stronach" dociąga zlecenia spoza bieżącej
+        // strony — te nie mają karty w DOM, więc status bierzemy z mapy zebranej
+        // przy zaznaczaniu (selectAllPages). Nieznany status = pomijamy.
+        const status = card ? card.dataset.status : selectedRequestStatuses.get(id);
+        if (status === 'spakowane') packed.push(id);
         else skipped.push(id);
     });
 
@@ -500,11 +521,21 @@ async function createWmsSession(shippingRequestIds, reopenMode) {
         if (response.ok && data.redirect_url) {
             window.location.href = data.redirect_url;
         } else {
-            const errorMsg = data.error || 'Nie udało się utworzyć sesji WMS';
+            // Backend (wms_create_session) zwraca 'message' (i ewentualnie listę
+            // powodów w 'errors'), nigdy 'error' — bez tego komunikaty typu
+            // "Nieznany tryb powrotu do WMS" albo "zablokowane 14:32" nie docierały.
+            const errorMsg = data.message || data.error || 'Nie udało się utworzyć sesji WMS';
             if (typeof window.showToast === 'function') {
                 window.showToast(errorMsg, 'error');
             } else {
                 alert(errorMsg);
+            }
+            if (data.errors && data.errors.length) {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(formatExportWarnings(data.errors), 'warning', 12000);
+                } else {
+                    alert(data.errors.join('\n'));
+                }
             }
         }
     } catch (error) {
