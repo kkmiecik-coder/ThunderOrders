@@ -364,6 +364,11 @@ async function bulkMergeRequests() {
 // WMS ACTIONS
 // ============================================
 
+// Referencja do "finish" oczekującego (jeszcze nierozwiązanego) wywołania askReopenMode.
+// Pozwala domknąć poprzednie wywołanie, gdy otwierane jest kolejne, żeby w danym
+// momencie żyło najwyżej jedno wywołanie i jego komplet nasłuchów.
+let pendingReopenFinish = null;
+
 /**
  * Pyta o tryb powrotu spakowanego zlecenia do WMS.
  * @param {string} requestNumber - numer zlecenia do wyświetlenia
@@ -373,6 +378,12 @@ function askReopenMode(requestNumber) {
     return new Promise(resolve => {
         const modal = document.getElementById('wmsReopenModal');
         if (!modal) { resolve(null); return; }
+
+        // Jeśli poprzednie wywołanie wciąż czeka na wybór, domknij je z wynikiem null
+        // (odepnie jego nasłuchy i rozwiąże jego obietnicę), zanim otworzymy okno ponownie.
+        if (pendingReopenFinish) {
+            pendingReopenFinish(null);
+        }
 
         document.getElementById('wmsReopenNumber').textContent = requestNumber || '';
         modal.classList.add('active');
@@ -384,16 +395,31 @@ function askReopenMode(requestNumber) {
             });
             document.getElementById('wmsReopenCancel').removeEventListener('click', onCancel);
             document.getElementById('wmsReopenClose').removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onOverlayClick);
+            document.removeEventListener('keydown', onKeydown);
+            if (pendingReopenFinish === finish) {
+                pendingReopenFinish = null;
+            }
             resolve(mode);
         }
         function onOption(e) { finish(e.currentTarget.dataset.mode); }
         function onCancel() { finish(null); }
+        function onOverlayClick(e) {
+            if (e.target === modal) finish(null);
+        }
+        function onKeydown(e) {
+            if (e.key === 'Escape') finish(null);
+        }
+
+        pendingReopenFinish = finish;
 
         modal.querySelectorAll('.wms-reopen-option').forEach(btn => {
             btn.addEventListener('click', onOption);
         });
         document.getElementById('wmsReopenCancel').addEventListener('click', onCancel);
         document.getElementById('wmsReopenClose').addEventListener('click', onCancel);
+        modal.addEventListener('click', onOverlayClick);
+        document.addEventListener('keydown', onKeydown);
     });
 }
 
