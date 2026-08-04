@@ -473,7 +473,29 @@
                     Dodaj zamówienie extra
                 </button>
                 {% endif %}
+                {% if current_user.role == 'admin' %}
+                <button type="button" id="selectOrdersBtn" class="btn btn-secondary-outline select-orders-btn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M2.5 2h11a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5zM3 3v10h10V3H3z"/>
+                        <path d="M6.97 10.53 4.47 8.03l.71-.71 1.79 1.79 3.85-3.85.71.71-4.56 4.56z"/>
+                    </svg>
+                    <span id="selectOrdersBtnLabel">Zaznacz zamówienia</span>
+                </button>
+                {% endif %}
             </div>
+
+            {% if current_user.role == 'admin' %}
+            <div id="ordersSelectionBar" class="orders-selection-bar" style="display: none;">
+                <div class="orders-selection-info">
+                    Zaznaczono <strong id="selectionCount">0</strong> z <span id="selectionTotal">0</span>
+                    <button type="button" id="selectAllOrdersBtn" class="orders-selection-link">Zaznacz wszystkie</button>
+                    <button type="button" id="clearSelectionBtn" class="orders-selection-link">Wyczyść</button>
+                </div>
+                <button type="button" id="cancelOrdersBtn" class="btn btn-danger" disabled>
+                    Anuluj zaznaczone
+                </button>
+            </div>
+            {% endif %}
 
             <div id="ordersGrid" class="orders-grid"></div>
 
