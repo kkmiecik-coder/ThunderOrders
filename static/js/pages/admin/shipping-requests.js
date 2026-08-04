@@ -65,22 +65,28 @@ function allSelectedFromSameClient() {
     return firstClientId !== '' && clientIds.every(id => id === firstClientId);
 }
 
+// Wspólny komponent paska akcji masowych (static/js/components/bulk-toolbar.js).
+// Tworzony leniwie, bo pasek renderuje się tylko na zakładce "shipping".
+let bulkPasek = null;
+
+function getBulkPasek() {
+    if (!bulkPasek && window.BulkToolbar) {
+        bulkPasek = window.BulkToolbar.init('bulkToolbar');
+    }
+    return bulkPasek;
+}
+
 /**
  * Update the bulk toolbar visibility and count
  */
 function updateBulkToolbar() {
-    const bulkToolbar = document.getElementById('bulkToolbar');
-    const selectedCountEl = document.getElementById('selectedCount');
+    const pasek = getBulkPasek();
     const mergeBtn = document.getElementById('btnBulkMerge');
     const mergeTooltip = document.getElementById('bulkMergeTooltip');
 
-    if (!bulkToolbar) return;
+    if (!pasek) return;
 
     const count = selectedRequests.size;
-
-    if (selectedCountEl) {
-        selectedCountEl.textContent = `${count} zaznaczonych`;
-    }
 
     // Update merge button state and tooltip
     if (mergeBtn) {
@@ -100,38 +106,9 @@ function updateBulkToolbar() {
         }
     }
 
-    if (count > 0) {
-        bulkToolbar.classList.remove('hidden');
-    } else {
-        bulkToolbar.classList.add('hidden');
-        closeBulkMenu();   // pasek znika razem z rozwiniętym menu
-    }
-}
-
-/**
- * Rozwijane menu akcji masowych
- */
-function toggleBulkMenu() {
-    const menu = document.getElementById('bulkMenu');
-    const toggle = document.getElementById('bulkMenuToggle');
-    const list = document.getElementById('bulkMenuList');
-    if (!menu || !toggle || !list) return;
-
-    const willOpen = list.hidden;
-    list.hidden = !willOpen;
-    menu.classList.toggle('open', willOpen);
-    toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-}
-
-function closeBulkMenu() {
-    const menu = document.getElementById('bulkMenu');
-    const toggle = document.getElementById('bulkMenuToggle');
-    const list = document.getElementById('bulkMenuList');
-    if (!menu || !toggle || !list || list.hidden) return;
-
-    list.hidden = true;
-    menu.classList.remove('open');
-    toggle.setAttribute('aria-expanded', 'false');
+    // Komponent sam ustawia tekst licznika (z odmianą) i chowa pasek razem
+    // z rozwiniętym menu, gdy nic nie jest zaznaczone.
+    pasek.update(count);
 }
 
 /**
@@ -571,17 +548,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // BULK TOOLBAR EVENT LISTENERS
     // ============================================
 
-    const menuToggle = document.getElementById('bulkMenuToggle');
-    if (menuToggle) {
-        menuToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleBulkMenu();
-        });
-    }
+    // Komponent obsługuje rozwijanie menu, zamykanie kliknięciem poza i Escape.
+    const pasek = getBulkPasek();
+    if (pasek) {
+        pasek.initMenu('bulkMenu', 'bulkMenuToggle', 'bulkMenuList');
 
-    // Akcje siedzą w rozwijanym menu; delegacja trzyma je w jednym miejscu.
-    const menuList = document.getElementById('bulkMenuList');
-    if (menuList) {
+        // Akcje siedzą w rozwijanym menu; delegacja trzyma je w jednym miejscu.
         const handlers = {
             'bulk-cost': () => {
                 const ids = getSelectedRequestIds();
@@ -593,11 +565,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'delete': bulkDeleteRequests,
         };
 
-        menuList.addEventListener('click', (e) => {
-            const item = e.target.closest('.bulk-menu-item');
-            if (!item || item.disabled) return;
-            closeBulkMenu();
-            const handler = handlers[item.dataset.action];
+        pasek.onAction((action) => {
+            pasek.closeMenu();
+            const handler = handlers[action];
             if (handler) handler();
         });
     }
@@ -639,15 +609,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Zamykanie menu: klik poza paskiem i Escape
+    // Zamykanie menu zaznaczania: klik poza nim i Escape.
+    // Menu akcji masowych zamyka już komponent (initMenu).
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('#bulkMenu')) closeBulkMenu();
         if (!e.target.closest('#srSelectMenu')) closeSelectMenu();
     });
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            closeBulkMenu();
             closeSelectMenu();
         }
     });

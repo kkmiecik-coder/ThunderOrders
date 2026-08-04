@@ -9,6 +9,7 @@
 
 {% block content %}
 {% import "admin/offers/_list_items.html" as items with context %}
+{% from "components/_bulk_toolbar.html" import bulk_toolbar %}
 <div class="offer-page">
     <div class="offer-page-head">
     <!-- Header -->
@@ -217,11 +218,8 @@
     Link skopiowany do schowka!
 </div>
 
-<!-- Pływający pasek akcji masowych -->
-<div id="bulkToolbar" class="bulk-toolbar hidden">
-    <div class="bulk-toolbar-content">
-        <span class="selected-count" id="selectedCount">0 zaznaczonych</span>
-        <div class="bulk-actions">
+<!-- Pływający pasek akcji masowych (wspólny komponent) -->
+{% call bulk_toolbar('bulkToolbar', count_id='selectedCount') %}
             <!-- Raport zbiorowy (placeholder, bez logiki) -->
             <button type="button" class="btn-bulk" data-action="report">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -279,9 +277,7 @@
                 </svg>
                 <span class="btn-bulk-text">Usuń</span>
             </button>
-        </div>
-    </div>
-</div>
+{% endcall %}
 
 <!-- Modal: ustaw datę masowo -->
 <div id="bulkDateModal" class="modal-overlay">
@@ -321,6 +317,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/offer-list.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/offer-close-modal.js') }}"></script>
 <script>

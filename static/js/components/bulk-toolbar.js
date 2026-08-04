@@ -43,12 +43,24 @@
      */
     BulkToolbarInstance.prototype.update = function (count, totalText) {
         if (count > 0) {
-            if (this.countEl) this.countEl.textContent = tekstLicznika(count);
-            if (this.totalEl) this.totalEl.textContent = totalText || '';
+            this.setCount(count, totalText);
             this.show();
         } else {
             this.hide();
         }
+    };
+
+    /**
+     * Ustawia sam tekst licznika, bez pokazywania i ukrywania paska.
+     * Dla pasków, które mają być widoczne także przy zerze zaznaczonych —
+     * np. gdy trzymają przycisk „Zaznacz wszystkie", bez którego użytkownik
+     * nie miałby jak niczego zaznaczyć.
+     * @param {number} count
+     * @param {string} [totalText] opcjonalna druga linia
+     */
+    BulkToolbarInstance.prototype.setCount = function (count, totalText) {
+        if (this.countEl) this.countEl.textContent = tekstLicznika(count);
+        if (this.totalEl) this.totalEl.textContent = totalText || '';
     };
 
     BulkToolbarInstance.prototype.show = function () {

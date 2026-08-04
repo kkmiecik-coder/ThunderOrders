@@ -517,13 +517,17 @@ function initializeOfferSearch() {
  * Guard: jeśli na stronie nie ma paska (#bulkToolbar), nic nie robi.
  */
 function initializeBulkActions() {
-    const bulkToolbar = document.getElementById('bulkToolbar');
-    if (!bulkToolbar) return;
+    // Wspólny komponent paska (js/components/bulk-toolbar.js) — on odpowiada
+    // za pokazywanie/ukrywanie i tekst licznika (z odmianą przez liczbę).
+    const pasek = window.BulkToolbar ? window.BulkToolbar.init('bulkToolbar') : null;
+    if (!pasek) return;
+
+    // Element paska nadal potrzebny do wyszukiwania przycisków akcji w środku.
+    const bulkToolbar = pasek.el;
 
     // Dwie zakładki → dwa master-checkboxy (#selectAll-current / #selectAll-closed).
     // Operujemy po klasie, nie po id.
     const selectAllBoxes = Array.from(document.querySelectorAll('.offer-select-all'));
-    const selectedCount = document.getElementById('selectedCount');
 
     function getCsrfToken() {
         const el = document.querySelector('input[name="csrf_token"]');
@@ -555,12 +559,7 @@ function initializeBulkActions() {
         const selected = getSelected();
         const count = selected.length;
 
-        if (count > 0) {
-            bulkToolbar.classList.remove('hidden');
-            selectedCount.textContent = `${count} zaznaczonych`;
-        } else {
-            bulkToolbar.classList.add('hidden');
-        }
+        pasek.update(count);
 
         if (selectAllBoxes.length) {
             const visible = getVisibleCheckboxes();

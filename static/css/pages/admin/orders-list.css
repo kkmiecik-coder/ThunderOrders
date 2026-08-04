@@ -2308,7 +2308,6 @@
 .results-count,
 .per-page-selector label,
 .per-page-selector select,
-.btn-bulk,
 .table-container,
 .orders-table thead,
 .orders-table th,
@@ -2996,11 +2995,8 @@
     display: inline-block;
 }
 
-.bulk-status-wrapper .btn-bulk {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+/* .btn-bulk (display/gap/hover/transition) należy do komponentu
+   css/components/bulk-toolbar.css — tu tylko to, co specyficzne dla dropdownu. */
 
 .bulk-status-wrapper .dropdown-arrow {
     margin-left: 0.25rem;

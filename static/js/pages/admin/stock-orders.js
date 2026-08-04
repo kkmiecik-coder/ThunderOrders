@@ -4,6 +4,21 @@
  */
 
 /**
+ * Paski akcji masowych (wspólny komponent BulkToolbar).
+ * Strona ma trzy paski; każdy jest renderowany warunkowo (aktywna zakładka),
+ * więc init() może zwrócić null — stąd guardy przy każdym użyciu.
+ */
+let paskToOrder = null;
+let paskAkcji = null;
+let paskArchiwum = null;
+
+document.addEventListener('DOMContentLoaded', function () {
+    paskToOrder = BulkToolbar.init('toOrderBulkToolbar');
+    paskAkcji = BulkToolbar.init('bulkActionsModal');
+    paskArchiwum = BulkToolbar.init('archiwumBulkToolbar');
+});
+
+/**
  * Table sorting — universal for all tabs (Do zamówienia, Proxy, Polska)
  */
 let currentSortColumn = null;
@@ -1816,14 +1831,10 @@ function updateBulkActionsModal() {
     const config = TAB_CONFIG[activeTab];
     const checkboxClass = config ? config.checkboxClass : 'order-checkbox';
     const checkedBoxes = document.querySelectorAll(`.${checkboxClass}:checked`);
-    const modal = document.getElementById('bulkActionsModal');
-    const countSpan = document.getElementById('selectedCount');
+    if (!paskAkcji) return;
 
-    if (checkedBoxes.length > 0) {
-        modal.classList.remove('hidden');
-        countSpan.textContent = checkedBoxes.length;
-    } else {
-        modal.classList.add('hidden');
+    paskAkcji.update(checkedBoxes.length);
+    if (checkedBoxes.length === 0) {
         hideBulkStatusDropdown();
     }
 }
@@ -2131,17 +2142,9 @@ function handleToOrderCheckboxChange() {
     const visibleCheckboxes = [...allCheckboxes].filter(cb => cb.closest('tr').style.display !== 'none');
     const visibleChecked = visibleCheckboxes.filter(cb => cb.checked);
 
-    const bulkToolbar = document.getElementById('toOrderBulkToolbar');
-    const selectedCount = document.getElementById('toOrderSelectedCount');
-
     // Count all checked (visible + hidden) for toolbar
     const totalChecked = document.querySelectorAll('.to-order-checkbox:checked').length;
-    if (totalChecked > 0) {
-        bulkToolbar.classList.remove('hidden');
-        selectedCount.textContent = totalChecked;
-    } else {
-        bulkToolbar.classList.add('hidden');
-    }
+    if (paskToOrder) paskToOrder.update(totalChecked);
 
     // Update select all checkbox state based on visible rows only
     const selectAllCheckbox = document.getElementById('selectAllToOrder');
@@ -2165,7 +2168,7 @@ function clearToOrderSelection() {
         selectAllCheckbox.checked = false;
         selectAllCheckbox.indeterminate = false;
     }
-    document.getElementById('toOrderBulkToolbar').classList.add('hidden');
+    if (paskToOrder) paskToOrder.hide();
 }
 
 /**
@@ -2392,16 +2395,9 @@ function handleCheckboxChangeArchiwum() {
 
 function updateArchiwumBulkToolbar() {
     const checkedBoxes = document.querySelectorAll('.archiwum-checkbox:checked');
-    const toolbar = document.getElementById('archiwumBulkToolbar');
-    const countEl = document.getElementById('archiwumSelectedCount');
-    if (!toolbar) return;
+    if (!paskArchiwum) return;
 
-    if (checkedBoxes.length > 0) {
-        toolbar.classList.remove('hidden');
-        if (countEl) countEl.textContent = checkedBoxes.length;
-    } else {
-        toolbar.classList.add('hidden');
-    }
+    paskArchiwum.update(checkedBoxes.length);
 }
 
 function getSelectedArchiwumIds() {

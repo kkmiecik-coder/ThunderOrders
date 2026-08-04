@@ -1,4 +1,5 @@
 {% extends "admin/base_admin.html" %}
+{% from "components/_bulk_toolbar.html" import bulk_toolbar %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
@@ -362,10 +363,7 @@
     {% endif %}
 
     <!-- Bulk Actions Toolbar (floating, shows when checkboxes checked) -->
-    <div id="bulkToolbar" class="bulk-toolbar hidden">
-        <div class="bulk-toolbar-content">
-            <span class="selected-count" id="selectedCount">0 zaznaczonych</span>
-            <div class="bulk-actions">
+    {% call bulk_toolbar('bulkToolbar', count_id='selectedCount') %}
                 <div class="bulk-status-wrapper">
                     <button class="btn-bulk" data-action="status" title="Zmień status">
                         <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -407,9 +405,7 @@
                     <span class="btn-bulk-text">Usuń</span>
                 </button>
                 {% endif %}
-            </div>
-        </div>
-    </div>
+    {% endcall %}
 
     <!-- Table Header Bar (results count + per page) -->
     <div class="table-header-bar">
@@ -949,5 +945,6 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/orders-list.js') }}"></script>
 {% endblock %}
