@@ -365,10 +365,51 @@ async function bulkMergeRequests() {
 // ============================================
 
 /**
+ * Pyta o tryb powrotu spakowanego zlecenia do WMS.
+ * @param {string} requestNumber - numer zlecenia do wyświetlenia
+ * @returns {Promise<'full'|'repack'|null>} wybrany tryb albo null przy anulowaniu
+ */
+function askReopenMode(requestNumber) {
+    return new Promise(resolve => {
+        const modal = document.getElementById('wmsReopenModal');
+        if (!modal) { resolve(null); return; }
+
+        document.getElementById('wmsReopenNumber').textContent = requestNumber || '';
+        modal.classList.add('active');
+
+        function finish(mode) {
+            modal.classList.remove('active');
+            modal.querySelectorAll('.wms-reopen-option').forEach(btn => {
+                btn.removeEventListener('click', onOption);
+            });
+            document.getElementById('wmsReopenCancel').removeEventListener('click', onCancel);
+            document.getElementById('wmsReopenClose').removeEventListener('click', onCancel);
+            resolve(mode);
+        }
+        function onOption(e) { finish(e.currentTarget.dataset.mode); }
+        function onCancel() { finish(null); }
+
+        modal.querySelectorAll('.wms-reopen-option').forEach(btn => {
+            btn.addEventListener('click', onOption);
+        });
+        document.getElementById('wmsReopenCancel').addEventListener('click', onCancel);
+        document.getElementById('wmsReopenClose').addEventListener('click', onCancel);
+    });
+}
+
+/**
  * Go to WMS for a single shipping request
  * @param {number} shippingRequestId - The shipping request ID
+ * @param {string} [status] - status zlecenia; 'spakowane' uruchamia pytanie o tryb
+ * @param {string} [requestNumber] - numer zlecenia do okna wyboru
  */
-async function handleGoToWMS(shippingRequestId) {
+async function handleGoToWMS(shippingRequestId, status, requestNumber) {
+    if (status === 'spakowane') {
+        const mode = await askReopenMode(requestNumber);
+        if (!mode) return;
+        await createWmsSession([shippingRequestId], mode);
+        return;
+    }
     await createWmsSession([shippingRequestId]);
 }
 
@@ -383,20 +424,49 @@ async function bulkGoToWMS() {
 }
 
 /**
+ * Oznacza zaznaczone zlecenia jako wysłane — otwiera scalony modal w trybie wysyłki.
+ * Zlecenia inne niż spakowane odpadają przed otwarciem, żeby modal nie obiecywał
+ * czegoś, co i tak odbije się błędem po stronie serwera.
+ */
+function bulkMarkShipped() {
+    const ids = getSelectedRequestIds();
+    if (ids.length === 0) return;
+
+    const packed = [];
+    const skipped = [];
+    ids.forEach(id => {
+        const card = document.querySelector(`.sr-card[data-request-id="${id}"]`);
+        if (card && card.dataset.status === 'spakowane') packed.push(id);
+        else skipped.push(id);
+    });
+
+    if (skipped.length) {
+        const msg = `Pominięto ${skipped.length} zleceń — oznaczyć jako wysłane można tylko spakowane`;
+        if (typeof window.showToast === 'function') window.showToast(msg, 'warning');
+        else alert(msg);
+    }
+    if (!packed.length) return;
+
+    window.openShipModal(packed);
+}
+
+/**
  * Create a WMS session from shipping request IDs
  * @param {number[]} shippingRequestIds - Array of shipping request IDs
+ * @param {'full'|'repack'} [reopenMode] - tryb powrotu spakowanego zlecenia
  */
-async function createWmsSession(shippingRequestIds) {
+async function createWmsSession(shippingRequestIds, reopenMode) {
     try {
+        const body = { shipping_request_ids: shippingRequestIds };
+        if (reopenMode) body.reopen_mode = reopenMode;
+
         const response = await fetch('/admin/orders/wms/create-session', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             },
-            body: JSON.stringify({
-                shipping_request_ids: shippingRequestIds
-            })
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
@@ -560,6 +630,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (ids.length) window.openShippingRequestsModal(ids);
             },
             'merge': bulkMergeRequests,
+            'mark-shipped': bulkMarkShipped,
             'wms': bulkGoToWMS,
             'export-inpost': exportSelectedToInpost,
             'delete': bulkDeleteRequests,
