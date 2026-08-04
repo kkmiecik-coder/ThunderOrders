@@ -41,7 +41,12 @@ def get_client_dashboard_stats(user):
     # E3 cło/VAT + E4 wysyłka PL, patrz Order.total_to_pay). Filtr DB to bezpieczny
     # nadzbiór (suma kolumn bez warunków etapowych >= total_to_pay), a precyzyjne
     # „pozostało" liczy remaining_to_pay w Pythonie.
+    # Zamówienia anulowane i te po stronie zwrotów nie są już należnością —
+    # klient nie ma czego zapłacić, więc nie mogą wisieć w kafelku „do zapłaty".
+    from utils.offer_closure import CLOSED_ORDER_STATUSES
+
     to_pay_orders = Order.query.filter_by(user_id=user.id).filter(
+        ~Order.status.in_(CLOSED_ORDER_STATUSES),
         Order.paid_amount < (
             Order.total_amount
             + Order.shipping_cost

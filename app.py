@@ -567,7 +567,12 @@ def register_cli_commands(app):
         rules = PaymentReminderConfig.query.filter_by(enabled=True).all()
         click.echo(f"Aktywnych reguł: {len(rules)}")
 
-        active_orders = Order.query.filter(Order.status != 'anulowane').all()
+        # Zamówienia anulowane i te po stronie zwrotów nie mają czego zapłacić —
+        # ponaglenie o wpłatę byłoby dla klienta mylące, a przy zwrocie wręcz
+        # odwrotne do stanu faktycznego (to my jesteśmy mu winni pieniądze).
+        from utils.offer_closure import CLOSED_ORDER_STATUSES
+
+        active_orders = Order.query.filter(~Order.status.in_(CLOSED_ORDER_STATUSES)).all()
 
         for order in active_orders:
             for stage, definition in STAGE_DEFINITIONS.items():

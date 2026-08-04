@@ -227,3 +227,40 @@ def test_cron_after_order_placed_skips_exclusive_order_with_open_sale(app, db, m
 
     assert result.exit_code == 0
     assert PaymentReminderLog.query.filter_by(order_id=order.id).count() == 0
+
+
+import pytest
+
+
+@pytest.mark.parametrize('status', ['anulowane', 'do_zwrotu', 'zwrocone', 'czesciowo_zwrocone'])
+def test_cron_pomija_zamowienia_zamkniete(app, db, make_user, make_order, monkeypatch, status):
+    """Zamówienie anulowane albo czekające na zwrot nie może dostawać ponagleń o zapłatę.
+
+    Klient dostałby maila 'zapłać' za coś, czego już nie ma — a przy zwrocie to my
+    jesteśmy mu winni pieniądze, nie odwrotnie.
+    """
+    from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
+
+    now = get_local_now()
+    order = make_order(
+        make_user(email=f'klient-{status}@example.com'),
+        total_amount=Decimal('100.00'),
+        order_type='on_hand',
+        status=status,
+        created_at=now - timedelta(hours=100),
+    )
+
+    config = PaymentReminderConfig(
+        reminder_type='after_order_placed', hours=1, payment_stage='product', enabled=True
+    )
+    db.session.add(config)
+    db.session.commit()
+
+    monkeypatch.setattr('utils.push_manager.PushManager.notify_payment_reminder', lambda *a, **k: None)
+    monkeypatch.setattr('utils.email_sender.send_email_batch_sync', lambda messages: [True] * len(messages))
+
+    runner = app.test_cli_runner()
+    result = runner.invoke(args=['check-payment-reminders'])
+
+    assert result.exit_code == 0
+    assert PaymentReminderLog.query.filter_by(order_id=order.id).count() == 0

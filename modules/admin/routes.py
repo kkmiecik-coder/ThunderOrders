@@ -130,8 +130,12 @@ def dashboard():
     grand_total_expr = func.coalesce(Order.total_amount, 0) + func.coalesce(Order.shipping_cost, 0)
     paid_expr = func.coalesce(Order.paid_amount, 0)
 
+    # Zamówienia anulowane i te po stronie zwrotów nie są już należnością —
+    # nikt tych pieniędzy nie zapłaci, więc nie podbijają kwoty do rozliczenia.
+    from utils.offer_closure import CLOSED_ORDER_STATUSES
+
     unpaid_pages_subq = db.session.query(Order.offer_page_id).filter(
-        Order.status != 'anulowane',
+        ~Order.status.in_(CLOSED_ORDER_STATUSES),
         Order.offer_page_id.isnot(None),
         grand_total_expr > paid_expr
     ).distinct().subquery()
@@ -140,7 +144,7 @@ def dashboard():
         func.coalesce(func.sum(paid_expr), 0),
         func.coalesce(func.sum(grand_total_expr - paid_expr), 0)
     ).filter(
-        Order.status != 'anulowane',
+        ~Order.status.in_(CLOSED_ORDER_STATUSES),
         or_(
             Order.offer_page_id.in_(db.session.query(unpaid_pages_subq.c.offer_page_id)),
             and_(Order.offer_page_id.is_(None), grand_total_expr > paid_expr)
