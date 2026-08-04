@@ -18,6 +18,7 @@
         saveResults: new Map(), // id -> 'saved' | 'save-failed' (po próbie zapisu)
         materials: [],
         activeId: null,
+        mode: 'costs',        // 'costs' = wycena i ustawienia, 'ship' = oznaczanie wysyłki
     };
 
     // Pola podświetlane klasą input-error dla poszczególnych braków.
@@ -102,9 +103,11 @@
         }
     }
 
-    async function openShippingRequestsModal(ids) {
+    async function openShippingRequestsModal(ids, options) {
         const modal = document.getElementById('editShippingRequestModal');
         if (!modal || !ids || !ids.length) return;
+
+        state.mode = (options && options.mode === 'ship') ? 'ship' : 'costs';
 
         // Zaległe sprzątanie po zamknięciu nie może zamknąć świeżo otwartego modala.
         if (closeTimer) {
@@ -190,13 +193,18 @@
         const cancelBtn = document.getElementById('srCancelRequestBtn');
         const saveBtn = document.getElementById('srModalSaveBtn');
 
+        const ship = state.mode === 'ship';
+
         if (many) {
-            title.textContent = `Zlecenia wysyłki · ${state.ids.length}`;
-            saveBtn.textContent = 'Zapisz wszystkie';
+            title.textContent = ship
+                ? `Wysyłka · ${state.ids.length} zleceń`
+                : `Zlecenia wysyłki · ${state.ids.length}`;
+            saveBtn.textContent = ship ? 'Oznacz jako wysłane' : 'Zapisz wszystkie';
         } else {
             const sr = state.data.get(state.activeId);
-            title.textContent = `Zlecenie ${sr ? sr.request_number : ''}`;
-            saveBtn.textContent = 'Zapisz';
+            const number = sr ? sr.request_number : '';
+            title.textContent = ship ? `Wysyłka — ${number}` : `Zlecenie ${number}`;
+            saveBtn.textContent = ship ? 'Oznacz jako wysłane' : 'Zapisz';
         }
 
         bulkBar.hidden = !many;
@@ -274,6 +282,10 @@
         const sr = state.data.get(id);
         const edits = state.edits.get(id);
         if (!sr || !edits) return null;
+
+        // Wysyłka nie wymaga żadnego pola — numer przesyłki i kurier są nieobowiązkowe,
+        // a gabaryt i termin płatności nie mają na nią wpływu.
+        if (state.mode === 'ship') return [];
 
         const issues = [];
         if (!edits.parcelSize) issues.push('parcelSize');
@@ -391,10 +403,11 @@
                             ${manyOrders ? '<button type="button" class="btn btn-sm btn-secondary" id="srDistribute">Rozłóż</button>' : ''}
                         </div>
                     </div>
+                    ${state.mode === 'ship' ? '' : `
                     <div class="form-group">
                         <label class="form-label" for="srDeadline">Termin płatności</label>
                         <input type="datetime-local" id="srDeadline" class="form-control" value="${edits.deadline}">
-                    </div>
+                    </div>`}
                     <div class="form-group">
                         <label class="form-label" for="srPackagingMaterial">Materiał / cennik</label>
                         <select id="srPackagingMaterial" class="form-control"></select>
@@ -668,6 +681,20 @@
         return payload;
     }
 
+    /** Payload dla adresu wysyłki — bez terminu i materiału, które wysyłki nie dotyczą. */
+    function shipPayloadFor(id) {
+        const edits = state.edits.get(id);
+        if (!edits) return null;
+        return {
+            courier: edits.courier,
+            tracking_number: edits.trackingNumber,
+            parcel_size: edits.parcelSize,
+            shipping_cost: totalCost(id),
+            order_costs: Array.from(edits.orderCosts.entries())
+                .map(([orderId, cost]) => ({ order_id: orderId, shipping_cost: parseFloat(cost) || 0 })),
+        };
+    }
+
     async function saveAll() {
         const { ok, blocking } = validate();
         if (!ok) {
@@ -687,15 +714,19 @@
         const failed = [];
         state.saveResults.clear();
         for (const id of state.ids) {
-            const payload = payloadFor(id);
+            const ship = state.mode === 'ship';
+            const payload = ship ? shipPayloadFor(id) : payloadFor(id);
             if (!payload) {
                 failed.push(id);
                 state.saveResults.set(id, 'save-failed');
                 continue;
             }
             try {
-                const resp = await fetch(`/admin/orders/shipping-requests/${id}`, {
-                    method: 'PUT',
+                const url = ship
+                    ? `/admin/orders/shipping-requests/${id}/ship`
+                    : `/admin/orders/shipping-requests/${id}`;
+                const resp = await fetch(url, {
+                    method: ship ? 'POST' : 'PUT',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
                     body: JSON.stringify(payload),
                 });
@@ -709,7 +740,9 @@
         }
 
         saveBtn.disabled = false;
-        saveBtn.textContent = state.ids.length > 1 ? 'Zapisz wszystkie' : 'Zapisz';
+        saveBtn.textContent = state.mode === 'ship'
+            ? 'Oznacz jako wysłane'
+            : (state.ids.length > 1 ? 'Zapisz wszystkie' : 'Zapisz');
 
         if (!failed.length) {
             closeModal();
@@ -768,5 +801,6 @@
 
     window.openShippingRequestsModal = openShippingRequestsModal;
     window.openShippingRequestModal = (id) => openShippingRequestsModal([id]);
+    window.openShipModal = (ids) => openShippingRequestsModal(ids, { mode: 'ship' });
     window.closeShippingRequestModal = closeModal;
 })();
