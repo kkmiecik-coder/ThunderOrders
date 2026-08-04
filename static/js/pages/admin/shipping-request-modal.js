@@ -211,6 +211,13 @@
         list.hidden = !many;
         cancelBtn.hidden = many;
 
+        // W trybie wysyłki termin płatności nigdzie nie jest wysyłany — samo pole
+        // tylko myli, więc znika z paska "Ustaw we wszystkich" (nie sam input,
+        // cała grupa .form-group, inaczej zostaje osierocony <label>).
+        const bulkDeadlineField = document.getElementById('srBulkDeadline');
+        const bulkDeadlineGroup = bulkDeadlineField && bulkDeadlineField.closest('.form-group');
+        if (bulkDeadlineGroup) bulkDeadlineGroup.hidden = ship;
+
         if (many) renderBulkMaterials();
     }
 
@@ -622,7 +629,9 @@
         });
 
         document.getElementById('srBulkApply').addEventListener('click', () => {
-            const deadline = document.getElementById('srBulkDeadline').value;
+            // W trybie wysyłki termin jest ukryty i nie ma go gdzie wysłać —
+            // nie liczy się ani do walidacji "choć jedno pole", ani do zastosowania.
+            const deadline = state.mode === 'ship' ? '' : document.getElementById('srBulkDeadline').value;
             const materialSelect = document.getElementById('srBulkMaterial');
             const parcelSize = document.getElementById('srBulkParcelSize').value;
 
@@ -712,6 +721,7 @@
         saveBtn.textContent = 'Zapisywanie…';
 
         const failed = [];
+        const failMessages = [];   // tylko tryb 'ship' — konkretny powód odmowy z serwera
         state.saveResults.clear();
         for (const id of state.ids) {
             const ship = state.mode === 'ship';
@@ -730,11 +740,25 @@
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
                     body: JSON.stringify(payload),
                 });
-                if (!resp.ok) failed.push(id);
+                if (!resp.ok) {
+                    failed.push(id);
+                    if (ship) {
+                        // Odpowiedź błędu może nie być JSON-em (np. 500 z serwera) — stąd try/catch i fallback.
+                        let reason = '';
+                        try {
+                            const data = await resp.json();
+                            reason = data && data.message;
+                        } catch (parseError) {
+                            reason = '';
+                        }
+                        failMessages.push(`${requestNumber(id)}: ${reason || `Błąd zapisu (HTTP ${resp.status})`}`);
+                    }
+                }
                 state.saveResults.set(id, resp.ok ? 'saved' : 'save-failed');
             } catch (error) {
                 console.error('Błąd zapisu zlecenia', id, error);
                 failed.push(id);
+                if (ship) failMessages.push(`${requestNumber(id)}: Błąd połączenia z serwerem`);
                 state.saveResults.set(id, 'save-failed');
             }
         }
@@ -750,8 +774,13 @@
             return;
         }
         renderList();   // pozycje dostają klasy saved / save-failed
-        const numbers = failed.map(requestNumber).join(', ');
-        notify(`Nie zapisano: ${numbers}`, 'error');
+        if (state.mode === 'ship' && failMessages.length) {
+            // Kilka nieudanych zleceń pokazujemy jako czytelną listę, nie sklejone w jedną kaszę.
+            notify(failMessages.map(escapeHtml).join('<br>'), 'error');
+        } else {
+            const numbers = failed.map(requestNumber).join(', ');
+            notify(`Nie zapisano: ${numbers}`, 'error');
+        }
     }
 
     async function cancelRequest() {
