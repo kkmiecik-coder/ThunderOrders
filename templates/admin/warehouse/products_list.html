@@ -1061,6 +1061,10 @@ function moveTabsToHeader() {
 
 // Open Product Modal
 function openProductModal(productId = null, tab = 'product') {
+    if (typeof window.resetPendingSlotRemovals === 'function') {
+        window.resetPendingSlotRemovals();
+    }
+
     const modal = document.getElementById('productModal');
     const modalTitle = document.getElementById('modalTitle');
     const modalBody = document.getElementById('modalBody');
@@ -1282,6 +1286,10 @@ function refreshProductsList() {
 
 // Close Product Modal
 function closeProductModal() {
+    if (typeof window.resetPendingSlotRemovals === 'function') {
+        window.resetPendingSlotRemovals();
+    }
+
     const modal = document.getElementById('productModal');
     const footer = document.getElementById('modalFooter');
     modal.classList.remove('active');
@@ -1356,11 +1364,14 @@ async function submitProductForm() {
             return response.text().then(html => ({ type: 'html', html }));
         }
     })
-    .then(result => {
+    .then(async result => {
         if (result.type === 'json') {
             // Handle JSON response
             if (result.ok && result.data.success) {
-                // Success - close modal and refresh
+                // Success - flush any pending image removals, then close modal and refresh
+                if (typeof window.flushPendingSlotRemovals === 'function') {
+                    await window.flushPendingSlotRemovals();
+                }
                 closeProductModal();
                 showToast(result.data.message || 'Produkt został zapisany', 'success');
                 refreshProductsList();

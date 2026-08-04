@@ -4,6 +4,12 @@
  */
 
 // =============================================
+// Page-level guard: prevent a missed drop from navigating the browser away
+// =============================================
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
+
+// =============================================
 // CSRF
 // =============================================
 
@@ -523,10 +529,14 @@ function renderImageCell(product, slot) {
     const pid = product.id;
     const imgData = product.images && product.images[String(slot)];
     const fileInputId = `img-${pid}-${slot}`;
+    const slotId = `slot-${pid}-${slot}`;
+    const dragAttrs = `ondragover="event.preventDefault(); this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="handleImageDrop(${pid}, ${slot}, event)"`;
 
     if (imgData) {
         const imgSrc = imgData.path_compressed.startsWith('static/') ? '/' + imgData.path_compressed : '/static/' + imgData.path_compressed;
-        return `<div class="image-slot has-image">
+        return `<div class="image-slot has-image" id="${slotId}" ${dragAttrs}>
             <img src="${imgSrc}" alt="" onclick="document.getElementById('${fileInputId}').click()">
             <span class="image-remove" onclick="removeImage(${pid}, ${slot}, event)" title="Usuń zdjęcie">&times;</span>
             <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
@@ -534,7 +544,7 @@ function renderImageCell(product, slot) {
         </div>`;
     }
 
-    return `<div class="image-slot empty" onclick="document.getElementById('${fileInputId}').click()">
+    return `<div class="image-slot empty" id="${slotId}" ${dragAttrs} onclick="document.getElementById('${fileInputId}').click()">
         +
         <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
                onchange="handleImageSelect(${pid}, ${slot}, this)">
@@ -706,10 +716,8 @@ function revertAutoCreate(input) {
 // IMAGE HANDLING
 // =============================================
 
-function handleImageSelect(productId, slot, input) {
-    if (!input.files || !input.files[0]) return;
-
-    const file = input.files[0];
+function assignImageFile(productId, slot, file) {
+    if (!file) return;
 
     if (!pendingImageUploads[productId]) pendingImageUploads[productId] = {};
     pendingImageUploads[productId][slot] = file;
@@ -721,7 +729,8 @@ function handleImageSelect(productId, slot, input) {
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        const slotDiv = input.parentNode;
+        const slotDiv = document.getElementById(`slot-${productId}-${slot}`);
+        if (!slotDiv) return;
         slotDiv.className = 'image-slot has-image';
         slotDiv.innerHTML = `<img src="${e.target.result}" alt="" onclick="document.getElementById('img-${productId}-${slot}').click()">
             <span class="image-remove" onclick="removeImage(${productId}, ${slot}, event)" title="Usuń zdjęcie">&times;</span>
@@ -729,6 +738,59 @@ function handleImageSelect(productId, slot, input) {
                    onchange="handleImageSelect(${productId}, ${slot}, this)">`;
     };
     reader.readAsDataURL(file);
+}
+
+function handleImageSelect(productId, slot, input) {
+    if (!input.files || !input.files[0]) return;
+    assignImageFile(productId, slot, input.files[0]);
+}
+
+function handleImageDrop(productId, slot, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('drag-over');
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const files = Array.from(event.dataTransfer.files).filter(f => allowedTypes.includes(f.type));
+    if (files.length === 0) {
+        if (event.dataTransfer.files.length > 0 && typeof window.showToast === 'function') {
+            window.showToast('Przeciągnięty plik nie jest obsługiwanym formatem zdjęcia.', 'warning');
+        }
+        return;
+    }
+
+    assignImageFile(productId, slot, files[0]);
+
+    if (files.length > 1) {
+        distributeExtraImages(productId, slot, files.slice(1));
+    }
+}
+
+function distributeExtraImages(productId, droppedSlot, files) {
+    const imageSlots = selectedColumns
+        .filter(c => c.type === 'image' && c.slot !== droppedSlot)
+        .map(c => c.slot)
+        .sort((a, b) => a - b);
+
+    const freeSlots = imageSlots.filter(s => {
+        const slotDiv = document.getElementById(`slot-${productId}-${s}`);
+        return slotDiv && slotDiv.classList.contains('empty');
+    });
+
+    let assigned = 0;
+    for (const s of freeSlots) {
+        if (assigned >= files.length) break;
+        assignImageFile(productId, s, files[assigned]);
+        assigned++;
+    }
+
+    const skipped = files.length - assigned;
+    if (skipped > 0 && typeof window.showToast === 'function') {
+        window.showToast(
+            `Pominięto ${skipped} ${skipped === 1 ? 'zdjęcie' : 'zdjęć'} — brak wolnych kolumn "Zdjęcie" w tym wierszu.`,
+            'warning'
+        );
+    }
 }
 
 function removeImage(productId, slot, event) {

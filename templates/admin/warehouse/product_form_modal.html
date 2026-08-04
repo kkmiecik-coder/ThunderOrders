@@ -351,7 +351,10 @@
         <div class="image-slots-grid">
             {% for i in range(1, max_images + 1) %}
             {% set existing_image = product.images.filter_by(sort_order=i).first() if product else None %}
-            <div class="image-slot" data-slot="{{ i }}" id="imageSlot{{ i }}">
+            <div class="image-slot" data-slot="{{ i }}" id="imageSlot{{ i }}"
+                 ondragover="event.preventDefault(); this.classList.add('drag-over')"
+                 ondragleave="this.classList.remove('drag-over')"
+                 ondrop="handleSlotImageDrop({{ i }}, event)">
                 <div class="slot-number">#{{ i }}</div>
 
                 <!-- Hidden file input -->
