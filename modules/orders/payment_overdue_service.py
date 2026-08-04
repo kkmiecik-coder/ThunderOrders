@@ -95,7 +95,9 @@ def get_overdue_orders_summary():
     now = get_local_now()
     results = []
 
-    orders = Order.query.filter(Order.status != 'anulowane').options(
+    from utils.offer_closure import CLOSED_ORDER_STATUSES
+
+    orders = Order.query.filter(~Order.status.in_(CLOSED_ORDER_STATUSES)).options(
         joinedload(Order.offer_page),
         selectinload(Order.shipping_request_orders).joinedload(ShippingRequestOrder.shipping_request),
     ).all()

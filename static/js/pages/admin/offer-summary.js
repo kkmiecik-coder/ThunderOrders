@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeLiveTabs();
     initializeOrdersTimelineChart();
     initializeOrdersTab();
+    initializeOrdersSelection();
     initializeProductsTab();
     initializeMatrixToggle();
 });
@@ -296,6 +297,17 @@ var currentPage = 1;
 var filteredOrders = [];
 var ordersRendered = false;
 
+// Tryb zaznaczania zamówień do masowego anulowania (tylko admin).
+var selectionMode = false;
+var selectedOrderIds = new Set();
+
+// Zamówienia w tych statusach są już załatwione — nie da się ich zaznaczyć.
+var CLOSED_STATUSES = ['anulowane', 'do_zwrotu', 'zwrocone', 'czesciowo_zwrocone'];
+
+function isSelectable(order) {
+    return CLOSED_STATUSES.indexOf(order.status) === -1;
+}
+
 function initializeOrdersTab() {
     filteredOrders = (window.SUMMARY_ORDERS || []).slice();
 
@@ -326,6 +338,73 @@ function applyOrdersFilters() {
     if (countEl) countEl.textContent = filteredOrders.length;
 
     renderOrderCards();
+    updateSelectionBar();
+}
+
+/* ==========================================
+   3b. ZAZNACZANIE ZAMÓWIEŃ (masowe anulowanie)
+   ========================================== */
+
+function selectableFilteredOrders() {
+    return filteredOrders.filter(isSelectable);
+}
+
+function updateSelectionBar() {
+    var bar = document.getElementById('ordersSelectionBar');
+    if (!bar) return;
+
+    var countEl = document.getElementById('selectionCount');
+    var totalEl = document.getElementById('selectionTotal');
+    var cancelBtn = document.getElementById('cancelOrdersBtn');
+
+    if (countEl) countEl.textContent = selectedOrderIds.size;
+    if (totalEl) totalEl.textContent = selectableFilteredOrders().length;
+    if (cancelBtn) cancelBtn.disabled = selectedOrderIds.size === 0;
+}
+
+function setSelectionMode(on) {
+    selectionMode = on;
+    if (!on) selectedOrderIds.clear();
+
+    var bar = document.getElementById('ordersSelectionBar');
+    var btn = document.getElementById('selectOrdersBtn');
+    var label = document.getElementById('selectOrdersBtnLabel');
+
+    if (bar) bar.style.display = on ? 'flex' : 'none';
+    if (btn) btn.classList.toggle('is-active', on);
+    if (label) label.textContent = on ? 'Zakończ zaznaczanie' : 'Zaznacz zamówienia';
+
+    renderOrderCards();
+    updateSelectionBar();
+}
+
+function initializeOrdersSelection() {
+    var selectBtn = document.getElementById('selectOrdersBtn');
+    if (!selectBtn) return; // mod nie widzi tych przycisków
+
+    selectBtn.addEventListener('click', function () {
+        setSelectionMode(!selectionMode);
+    });
+
+    document.getElementById('selectAllOrdersBtn').addEventListener('click', function () {
+        // Celowo tylko wyniki bieżącej wyszukiwarki — inaczej łatwo zaznaczyć
+        // 200 zamówień, widząc na ekranie trzy.
+        selectableFilteredOrders().forEach(function (o) { selectedOrderIds.add(o.order_id); });
+        renderOrderCards();
+        updateSelectionBar();
+    });
+
+    document.getElementById('clearSelectionBtn').addEventListener('click', function () {
+        selectedOrderIds.clear();
+        renderOrderCards();
+        updateSelectionBar();
+    });
+
+    document.getElementById('cancelOrdersBtn').addEventListener('click', function () {
+        if (typeof window.openCancelOrdersModal === 'function') {
+            window.openCancelOrdersModal(Array.from(selectedOrderIds));
+        }
+    });
 }
 
 function renderOrderCards() {
@@ -360,7 +439,25 @@ function renderOrderCards() {
     }
     grid.innerHTML = html;
 
+    bindOrderSelectInputs(grid);
     renderPagination(totalPages, paginationContainer);
+}
+
+function bindOrderSelectInputs(grid) {
+    var inputs = grid.querySelectorAll('.order-select-input');
+    for (var i = 0; i < inputs.length; i++) {
+        inputs[i].addEventListener('change', function () {
+            var id = parseInt(this.dataset.orderId, 10);
+            if (this.checked) {
+                selectedOrderIds.add(id);
+            } else {
+                selectedOrderIds.delete(id);
+            }
+            var card = this.closest('.order-card');
+            if (card) card.classList.toggle('order-card-selected', this.checked);
+            updateSelectionBar();
+        });
+    }
 }
 
 function buildPaymentBadgeHTML(order) {
@@ -429,7 +526,26 @@ function buildOrderCardHTML(order) {
 
     var paymentBadge = buildPaymentBadgeHTML(order);
 
-    return '<div class="order-card" data-order-id="' + order.order_id + '">' +
+    var selectable = isSelectable(order);
+    var isChecked = selectedOrderIds.has(order.order_id);
+    var checkboxHTML = '';
+    if (selectionMode) {
+        checkboxHTML = '<label class="order-card-select"' +
+            (selectable ? '' : ' title="To zamówienie jest już anulowane lub w trakcie zwrotu"') +
+            '><input type="checkbox" class="order-select-input"' +
+            ' data-order-id="' + order.order_id + '"' +
+            (isChecked ? ' checked' : '') +
+            (selectable ? '' : ' disabled') +
+            '></label>';
+    }
+
+    var cardClass = 'order-card';
+    if (selectionMode) cardClass += ' order-card-selecting';
+    if (selectionMode && !selectable) cardClass += ' order-card-locked';
+    if (selectionMode && isChecked) cardClass += ' order-card-selected';
+
+    return '<div class="' + cardClass + '" data-order-id="' + order.order_id + '">' +
+        checkboxHTML +
         '<div class="order-card-header">' +
         '<div class="order-card-main">' +
         '<div class="order-card-number">' +

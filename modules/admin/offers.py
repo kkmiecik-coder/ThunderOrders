@@ -1707,6 +1707,8 @@ def offers_summary(page_id):
             'items': o['order_items'],
             'created_by_admin_id': o.get('created_by_admin_id'),
             'payment_badge': o.get('payment_badge'),
+            'status': o.get('status'),
+            'is_paid': o.get('is_paid'),
         })
 
     return render_template(
@@ -1718,6 +1720,89 @@ def offers_summary(page_id):
         orders_json=json.dumps(orders_json_list, default=str),
         sets_json=json.dumps(summary.get('sets', []), default=str),
     )
+
+
+# ============================================
+# Masowe anulowanie zamówień z podsumowania
+# ============================================
+
+@admin_bp.route('/offers/<int:page_id>/orders/cancel', methods=['POST'])
+@login_required
+@admin_required
+def offers_cancel_orders(page_id):
+    """
+    Masowe anulowanie wybranych zamówień z zamkniętej strony Offer.
+
+    Nieopłacone → 'anulowane', opłacone → 'do_zwrotu'. Tylko admin — masowa
+    zmiana statusów i pieniądze do oddania to nie jest operacja dla moda.
+    """
+    from utils.offer_closure import cancel_offer_orders
+
+    page = OfferPage.query.get_or_404(page_id)
+
+    if not page.is_fully_closed:
+        return jsonify({
+            'success': False,
+            'message': 'Ta strona nie została jeszcze całkowicie zamknięta.'
+        }), 400
+
+    data = request.get_json(silent=True) or {}
+    order_ids = data.get('order_ids') or []
+    reason = (data.get('reason') or '').strip()
+    notify = bool(data.get('notify', True))
+
+    if not isinstance(order_ids, list) or not order_ids:
+        return jsonify({'success': False, 'message': 'Nie wskazano żadnych zamówień.'}), 400
+
+    try:
+        order_ids = [int(oid) for oid in order_ids]
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Nieprawidłowe ID zamówień.'}), 400
+
+    if not reason:
+        return jsonify({'success': False, 'message': 'Powód anulowania jest wymagany.'}), 400
+    if len(reason) > 500:
+        return jsonify({
+            'success': False,
+            'message': 'Powód może mieć maksymalnie 500 znaków.'
+        }), 400
+
+    try:
+        result = cancel_offer_orders(
+            page_id=page.id,
+            order_ids=order_ids,
+            reason=reason,
+            admin_user_id=current_user.id,
+            notify=notify,
+        )
+    except ValueError as exc:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(exc)}), 400
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception(
+            f'Masowe anulowanie zamówień nie powiodło się (page_id={page.id})'
+        )
+        return jsonify({
+            'success': False,
+            'message': 'Nie udało się anulować zamówień. Spróbuj ponownie.'
+        }), 500
+
+    zmienione = result['cancelled'] + result['to_refund']
+    czesci = [f'Anulowano {zmienione} zamówień']
+    if result['to_refund']:
+        czesci.append(f'{result["to_refund"]} oznaczono do zwrotu')
+    if result['skipped']:
+        czesci.append(f'{result["skipped"]} pominięto')
+
+    return jsonify({
+        'success': True,
+        'cancelled': result['cancelled'],
+        'to_refund': result['to_refund'],
+        'skipped': result['skipped'],
+        'notified': result['notified'],
+        'message': ', '.join(czesci) + '.',
+    })
 
 
 # ============================================

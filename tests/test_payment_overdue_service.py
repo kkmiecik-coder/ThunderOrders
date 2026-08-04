@@ -1,6 +1,8 @@
 from datetime import timedelta
 from decimal import Decimal
 
+import pytest
+
 from modules.orders.models import get_local_now
 
 
@@ -151,6 +153,23 @@ def test_summary_excludes_cancelled_orders(db, make_user, make_order):
 
     now = get_local_now()
     order = make_order(make_user(), total_amount=Decimal('50.00'), status='anulowane')
+    order.get_product_deadline = lambda: now - timedelta(days=1)
+    order.get_shipping_kr_deadline = lambda: None
+    order.get_customs_vat_deadline = lambda: None
+    order.get_shipping_pl_deadline = lambda: None
+
+    result = get_overdue_orders_summary()
+
+    assert order.id not in [r['order'].id for r in result]
+
+
+@pytest.mark.parametrize('status', ['do_zwrotu', 'zwrocone', 'czesciowo_zwrocone'])
+def test_summary_excludes_closed_orders(db, make_user, make_order, status):
+    """Zamówienie po stronie zwrotów nie może dostawać ponagleń o zapłatę."""
+    from modules.orders.payment_overdue_service import get_overdue_orders_summary
+
+    now = get_local_now()
+    order = make_order(make_user(), total_amount=Decimal('50.00'), status=status)
     order.get_product_deadline = lambda: now - timedelta(days=1)
     order.get_shipping_kr_deadline = lambda: None
     order.get_customs_vat_deadline = lambda: None

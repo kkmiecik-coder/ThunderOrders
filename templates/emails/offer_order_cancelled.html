@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zamówienie anulowane - ThunderOrders</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Zamówienie anulowane
+                            </h1>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ customer_name }}</strong>!
+                            </p>
+                            <!-- Alert box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #FFF3E0; padding: 20px; border-radius: 8px; border-left: 4px solid #F44336;">
+                                        <p style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #F44336;">
+                                            Twoje zamówienie zostało anulowane
+                                        </p>
+                                        <p style="margin: 0 0 4px 0; font-size: 15px; color: #212121;">
+                                            <strong>Numer zamówienia:</strong> {{ order_number }}
+                                        </p>
+                                        <p style="margin: 0 0 4px 0; font-size: 15px; color: #212121;">
+                                            <strong>Strona sprzedaży:</strong> {{ page_name }}
+                                        </p>
+                                        {% if reason %}
+                                        <p style="margin: 0; font-size: 15px; color: #212121;">
+                                            <strong>Powód:</strong> {{ reason }}
+                                        </p>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                            {% if refund_pending %}
+                            <!-- Zamówienie opłacone: informacja o zwrocie -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #E8F5E9; padding: 20px; border-radius: 8px;">
+                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 700; color: #2E7D32;">
+                                            Twoja wpłata zostanie zwrócona
+                                        </p>
+                                        <p style="margin: 0; font-size: 15px; color: #212121;">
+                                            Odnotowaliśmy Twoją wpłatę do tego zamówienia. Skontaktujemy się z Tobą w sprawie zwrotu pieniędzy — nie musisz nic robić. Jeśli chcesz podać inny numer konta do zwrotu, odpisz na tę wiadomość.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% else %}
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                Za to zamówienie nie zostaniesz obciążony żadną kwotą — zniknęło ono z Twojej listy płatności.
+                            </p>
+                            {% endif %}
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="mailto:kontakt@thunderorders.pl" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Skontaktuj się z nami
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin: 0; font-size: 14px; color: #757575;">
+                                Przepraszamy za kłopot i dziękujemy za wyrozumiałość.
+                            </p>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 20px 40px 40px 40px; border-top: 1px solid #EEEEEE;">
+                            <p style="margin: 0; font-size: 13px; color: #9E9E9E; text-align: center;">
+                                ThunderOrders — wiadomość wysłana automatycznie.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
