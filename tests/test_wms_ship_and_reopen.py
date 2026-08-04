@@ -101,3 +101,89 @@ def test_session_ship_sr_without_tracking(client, db, make_user, make_order, log
     assert OrderShipment.query.count() == 0          # bez numeru nie ma wpisu przesyłki
     assert notifications['tracking'] == []
     assert notifications['status'] == [o.id for o in orders]
+
+
+# ---------- Task 2: wysyłka z listy zleceń ----------
+
+def test_ship_from_list_with_tracking(client, db, make_user, make_order, login, notifications):
+    from modules.orders.models import OrderShipment
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=2)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'courier': 'dpd', 'tracking_number': 'XYZ999', 'parcel_size': 'A'})
+
+    assert r.status_code == 200
+    db.session.refresh(sr)
+    assert sr.status == 'wyslane'
+    assert sr.courier == 'dpd'
+    assert all(o.status == 'wyslane' for o in orders)
+    assert OrderShipment.query.filter_by(tracking_number='XYZ999').count() == 2
+    assert sorted(notifications['tracking']) == sorted(o.id for o in orders)
+
+
+def test_ship_from_list_without_tracking(client, db, make_user, make_order, login, notifications):
+    from modules.orders.models import OrderShipment
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship', json={})
+
+    assert r.status_code == 200
+    db.session.refresh(sr)
+    assert sr.status == 'wyslane'
+    assert OrderShipment.query.count() == 0
+    assert notifications['status'] == [o.id for o in orders]
+
+
+def test_ship_from_list_rejects_not_packed(client, db, make_user, make_order, login, notifications):
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+    sr.status = 'oplacone'
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'tracking_number': 'AAA'})
+
+    assert r.status_code == 400
+    db.session.refresh(sr)
+    assert sr.status == 'oplacone'
+    assert notifications['tracking'] == []
+
+
+def test_ship_from_list_rejects_already_shipped(client, db, make_user, make_order, login,
+                                                notifications):
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+    sr.status = 'wyslane'
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'tracking_number': 'BBB'})
+
+    assert r.status_code in (400, 409)
+    assert notifications['tracking'] == []   # klient nie dostaje drugiego trackingu
+
+
+def test_ship_from_list_rejects_order_locked_in_session(client, db, make_user, make_order, login,
+                                                        notifications):
+    from modules.orders.models import get_local_now
+    admin = make_user(role='admin')
+    login(admin)
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+    session = _wms_session(db, admin)
+    orders[0].wms_locked_at = get_local_now()
+    orders[0].wms_session_id = session.id
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'tracking_number': 'CCC'})
+
+    assert r.status_code == 409
+    db.session.refresh(sr)
+    assert sr.status == 'spakowane'

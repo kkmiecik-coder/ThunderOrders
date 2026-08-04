@@ -925,6 +925,71 @@ def wms_ship_sr(session_id):
         }), 500
 
 
+def _wms_lock_blocking_session(sr):
+    """Id otwartej sesji WMS blokującej którekolwiek zamówienie zlecenia, albo None."""
+    lock_cutoff = get_local_now() - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
+    for order in sr.orders:
+        if order.wms_locked_at and order.wms_locked_at > lock_cutoff:
+            return order.wms_session_id
+    return None
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:sr_id>/ship', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_ship_shipping_request(sr_id):
+    """
+    Oznacza spakowane zlecenie jako wysłane — poza sesją WMS, z listy zleceń.
+    Logika wspólna z panelem w sesji — patrz wms_utils.ship_shipping_request().
+    """
+    sr = ShippingRequest.query.get_or_404(sr_id)
+    data = request.get_json(silent=True) or {}
+
+    if sr.status == 'wyslane':
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} jest już wysłane',
+        }), 409
+
+    if sr.status != 'spakowane':
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} nie jest spakowane '
+                        f'(status: „{sr.status_display_name}")'),
+        }), 400
+
+    blocking_session_id = _wms_lock_blocking_session(sr)
+    if blocking_session_id:
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} jest w otwartej sesji WMS '
+                        f'#{blocking_session_id} — dokończ ją albo anuluj'),
+        }), 409
+
+    try:
+        result = ship_shipping_request(
+            sr,
+            courier=data.get('courier'),
+            tracking_number=data.get('tracking_number'),
+            parcel_size=data.get('parcel_size'),
+            shipping_cost=data.get('shipping_cost'),
+            order_costs=data.get('order_costs', []),
+            user=current_user,
+        )
+    except ShippingRequestAlreadyShipped as e:
+        return jsonify({'success': False, 'message': str(e)}), 409
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Ship SR from list error: {e}')
+        return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
+
+    return jsonify({
+        'success': True,
+        'message': f'Zlecenie {sr.request_number} oznaczone jako wysłane',
+        'shipping_request': result,
+    })
+
+
 @orders_bp.route('/admin/orders/wms/<int:session_id>/complete', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
