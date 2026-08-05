@@ -239,15 +239,19 @@ def test_mieszana_paczka_zamowien(db, make_user, make_order, make_page, make_con
 
 
 def _przechwyc_wysylke(monkeypatch):
-    """Podmienia batch mailowy i push — zwraca listę przechwyconych paczek maili."""
+    """Podmienia batch mailowy i wyjście push — zwraca listę przechwyconych paczek maili.
+
+    Push ucinamy dopiero na `_fire_and_forget`, a NIE na `notify_order_cancelled`:
+    podmiana całej metody ukryła kiedyś produkcyjny błąd jej sygnatury
+    (patrz tests/test_push_order_cancelled.py).
+    """
     from utils.push_manager import PushManager
 
     wyslane = []
     monkeypatch.setattr('utils.email_sender.send_email_batch', lambda msgs: wyslane.append(msgs))
     monkeypatch.setattr(
-        PushManager, 'notify_order_cancelled',
-        lambda order, refund_pending=False: None,
-        raising=False,
+        PushManager, '_fire_and_forget',
+        staticmethod(lambda **kwargs: None),
     )
     return wyslane
 

@@ -548,28 +548,6 @@ class PushManager:
         )
 
     @staticmethod
-    def notify_order_cancelled(order, refund_pending=False):
-        """Push: zamówienie anulowane z podsumowania zbiórki."""
-        user_id = order.user_id
-        if not user_id:
-            return
-
-        from flask import url_for
-        body = (
-            'Zamówienie anulowane. Twoja wpłata zostanie zwrócona.'
-            if refund_pending
-            else 'Zamówienie anulowane. Nie masz nic do zapłaty.'
-        )
-        PushManager._fire_and_forget(
-            user_id=user_id,
-            title=f'Anulowano: {order.order_number}',
-            body=body,
-            url=url_for('orders.client_detail', order_id=order.id, _external=True),
-            tag=f'order-cancelled-{order.id}',
-            notification_type='order_status_changes'
-        )
-
-    @staticmethod
     def notify_supplier_ordered(order):
         """Push: zam\u00f3wienie zosta\u0142o zam\u00f3wione u dostawcy."""
         user_id = order.user_id
@@ -836,17 +814,43 @@ class PushManager:
     # ========================================
 
     @staticmethod
-    def notify_order_cancelled(order, reason=None):
-        """Push notification when an order is cancelled."""
+    def notify_order_cancelled(order, reason=None, refund_pending=False):
+        """Push: zamówienie anulowane.
+
+        Jedna metoda dla obu ścieżek anulowania (masowe anulowanie z podsumowania
+        zbiórki i "nie załapało się do kompletu"). Wcześniej istniały DWIE definicje
+        o tej samej nazwie — późniejsza cicho nadpisywała wcześniejszą i wywołania
+        z `refund_pending` wywalały się na produkcji.
+
+        Args:
+            order: anulowane zamówienie
+            reason: powód anulowania (opcjonalny), np. 'Wyprzedane'
+            refund_pending: czy klient ma już wpłatę i odzyska pieniądze
+        """
         user_id = order.user_id
         if not user_id:
             return
 
         from flask import url_for
+
+        # Klient najbardziej chce wiedzieć, co z jego pieniędzmi — to zawsze w treści.
+        money = (
+            'Twoja wpłata zostanie zwrócona.'
+            if refund_pending
+            else 'Nie masz nic do zapłaty.'
+        )
+        reason = (reason or '').strip()
+        if reason:
+            if reason[-1] not in '.!?':
+                reason += '.'
+            body = f'{reason} {money}'
+        else:
+            body = f'Zamówienie anulowane. {money}'
+
         PushManager._fire_and_forget(
             user_id=user_id,
-            title=f'Zamówienie anulowane: {order.order_number}',
-            body=reason or 'Zamówienie zostało anulowane',
+            title=f'Anulowano: {order.order_number}',
+            body=body,
             url=url_for('orders.client_detail', order_id=order.id, _external=True),
             tag=f'order-cancelled-{order.id}',
             notification_type='order_status_changes'
