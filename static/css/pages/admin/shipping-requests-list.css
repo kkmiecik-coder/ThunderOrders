@@ -389,6 +389,43 @@
     word-break: break-word;
 }
 
+/* Uwagi: JS przycina tekst do 2 linijek i dokleja "…" + przycisk tuż za
+   ostatnim widocznym słowem (patrz initNotesClamp w shipping-requests.js).
+   max-height/overflow to tylko zabezpieczenie, gdyby przycięty tekst mimo
+   wszystko odrobinę przekroczył 2 linijki (np. bardzo długie pojedyncze słowo). */
+.sr-notes-clamp {
+    position: relative;
+    line-height: 1.4em;
+    max-height: 2.8em;
+    overflow: hidden;
+}
+
+.sr-notes-clamp.sr-notes-expanded {
+    max-height: none;
+    overflow: visible;
+}
+
+.sr-notes-toggle {
+    display: none;
+    margin-left: 4px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: #667eea;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.sr-notes-clamp.sr-has-more .sr-notes-toggle {
+    display: inline;
+}
+
+.sr-notes-toggle:hover {
+    text-decoration: underline;
+}
+
 /* Cienka jasna linia oddzielająca produkty */
 .sr-divider {
     border: none;
@@ -433,6 +470,25 @@
 }
 
 .sr-order-toggle:hover {
+    background: rgba(102, 126, 234, 0.08);
+}
+
+/* Przycisk "Pokaż więcej" dla listy zleceń w karcie, gdy jest ich > 3 */
+.sr-orders-toggle {
+    align-self: flex-start;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border: 1px solid #d8d8dd;
+    border-radius: 6px;
+    background: transparent;
+    color: #667eea;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sr-orders-toggle:hover {
     background: rgba(102, 126, 234, 0.08);
 }
 
@@ -695,6 +751,10 @@
     color: rgba(255, 255, 255, 0.85);
 }
 
+[data-theme="dark"] .sr-notes-toggle {
+    color: #f093fb;
+}
+
 [data-theme="dark"] .sr-divider {
     border-top-color: rgba(255, 255, 255, 0.12);
 }
@@ -722,6 +782,15 @@
 }
 
 [data-theme="dark"] .sr-order-toggle:hover {
+    background: rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .sr-orders-toggle {
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-orders-toggle:hover {
     background: rgba(240, 147, 251, 0.12);
 }
 

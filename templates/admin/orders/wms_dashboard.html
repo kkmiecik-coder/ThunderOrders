@@ -303,7 +303,11 @@
                                 </div>
                                 <div class="sr-extra-item">
                                     <span class="sr-extra-label">Uwagi</span>
-                                    <span class="sr-extra-value">{{ sr.client_notes or '—' }}</span>
+                                    {% if sr.client_notes %}
+                                    <span class="sr-extra-value sr-notes-clamp"><span class="sr-notes-text">{{ sr.client_notes }}</span><button type="button" class="sr-notes-toggle" onclick="event.stopPropagation(); toggleNotesClamp(this);">Pokaż więcej</button></span>
+                                    {% else %}
+                                    <span class="sr-extra-value">—</span>
+                                    {% endif %}
                                 </div>
                             </div>
 
@@ -312,7 +316,7 @@
                             <div class="sr-orders-compact">
                                 {% for order in sr.orders %}
                                 {% set n = order.items|length %}
-                                <div class="sr-order-compact">
+                                <div class="sr-order-compact{% if loop.index > 3 %} sr-order-extra{% endif %}"{% if loop.index > 3 %} style="display: none;"{% endif %}>
                                     <svg class="sr-order-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
                                     <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
                                     <span class="sr-order-count">· {{ n }} {% if n == 1 %}produkt{% elif n % 10 in [2, 3, 4] and n % 100 not in [12, 13, 14] %}produkty{% else %}produktów{% endif %}</span>
@@ -329,6 +333,9 @@
                                     {% endif %}
                                 </div>
                                 {% endfor %}
+                                {% if sr.orders|length > 3 %}
+                                <button type="button" class="sr-orders-toggle" data-expanded="false" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ sr.orders|length - 3 }})</button>
+                                {% endif %}
                             </div>
 
                             <div class="sr-meta">

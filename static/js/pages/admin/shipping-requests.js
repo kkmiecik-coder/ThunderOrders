@@ -734,6 +734,99 @@ function toggleOrderProducts(button) {
 }
 
 /**
+ * Toggle visibility of the shipping request's orders beyond the first 3
+ * @param {HTMLElement} button - The "Pokaż więcej" button rendered after the orders list
+ */
+function toggleExtraOrders(button) {
+    // Przycisk jest dzieckiem .sr-orders-compact, obok wierszy zamówień
+    // (nie jego sąsiadem) — ukryte wiersze szukamy więc wśród rodzeństwa.
+    const container = button.parentElement;
+    if (!container) return;
+
+    const hiddenOrders = container.querySelectorAll('.sr-order-extra');
+    if (!hiddenOrders.length) return;
+
+    const isExpanded = button.dataset.expanded === 'true';
+
+    hiddenOrders.forEach((order) => {
+        order.style.display = isExpanded ? 'none' : '';
+    });
+
+    if (isExpanded) {
+        button.textContent = `Pokaż więcej (${hiddenOrders.length})`;
+        button.dataset.expanded = 'false';
+    } else {
+        button.textContent = 'Pokaż mniej';
+        button.dataset.expanded = 'true';
+    }
+}
+
+/**
+ * Dla każdego pola "Uwagi", które nie mieści się w 2 linijkach, przycina
+ * widoczny tekst (wyszukiwaniem binarnym po słowach) tak, żeby razem z "…"
+ * kończył się dokładnie tam, gdzie ma stanąć przycisk "Pokaż więcej" —
+ * czysty CSS (line-clamp/float) nie daje przycisku dokleić się do ostatniego
+ * widocznego słowa, gdy pełny tekst jest dłuższy niż klamrowany obszar.
+ */
+function initNotesClamp() {
+    document.querySelectorAll('.sr-notes-clamp').forEach((clamp) => {
+        const textEl = clamp.querySelector('.sr-notes-text');
+        const btn = clamp.querySelector('.sr-notes-toggle');
+        if (!textEl || !btn) return;
+
+        // scrollHeight/clientHeight na samym <span> tekstu to zawsze 0 (element
+        // inline bez własnego "boxa"). Mierzymy więc na .sr-notes-clamp, które
+        // ma max-height + overflow: hidden z CSS — clientHeight to zawsze
+        // wysokość 2 linijek, scrollHeight to rzeczywista wysokość treści.
+        const fullText = textEl.textContent.trim();
+        const maxHeight = clamp.clientHeight;
+
+        // Przycisk musi być widoczny już na czas pomiaru — inaczej po jego
+        // pokazaniu jego własna szerokość dokłada się na końcu ostatniej
+        // linijki i zawija tekst na (przyciętą) trzecią linijkę.
+        clamp.classList.add('sr-has-more');
+
+        if (clamp.scrollHeight <= maxHeight + 1) {
+            clamp.classList.remove('sr-has-more');
+            return;
+        }
+
+        const words = fullText.split(' ');
+        let lo = 0;
+        let hi = words.length;
+
+        while (lo < hi) {
+            const mid = lo + Math.ceil((hi - lo) / 2);
+            textEl.textContent = words.slice(0, mid).join(' ') + '…';
+            if (clamp.scrollHeight <= maxHeight + 1) {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+
+        const truncatedText = words.slice(0, lo).join(' ') + '…';
+        textEl.textContent = truncatedText;
+        clamp.dataset.fullText = fullText;
+        clamp.dataset.truncatedText = truncatedText;
+    });
+}
+
+/**
+ * Toggle "Uwagi" text between truncated (2 lines) and full content
+ * @param {HTMLElement} button - The inline "Pokaż więcej/mniej" toggle
+ */
+function toggleNotesClamp(button) {
+    const clamp = button.closest('.sr-notes-clamp');
+    const textEl = clamp?.querySelector('.sr-notes-text');
+    if (!clamp || !textEl) return;
+
+    const isExpanded = clamp.classList.toggle('sr-notes-expanded');
+    textEl.textContent = isExpanded ? clamp.dataset.fullText : clamp.dataset.truncatedText;
+    button.textContent = isExpanded ? 'Pokaż mniej' : 'Pokaż więcej';
+}
+
+/**
  * Get CSRF token from the page
  */
 function getCSRFToken() {
@@ -827,4 +920,6 @@ document.addEventListener('DOMContentLoaded', function() {
             closeSelectMenu();
         }
     });
+
+    initNotesClamp();
 });
