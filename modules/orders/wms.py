@@ -1157,7 +1157,7 @@ def wms_cancel_session(session_id):
         return jsonify({
             'success': True,
             'message': 'Sesja WMS anulowana — zamówienia odblokowane',
-            'redirect_url': url_for('orders.admin_list'),
+            'redirect_url': url_for('orders.wms_dashboard'),
         })
 
     except Exception as e:
