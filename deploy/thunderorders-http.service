@@ -7,7 +7,10 @@ Type=notify
 User=konrad
 Group=konrad
 WorkingDirectory=/var/www/ThunderOrders
-Environment="PATH=/var/www/ThunderOrders/venv/bin"
+# Katalogi systemowe MUSZĄ być w PATH — OCR wywołuje binarki spoza venv
+# (tesseract, pdfinfo/pdftoppm z poppler-utils). Bez nich weryfikacja
+# potwierdzeń płatności cicho zwraca 0%/None i nic nie jest auto-zatwierdzane.
+Environment="PATH=/var/www/ThunderOrders/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="GUNICORN_LOG_DIR=/var/www/ThunderOrders/logs"
 ExecStart=/var/www/ThunderOrders/venv/bin/gunicorn -c gunicorn_http.py wsgi:application
 ExecReload=/bin/kill -s HUP $MAINPID
