@@ -15,6 +15,34 @@ let selectedRequestClients = new Map();
 // status z karty potrzebują tego zapasowego źródła (patrz bulkMarkShipped).
 let selectedRequestStatuses = new Map();
 
+// Paginacja to zwykłe przeładowanie strony (<a href>), więc zaznaczenie trzymane
+// tylko w zmiennych JS ginie przy zmianie strony. sessionStorage (jak przy
+// srDeleteNotice) przenosi je przez przeładowanie; czyszczone jawnie tam, gdzie
+// zaznaczenie zostaje skonsumowane przez akcję zbiorczą (patrz wywołania niżej).
+const SR_SELECTION_STORAGE_KEY = 'wmsShippingSelection';
+
+function persistSelection() {
+    sessionStorage.setItem(SR_SELECTION_STORAGE_KEY, JSON.stringify({
+        ids: Array.from(selectedRequests),
+        clients: Array.from(selectedRequestClients.entries()),
+        statuses: Array.from(selectedRequestStatuses.entries()),
+    }));
+}
+
+function restoreSelection() {
+    const raw = sessionStorage.getItem(SR_SELECTION_STORAGE_KEY);
+    if (!raw) return;
+
+    try {
+        const data = JSON.parse(raw);
+        selectedRequests = new Set(data.ids || []);
+        selectedRequestClients = new Map(data.clients || []);
+        selectedRequestStatuses = new Map(data.statuses || []);
+    } catch (error) {
+        sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
+    }
+}
+
 /**
  * Toggle card selection when clicking on the card
  * @param {HTMLElement} card - The card element
@@ -54,6 +82,7 @@ function handleCheckboxChange(checkbox) {
         card.classList.remove('selected');
     }
 
+    persistSelection();
     updateBulkToolbar();
 }
 
@@ -132,6 +161,7 @@ function clearSelection() {
     selectedRequests.clear();
     selectedRequestClients.clear();
     selectedRequestStatuses.clear();
+    sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
 
     // Uncheck all checkboxes
     document.querySelectorAll('.sr-checkbox').forEach(checkbox => {
@@ -209,6 +239,7 @@ async function selectAllPages() {
             selectedRequestStatuses.set(id, row.status || '');
         });
 
+        persistSelection();
         syncCheckboxesWithSelection();
         updateBulkToolbar();
         window.showToast(
@@ -324,6 +355,7 @@ async function bulkDeleteRequests() {
             if (data.skipped_count && data.skipped_count > 0) {
                 sessionStorage.setItem('srDeleteNotice', data.message);
             }
+            sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
             window.location.reload();
         } else {
             window.showToast(data.message || data.error || 'Nie udało się usunąć zleceń', 'error');
@@ -366,6 +398,7 @@ async function bulkMergeRequests() {
         });
 
         if (response.ok) {
+            sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
             window.location.reload();
         } else {
             const data = await response.json();
@@ -557,6 +590,7 @@ async function createWmsSession(shippingRequestIds, reopenMode) {
         const data = await response.json();
 
         if (response.ok && data.redirect_url) {
+            sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
             window.location.href = data.redirect_url;
         } else {
             // Backend (wms_create_session) zwraca 'message' (i ewentualnie listę
@@ -748,6 +782,13 @@ document.addEventListener('DOMContentLoaded', function() {
         sessionStorage.removeItem('srDeleteNotice');
         window.showToast(deleteNotice, 'warning', 10000);
     }
+
+    // Odtwarza zaznaczenie zapisane przed przejściem na inną stronę listy —
+    // dotyczy tylko kart obecnych w DOM tej strony, reszta zostaje w pamięci
+    // (patrz selectAllPages / SR_SELECTION_STORAGE_KEY).
+    restoreSelection();
+    syncCheckboxesWithSelection();
+    updateBulkToolbar();
 
     const selectToggle = document.getElementById('srSelectToggle');
     if (selectToggle) {

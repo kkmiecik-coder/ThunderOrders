@@ -770,6 +770,7 @@
 
         if (!failed.length) {
             closeModal();
+            sessionStorage.removeItem('wmsShippingSelection');
             window.location.reload();
             return;
         }
@@ -801,6 +802,7 @@
             const data = await resp.json();
             if (data.success) {
                 closeModal();
+                sessionStorage.removeItem('wmsShippingSelection');
                 window.location.reload();
             } else {
                 notify(data.message || data.error || 'Nie udało się anulować zlecenia', 'error');
