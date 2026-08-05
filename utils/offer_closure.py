@@ -1335,9 +1335,12 @@ def send_cancellation_emails(page_id, cancelled_order_ids):
             order, page, cancelled_items,
             reason='Żaden z produktów w Twoim zamówieniu nie załapał się do kompletu.'
         )
+        # Klient z wpłatą musi usłyszeć o zwrocie także w tej ścieżce — nie tylko
+        # przy masowym anulowaniu z podsumowania (notify_cancelled_orders).
         PushManager.notify_order_cancelled(
             order,
-            reason='Żaden z produktów nie załapał się do kompletu.'
+            reason='Żaden z produktów nie załapał się do kompletu.',
+            refund_pending=order_has_payment(order),
         )
 
 
