@@ -487,7 +487,7 @@ class PolandOrderItemOrder(db.Model):
         'PolandOrderItem',
         backref=db.backref('order_allocations', cascade='all, delete-orphan'),
     )
-    order = db.relationship('Order')
+    order = db.relationship('Order', backref=db.backref('poland_item_allocations', cascade='all, delete-orphan'))
 
     __table_args__ = (
         db.UniqueConstraint('poland_order_item_id', 'order_id', name='uq_poland_order_item_order'),

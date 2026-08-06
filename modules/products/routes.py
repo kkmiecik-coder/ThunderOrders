@@ -2956,6 +2956,14 @@ def create_group_proxy_order():
                     selected_size=proxy_item.selected_size,
                 )
                 db.session.add(poland_item)
+                db.session.flush()
+
+                for allocated_order_id, allocated_qty in _allocate_batch_units_to_orders(poland_item):
+                    db.session.add(PolandOrderItemOrder(
+                        poland_order_item_id=poland_item.id,
+                        order_id=allocated_order_id,
+                        quantity=allocated_qty,
+                    ))
 
             result_order_number = poland_order_number
             result_tab = 'polska'
@@ -3677,6 +3685,10 @@ def _allocate_batch_units_to_orders(poland_item):
                 db.and_(
                     PolandOrder.created_at == poland_order.created_at,
                     PolandOrder.id < poland_order.id,
+                ),
+                db.and_(
+                    PolandOrder.id == poland_order.id,
+                    PolandOrderItem.id < poland_item.id,
                 ),
             ),
         )

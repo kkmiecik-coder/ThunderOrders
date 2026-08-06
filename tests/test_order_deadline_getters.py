@@ -154,3 +154,48 @@ def test_get_shipping_kr_deadline_returns_earliest_across_batches(db, make_user,
     _batch(product_b, datetime(2026, 8, 20, 23, 59))  # wcześniejszy
 
     assert order.get_shipping_kr_deadline() == datetime(2026, 8, 20, 23, 59)
+
+
+def test_get_shipping_kr_deadline_ignores_cancelled_batch(db, make_user, make_product, make_order):
+    """Regresja: anulowana partia (PolandOrder.status == 'anulowane') nie może
+    przesłonić terminu żywej partii, nawet jeśli jej payment_deadline jest
+    wcześniejszy — klient nie dostaje przypomnienia o wysyłce, której już nie ma.
+    """
+    from decimal import Decimal
+    from modules.orders.models import OrderItem
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, PolandOrderItemOrder
+
+    user = make_user()
+    product_a = make_product()
+    product_b = make_product()
+    order = make_order(user, offer_page_id=1)
+    db.session.add(OrderItem(order_id=order.id, product_id=product_a.id, quantity=1,
+                              price=Decimal('100'), total=Decimal('100')))
+    db.session.add(OrderItem(order_id=order.id, product_id=product_b.id, quantity=1,
+                              price=Decimal('100'), total=Decimal('100')))
+    db.session.commit()
+
+    def _batch(product, deadline, status):
+        proxy = ProxyOrder(order_number=f'PRX/C{product.id}', order_type='proxy')
+        db.session.add(proxy)
+        db.session.flush()
+        proxy_item = ProxyOrderItem(proxy_order_id=proxy.id, product_id=product.id,
+                                     quantity=1, unit_price=Decimal('100'), total_price=Decimal('100'))
+        db.session.add(proxy_item)
+        db.session.flush()
+        poland_order = PolandOrder(order_number=f'PRX/PL/C{product.id}', proxy_order_id=proxy.id,
+                                    status=status, payment_deadline=deadline)
+        db.session.add(poland_order)
+        db.session.flush()
+        poland_item = PolandOrderItem(poland_order_id=poland_order.id, proxy_order_item_id=proxy_item.id,
+                                       product_id=product.id, quantity=1)
+        db.session.add(poland_item)
+        db.session.flush()
+        db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_item.id, order_id=order.id, quantity=1))
+        db.session.commit()
+
+    # Anulowana partia ma WCZEŚNIEJSZY termin — nie powinna wygrać.
+    _batch(product_a, datetime(2026, 8, 10, 23, 59), status='anulowane')
+    _batch(product_b, datetime(2026, 9, 5, 23, 59), status='zamowione')
+
+    assert order.get_shipping_kr_deadline() == datetime(2026, 9, 5, 23, 59)

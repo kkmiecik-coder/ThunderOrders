@@ -1062,7 +1062,7 @@ class Order(db.Model):
         deadlines = [
             item.poland_order.payment_deadline
             for item in self._get_poland_items()
-            if item.poland_order and item.poland_order.payment_deadline
+            if item.poland_order and item.poland_order.status != 'anulowane' and item.poland_order.payment_deadline
         ]
         return min(deadlines) if deadlines else None
 
@@ -1074,7 +1074,7 @@ class Order(db.Model):
         deadlines = [
             item.poland_order.customs_payment_deadline
             for item in self._get_poland_items()
-            if item.poland_order and item.poland_order.customs_payment_deadline
+            if item.poland_order and item.poland_order.status != 'anulowane' and item.poland_order.customs_payment_deadline
         ]
         return min(deadlines) if deadlines else None
 

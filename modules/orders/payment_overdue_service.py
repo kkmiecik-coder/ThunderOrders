@@ -82,8 +82,9 @@ def get_order_overdue_stages(order, now=None):
 def get_overdue_orders_summary():
     """Zwraca aktywne zamówienia z >=1 zaległym etapem, najdłużej zalegające pierwsze.
 
-    Dociąga relacje (offer_page, shipping_request_orders, PolandOrderItem,
-    PaymentConfirmation) zbiorczo przed pętlą, zamiast per-zamówienie —
+    Dociąga relacje (offer_page, shipping_request_orders,
+    PolandOrderItemOrder → PolandOrderItem → PolandOrder, PaymentConfirmation)
+    zbiorczo przed pętlą, zamiast per-zamówienie —
     inaczej to N+1 zapytań (2000+ zamówień x kilka lazy-loadów w
     get_order_overdue_stages = kilkanaście tysięcy zapytań, kilkanaście
     sekund na dashboardzie admina).
