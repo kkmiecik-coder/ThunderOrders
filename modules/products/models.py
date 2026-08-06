@@ -461,6 +461,42 @@ class PolandOrderItem(db.Model):
         return f'<PolandOrderItem {self.id} - Product {self.product_id}>'
 
 
+class PolandOrderItemOrder(db.Model):
+    """Łączy pozycję partii (PolandOrderItem) z konkretnymi zamówieniami
+    klientów, którym przypadły jednostki z tej partii.
+
+    Zastępuje PolandOrderItem.order_id / ProxyOrderItem.order_id — te kolumny
+    zakładały 1 partia = 1 zamówienie, co nie jest prawdą przy agregacji
+    (create_stock_orders_from_aggregation łączy ten sam produkt z wielu
+    zamówień klientów w jedną ProxyOrderItem/PolandOrderItem). Ta tabela
+    pozwala jednej partii wskazywać wielu klientów naraz, z rozbiciem ilości.
+
+    Wypełniana w modules/products/routes.py::create_poland_order() przez
+    _allocate_batch_units_to_orders().
+    """
+    __tablename__ = 'poland_order_item_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    poland_order_item_id = db.Column(db.Integer, db.ForeignKey('poland_order_items.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+
+    created_at = db.Column(db.DateTime, default=get_local_now)
+
+    poland_order_item = db.relationship(
+        'PolandOrderItem',
+        backref=db.backref('order_allocations', cascade='all, delete-orphan'),
+    )
+    order = db.relationship('Order')
+
+    __table_args__ = (
+        db.UniqueConstraint('poland_order_item_id', 'order_id', name='uq_poland_order_item_order'),
+    )
+
+    def __repr__(self):
+        return f'<PolandOrderItemOrder item={self.poland_order_item_id} order={self.order_id} qty={self.quantity}>'
+
+
 class CartItem(db.Model):
     """Shopping cart item for on-hand products."""
     __tablename__ = 'cart_items'
