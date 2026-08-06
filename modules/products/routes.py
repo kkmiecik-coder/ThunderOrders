@@ -3650,6 +3650,68 @@ def _allocate_product_shipping_fifo(product_id):
     return alloc
 
 
+def _allocate_batch_units_to_orders(poland_item):
+    """
+    Dla danej partii produktu (PolandOrderItem) ustala, które zamówienia
+    klientów (i ile sztuk) przypadają na TĘ partię — ten sam model PER PARTIA
+    + FIFO co _allocate_product_shipping_fifo (partie wg daty utworzenia,
+    sztuki klientów wg daty złożenia zamówienia), ale zwraca rozbicie ilości
+    zamiast kosztu. Używane do wypełnienia PolandOrderItemOrder.
+
+    Zwraca listę (order_id, ilość), w kolejności FIFO zamówień klientów.
+    """
+    from modules.orders.models import Order
+    from modules.products.models import PolandOrder
+
+    product_id = poland_item.product_id
+    poland_order = poland_item.poland_order
+
+    earlier_items = (
+        PolandOrderItem.query
+        .join(PolandOrder, PolandOrderItem.poland_order_id == PolandOrder.id)
+        .filter(
+            PolandOrderItem.product_id == product_id,
+            PolandOrder.status != 'anulowane',
+            db.or_(
+                PolandOrder.created_at < poland_order.created_at,
+                db.and_(
+                    PolandOrder.created_at == poland_order.created_at,
+                    PolandOrder.id < poland_order.id,
+                ),
+            ),
+        )
+        .all()
+    )
+    batch_start = sum(pi.quantity or 0 for pi in earlier_items)
+    batch_end = batch_start + (poland_item.quantity or 0)
+
+    client_orders = (
+        Order.query
+        .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
+        .order_by(Order.created_at.asc(), Order.id.asc())
+        .all()
+    )
+
+    result = []
+    cursor = 0
+    for order in client_orders:
+        qty = sum(
+            _client_item_qty(item)
+            for item in order.items
+            if item.product_id == product_id
+        )
+        if qty <= 0:
+            continue
+        order_start, order_end = cursor, cursor + qty
+        cursor = order_end
+
+        overlap = min(order_end, batch_end) - max(order_start, batch_start)
+        if overlap > 0:
+            result.append((order.id, overlap))
+
+    return result
+
+
 def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
     """
     Przelicza koszty dostawy proxy (Wysyłka KR) na zamówienia klientów (exclusive).
