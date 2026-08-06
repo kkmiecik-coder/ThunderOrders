@@ -18,7 +18,7 @@ from modules.products import products_bp
 from modules.products.models import (
     Product, Category, Tag, Size, Supplier, ProductImage, product_tags, product_sizes,
     ProxyOrder, ProxyOrderItem,
-    PolandOrder, PolandOrderItem,
+    PolandOrder, PolandOrderItem, PolandOrderItemOrder,
     Manufacturer, ProductSeries, VariantGroup
 )
 from modules.products.forms import (
@@ -3931,12 +3931,23 @@ def create_poland_order():
                 poland_order_id=poland_order.id,
                 proxy_order_item_id=proxy_item.id,
                 product_id=proxy_item.product_id,
+                # order_id: legacy, nigdy nie jest wypełniane (jedna partia bywa
+                # sumą wielu zamówień klientów) — prawdziwe powiązanie niżej,
+                # przez PolandOrderItemOrder / _allocate_batch_units_to_orders.
                 order_id=proxy_item.order_id,
                 quantity=proxy_item.quantity,
                 shipping_cost=shipping_cost,
                 selected_size=proxy_item.selected_size,
             )
             db.session.add(poland_item)
+            db.session.flush()
+
+            for allocated_order_id, allocated_qty in _allocate_batch_units_to_orders(poland_item):
+                db.session.add(PolandOrderItemOrder(
+                    poland_order_item_id=poland_item.id,
+                    order_id=allocated_order_id,
+                    quantity=allocated_qty,
+                ))
 
             total_amount += proxy_item.total_price + shipping_cost
             total_shipping_declared += shipping_cost

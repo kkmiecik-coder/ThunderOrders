@@ -140,3 +140,43 @@ def test_partial_fulfillment_reduces_effective_quantity(db, make_user, make_prod
     poland_item = _make_batch_item(db, p.id, 1, base + timedelta(hours=1))
 
     assert _allocate_batch_units_to_orders(poland_item) == [(o.id, 1)]
+
+
+def test_create_poland_order_endpoint_persists_allocations(client, db, make_user, make_product, make_order, login):
+    """Integracyjny: prawdziwe wywołanie POST /admin/products/api/create-poland-order
+    musi zapisać PolandOrderItemOrder dla zamówienia klienta, którego produkt
+    trafił do tej partii."""
+    from modules.orders.models import OrderItem
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrderItemOrder
+
+    admin = make_user(role='admin', profile_completed=True)
+    login(admin)
+
+    product = make_product()
+    client_user = make_user()
+    order = make_order(client_user, offer_page_id=1)
+    db.session.add(OrderItem(order_id=order.id, product_id=product.id, quantity=2,
+                              price=Decimal('100'), total=Decimal('200')))
+    db.session.commit()
+
+    proxy = ProxyOrder(order_number='PRX/E1', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    proxy_item = ProxyOrderItem(proxy_order_id=proxy.id, product_id=product.id,
+                                 quantity=2, unit_price=Decimal('100'), total_price=Decimal('200'))
+    db.session.add(proxy_item)
+    db.session.commit()
+
+    resp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': '20.00',
+        'payment_deadline': '2026-09-01T23:59:00',
+        'items': [{'proxy_order_item_id': proxy_item.id, 'shipping_cost': '20.00'}],
+    })
+
+    assert resp.status_code == 200, resp.get_json()
+    assert resp.get_json()['success'] is True
+
+    links = PolandOrderItemOrder.query.filter_by(order_id=order.id).all()
+    assert len(links) == 1
+    assert links[0].quantity == 2
