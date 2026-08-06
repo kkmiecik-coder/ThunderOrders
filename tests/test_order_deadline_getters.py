@@ -61,6 +61,10 @@ def test_get_shipping_kr_deadline_finds_batch_customer_belongs_to(db, make_user,
     db.session.add(poland_item)
     db.session.commit()
 
+    from modules.products.models import PolandOrderItemOrder
+    db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_item.id, order_id=order.id, quantity=1))
+    db.session.commit()
+
     assert order.get_shipping_kr_deadline() == deadline, (
         "get_shipping_kr_deadline() zwrócił None mimo że deadline jest ustawiony "
         "na PolandOrder tej partii — order_id nigdy nie łączy zamówienia klienta "
@@ -99,8 +103,54 @@ def test_get_customs_vat_deadline_finds_batch_customer_belongs_to(db, make_user,
     db.session.add(poland_item)
     db.session.commit()
 
+    from modules.products.models import PolandOrderItemOrder
+    db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_item.id, order_id=order.id, quantity=1))
+    db.session.commit()
+
     assert order.get_customs_vat_deadline() == customs_deadline, (
         "get_customs_vat_deadline() zwrócił None mimo że termin cła jest ustawiony "
         "na PolandOrder tej partii — order_id nigdy nie łączy zamówienia klienta "
         "z jego PolandOrderItem."
     )
+
+
+def test_get_shipping_kr_deadline_returns_earliest_across_batches(db, make_user, make_product, make_order):
+    """Zamówienie z dwoma produktami trafiającymi do dwóch różnych partii —
+    zwracamy wcześniejszy z dwóch terminów (ten wymaga uwagi pierwszy)."""
+    from decimal import Decimal
+    from modules.orders.models import OrderItem
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, PolandOrderItemOrder
+
+    user = make_user()
+    product_a = make_product()
+    product_b = make_product()
+    order = make_order(user, offer_page_id=1)
+    db.session.add(OrderItem(order_id=order.id, product_id=product_a.id, quantity=1,
+                              price=Decimal('100'), total=Decimal('100')))
+    db.session.add(OrderItem(order_id=order.id, product_id=product_b.id, quantity=1,
+                              price=Decimal('100'), total=Decimal('100')))
+    db.session.commit()
+
+    def _batch(product, deadline):
+        proxy = ProxyOrder(order_number=f'PRX/M{product.id}', order_type='proxy')
+        db.session.add(proxy)
+        db.session.flush()
+        proxy_item = ProxyOrderItem(proxy_order_id=proxy.id, product_id=product.id,
+                                     quantity=1, unit_price=Decimal('100'), total_price=Decimal('100'))
+        db.session.add(proxy_item)
+        db.session.flush()
+        poland_order = PolandOrder(order_number=f'PRX/PL/M{product.id}', proxy_order_id=proxy.id,
+                                    status='zamowione', payment_deadline=deadline)
+        db.session.add(poland_order)
+        db.session.flush()
+        poland_item = PolandOrderItem(poland_order_id=poland_order.id, proxy_order_item_id=proxy_item.id,
+                                       product_id=product.id, quantity=1)
+        db.session.add(poland_item)
+        db.session.flush()
+        db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_item.id, order_id=order.id, quantity=1))
+        db.session.commit()
+
+    _batch(product_a, datetime(2026, 9, 10, 23, 59))
+    _batch(product_b, datetime(2026, 8, 20, 23, 59))  # wcześniejszy
+
+    assert order.get_shipping_kr_deadline() == datetime(2026, 8, 20, 23, 59)

@@ -8,10 +8,10 @@ def _seed_poland_order_with_deadline(db, order, deadline):
     """Tworzy minimalny łańcuch ProxyOrder -> PolandOrder -> PolandOrderItem
     powiązany z `order`, z `customs_payment_deadline = deadline`.
 
-    Order.get_customs_vat_deadline() czyta
-    PolandOrderItem.query.filter_by(order_id=order.id).first().poland_order.customs_payment_deadline,
-    więc trzeba przejść przez cały łańcuch FK (ProxyOrder -> PolandOrder,
-    ProxyOrderItem -> PolandOrderItem), łącznie z wymaganym Product.
+    Order.get_customs_vat_deadline() czyta terminy przez PolandOrderItemOrder
+    (rozdział partii FIFO), więc trzeba przejść przez cały łańcuch FK
+    (ProxyOrder -> PolandOrder, ProxyOrderItem -> PolandOrderItem) i dodatkowo
+    utworzyć jawny link PolandOrderItemOrder — to on jest źródłem prawdy.
     """
     from modules.products.models import (
         ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, Product,
@@ -52,6 +52,10 @@ def _seed_poland_order_with_deadline(db, order, deadline):
         quantity=1,
     )
     db.session.add(poland_order_item)
+    db.session.commit()
+
+    from modules.products.models import PolandOrderItemOrder
+    db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_order_item.id, order_id=order.id, quantity=1))
     db.session.commit()
 
 
@@ -100,6 +104,10 @@ def _seed_poland_order_with_shipping_kr_deadline(db, order, deadline):
         quantity=1,
     )
     db.session.add(poland_order_item)
+    db.session.commit()
+
+    from modules.products.models import PolandOrderItemOrder
+    db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_order_item.id, order_id=order.id, quantity=1))
     db.session.commit()
 
 

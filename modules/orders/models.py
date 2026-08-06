@@ -1037,31 +1037,46 @@ class Order(db.Model):
             return self.offer_page.payment_deadline
         return None
 
-    def _get_poland_item(self):
-        """Zwraca PolandOrderItem dla tego zamówienia.
+    def _get_poland_items(self):
+        """Zwraca wszystkie PolandOrderItem powiązane z tym zamówieniem przez
+        PolandOrderItemOrder (rozdział partii FIFO — jedno zamówienie może
+        mieć produkty w kilku różnych partiach).
 
-        Jeśli `_cached_poland_item` zostało wcześniej ustawione (batch preload
+        Jeśli `_cached_poland_items` zostało wcześniej ustawione (batch preload
         w get_overdue_orders_summary, żeby uniknąć N+1 zapytań), używa go
         zamiast odpytywać bazę ponownie.
         """
-        if hasattr(self, '_cached_poland_item'):
-            return self._cached_poland_item
-        from modules.products.models import PolandOrderItem
-        return PolandOrderItem.query.filter_by(order_id=self.id).first()
+        if hasattr(self, '_cached_poland_items'):
+            return self._cached_poland_items
+        from modules.products.models import PolandOrderItemOrder
+        links = PolandOrderItemOrder.query.filter_by(order_id=self.id).all()
+        return [link.poland_order_item for link in links if link.poland_order_item]
 
     def get_shipping_kr_deadline(self):
-        """Get payment deadline for E2 (Korean shipping) from PolandOrder."""
-        poland_item = self._get_poland_item()
-        if poland_item and poland_item.poland_order:
-            return poland_item.poland_order.payment_deadline
-        return None
+        """Get payment deadline for E2 (Korean shipping) from PolandOrder.
+
+        Przy kilku partiach (różne produkty tego zamówienia trafiły do różnych
+        wysyłek) zwraca NAJWCZEŚNIEJSZY z ich terminów — ten wymaga uwagi
+        pierwszy.
+        """
+        deadlines = [
+            item.poland_order.payment_deadline
+            for item in self._get_poland_items()
+            if item.poland_order and item.poland_order.payment_deadline
+        ]
+        return min(deadlines) if deadlines else None
 
     def get_customs_vat_deadline(self):
-        """Get payment deadline for E3 (Customs/VAT) from PolandOrder."""
-        poland_item = self._get_poland_item()
-        if poland_item and poland_item.poland_order:
-            return poland_item.poland_order.customs_payment_deadline
-        return None
+        """Get payment deadline for E3 (Customs/VAT) from PolandOrder.
+
+        Patrz get_shipping_kr_deadline — ta sama zasada najwcześniejszego terminu.
+        """
+        deadlines = [
+            item.poland_order.customs_payment_deadline
+            for item in self._get_poland_items()
+            if item.poland_order and item.poland_order.customs_payment_deadline
+        ]
+        return min(deadlines) if deadlines else None
 
     def get_shipping_pl_deadline(self):
         """Get payment deadline for E4 (Domestic shipping) from ShippingRequest."""
