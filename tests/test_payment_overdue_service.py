@@ -221,3 +221,81 @@ def test_get_overdue_orders_summary_finds_real_shipping_kr_deadline(db, make_use
     matching = [r for r in summary if r['order'].id == order.id]
     assert len(matching) == 1
     assert any(s['stage'] == 'shipping_kr' for s in matching[0]['overdue_stages'])
+
+
+def test_get_overdue_orders_summary_batches_poland_order_item_order_queries(
+        db, make_user, make_product, make_order):
+    """Regresja N+1: preload w get_overdue_orders_summary() musi odpytać
+    PolandOrderItemOrder JEDNYM zbiorczym zapytaniem dla wszystkich zamówień,
+    a nie osobno dla każdego.
+
+    _get_poland_items() (Task 4) ma poprawny fallback per-zamówienie, gdy
+    order._cached_poland_items nie zostało ustawione — więc sama poprawność
+    wyniku (inny test w tym pliku) NIE wykryje, jeśli ktoś przypadkiem
+    usunie/zepsuje batching w preloadzie. Ten test liczy realne zapytania
+    SQL przez SQLAlchemy `before_cursor_execute` i asercją pilnuje, że
+    zapytań dotykających poland_order_item_orders jest <=1 niezależnie od
+    liczby zamówień."""
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+    from sqlalchemy import event
+    from modules.orders.models import OrderItem
+    from modules.orders.payment_overdue_service import get_overdue_orders_summary
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, PolandOrderItemOrder
+
+    now = datetime.utcnow()
+    product = make_product()
+
+    orders = []
+    for i in range(5):
+        user = make_user()
+        order = make_order(user, offer_page_id=1, payment_stages=4,
+                            proxy_shipping_cost=Decimal('15.50'))
+        db.session.add(OrderItem(order_id=order.id, product_id=product.id, quantity=1,
+                                  price=Decimal('100'), total=Decimal('100')))
+        db.session.commit()
+
+        proxy = ProxyOrder(order_number=f'PRX/BATCH{i}', order_type='proxy')
+        db.session.add(proxy)
+        db.session.flush()
+        proxy_item = ProxyOrderItem(proxy_order_id=proxy.id, product_id=product.id,
+                                     quantity=1, unit_price=Decimal('100'), total_price=Decimal('100'))
+        db.session.add(proxy_item)
+        db.session.flush()
+
+        poland_order = PolandOrder(order_number=f'PRX/PL/BATCH{i}', proxy_order_id=proxy.id, status='zamowione',
+                                    payment_deadline=now - timedelta(days=3))
+        db.session.add(poland_order)
+        db.session.flush()
+        poland_item = PolandOrderItem(poland_order_id=poland_order.id, proxy_order_item_id=proxy_item.id,
+                                       product_id=product.id, quantity=1)
+        db.session.add(poland_item)
+        db.session.flush()
+        db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_item.id, order_id=order.id, quantity=1))
+        db.session.commit()
+        orders.append(order)
+
+    queries = []
+
+    def _record_query(conn, cursor, statement, parameters, context, executemany):
+        queries.append(statement)
+
+    event.listen(db.engine, 'before_cursor_execute', _record_query)
+    try:
+        summary = get_overdue_orders_summary()
+    finally:
+        event.remove(db.engine, 'before_cursor_execute', _record_query)
+
+    # Sanity check: wszystkie posiane zamówienia rzeczywiście trafiły do
+    # wyniku (zaległość E2 wykryta) — inaczej licznik zapytań poniżej
+    # niczego by nie dowodził.
+    order_ids = {o.id for o in orders}
+    assert {r['order'].id for r in summary} & order_ids == order_ids
+
+    poi_queries = [q for q in queries if 'poland_order_item_orders' in q.lower()]
+    assert len(poi_queries) <= 1, (
+        f"Preload powinien odpytać PolandOrderItemOrder JEDNYM zbiorczym "
+        f"zapytaniem dla wszystkich {len(orders)} zamówień, a nie osobno "
+        f"dla każdego (N+1). Wykryto {len(poi_queries)} takich zapytań — "
+        f"batching w get_overdue_orders_summary() prawdopodobnie się zepsuł."
+    )
