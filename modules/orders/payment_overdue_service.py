@@ -90,7 +90,7 @@ def get_overdue_orders_summary():
     """
     from sqlalchemy.orm import joinedload, selectinload
     from modules.orders.models import Order, ShippingRequestOrder, PaymentConfirmation
-    from modules.products.models import PolandOrderItem
+    from modules.products.models import PolandOrderItem, PolandOrderItemOrder
 
     now = get_local_now()
     results = []
@@ -103,18 +103,18 @@ def get_overdue_orders_summary():
     ).all()
 
     order_ids = [order.id for order in orders]
-    poland_item_by_order_id = {}
+    poland_items_by_order_id = {}
     confirmations_by_order_id = {}
     if order_ids:
-        poland_items = (
-            PolandOrderItem.query
-            .filter(PolandOrderItem.order_id.in_(order_ids))
-            .options(joinedload(PolandOrderItem.poland_order))
-            .order_by(PolandOrderItem.id)
+        links = (
+            PolandOrderItemOrder.query
+            .filter(PolandOrderItemOrder.order_id.in_(order_ids))
+            .options(joinedload(PolandOrderItemOrder.poland_order_item).joinedload(PolandOrderItem.poland_order))
+            .order_by(PolandOrderItemOrder.id)
             .all()
         )
-        for item in poland_items:
-            poland_item_by_order_id.setdefault(item.order_id, item)
+        for link in links:
+            poland_items_by_order_id.setdefault(link.order_id, []).append(link.poland_order_item)
 
         confirmations = (
             PaymentConfirmation.query
@@ -126,7 +126,7 @@ def get_overdue_orders_summary():
             confirmations_by_order_id.setdefault(conf.order_id, {}).setdefault(conf.payment_stage, conf)
 
     for order in orders:
-        order._cached_poland_item = poland_item_by_order_id.get(order.id)
+        order._cached_poland_items = poland_items_by_order_id.get(order.id, [])
         order._cached_payment_confirmations = confirmations_by_order_id.get(order.id, {})
         stages = get_order_overdue_stages(order, now=now)
         if not stages:

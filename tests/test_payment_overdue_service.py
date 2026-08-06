@@ -178,3 +178,46 @@ def test_summary_excludes_closed_orders(db, make_user, make_order, status):
     result = get_overdue_orders_summary()
 
     assert order.id not in [r['order'].id for r in result]
+
+
+def test_get_overdue_orders_summary_finds_real_shipping_kr_deadline(db, make_user, make_product, make_order):
+    """Regresja end-to-end: zaległość E2 wykryta przez prawdziwe dane w
+    PolandOrderItemOrder, nie przez monkeypatch getterów."""
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+    from modules.orders.models import OrderItem
+    from modules.orders.payment_overdue_service import get_overdue_orders_summary
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, PolandOrderItemOrder
+
+    now = datetime.utcnow()
+    product = make_product()
+    user = make_user()
+    order = make_order(user, offer_page_id=1, payment_stages=4,
+                        proxy_shipping_cost=Decimal('15.50'))
+    db.session.add(OrderItem(order_id=order.id, product_id=product.id, quantity=1,
+                              price=Decimal('100'), total=Decimal('100')))
+    db.session.commit()
+
+    proxy = ProxyOrder(order_number='PRX/OV1', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    proxy_item = ProxyOrderItem(proxy_order_id=proxy.id, product_id=product.id,
+                                 quantity=1, unit_price=Decimal('100'), total_price=Decimal('100'))
+    db.session.add(proxy_item)
+    db.session.flush()
+
+    poland_order = PolandOrder(order_number='PRX/PL/OV1', proxy_order_id=proxy.id, status='zamowione',
+                                payment_deadline=now - timedelta(days=3))
+    db.session.add(poland_order)
+    db.session.flush()
+    poland_item = PolandOrderItem(poland_order_id=poland_order.id, proxy_order_item_id=proxy_item.id,
+                                   product_id=product.id, quantity=1)
+    db.session.add(poland_item)
+    db.session.flush()
+    db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_item.id, order_id=order.id, quantity=1))
+    db.session.commit()
+
+    summary = get_overdue_orders_summary()
+    matching = [r for r in summary if r['order'].id == order.id]
+    assert len(matching) == 1
+    assert any(s['stage'] == 'shipping_kr' for s in matching[0]['overdue_stages'])
