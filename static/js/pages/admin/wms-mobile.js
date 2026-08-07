@@ -6,7 +6,7 @@
  * Reads window.WMS_SESSION_TOKEN, WMS_SESSION_DATA, WMS_SESSION_ID.
  *
  * Counter panel: [-] [0/2] [+] [✓]
- * WebSocket events: join_session, update_item_status, mark_order_packed
+ * WebSocket events: join_session, update_item_status, mark_shipping_request_packed
  */
 
 (function () {
@@ -25,7 +25,8 @@
     var socket = null;
     var isConnected = false;
     var selectedMaterialId = null;
-    var packingSuggestionsCache = {};
+    var packingSuggestionsCache = {}; // {shippingRequestId: dane sugestii}
+    var currentPackingSrId = null;    // zlecenie, dla którego pokazany jest panel
     var uploadedPhotoUrl = null;  // URL of uploaded packing photo
 
     // ========================================
@@ -195,17 +196,17 @@
             }
         });
 
-        // Order packed (from any source)
-        socket.on('order_packed', function (data) {
-            var orderData = data.order;
+        // Zlecenie spakowane (z dowolnego źródła)
+        socket.on('shipping_request_packed', function (data) {
             var sessionProgress = data.session;
 
-            var order = ordersMap[orderData.id];
-            if (order) {
-                order.packing_completed_at = orderData.packed_at;
-                order.status = orderData.status;
-                order.status_display_name = orderData.status_display_name;
-            }
+            (data.orders || []).forEach(function (od) {
+                var order = ordersMap[od.id];
+                if (!order) return;
+                order.packing_completed_at = od.packed_at;
+                order.status = od.status;
+                order.status_display_name = od.status_display_name;
+            });
 
             if (sessionProgress) {
                 sessionData.session.packed_orders_count = sessionProgress.packed_orders_count;
@@ -218,17 +219,15 @@
             }
 
             vibrate(200);
-            showToast('Zamówienie ' + (orderData.order_number || '') + ' spakowane!', 'success');
+            var srNumber = (data.shipping_request && data.shipping_request.request_number) || '';
+            showToast('Zlecenie ' + srNumber + ' spakowane!', 'success');
 
             // Auto-advance to next non-packed order
             var nextIdx = findFirstNonPackedIndex();
             if (nextIdx >= 0 && nextIdx !== currentOrderIdx) {
                 currentOrderIdx = nextIdx;
-                renderCurrentOrder();
-            } else {
-                // All packed or stay on current
-                renderCurrentOrder();
             }
+            renderCurrentOrder();
         });
 
         // Error
@@ -604,49 +603,73 @@
     // PACK ORDER
     // ========================================
 
+    /** Zamówienia zlecenia obecne w sesji i jeszcze niespakowane. */
+    function packingGroupForM(srId) {
+        return ordersOrder.map(function (id) { return ordersMap[id]; })
+            .filter(function (o) {
+                return o && o.shipping_request && o.shipping_request.id === srId &&
+                       !o.packing_completed_at;
+            });
+    }
+
     function updatePackButton(order) {
         var section = document.getElementById('wmsMPackSection');
         var btn = document.getElementById('wmsMPackBtn');
+        var info = document.getElementById('wmsMPackSrInfo');
         if (!section || !btn) return;
 
-        if (!order || order.packing_completed_at) {
+        var sr = order && order.shipping_request;
+        if (!sr) {
             section.style.display = 'none';
+            currentPackingSrId = null;
             return;
         }
 
-        if (order.is_picked) {
-            section.style.display = '';
-            btn.disabled = false;
-            fetchPackingSuggestionsMobile(order.id);
-        } else {
+        var group = packingGroupForM(sr.id);
+        var allPicked = group.length > 0 && group.every(function (o) { return o.is_picked; });
+
+        if (!allPicked) {
             section.style.display = 'none';
             btn.disabled = true;
+            currentPackingSrId = null;
+            return;
         }
+
+        section.style.display = '';
+        btn.disabled = false;
+        currentPackingSrId = sr.id;
+
+        if (info) {
+            info.textContent = sr.request_number + ' — ' + group.length +
+                (group.length === 1 ? ' zamówienie' : ' zam.');
+        }
+
+        fetchPackingSuggestionsMobile(sr.id);
     }
 
     // ========================================
     // PACKAGING SUGGESTIONS (MOBILE)
     // ========================================
 
-    function fetchPackingSuggestionsMobile(orderId) {
-        if (packingSuggestionsCache[orderId]) {
-            renderPackingSuggestionsMobile(orderId, packingSuggestionsCache[orderId]);
+    function fetchPackingSuggestionsMobile(srId) {
+        if (packingSuggestionsCache[srId]) {
+            renderPackingSuggestionsMobile(srId, packingSuggestionsCache[srId]);
             return;
         }
 
-        fetch('/api/orders/wms/suggest-packaging/' + orderId + '/' + sessionToken)
+        fetch('/api/orders/wms/' + sessionId + '/suggest-packaging-sr/' + srId + '/' + sessionToken)
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (!data.success) return;
-            packingSuggestionsCache[orderId] = data;
-            renderPackingSuggestionsMobile(orderId, data);
+            packingSuggestionsCache[srId] = data;
+            renderPackingSuggestionsMobile(srId, data);
         })
         .catch(function () {
-            // Suggestions not available for mobile (auth issue) — hide suggestion area
+            // Sugestie niedostępne — zostaje ręczny wybór z listy
         });
     }
 
-    function renderPackingSuggestionsMobile(orderId, data) {
+    function renderPackingSuggestionsMobile(srId, data) {
         var container = document.getElementById('wmsMPackingSuggestions');
         var warningsEl = document.getElementById('wmsMPackingWarnings');
         var selectEl = document.getElementById('wmsMPackingMaterialSelect');
@@ -724,6 +747,18 @@
         // Pre-fill weight
         if (weightInput && data.total_weight) {
             weightInput.value = data.total_weight.toFixed(2);
+        }
+
+        // Opakowanie z wyceny zlecenia — podpowiadamy je od razu
+        if (data.suggested_material_id) {
+            selectedMaterialId = data.suggested_material_id;
+            if (selectEl) selectEl.value = data.suggested_material_id;
+            if (container) {
+                container.querySelectorAll('.wms-m-suggestion-card').forEach(function (c) {
+                    c.classList.toggle('suggestion-selected',
+                        parseInt(c.getAttribute('data-material-id')) === data.suggested_material_id);
+                });
+            }
         }
     }
 
@@ -818,7 +853,9 @@
     }
 
     function uploadPackingPhoto(blob) {
-        var orderId = ordersOrder[currentOrderIdx];
+        // Zdjęcie robimy raz na paczkę — wysyłamy je przy pierwszym zamówieniu z grupy.
+        var group = currentPackingSrId ? packingGroupForM(currentPackingSrId) : [];
+        var orderId = group.length ? group[0].id : ordersOrder[currentOrderIdx];
         var uploading = document.getElementById('wmsMPhotoUploading');
         if (uploading) uploading.style.display = '';
 
@@ -868,11 +905,15 @@
     // ========================================
 
     function onPackOrder() {
-        var orderId = ordersOrder[currentOrderIdx];
-        var order = ordersMap[orderId];
-        if (!order) return;
+        if (!currentPackingSrId) return;
 
-        if (!confirm('Oznaczyć zamówienie ' + order.order_number + ' jako spakowane?')) {
+        var group = packingGroupForM(currentPackingSrId);
+        if (!group.length) return;
+
+        var sr = group[0].shipping_request;
+
+        if (!confirm('Spakować zlecenie ' + sr.request_number + ' (' + group.length +
+                     ' zam.) jako jedną paczkę?')) {
             return;
         }
 
@@ -890,16 +931,17 @@
         var sendEmailCheckbox = document.getElementById('wmsMSendEmailCheckbox');
         var sendEmail = sendEmailCheckbox ? sendEmailCheckbox.checked : false;
 
-        var payload = { order_id: orderId };
+        var payload = { shipping_request_id: currentPackingSrId };
         if (materialId) payload.packaging_material_id = materialId;
         if (weight) payload.weight = weight;
         if (sendEmail && uploadedPhotoUrl) payload.send_email = true;
 
-        socket.emit('mark_order_packed', payload);
+        socket.emit('mark_shipping_request_packed', payload);
 
         // Reset
         selectedMaterialId = null;
-        delete packingSuggestionsCache[orderId];
+        delete packingSuggestionsCache[currentPackingSrId];
+        currentPackingSrId = null;
         resetPhotoState();
     }
 
