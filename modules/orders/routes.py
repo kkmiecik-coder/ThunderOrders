@@ -863,7 +863,8 @@ def admin_update_payment(order_id):
             'message': 'Płatność została zaktualizowana',
             'paid_amount': float(paid_amount),
             'is_fully_paid': order.is_fully_paid,
-            'is_partially_paid': order.is_partially_paid
+            'is_partially_paid': order.is_partially_paid,
+            'is_overpaid': order.is_overpaid
         })
 
     except Exception as e:
@@ -987,6 +988,7 @@ def admin_update_order_field(order_id):
             response_data['paid_amount'] = float(order.paid_amount) if order.paid_amount else 0
             response_data['is_fully_paid'] = order.is_fully_paid
             response_data['is_partially_paid'] = order.is_partially_paid
+            response_data['is_overpaid'] = order.is_overpaid
 
         # Email notification for cost fields
         if field in ('proxy_shipping_cost', 'customs_vat_sale_cost', 'shipping_cost') and value and float(value) > 0:
@@ -1610,6 +1612,48 @@ def api_detect_courier():
 # CLIENT ROUTES
 # ====================
 
+def apply_payment_status_filter(query, variant):
+    """Filtruje zapytanie o zamówienia po stanie opłacenia (wszystkie etapy E1–E4).
+
+    Miarą jest `Order.total_to_pay` — pełna należność klienta obejmująca produkt,
+    wysyłkę z Korei, cło/VAT i wysyłkę krajową. `paid_amount` akumuluje sumę
+    zatwierdzonych wpłat ze wszystkich etapów, więc porównanie tych dwóch wartości
+    odpowiada na pytanie „czy został jeszcze jakiś etap do opłacenia".
+
+    Warianty:
+        'paid'    — nic nie zostało do zapłaty (także nadpłata),
+        'unpaid'  — cokolwiek zostało do zapłaty (obejmuje częściowo opłacone),
+        'partial' — coś już wpłacono, ale nie wszystko.
+
+    Zamówienia anulowane i w zwrocie nie są należnością — klient nie ma czego
+    zapłacić, więc wypadają z 'unpaid' i 'partial' (parytet z kafelkiem
+    „Do zapłaty" na dashboardzie, patrz modules/client/dashboard_service.py).
+
+    Pusty/nieznany wariant zwraca zapytanie bez zmian.
+    """
+    from utils.offer_closure import CLOSED_ORDER_STATUSES
+
+    if not variant:
+        return query
+
+    paid_amount = db.func.coalesce(Order.paid_amount, 0)
+
+    if variant == 'paid':
+        return query.filter(paid_amount >= Order.total_to_pay)
+    if variant == 'unpaid':
+        return query.filter(
+            ~Order.status.in_(CLOSED_ORDER_STATUSES),
+            paid_amount < Order.total_to_pay,
+        )
+    if variant == 'partial':
+        return query.filter(
+            ~Order.status.in_(CLOSED_ORDER_STATUSES),
+            paid_amount > 0,
+            paid_amount < Order.total_to_pay,
+        )
+    return query
+
+
 @orders_bp.route('/client/orders')
 @login_required
 def client_list():
@@ -1656,19 +1700,7 @@ def client_list():
         )
 
     # Payment status filter
-    if payment_status_filter:
-        if payment_status_filter == 'paid':
-            # Opłacone: paid_amount >= total_amount
-            query = query.filter(Order.paid_amount >= Order.total_amount)
-        elif payment_status_filter == 'unpaid':
-            # Nieopłacone: paid_amount = 0 lub NULL
-            query = query.filter(db.or_(Order.paid_amount == 0, Order.paid_amount.is_(None)))
-        elif payment_status_filter == 'partial':
-            # Częściowo opłacone: 0 < paid_amount < total_amount
-            query = query.filter(
-                Order.paid_amount > 0,
-                Order.paid_amount < Order.total_amount
-            )
+    query = apply_payment_status_filter(query, payment_status_filter)
 
     # Sorting
     query = query.order_by(Order.created_at.desc())

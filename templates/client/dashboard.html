@@ -55,7 +55,7 @@
         </a>
 
         <!-- Rząd 2: Payment Status -->
-        <a href="{{ url_for('orders.client_list', payment_status='unpaid') }}" class="metric-card metric-card-warning metric-card-clickable">
+        <a href="{{ url_for('client.payment_confirmations') }}" class="metric-card metric-card-warning metric-card-clickable">
             <div class="metric-icon">💳</div>
             <div class="metric-content">
                 <h3 class="metric-title">Do zapłaty</h3>

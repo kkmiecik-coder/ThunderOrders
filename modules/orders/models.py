@@ -17,6 +17,9 @@ Models for orders management:
 
 from datetime import datetime, timezone, timedelta
 
+from sqlalchemy import case, func
+from sqlalchemy.ext.hybrid import hybrid_property
+
 from extensions import db
 
 
@@ -326,36 +329,43 @@ class Order(db.Model):
         shipping = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
         return products + shipping
 
+    # Flagi opłacenia mierzą wpłaty względem total_to_pay (wszystkie etapy E1–E4),
+    # NIE względem grand_total (E1+E4) — inaczej zamówienie z zaległym cłem lub
+    # wysyłką z Korei uchodziło za w pełni opłacone. grand_total zostaje surową
+    # sumą „produkty + wysyłka PL" do wyświetlania.
+
     @property
     def is_fully_paid(self):
-        """Returns True if order is fully paid exactly (products + shipping)"""
+        """True, gdy wpłacono dokładnie pełną należność ze wszystkich etapów."""
         from decimal import Decimal
         paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
-        return paid == self.grand_total and self.grand_total > Decimal('0.00')
+        due = self.total_to_pay
+        return paid == due and due > Decimal('0.00')
 
     @property
     def is_overpaid(self):
-        """Returns True if order is overpaid (nadpłata)"""
+        """True przy nadpłacie ponad pełną należność ze wszystkich etapów."""
         from decimal import Decimal
         paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
-        return paid > self.grand_total and self.grand_total > Decimal('0.00')
+        due = self.total_to_pay
+        return paid > due and due > Decimal('0.00')
 
     @property
     def is_partially_paid(self):
-        """Returns True if order is partially paid (some payment, but not full)"""
+        """True, gdy coś wpłacono, ale został jeszcze jakiś etap do opłacenia."""
         from decimal import Decimal
         paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
-        return paid > Decimal('0.00') and paid < self.grand_total
+        return paid > Decimal('0.00') and paid < self.total_to_pay
 
     @property
     def remaining_amount(self):
-        """Returns remaining amount to be paid"""
-        from decimal import Decimal
-        paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
-        remaining = self.grand_total - paid
-        return remaining if remaining > Decimal('0.00') else Decimal('0.00')
+        """Pozostało do zapłaty ze wszystkich etapów (podłoga 0).
 
-    @property
+        Alias remaining_to_pay — po ujednoliceniu miary obie nazwy znaczą to samo.
+        """
+        return self.remaining_to_pay
+
+    @hybrid_property
     def total_to_pay(self):
         """
         Pełna kwota do zapłaty przez klienta — suma wszystkich należnych etapów:
@@ -365,6 +375,10 @@ class Order(db.Model):
 
         Uwaga: grand_total/remaining_amount obejmują tylko E1+E4 — ta właściwość
         jest ich pełnym (wszystkie etapy) odpowiednikiem.
+
+        Hybrid: działa też jako wyrażenie SQL (patrz .expression niżej), dzięki
+        czemu filtry płatnicze na listach zamówień mierzą wpłaty względem tej
+        samej definicji, bez rozjeżdżania się kopii warunków etapowych.
         """
         from decimal import Decimal
         total = Decimal(str(self.total_amount)) if self.total_amount else Decimal('0.00')  # E1
@@ -378,6 +392,24 @@ class Order(db.Model):
         if self.shipping_cost:
             total += Decimal(str(self.shipping_cost))
         return total
+
+    @total_to_pay.expression
+    def total_to_pay(cls):
+        """Odpowiednik SQL właściwości wyżej — 1:1 te same warunki etapowe.
+
+        NULL-e: coalesce na kwotach (brak wartości = 0 zł) oraz na order_type,
+        żeby zamówienie bez ustawionego typu zachowywało się jak w Pythonie
+        (None != 'on_hand' → etap E3 wliczany).
+        """
+        return (
+            func.coalesce(cls.total_amount, 0)                                  # E1
+            + case((cls.payment_stages == 4, func.coalesce(cls.proxy_shipping_cost, 0)),
+                   else_=0)                                                     # E2
+            + case((func.coalesce(cls.order_type, '') != 'on_hand',
+                    func.coalesce(cls.customs_vat_sale_cost, 0)),
+                   else_=0)                                                     # E3
+            + func.coalesce(cls.shipping_cost, 0)                               # E4
+        )
 
     @property
     def remaining_to_pay(self):
@@ -768,8 +800,18 @@ class Order(db.Model):
         - 'pending' → Wgrane potwierdzenie (jest oczekujące potwierdzenie, ale
                       zamówienie nie jest jeszcze w pełni opłacone)
         - 'unpaid'  → Nieopłacone (brak/odrzucone potwierdzenie, brak pełnej płatności)
+
+        Miarą jest total_to_pay (wszystkie etapy E1–E4), NIE grand_total (tylko
+        E1+E4) — inaczej zamówienie z zaległym cłem lub wysyłką z Korei dostawało
+        badge „Opłacone". Ten sam mianownik ma filtr płatności na liście klienta
+        (apply_payment_status_filter w modules/orders/routes.py).
         """
-        if self.is_fully_paid or self.is_overpaid:
+        from decimal import Decimal
+        paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
+        due = self.total_to_pay
+        # Warunek due > 0 zachowany za is_fully_paid — zamówienie bez należności
+        # nie jest „opłacone", bo nie było czego opłacać.
+        if due > Decimal('0.00') and paid >= due:
             return {'state': 'paid', 'label': 'Opłacone'}
         has_pending = self.payment_confirmations.filter_by(status='pending').first() is not None
         if has_pending:
