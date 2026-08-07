@@ -374,14 +374,18 @@ def reopen_orders_for_wms(orders, mode, shipping_requests=()):
     mode='full'   — czyści też odhaczone pozycje; sesja startuje od zbierania
     mode='repack' — pozycje zostają zebrane; sesja startuje od pakowania
 
-    Opakowanie wraca na stan i przypisanie się czyści, żeby ponowne pakowanie
-    odjęło je normalnie — dzięki temu stan magazynowy nie rozjeżdża się przy
-    wielokrotnym cofaniu tego samego zlecenia.
+    Opakowanie wraca na stan raz na paczkę (jedno zlecenie wysyłki = jeden karton)
+    i przypisanie się czyści, żeby ponowne pakowanie odjęło je normalnie — dzięki
+    temu stan magazynowy nie rozjeżdża się przy wielokrotnym cofaniu.
 
     Zamówienia w innym statusie niż 'spakowane' są pomijane bez zmian —
     zlecenie może być mieszane.
     """
     from extensions import db
+
+    # Opakowanie schodzi ze stanu raz na paczkę (jedno zlecenie = jeden karton),
+    # więc przy cofaniu też oddajemy je raz — inaczej stan rósłby z powietrza.
+    returned_packages = set()
 
     for order in orders:
         if order.status != 'spakowane':
@@ -392,9 +396,13 @@ def reopen_orders_for_wms(orders, mode, shipping_requests=()):
         order.packed_by = None
 
         if order.packaging_material_id:
-            mat = db.session.get(PackagingMaterial, order.packaging_material_id)
-            if mat:   # materiał mógł zostać skasowany od czasu pakowania
-                mat.quantity_in_stock = (mat.quantity_in_stock or 0) + 1
+            sr = order.shipping_request
+            package_key = ('sr', sr.id) if sr else ('order', order.id)
+            if package_key not in returned_packages:
+                returned_packages.add(package_key)
+                mat = db.session.get(PackagingMaterial, order.packaging_material_id)
+                if mat:   # materiał mógł zostać skasowany od czasu pakowania
+                    mat.quantity_in_stock = (mat.quantity_in_stock or 0) + 1
             order.packaging_material_id = None
 
         if mode == 'full':

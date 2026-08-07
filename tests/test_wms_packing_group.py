@@ -329,3 +329,31 @@ def test_old_pack_order_endpoint_is_gone(client, app, db, make_user, make_order,
                     json={'order_id': orders[0].id})
 
     assert r.status_code == 404
+
+
+# ---------- Task 4: zwrot opakowania raz na paczkę ----------
+
+def test_reopen_returns_one_material_per_package(app, db, make_user, make_order,
+                                                 make_product, packing_emails):
+    """Spakowanie zdjęło 1 karton — cofnięcie musi oddać 1, nie 3."""
+    from modules.orders.wms_packing import pack_shipping_request_group
+    from modules.orders.wms_utils import reopen_orders_for_wms
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+    mat = _material(db, stock=7)
+
+    pack_shipping_request_group(session, sr, packaging_material_id=mat.id, user_id=admin.id)
+    db.session.commit()
+    db.session.refresh(mat)
+    assert mat.quantity_in_stock == 6
+
+    reopen_orders_for_wms(orders, mode='full', shipping_requests=[sr])
+    db.session.commit()
+
+    db.session.refresh(mat)
+    assert mat.quantity_in_stock == 7          # stan wraca do punktu wyjścia
+    for o in orders:
+        db.session.refresh(o)
+        assert o.packaging_material_id is None
+        assert o.status == 'dostarczone_gom'
