@@ -394,3 +394,39 @@ def test_suggest_sr_endpoint_mobile_requires_valid_token(client, app, db, make_u
     assert ok.status_code == 200
     assert ok.get_json()['orders_count'] == 3
     assert bad.status_code == 403
+
+
+# ---------- Task 6: WebSocket ----------
+
+def test_socket_handler_uses_shared_packing(app, db, make_user, make_order, make_product,
+                                            packing_emails, monkeypatch):
+    """Handler z telefonu pakuje przez tę samą funkcję co desktop — inaczej stan
+    magazynowy rozjechałby się między jedną a drugą drogą."""
+    import modules.orders.wms_events as wms_events
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+    mat = _material(db, stock=7)
+
+    emitted = []
+    monkeypatch.setattr(wms_events, 'emit',
+                        lambda event, payload=None, **kw: emitted.append((event, payload)))
+    monkeypatch.setattr(wms_events, 'connected_clients',
+                        {'sid-test': {'session_id': session.id, 'role': 'mobile'}})
+
+    class _Req:
+        sid = 'sid-test'
+    monkeypatch.setattr(wms_events, 'flask_request', _Req)
+
+    wms_events.handle_mark_shipping_request_packed({
+        'shipping_request_id': sr.id,
+        'packaging_material_id': mat.id,
+        'weight': 2.5,
+    })
+
+    db.session.refresh(mat)
+    assert mat.quantity_in_stock == 6
+    assert any(name == 'shipping_request_packed' for name, _ in emitted)
+    for o in orders:
+        db.session.refresh(o)
+        assert o.status == 'spakowane'

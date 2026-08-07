@@ -12,7 +12,7 @@ from flask_socketio import join_room, emit
 
 from extensions import socketio, db
 from modules.orders.models import Order, OrderItem, get_local_now
-from modules.orders.wms_models import WmsSession, WmsSessionOrder, PackagingMaterial
+from modules.orders.wms_models import WmsSession, WmsSessionOrder
 
 # Mapping: SocketIO sid → {session_id, role}
 connected_clients = {}
@@ -243,14 +243,12 @@ def handle_update_item_status(data):
         }, to=room)
 
 
-@socketio.on('mark_order_packed')
-def handle_mark_order_packed(data):
-    """
-    Mark an order as packed (from mobile).
+@socketio.on('mark_shipping_request_packed')
+def handle_mark_shipping_request_packed(data):
+    """Telefon spakował całe zlecenie — jedno zlecenie, jedna paczka."""
+    from modules.orders.models import ShippingRequest
+    from modules.orders.wms_packing import pack_shipping_request_group, PackingGroupError
 
-    Data: {order_id}
-    Emits: order_packed, session_progress
-    """
     sid = flask_request.sid
     client = connected_clients.get(sid)
     if not client:
@@ -258,10 +256,10 @@ def handle_mark_order_packed(data):
         return
 
     session_id = client['session_id']
-    order_id = data.get('order_id')
+    sr_id = (data or {}).get('shipping_request_id')
 
-    if not order_id:
-        emit('error', {'message': 'Brak order_id'})
+    if not sr_id:
+        emit('error', {'message': 'Brak shipping_request_id'})
         return
 
     wms_session = db.session.get(WmsSession, session_id)
@@ -269,92 +267,34 @@ def handle_mark_order_packed(data):
         emit('error', {'message': 'Sesja WMS nie jest aktywna'})
         return
 
-    order = db.session.get(Order, order_id)
-    if not order:
-        emit('error', {'message': 'Zamówienie nie istnieje'})
+    shipping_request = db.session.get(ShippingRequest, sr_id)
+    if not shipping_request:
+        emit('error', {'message': 'Zlecenie wysyłki nie istnieje'})
         return
 
-    session_order = WmsSessionOrder.query.filter_by(
-        session_id=session_id,
-        order_id=order.id,
-    ).first()
-
-    if not session_order:
-        emit('error', {'message': 'Zamówienie nie należy do tej sesji WMS'})
+    try:
+        result = pack_shipping_request_group(
+            wms_session,
+            shipping_request,
+            packaging_material_id=data.get('packaging_material_id'),
+            total_package_weight=data.get('weight'),
+            send_email=bool(data.get('send_email')),
+            user_id=wms_session.user_id,
+        )
+        db.session.commit()
+    except PackingGroupError as e:
+        db.session.rollback()
+        emit('error', {'message': e.message})
         return
-
-    if session_order.packing_completed_at:
-        emit('error', {'message': 'Zamówienie jest już spakowane'})
-        return
-
-    now = get_local_now()
-
-    order.status = 'spakowane'
-    order.packed_at = now
-    order.packed_by = wms_session.user_id
-
-    # Packaging material & weight
-    packaging_material_id = data.get('packaging_material_id')
-    weight = data.get('weight')
-    low_stock_warning = None
-
-    if packaging_material_id:
-        mat = db.session.get(PackagingMaterial, packaging_material_id)
-        if mat:
-            order.packaging_material_id = mat.id
-            mat.quantity_in_stock = max(0, mat.quantity_in_stock - 1)
-            if mat.is_low_stock:
-                low_stock_warning = f'Materiał "{mat.name}": stan magazynowy: {mat.quantity_in_stock}'
-
-    if weight is not None:
-        try:
-            order.total_package_weight = float(weight)
-        except (ValueError, TypeError):
-            pass
-
-    session_order.packing_completed_at = now
-
-    # Release WMS lock
-    order.wms_locked_at = None
-    order.wms_session_id = None
-
-    db.session.commit()
-
-    # Update ShippingRequest status if all orders are packed
-    from modules.orders.wms import _update_sr_after_packing
-    sr_info = _update_sr_after_packing(order)
-
-    db.session.commit()
-
-    # Send packing photo email if requested
-    send_email_flag = data.get('send_email', False)
-    if send_email_flag and order.packing_photo:
-        try:
-            from flask import current_app
-            from utils.email_manager import EmailManager
-            from utils.push_manager import PushManager
-            EmailManager.notify_packing_photo(order)
-            PushManager.notify_packing_photo(order)
-        except Exception as email_err:
-            import logging
-            logging.getLogger(__name__).error(f'WMS packing email error: {email_err}')
 
     room = _get_room(session_id)
     session_progress = _build_session_progress(wms_session)
 
-    emit('order_packed', {
-        'order': {
-            'id': order.id,
-            'order_number': order.order_number,
-            'status': order.status,
-            'status_display_name': order.status_display_name,
-            'packed_at': now.isoformat(),
-            'packaging_material_name': order.packaging_material.name if order.packaging_material else None,
-            'total_package_weight': float(order.total_package_weight) if order.total_package_weight else None,
-        },
+    emit('shipping_request_packed', {
+        'orders': result['orders'],
         'session': session_progress,
-        'shipping_request': sr_info,
-        'low_stock_warning': low_stock_warning,
+        'shipping_request': result['shipping_request'],
+        'low_stock_warning': result['low_stock_warning'],
     }, to=room)
 
     emit('session_progress', session_progress, to=room)
