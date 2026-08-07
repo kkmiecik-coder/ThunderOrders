@@ -51,6 +51,26 @@ def test_template_without_tracking_hides_tracking_block(app):
     assert 'Śledź przesyłkę' not in html
 
 
+def test_template_without_courier_name_falls_back(app):
+    """Numer przesyłki bez nazwy kuriera nie może pokazać dosłownego 'None'."""
+    from flask import render_template
+
+    with app.test_request_context():
+        html = render_template(
+            'emails/shipment_sent.html',
+            user_name='Anna',
+            request_number='WYS/000123',
+            order_numbers=['PO/00000001'],
+            tracking_number='123456789012',
+            courier_name=None,
+            tracking_url=None,
+            shipping_requests_url='https://thunderorders.cloud/zlecenia',
+        )
+
+    assert 'None' not in html
+    assert 'Kurier' in html
+
+
 def test_subject_differs_with_and_without_tracking(app, monkeypatch):
     """Temat maila rozróżnia obie sytuacje — treść w środku jest ta sama."""
     import utils.email_sender as es
