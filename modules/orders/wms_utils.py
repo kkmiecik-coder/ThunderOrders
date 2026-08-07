@@ -282,8 +282,6 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
                 except (ValueError, TypeError):
                     pass
 
-    # Nazwy starych statusów potrzebne do maila — zbierane przed podmianą.
-    old_order_status_names = {o.id: o.status_display_name for o in sr.orders}
     changed_status_order_ids = set()
 
     order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
@@ -295,9 +293,9 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
 
     courier_name = COURIER_NAMES.get(sr.courier, sr.courier or 'Kurier')
 
-    # Tylko zamówienia z NOWO powstałym wpisem przesyłki dostają powiadomienie
-    # o trackingu — inaczej klient, który już dostał maila z oknem "Dodaj koszty",
-    # dostałby identycznego maila drugi raz przy "Oznacz jako wysłane".
+    # Tylko NOWO powstałe wpisy przesyłki uruchamiają powiadomienie o trackingu —
+    # inaczej klient, który dostał już maila z okna "Dodaj koszty", dostałby
+    # identyczną wiadomość drugi raz przy "Oznacz jako wysłane".
     new_shipment_order_ids = set()
     if tracking_number:
         for order in sr.orders:
@@ -318,24 +316,22 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     # Jeden commit na wszystkie dane — statusy i wpis przesyłki razem albo wcale.
     db.session.commit()
 
-    for order in sr.orders:
-        try:
-            if order.id in new_shipment_order_ids:
-                EmailManager.notify_tracking_added(
-                    order, tracking_number=tracking_number, courier=sr.courier,
-                    courier_name=courier_name, tracking_url=sr.tracking_url)
-                PushManager.notify_tracking_added(
-                    order, tracking_number=tracking_number, courier_name=courier_name)
-            elif order_status and order.id in changed_status_order_ids:
-                # Powiadomienie o zmianie statusu tylko wtedy, gdy status faktycznie
-                # się zmienił — inaczej zamówienie już "wyslane" dostałoby maila
-                # "Wysłane -> Wysłane".
-                old_name = old_order_status_names.get(order.id, '')
-                EmailManager.notify_status_change(order, old_name, order_status.name)
-                PushManager.notify_status_change(order, old_name, order_status.name)
-        except Exception as err:
-            current_app.logger.error(
-                f'Powiadomienie o wysyłce {sr.request_number}, zam. {order.order_number}: {err}')
+    # Jedna wiadomość na paczkę, nie na zamówienie: klient dostaje fizycznie jeden
+    # karton, więc trzy maile o tej samej przesyłce były dla niego szumem.
+    try:
+        if new_shipment_order_ids:
+            EmailManager.notify_shipment_sent(
+                sr, tracking_number=tracking_number, courier=sr.courier,
+                courier_name=courier_name, tracking_url=sr.tracking_url)
+            PushManager.notify_shipment_sent(
+                sr, tracking_number=tracking_number, courier_name=courier_name)
+        elif order_status and changed_status_order_ids:
+            # Bez numeru przesyłki — ta sama wiadomość, tylko bez bloku śledzenia.
+            EmailManager.notify_shipment_sent(sr)
+            PushManager.notify_shipment_sent(sr)
+    except Exception as err:
+        current_app.logger.error(
+            f'Powiadomienie o wysyłce {sr.request_number}: {err}')
 
     log_activity(
         user=user,

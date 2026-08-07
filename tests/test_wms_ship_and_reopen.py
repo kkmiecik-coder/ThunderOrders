@@ -43,19 +43,23 @@ def _wms_session(db, admin):
 
 @pytest.fixture
 def notifications(monkeypatch):
-    """Podmienia powiadomienia na zapis do listy — testy nie wysyłają maili."""
+    """Podmienia powiadomienia na zapis do listy — testy nie wysyłają maili.
+
+    Powiadomienia idą raz na zlecenie wysyłki, więc listy zbierają id zlecenia,
+    nie id zamówień. Rozdział na 'tracking'/'status' po tym, czy poszedł numer.
+    """
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
 
     sent = {'tracking': [], 'status': []}
-    monkeypatch.setattr(EmailManager, 'notify_tracking_added',
-                        staticmethod(lambda order, **kw: sent['tracking'].append(order.id)))
-    monkeypatch.setattr(EmailManager, 'notify_status_change',
-                        staticmethod(lambda order, old, new: sent['status'].append(order.id)))
-    monkeypatch.setattr(PushManager, 'notify_tracking_added',
-                        staticmethod(lambda order, **kw: None))
-    monkeypatch.setattr(PushManager, 'notify_status_change',
-                        staticmethod(lambda order, old, new: None))
+
+    def _email(shipping_request, **kw):
+        bucket = 'tracking' if kw.get('tracking_number') else 'status'
+        sent[bucket].append(shipping_request.id)
+
+    monkeypatch.setattr(EmailManager, 'notify_shipment_sent', staticmethod(_email))
+    monkeypatch.setattr(PushManager, 'notify_shipment_sent',
+                        staticmethod(lambda shipping_request, **kw: None))
     return sent
 
 
@@ -80,7 +84,7 @@ def test_session_ship_sr_still_works(client, db, make_user, make_order, login, n
     assert sr.tracking_number == 'ABC123'
     assert all(o.status == 'wyslane' for o in orders)
     assert OrderShipment.query.filter_by(tracking_number='ABC123').count() == len(orders)
-    assert notifications['tracking'] == [o.id for o in orders]
+    assert notifications['tracking'] == [sr.id]
 
 
 def test_session_ship_sr_without_tracking(client, db, make_user, make_order, login, notifications):
@@ -100,7 +104,7 @@ def test_session_ship_sr_without_tracking(client, db, make_user, make_order, log
     assert sr.status == 'wyslane'
     assert OrderShipment.query.count() == 0          # bez numeru nie ma wpisu przesyłki
     assert notifications['tracking'] == []
-    assert notifications['status'] == [o.id for o in orders]
+    assert notifications['status'] == [sr.id]
 
 
 # ---------- Task 2: wysyłka z listy zleceń ----------
@@ -120,7 +124,7 @@ def test_ship_from_list_with_tracking(client, db, make_user, make_order, login, 
     assert sr.courier == 'dpd'
     assert all(o.status == 'wyslane' for o in orders)
     assert OrderShipment.query.filter_by(tracking_number='XYZ999').count() == 2
-    assert sorted(notifications['tracking']) == sorted(o.id for o in orders)
+    assert notifications['tracking'] == [sr.id]
 
 
 def test_ship_from_list_without_tracking(client, db, make_user, make_order, login, notifications):
@@ -135,7 +139,7 @@ def test_ship_from_list_without_tracking(client, db, make_user, make_order, logi
     db.session.refresh(sr)
     assert sr.status == 'wyslane'
     assert OrderShipment.query.count() == 0
-    assert notifications['status'] == [o.id for o in orders]
+    assert notifications['status'] == [sr.id]
 
 
 def test_ship_from_list_rejects_not_packed(client, db, make_user, make_order, login, notifications):
@@ -291,7 +295,7 @@ def test_ship_with_tracking_without_courier(client, db, make_user, make_order, l
     shipments = OrderShipment.query.filter_by(tracking_number='NOCOURIER1').all()
     assert len(shipments) == len(orders)
     assert all(s.courier == 'other' for s in shipments)
-    assert sorted(notifications['tracking']) == sorted(o.id for o in orders)
+    assert notifications['tracking'] == [sr.id]
 
 
 def test_ship_failure_leaves_nothing_changed(client, db, make_user, make_order, login,

@@ -307,3 +307,88 @@ def test_push_skipped_when_no_user(app, db, make_user, make_order, monkeypatch):
         PushManager.notify_shipment_sent(sr)
 
     assert calls == []
+
+
+# ---------- Task 4: wysyłka zlecenia woła powiadomienie raz ----------
+
+from test_wms_ship_and_reopen import _seed_statuses, _sr_packed   # noqa: E402
+
+
+@pytest.fixture
+def package_notifications(monkeypatch):
+    """Przechwytuje powiadomienia paczkowe zamiast wysyłać maile i pushe."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    calls = {'email': [], 'push': []}
+    monkeypatch.setattr(EmailManager, 'notify_shipment_sent',
+                        staticmethod(lambda sr, **kw: calls['email'].append(kw.get('tracking_number'))))
+    monkeypatch.setattr(PushManager, 'notify_shipment_sent',
+                        staticmethod(lambda sr, **kw: calls['push'].append(kw.get('tracking_number'))))
+    return calls
+
+
+def test_ship_three_orders_notifies_once(client, db, make_user, make_order, login,
+                                         package_notifications):
+    """Trzy zamówienia w paczce = jeden mail i jeden push, nie trzy."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=3)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'courier': 'inpost', 'tracking_number': 'PACZKA1'})
+
+    assert r.status_code == 200
+    assert package_notifications['email'] == ['PACZKA1']
+    assert package_notifications['push'] == ['PACZKA1']
+
+
+def test_ship_without_tracking_notifies_once_without_number(client, db, make_user,
+                                                            make_order, login,
+                                                            package_notifications):
+    """Bez numeru przesyłki też jedno powiadomienie, ale bez numeru."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=3)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship', json={})
+
+    assert r.status_code == 200
+    assert package_notifications['email'] == [None]
+    assert package_notifications['push'] == [None]
+
+
+def test_ship_single_order_notifies_once(client, db, make_user, make_order, login,
+                                         package_notifications):
+    """Paczka z jednym zamówieniem działa tą samą ścieżką — dokładnie jeden mail."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=1)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'courier': 'dpd', 'tracking_number': 'JEDNO1'})
+
+    assert r.status_code == 200
+    assert package_notifications['email'] == ['JEDNO1']
+
+
+def test_ship_with_existing_shipments_sends_nothing(client, db, make_user, make_order,
+                                                    login, package_notifications):
+    """Wpisy przesyłki już były — klient nie dostaje drugiego powiadomienia."""
+    from modules.orders.models import OrderShipment
+
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=2)
+    for o in orders:
+        o.status = 'wyslane'
+        db.session.add(OrderShipment(order_id=o.id, tracking_number='JUZBYLO',
+                                     courier='dpd'))
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'courier': 'dpd', 'tracking_number': 'JUZBYLO'})
+
+    assert r.status_code == 200
+    assert package_notifications['email'] == []
+    assert package_notifications['push'] == []
