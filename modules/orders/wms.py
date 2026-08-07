@@ -28,7 +28,8 @@ from modules.orders.wms_models import (
     WmsSession, WmsSessionOrder, WmsSessionShippingRequest, PackagingMaterial
 )
 from modules.orders.wms_utils import (
-    suggest_packaging, ship_shipping_request, ShippingRequestAlreadyShipped,
+    suggest_packaging, suggest_packaging_for_orders,
+    ship_shipping_request, ShippingRequestAlreadyShipped,
     ShippingRequestUnpaid, reopen_orders_for_wms, REOPEN_MODES,
 )
 from modules.orders.wms_packing import (
@@ -1085,6 +1086,83 @@ def wms_session_qr(session_id):
 # ====================
 
 
+def _packaging_materials_payload():
+    """Lista aktywnych materiałów dla ręcznego wyboru — wspólna dla wszystkich
+    endpointów sugestii, żeby nie utrzymywać trzech kopii tego samego kodu."""
+    materials = PackagingMaterial.query.filter_by(is_active=True).order_by(
+        PackagingMaterial.sort_order
+    ).all()
+    return [{
+        'id': m.id,
+        'name': m.name,
+        'type': m.type,
+        'type_display': m.type_display,
+        'dimensions_display': m.dimensions_display,
+        'max_weight': float(m.max_weight) if m.max_weight else None,
+        'own_weight': float(m.own_weight) if m.own_weight else None,
+        'quantity_in_stock': m.quantity_in_stock,
+        'is_low_stock': m.is_low_stock,
+        'cost': float(m.cost) if m.cost else None,
+    } for m in materials]
+
+
+def _suggest_for_shipping_request(session, shipping_request):
+    """Wspólna odpowiedź sugestii dla całej paczki — desktop i telefon."""
+    group = get_packing_group(session, shipping_request)
+    result = suggest_packaging_for_orders(group)
+    return {
+        'success': True,
+        'suggestions': result['suggestions'],
+        'warnings': result['warnings'],
+        'total_weight': result['total_weight'],
+        'total_volume': result['total_volume'],
+        'all_materials': _packaging_materials_payload(),
+        'suggested_material_id': shipping_request.packaging_material_id,
+        'orders_count': len(group),
+    }
+
+
+@orders_bp.route('/api/orders/wms/<int:session_id>/suggest-packaging-sr/<int:sr_id>')
+@login_required
+@role_required('admin', 'mod')
+def wms_suggest_packaging_sr(session_id, sr_id):
+    """Sugestie opakowań dla całego zlecenia wysyłki (desktop)."""
+    try:
+        session = db.session.get(WmsSession, session_id)
+        shipping_request = db.session.get(ShippingRequest, sr_id)
+        if not session or not shipping_request:
+            return jsonify({'success': False, 'message': 'Nie znaleziono'}), 404
+
+        return jsonify(_suggest_for_shipping_request(session, shipping_request))
+
+    except Exception as e:
+        current_app.logger.error(f'WMS suggest packaging (SR) error: {e}')
+        return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
+
+
+@orders_bp.route(
+    '/api/orders/wms/<int:session_id>/suggest-packaging-sr/<int:sr_id>/<session_token>'
+)
+def wms_suggest_packaging_sr_mobile(session_id, sr_id, session_token):
+    """Sugestie opakowań dla zlecenia na telefonie — autoryzacja tokenem sesji."""
+    try:
+        session = WmsSession.query.filter_by(
+            id=session_id, session_token=session_token
+        ).first()
+        if not session or not session.is_active:
+            return jsonify({'success': False, 'message': 'Nieprawidłowy token sesji'}), 403
+
+        shipping_request = db.session.get(ShippingRequest, sr_id)
+        if not shipping_request:
+            return jsonify({'success': False, 'message': 'Zlecenie nie istnieje'}), 404
+
+        return jsonify(_suggest_for_shipping_request(session, shipping_request))
+
+    except Exception as e:
+        current_app.logger.error(f'WMS suggest packaging (SR, mobile) error: {e}')
+        return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
+
+
 @orders_bp.route('/api/orders/wms/suggest-packaging/<int:order_id>')
 @login_required
 @role_required('admin', 'mod')
@@ -1100,31 +1178,13 @@ def wms_suggest_packaging(order_id):
 
         result = suggest_packaging(order)
 
-        # Full list of active materials for manual dropdown
-        all_materials = PackagingMaterial.query.filter_by(is_active=True).order_by(
-            PackagingMaterial.sort_order
-        ).all()
-
-        all_materials_data = [{
-            'id': m.id,
-            'name': m.name,
-            'type': m.type,
-            'type_display': m.type_display,
-            'dimensions_display': m.dimensions_display,
-            'max_weight': float(m.max_weight) if m.max_weight else None,
-            'own_weight': float(m.own_weight) if m.own_weight else None,
-            'quantity_in_stock': m.quantity_in_stock,
-            'is_low_stock': m.is_low_stock,
-            'cost': float(m.cost) if m.cost else None,
-        } for m in all_materials]
-
         return jsonify({
             'success': True,
             'suggestions': result['suggestions'],
             'warnings': result['warnings'],
             'total_weight': result['total_weight'],
             'total_volume': result['total_volume'],
-            'all_materials': all_materials_data,
+            'all_materials': _packaging_materials_payload(),
         })
 
     except Exception as e:
@@ -1162,30 +1222,13 @@ def wms_suggest_packaging_mobile(order_id, session_token):
 
         result = suggest_packaging(order)
 
-        all_materials = PackagingMaterial.query.filter_by(is_active=True).order_by(
-            PackagingMaterial.sort_order
-        ).all()
-
-        all_materials_data = [{
-            'id': m.id,
-            'name': m.name,
-            'type': m.type,
-            'type_display': m.type_display,
-            'dimensions_display': m.dimensions_display,
-            'max_weight': float(m.max_weight) if m.max_weight else None,
-            'own_weight': float(m.own_weight) if m.own_weight else None,
-            'quantity_in_stock': m.quantity_in_stock,
-            'is_low_stock': m.is_low_stock,
-            'cost': float(m.cost) if m.cost else None,
-        } for m in all_materials]
-
         return jsonify({
             'success': True,
             'suggestions': result['suggestions'],
             'warnings': result['warnings'],
             'total_weight': result['total_weight'],
             'total_volume': result['total_volume'],
-            'all_materials': all_materials_data,
+            'all_materials': _packaging_materials_payload(),
         })
 
     except Exception as e:

@@ -357,3 +357,40 @@ def test_reopen_returns_one_material_per_package(app, db, make_user, make_order,
         db.session.refresh(o)
         assert o.packaging_material_id is None
         assert o.status == 'dostarczone_gom'
+
+
+# ---------- Task 5: sugestie dla zlecenia ----------
+
+def test_suggest_sr_endpoint_returns_group_totals(client, app, db, make_user, make_order,
+                                                  make_product, login):
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    login(admin)
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+    mat = _material(db, stock=7)
+    sr.packaging_material_id = mat.id
+    db.session.commit()
+
+    r = client.get(f'/api/orders/wms/{session.id}/suggest-packaging-sr/{sr.id}')
+
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['success'] is True
+    assert data['orders_count'] == 3
+    assert data['total_weight'] == 3.0            # 3 × 1.0 kg
+    assert data['suggested_material_id'] == mat.id
+    assert any(m['id'] == mat.id for m in data['all_materials'])
+
+
+def test_suggest_sr_endpoint_mobile_requires_valid_token(client, app, db, make_user,
+                                                         make_order, make_product):
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+
+    ok = client.get(f'/api/orders/wms/{session.id}/suggest-packaging-sr/{sr.id}/tok-pack')
+    bad = client.get(f'/api/orders/wms/{session.id}/suggest-packaging-sr/{sr.id}/zly-token')
+
+    assert ok.status_code == 200
+    assert ok.get_json()['orders_count'] == 3
+    assert bad.status_code == 403
