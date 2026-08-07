@@ -272,7 +272,8 @@
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                         <line x1="12" y1="22.08" x2="12" y2="12"></line>
                     </svg>
-                    <h3>Pakowanie</h3>
+                    <h3>Pakowanie zlecenia</h3>
+                    <div class="wms-packing-sr-info" id="wmsPackingSrInfo"></div>
                     <div class="wms-packing-warnings" id="wmsPackingWarnings"></div>
                 </div>
 
@@ -293,7 +294,7 @@
 
                 <!-- Weight input -->
                 <div class="wms-packing-weight">
-                    <label for="wmsPackingWeight">Waga paczki (kg):</label>
+                    <label for="wmsPackingWeight">Waga całej paczki (kg):</label>
                     <input type="number" id="wmsPackingWeight" class="wms-packing-weight-input"
                            step="0.01" min="0" placeholder="0.00">
                 </div>
@@ -318,7 +319,7 @@
                         <polyline points="9 11 12 14 22 4"></polyline>
                         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
                     </svg>
-                    Potwierdź pakowanie
+                    Spakuj zlecenie
                 </button>
             </div>
         </div>

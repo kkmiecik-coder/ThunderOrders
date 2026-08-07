@@ -2572,3 +2572,14 @@
     border-top-color: rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.03);
 }
+
+/* Nagłówek panelu pakowania: numer zlecenia + klient + liczba zamówień */
+.wms-packing-sr-info {
+    font-size: 0.85rem;
+    color: #4b5563;
+    margin-top: 2px;
+}
+
+[data-theme="dark"] .wms-packing-sr-info {
+    color: rgba(255, 255, 255, 0.6);
+}
