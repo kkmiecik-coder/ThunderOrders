@@ -2,16 +2,24 @@
 WMS Utilities — Packaging Suggestion Algorithm
 ================================================
 
-Provides suggest_packaging(order) which analyzes order items' dimensions/weight
-and returns ranked packaging material suggestions.
+Provides suggest_packaging_for_orders(orders), which analyzes the items of one
+or more orders packed together and returns ranked packaging suggestions.
+Jedno zlecenie wysyłki jedzie w jednej paczce, więc dopasowanie liczymy po
+sumie wagi i objętości wszystkich zamówień z paczki.
 """
 
 from modules.orders.wms_models import PackagingMaterial
 
 
 def suggest_packaging(order):
+    """Sugestie opakowań dla pojedynczego zamówienia — cienka nakładka
+    na suggest_packaging_for_orders(), zostawiona dla istniejących endpointów."""
+    return suggest_packaging_for_orders([order])
+
+
+def suggest_packaging_for_orders(orders):
     """
-    Analyze order items and suggest best-fit packaging materials.
+    Analyze items of orders packed together and suggest best-fit packaging materials.
 
     Returns dict with keys:
       - suggestions: list of top 3 material dicts (sorted by fit_score desc, cost asc)
@@ -19,7 +27,9 @@ def suggest_packaging(order):
       - total_weight: total product weight in kg (float)
       - total_volume: total needed volume in cm³ (float)
     """
-    items = order.items or []
+    items = []
+    for order in orders or []:
+        items.extend(order.items or [])
 
     if not items:
         return {
