@@ -3923,24 +3923,18 @@ def admin_update_shipping_request(shipping_request_id):
         })
     )
 
-    # Send tracking email and auto-create OrderShipment if tracking number was just added
+    # Auto-create OrderShipment + JEDNO powiadomienie na paczkę, gdy numer właśnie doszedł.
+    # Wpisy przesyłki powstają nadal per zamówienie — jedna jest tylko wiadomość
+    # do klienta, bo fizycznie dostaje jeden karton.
     tracking_just_added = sr.tracking_number and not old_tracking
     if tracking_just_added:
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
         from modules.orders.models import OrderShipment
         courier_names = {'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
                        'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
                        'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'}
         for order in sr.orders:
-            EmailManager.notify_tracking_added(
-                order,
-                tracking_number=sr.tracking_number,
-                courier=sr.courier,
-                courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier'),
-                tracking_url=sr.tracking_url
-            )
-
-            # Auto-create OrderShipment record
             existing = OrderShipment.query.filter_by(
                 order_id=order.id,
                 tracking_number=sr.tracking_number
@@ -3955,6 +3949,17 @@ def admin_update_shipping_request(shipping_request_id):
                 )
                 db.session.add(shipment)
         db.session.commit()
+
+        courier_name = courier_names.get(sr.courier, sr.courier or 'Kurier')
+        try:
+            EmailManager.notify_shipment_sent(
+                sr, tracking_number=sr.tracking_number, courier=sr.courier,
+                courier_name=courier_name, tracking_url=sr.tracking_url)
+            PushManager.notify_shipment_sent(
+                sr, tracking_number=sr.tracking_number, courier_name=courier_name)
+        except Exception as e:
+            current_app.logger.error(
+                f'Błąd powiadomienia o wysyłce zlecenia {sr.request_number}: {e}')
 
     # Send status change email + push (skip if tracking was just added - that email already covers it)
     status_actually_changed = ('status' in data and data['status'] != old_status) or auto_status_changed

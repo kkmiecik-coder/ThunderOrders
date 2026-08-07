@@ -420,3 +420,37 @@ def test_ship_mixed_package_notifies_once(client, db, make_user, make_order, log
     assert package_notifications['email'] == ['MIX1']
     assert package_notifications['push'] == ['MIX1']
     assert OrderShipment.query.filter_by(tracking_number='MIX1').count() == 2
+
+
+# ---------- Task 5: dopisanie numeru przy edycji zlecenia ----------
+
+def test_update_sr_with_tracking_notifies_once(client, db, make_user, make_order, login,
+                                               package_notifications):
+    """Dopisanie numeru przy edycji zlecenia = jeden mail i jeden push na paczkę."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=3)
+
+    r = client.put(f'/admin/orders/shipping-requests/{sr.id}',
+                   json={'tracking_number': 'EDYCJA1', 'courier': 'inpost'})
+
+    assert r.status_code == 200
+    assert package_notifications['email'] == ['EDYCJA1']
+    assert package_notifications['push'] == ['EDYCJA1']
+
+
+def test_update_sr_creates_shipment_per_order(client, db, make_user, make_order, login,
+                                              package_notifications):
+    """Wpisy przesyłki dalej powstają dla każdego zamówienia — zmienia się tylko
+    liczba wiadomości, nie liczba wpisów."""
+    from modules.orders.models import OrderShipment
+
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=3)
+
+    r = client.put(f'/admin/orders/shipping-requests/{sr.id}',
+                   json={'tracking_number': 'WPISY1', 'courier': 'dpd'})
+
+    assert r.status_code == 200
+    assert OrderShipment.query.filter_by(tracking_number='WPISY1').count() == 3
