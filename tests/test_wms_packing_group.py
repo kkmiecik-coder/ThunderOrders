@@ -430,3 +430,39 @@ def test_socket_handler_uses_shared_packing(app, db, make_user, make_order, make
     for o in orders:
         db.session.refresh(o)
         assert o.status == 'spakowane'
+
+
+# ---------- Task 7/8: ekrany ----------
+
+def test_wms_session_page_renders_shipping_request_panel(client, app, db, make_user,
+                                                         make_order, make_product, login):
+    """Ekran sesji WMS ma panel pakowania zlecenia — nagłówek zlecenia i nowy przycisk."""
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    login(admin)
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+
+    r = client.get(f'/admin/orders/wms/{session.id}')
+    html = r.get_data(as_text=True)
+
+    assert r.status_code == 200
+    assert 'wmsPackingSrInfo' in html          # nagłówek z numerem zlecenia
+    assert 'Pakowanie zlecenia' in html
+    assert 'Spakuj zlecenie' in html
+    assert 'Waga całej paczki' in html
+
+
+def test_wms_mobile_page_renders_shipping_request_panel(client, app, db, make_user,
+                                                        make_order, make_product):
+    """Widok na telefonie też pakuje zlecenie, a nie pojedyncze zamówienie."""
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+
+    r = client.get(f'/wms/mobile/{session.session_token}')
+    html = r.get_data(as_text=True)
+
+    assert r.status_code == 200
+    assert 'wmsMPackSrInfo' in html
+    assert 'Spakuj zlecenie' in html
+    assert 'Waga całej paczki' in html
