@@ -741,151 +741,73 @@ def wms_update_item_status():
         }), 500
 
 
-@orders_bp.route('/admin/orders/wms/<int:session_id>/pack-order', methods=['POST'])
+@orders_bp.route('/admin/orders/wms/<int:session_id>/pack-shipping-request', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-def wms_pack_order(session_id):
+def wms_pack_shipping_request(session_id):
     """
-    Mark an order as packed within a WMS session.
-    Sets order status to 'spakowane', releases lock.
+    Pakuje całe zlecenie wysyłki jako jedną paczkę.
+    Jedno zlecenie = jeden karton, więc opakowanie schodzi ze stanu raz,
+    a klient dostaje jednego maila ze zdjęciem.
     """
     try:
-        session = WmsSession.query.get_or_404(session_id)
+        session = db.session.get(WmsSession, session_id)
+        if not session:
+            return jsonify({'success': False, 'message': 'Sesja nie istnieje'}), 404
 
         if not session.is_active:
-            return jsonify({
-                'success': False,
-                'message': 'Sesja WMS nie jest aktywna'
-            }), 400
+            return jsonify({'success': False, 'message': 'Sesja WMS nie jest aktywna'}), 400
 
         data = request.get_json(silent=True) or {}
-        order_id = data.get('order_id')
+        sr_id = data.get('shipping_request_id')
+        if not sr_id:
+            return jsonify({'success': False, 'message': 'Brak shipping_request_id'}), 400
 
-        if not order_id:
-            return jsonify({
-                'success': False,
-                'message': 'Brak order_id'
-            }), 400
+        shipping_request = db.session.get(ShippingRequest, sr_id)
+        if not shipping_request:
+            return jsonify({'success': False, 'message': 'Zlecenie wysyłki nie istnieje'}), 404
 
-        order = db.session.get(Order, order_id)
-        if not order:
-            return jsonify({
-                'success': False,
-                'message': 'Zamówienie nie istnieje'
-            }), 404
-
-        # Verify order belongs to this session
-        session_order = WmsSessionOrder.query.filter_by(
-            session_id=session.id,
-            order_id=order.id
-        ).first()
-
-        if not session_order:
-            return jsonify({
-                'success': False,
-                'message': 'Zamówienie nie należy do tej sesji WMS'
-            }), 400
-
-        if session_order.packing_completed_at:
-            return jsonify({
-                'success': False,
-                'message': 'Zamówienie jest już spakowane'
-            }), 400
-
-        # Mark as packed
-        now = get_local_now()
-        old_status = order.status
-
-        order.status = 'spakowane'
-        order.packed_at = now
-        order.packed_by = current_user.id
-
-        # Packaging material & weight
-        packaging_material_id = data.get('packaging_material_id')
-        total_package_weight = data.get('total_package_weight')
-        low_stock_warning = None
-
-        if packaging_material_id:
-            mat = db.session.get(PackagingMaterial, packaging_material_id)
-            if mat:
-                order.packaging_material_id = mat.id
-                mat.quantity_in_stock = max(0, mat.quantity_in_stock - 1)
-                if mat.is_low_stock:
-                    low_stock_warning = f'Materiał "{mat.name}": stan magazynowy: {mat.quantity_in_stock}'
-
-        if total_package_weight is not None:
-            try:
-                order.total_package_weight = float(total_package_weight)
-            except (ValueError, TypeError):
-                pass
-
-        session_order.packing_completed_at = now
-
-        # Release WMS lock
-        release_order_lock(order)
-
+        result = pack_shipping_request_group(
+            session,
+            shipping_request,
+            packaging_material_id=data.get('packaging_material_id'),
+            total_package_weight=data.get('total_package_weight'),
+            send_email=bool(data.get('send_email')),
+            user_id=current_user.id,
+        )
         db.session.commit()
 
-        # Send packing photo email if requested
-        send_email_flag = data.get('send_email', False)
-        if send_email_flag and order.packing_photo:
-            try:
-                from utils.email_manager import EmailManager
-                from utils.push_manager import PushManager
-                EmailManager.notify_packing_photo(order)
-                PushManager.notify_packing_photo(order)
-            except Exception as email_err:
-                current_app.logger.error(f'WMS packing email error: {email_err}')
-
-        # Activity log
-        log_activity(
-            user=current_user,
-            action='order_packed',
-            entity_type='order',
-            entity_id=order.id,
-            old_value={'status': old_status},
-            new_value={
-                'status': 'spakowane',
-                'wms_session_id': session.id,
-                'packaging_material_id': order.packaging_material_id,
-                'total_package_weight': float(order.total_package_weight) if order.total_package_weight else None,
-            }
-        )
-
-        # Update ShippingRequest status if all orders are packed
-        sr_info = update_sr_after_packing(order)
-        db.session.commit()  # commit SR status change
-
-        result = {
+        response = {
             'success': True,
-            'message': f'Zamówienie {order.order_number} spakowane',
-            'order': {
-                'id': order.id,
-                'order_number': order.order_number,
-                'status': order.status,
-                'status_display_name': order.status_display_name,
-                'packed_at': now.isoformat(),
-            },
+            'message': f'Zlecenie {shipping_request.request_number} spakowane '
+                       f'({len(result["orders"])} zam.)',
+            'orders': result['orders'],
             'session': {
                 'picked_orders_count': session.picked_orders_count,
                 'packed_orders_count': session.packed_orders_count,
                 'progress_percentage': session.progress_percentage,
             },
-            'shipping_request': sr_info,
+            'shipping_request': result['shipping_request'],
         }
+        if result['low_stock_warning']:
+            response['low_stock_warning'] = result['low_stock_warning']
 
-        if low_stock_warning:
-            result['low_stock_warning'] = low_stock_warning
+        socketio.emit('shipping_request_packed', {
+            'orders': result['orders'],
+            'session': response['session'],
+            'shipping_request': result['shipping_request'],
+            'low_stock_warning': result['low_stock_warning'],
+        }, to=f'wms_{session.id}')
 
-        return jsonify(result)
+        return jsonify(response)
 
+    except PackingGroupError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': e.message}), e.status_code
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f'WMS pack order error: {e}')
-        return jsonify({
-            'success': False,
-            'message': f'Błąd: {str(e)}'
-        }), 500
+        current_app.logger.error(f'WMS pack shipping request error: {e}')
+        return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
 
 
 @orders_bp.route('/admin/orders/wms/<int:session_id>/ship-sr', methods=['POST'])

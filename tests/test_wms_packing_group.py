@@ -270,3 +270,62 @@ def test_pack_group_with_deleted_material_warns_and_packs(app, db, make_user, ma
         db.session.refresh(o)
         assert o.status == 'spakowane'
         assert o.packaging_material_id is None
+
+
+# ---------- Task 3: endpoint HTTP ----------
+
+def test_endpoint_packs_shipping_request(client, app, db, make_user, make_order,
+                                         make_product, login, packing_emails):
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    login(admin)
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+    mat = _material(db, stock=7)
+
+    r = client.post(f'/admin/orders/wms/{session.id}/pack-shipping-request',
+                    json={'shipping_request_id': sr.id,
+                          'packaging_material_id': mat.id,
+                          'total_package_weight': 2.5})
+
+    assert r.status_code == 200
+    assert len(r.get_json()['orders']) == 3
+    db.session.refresh(mat)
+    assert mat.quantity_in_stock == 6
+    for o in orders:
+        db.session.refresh(o)
+        assert o.status == 'spakowane'
+
+
+def test_endpoint_rejects_unpicked(client, app, db, make_user, make_order, make_product,
+                                   login, packing_emails):
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    login(admin)
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+    mat = _material(db, stock=7)
+    orders[1].items[0].picked_quantity = 0
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/wms/{session.id}/pack-shipping-request',
+                    json={'shipping_request_id': sr.id, 'packaging_material_id': mat.id})
+
+    assert r.status_code == 400
+    db.session.refresh(mat)
+    assert mat.quantity_in_stock == 7
+    for o in orders:
+        db.session.refresh(o)
+        assert o.status == 'dostarczone_gom'
+
+
+def test_old_pack_order_endpoint_is_gone(client, app, db, make_user, make_order,
+                                         make_product, login):
+    """Pakowanie per zamówienie znika — została jedna droga, przez zlecenie."""
+    _seed_statuses(db)
+    admin = make_user(role='admin')
+    login(admin)
+    sr, orders, session = _sr_in_session(db, admin, make_user, make_order, make_product)
+
+    r = client.post(f'/admin/orders/wms/{session.id}/pack-order',
+                    json={'order_id': orders[0].id})
+
+    assert r.status_code == 404
