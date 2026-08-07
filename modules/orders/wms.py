@@ -31,6 +31,10 @@ from modules.orders.wms_utils import (
     suggest_packaging, ship_shipping_request, ShippingRequestAlreadyShipped,
     ShippingRequestUnpaid, reopen_orders_for_wms, REOPEN_MODES,
 )
+from modules.orders.wms_packing import (
+    pack_shipping_request_group, get_packing_group, release_order_lock,
+    update_sr_after_packing, PackingGroupError,
+)
 from extensions import db, socketio
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
@@ -229,61 +233,6 @@ def _build_session_data(session):
         },
         'orders': orders_data,
         'wms_statuses': statuses_data,
-    }
-
-
-def _release_order_lock(order):
-    """Release WMS lock from an order."""
-    order.wms_locked_at = None
-    order.wms_session_id = None
-
-
-def _update_sr_after_packing(order):
-    """
-    After packing an order, check if all orders in its ShippingRequest are packed.
-    If so, change SR status to 'spakowane'.
-    Also ensure 'spakowane' is in allowed shipping statuses.
-    Returns dict with SR status info or None.
-    """
-    from modules.auth.models import Settings
-    import json
-
-    sr = order.shipping_request
-    if not sr:
-        return None
-
-    all_packed = all(o.status == 'spakowane' for o in sr.orders)
-
-    sr_status_changed = False
-    if all_packed and sr.status != 'spakowane':
-        sr.status = 'spakowane'
-        sr_status_changed = True
-
-    # Auto-add 'spakowane' to allowed shipping statuses (one-time)
-    setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
-    if setting and setting.value:
-        try:
-            allowed = json.loads(setting.value)
-        except (json.JSONDecodeError, TypeError):
-            allowed = []
-        if 'spakowane' not in allowed:
-            allowed.append('spakowane')
-            setting.value = json.dumps(allowed)
-    elif not setting:
-        setting = Settings(
-            key='shipping_request_allowed_statuses',
-            value=json.dumps(['dostarczone_gom', 'spakowane']),
-            type='json',
-            description='Lista statusów zamówień kwalifikujących się do zlecenia wysyłki'
-        )
-        db.session.add(setting)
-
-    return {
-        'id': sr.id,
-        'request_number': sr.request_number,
-        'all_orders_packed': all_packed,
-        'sr_status_changed': sr_status_changed,
-        'sr_new_status': 'spakowane' if sr_status_changed else sr.status,
     }
 
 
@@ -873,7 +822,7 @@ def wms_pack_order(session_id):
         session_order.packing_completed_at = now
 
         # Release WMS lock
-        _release_order_lock(order)
+        release_order_lock(order)
 
         db.session.commit()
 
@@ -904,7 +853,7 @@ def wms_pack_order(session_id):
         )
 
         # Update ShippingRequest status if all orders are packed
-        sr_info = _update_sr_after_packing(order)
+        sr_info = update_sr_after_packing(order)
         db.session.commit()  # commit SR status change
 
         result = {
@@ -1074,7 +1023,7 @@ def wms_complete_session(session_id):
         for so in session.session_orders:
             order = so.order
             if order and order.wms_session_id == session.id:
-                _release_order_lock(order)
+                release_order_lock(order)
 
         db.session.commit()
 
@@ -1136,7 +1085,7 @@ def wms_cancel_session(session_id):
         for so in session.session_orders:
             order = so.order
             if order and order.wms_session_id == session.id:
-                _release_order_lock(order)
+                release_order_lock(order)
 
         db.session.commit()
 
