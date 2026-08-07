@@ -370,6 +370,7 @@ def test_ship_single_order_notifies_once(client, db, make_user, make_order, logi
 
     assert r.status_code == 200
     assert package_notifications['email'] == ['JEDNO1']
+    assert package_notifications['push'] == ['JEDNO1']
 
 
 def test_ship_with_existing_shipments_sends_nothing(client, db, make_user, make_order,
@@ -392,3 +393,30 @@ def test_ship_with_existing_shipments_sends_nothing(client, db, make_user, make_
     assert r.status_code == 200
     assert package_notifications['email'] == []
     assert package_notifications['push'] == []
+
+
+def test_ship_mixed_package_notifies_once(client, db, make_user, make_order, login,
+                                          package_notifications):
+    """Paczka mieszana — jedno zamówienie ma już wpis przesyłki, drugie dopiero go dostaje.
+
+    Tak bywa, gdy klient dostał wcześniej maila z okna "Dodaj koszty" tylko dla
+    części zamówień w paczce. Mimo to warunek `if new_shipment_order_ids` jest
+    prawdziwy (bo choć jedno zamówienie dostaje nowy wpis) i idzie JEDNO
+    powiadomienie z pełną listą zamówień z paczki — nie osobne dla nowego wpisu.
+    """
+    from modules.orders.models import OrderShipment
+
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=2)
+    db.session.add(OrderShipment(order_id=orders[0].id, tracking_number='MIX1',
+                                 courier='dpd'))
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'courier': 'dpd', 'tracking_number': 'MIX1'})
+
+    assert r.status_code == 200
+    assert package_notifications['email'] == ['MIX1']
+    assert package_notifications['push'] == ['MIX1']
+    assert OrderShipment.query.filter_by(tracking_number='MIX1').count() == 2
