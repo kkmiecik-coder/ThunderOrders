@@ -1761,6 +1761,7 @@
                     showToast(result.message || 'Zlecenie oznaczone jako wysłane', 'success');
                     panelEl.remove();
                     activeShippingPanel = null;
+                    finishSessionIfNothingLeft();
                 } else {
                     showToast(result.message || 'Błąd', 'error');
                 }
@@ -1786,6 +1787,31 @@
         panelEl.remove();
         activeShippingPanel = null;
         showToast('Pominięto wysyłkę — uzupełnij tracking z dashboardu', 'info');
+        finishSessionIfNothingLeft();
+    }
+
+    /**
+     * Zamyka sesję, gdy nie ma w niej już nic do roboty — czyli wszystkie
+     * zamówienia są spakowane. Przy kilku zleceniach w jednej sesji (kilku
+     * klientach) sesja żyje dalej, dopóki zostało cokolwiek niespakowanego.
+     */
+    function finishSessionIfNothingLeft() {
+        var orders = sessionData.orders || [];
+        var allPacked = orders.length > 0 && orders.every(function (o) {
+            return o.packing_completed_at;
+        });
+        if (!allPacked) return;
+
+        postJSON('/admin/orders/wms/' + sessionId + '/complete', {}).then(function (result) {
+            if (!result.success) return;
+            showToast('Wszystko spakowane — sesja zakończona', 'success');
+            if (result.redirect_url) {
+                // chwila zwłoki, żeby komunikat zdążył się pokazać
+                setTimeout(function () { window.location.href = result.redirect_url; }, 1500);
+            }
+        }).catch(function (err) {
+            console.error('WMS finishSessionIfNothingLeft error:', err);
+        });
     }
 
     /**
