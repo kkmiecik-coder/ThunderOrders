@@ -193,6 +193,7 @@
                 updateItemCardDOM(itemData);
                 updateOrderProgressUI(order);
                 updatePackButton(order);
+                autoAdvanceWithinPackageM(order);
             }
         });
 
@@ -612,6 +613,29 @@
             });
     }
 
+    /**
+     * Po zebraniu całego zamówienia przeskakuje na kolejne z tej samej paczki.
+     * Gdy paczka jest cała zebrana, zostajemy — wtedy widać panel pakowania.
+     */
+    function autoAdvanceWithinPackageM(order) {
+        if (!order || !order.is_picked || currentPackingSrId) return;
+
+        var sr = order.shipping_request;
+        if (!sr) return;
+
+        var next = packingGroupForM(sr.id).find(function (o) {
+            return o.id !== order.id && !o.is_picked;
+        });
+        if (!next) return;
+
+        var idx = ordersOrder.indexOf(next.id);
+        if (idx >= 0) {
+            currentOrderIdx = idx;
+            renderCurrentOrder();
+            vibrate(30);
+        }
+    }
+
     function updatePackButton(order) {
         var section = document.getElementById('wmsMPackSection');
         var btn = document.getElementById('wmsMPackBtn');
@@ -909,13 +933,6 @@
 
         var group = packingGroupForM(currentPackingSrId);
         if (!group.length) return;
-
-        var sr = group[0].shipping_request;
-
-        if (!confirm('Spakować zlecenie ' + sr.request_number + ' (' + group.length +
-                     ' zam.) jako jedną paczkę?')) {
-            return;
-        }
 
         if (!socket || !isConnected) {
             showToast('Brak połączenia', 'error');

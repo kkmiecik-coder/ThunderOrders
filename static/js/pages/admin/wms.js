@@ -373,6 +373,15 @@
     }
 
     function handleShippingRequestPacked(data) {
+        // Komputer, który sam spakował, dostaje jeszcze rozgłoszenie po WebSocket —
+        // bez tego strażnika pokazałby ten sam komunikat drugi raz.
+        var packed = data.orders || [];
+        var alreadyApplied = packed.length > 0 && packed.every(function (od) {
+            var order = ordersMap[od.id];
+            return order && order.packing_completed_at;
+        });
+        if (alreadyApplied) return;
+
         applyPackedOrders(data.orders);
 
         if (data.session) {
@@ -385,7 +394,6 @@
         var srNumber = (data.shipping_request && data.shipping_request.request_number) || '';
         showToast('Zlecenie ' + srNumber + ' spakowane!', 'success');
 
-        var packed = data.orders || [];
         var stillHere = packed.some(function (od) { return od.id === currentOrderId; });
         if (stillHere) {
             selectOrder(currentOrderId);
@@ -821,6 +829,7 @@
             if (order) {
                 updateOrderProgressBar(order);
                 updatePackAction(order);
+                autoAdvanceWithinPackage(order);
             }
 
             updateQueueCard(orderResult.id);
@@ -1181,6 +1190,25 @@
         });
     }
 
+    /**
+     * Po zebraniu całego zamówienia przeskakuje na kolejne z tej samej paczki,
+     * żeby nie trzeba było klikać kafelków w trakcie kompletowania zlecenia.
+     * Gdy paczka jest już cała zebrana, zostajemy na miejscu — wtedy pokazuje
+     * się panel pakowania (currentPackingSrId jest ustawione).
+     */
+    function autoAdvanceWithinPackage(order) {
+        if (!order.is_picked || currentPackingSrId) return;
+        if (order.id !== currentOrderId) return;
+
+        var sr = order.shipping_request;
+        if (!sr) return;
+
+        var next = packingGroupFor(sr.id).find(function (o) {
+            return o.id !== order.id && !o.is_picked;
+        });
+        if (next) selectOrder(next.id);
+    }
+
     function packShippingRequest(srId) {
         var group = packingGroupFor(srId);
         if (!group.length) return;
@@ -1196,11 +1224,6 @@
         var sendEmailCheckbox = el('wmsSendEmailCheckbox');
         var sendEmail = sendEmailCheckbox ? sendEmailCheckbox.checked : false;
         var hasPhoto = group.some(function (o) { return o.packing_photo_url; });
-
-        if (!confirm('Spakować zlecenie ' + sr.request_number + ' (' + group.length +
-                     ' zam.) jako jedną paczkę?')) {
-            return;
-        }
 
         var body = { shipping_request_id: srId };
         if (materialId) body.packaging_material_id = materialId;
@@ -1536,14 +1559,8 @@
                 selectOrder(orders[idx].id);
             }
 
-            // Enter — pakuje całe zlecenie, gdy panel pakowania jest widoczny
-            if (e.key === 'Enter' && currentOrderId && isSessionActive) {
-                var order = ordersMap[currentOrderId];
-                if (order && currentPackingSrId) {
-                    e.preventDefault();
-                    packShippingRequest(currentPackingSrId);
-                }
-            }
+            // Pakowanie wyłącznie przyciskiem — bez pytania „na pewno?" Enter
+            // pakowałby całe zlecenie jednym przypadkowym stuknięciem.
         });
     }
 
