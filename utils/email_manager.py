@@ -33,6 +33,7 @@ REJESTR EMAILI:
     WYSYŁKA:
         - notify_shipping_request_created(shipping_request, user) -> potwierdzenie zlecenia wysyłki
         - notify_shipping_status_change(shipping_request, old_status_slug) -> zmiana statusu zlecenia wysyłki
+        - notify_shipment_sent(shipping_request, ...) -> jeden mail o wysłanej paczce
 
     ADMIN:
         - notify_admin_payment_uploaded(order, stage_names) -> nowe potwierdzenie płatności
@@ -966,6 +967,79 @@ class EmailManager:
         except Exception as e:
             current_app.logger.error(
                 f"Failed to send shipping status change email for {shipping_request.request_number}: {e}"
+            )
+
+    @staticmethod
+    def notify_shipment_sent(shipping_request, *, tracking_number=None, courier=None,
+                             courier_name=None, tracking_url=None):
+        """Wysyła JEDEN mail o wysłanej paczce — na całe zlecenie wysyłki.
+
+        Zastępuje mail per zamówienie: przy trzech zamówieniach w jednym kartonie
+        klient dostawał trzy wiadomości o tej samej przesyłce. Teraz dostaje jedną,
+        z listą wszystkich zamówień w środku.
+
+        Przełączniki powiadomień: świadomie korzystamy z istniejących kluczy
+        zamiast dokładać nowy — nowy klucz startowałby jako włączony i po cichu
+        zmieniłby to, co sklep wysyła.
+
+        Args:
+            shipping_request: obiekt ShippingRequest
+            tracking_number (str): numer przesyłki (opcjonalny)
+            courier (str): slug kuriera, potrzebny do wygenerowania URL śledzenia
+            courier_name (str): nazwa kuriera do wyświetlenia
+            tracking_url (str): URL śledzenia; gdy brak, generowany z kuriera i numeru
+        """
+        tracking_number = (tracking_number or '').strip()
+        toggle_key = 'notify_tracking_added' if tracking_number else 'notify_status_change'
+        if not EmailManager.is_email_enabled(toggle_key):
+            current_app.logger.info(
+                f"Email notification '{toggle_key}' is disabled, skipping")
+            return
+
+        from utils.email_sender import send_shipment_sent_email
+
+        orders = list(shipping_request.orders)
+        if not orders:
+            # Puste zlecenie (bez żadnych zamówień) nie ma czego wymieniać w mailu —
+            # klient dostałby wiadomość z pustą listą zamówień. Nie ma o czym
+            # powiadamiać, więc po prostu nic nie wysyłamy.
+            current_app.logger.info(
+                f"Shipping request {shipping_request.request_number} has no orders, "
+                f"skipping shipment email"
+            )
+            return
+
+        user = shipping_request.user
+        # Zlecenie bez użytkownika (usunięte konto) — adres bierzemy z zamówienia,
+        # Order.customer_email i tak sięga do konta klienta.
+        email = user.email if user else (orders[0].customer_email if orders else None)
+        if not email:
+            current_app.logger.warning(
+                f"Cannot send shipment email for {shipping_request.request_number}: no email"
+            )
+            return
+
+        if tracking_number and not tracking_url and courier:
+            from modules.orders.utils import get_tracking_url
+            tracking_url = get_tracking_url(courier, tracking_number)
+
+        try:
+            send_shipment_sent_email(
+                user_email=email,
+                user_name=(user.first_name if user else None) or 'Kliencie',
+                request_number=shipping_request.request_number,
+                order_numbers=[o.order_number for o in orders],
+                tracking_number=tracking_number or None,
+                courier_name=courier_name,
+                tracking_url=tracking_url,
+                shipping_requests_url=url_for('client.shipping_requests_list', _external=True),
+            )
+            current_app.logger.info(
+                f"Shipment email sent for {shipping_request.request_number} to {email}"
+            )
+        except Exception as e:
+            current_app.logger.error(
+                f"Failed to send shipment email for {shipping_request.request_number}: {e}"
             )
 
     # ========================================
