@@ -95,3 +95,121 @@ def test_subject_differs_with_and_without_tracking(app, monkeypatch):
     assert 'wysłana' in captured[1]['subject']
     assert captured[0]['template'] == 'shipment_sent'
     assert captured[1]['tracking_number'] is None
+
+
+# ---------- Task 2: EmailManager.notify_shipment_sent ----------
+
+def _sr_with_orders(db, make_user, make_order, count=3, tracking=None, courier=None):
+    """Zlecenie wysyłki z podanym numerem zamówień, gotowe do powiadomienia."""
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    u = make_user()
+    sr = ShippingRequest(request_number=ShippingRequest.generate_request_number(),
+                         user_id=u.id, status='spakowane',
+                         tracking_number=tracking, courier=courier)
+    db.session.add(sr)
+    db.session.commit()
+    for _ in range(count):
+        o = make_order(u, status='spakowane')
+        db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=o.id))
+    db.session.commit()
+    return sr
+
+
+@pytest.fixture
+def captured_email(monkeypatch):
+    """Przechwytuje wywołania send_shipment_sent_email zamiast wysyłać maile."""
+    import utils.email_sender as es
+
+    calls = []
+    monkeypatch.setattr(es, 'send_shipment_sent_email',
+                        lambda **kw: calls.append(kw) or True)
+    return calls
+
+
+def test_email_sends_once_with_all_order_numbers(app, db, make_user, make_order,
+                                                 captured_email):
+    """Trzy zamówienia w paczce = jeden mail, w środku trzy numery."""
+    from utils.email_manager import EmailManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=3,
+                         tracking='ABC123', courier='inpost')
+
+    with app.test_request_context():
+        EmailManager.notify_shipment_sent(
+            sr, tracking_number='ABC123', courier='inpost',
+            courier_name='InPost', tracking_url='https://inpost.pl/ABC123')
+
+    assert len(captured_email) == 1
+    assert len(captured_email[0]['order_numbers']) == 3
+    assert captured_email[0]['request_number'] == sr.request_number
+    assert captured_email[0]['tracking_number'] == 'ABC123'
+    assert captured_email[0]['tracking_url'] == 'https://inpost.pl/ABC123'
+
+
+def test_email_without_tracking_passes_none(app, db, make_user, make_order,
+                                            captured_email):
+    """Bez numeru przesyłki mail idzie, ale bez danych śledzenia."""
+    from utils.email_manager import EmailManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=2)
+
+    with app.test_request_context():
+        EmailManager.notify_shipment_sent(sr)
+
+    assert len(captured_email) == 1
+    assert captured_email[0]['tracking_number'] is None
+    assert len(captured_email[0]['order_numbers']) == 2
+
+
+def test_email_builds_tracking_url_when_missing(app, db, make_user, make_order,
+                                                captured_email):
+    """Gdy URL nie podano, a jest kurier i numer — metoda go generuje."""
+    from utils.email_manager import EmailManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=1,
+                         tracking='XYZ999', courier='inpost')
+
+    with app.test_request_context():
+        EmailManager.notify_shipment_sent(
+            sr, tracking_number='XYZ999', courier='inpost', courier_name='InPost')
+
+    assert len(captured_email) == 1
+    assert captured_email[0]['tracking_url']
+    assert 'XYZ999' in captured_email[0]['tracking_url']
+
+
+def test_email_skipped_when_toggle_disabled(app, db, make_user, make_order,
+                                            captured_email, monkeypatch):
+    """Wyłączony przełącznik 'Numer przesyłki' blokuje mail o paczce z numerem."""
+    from utils.email_manager import EmailManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=2,
+                         tracking='ABC123', courier='inpost')
+    monkeypatch.setattr(EmailManager, 'is_email_enabled',
+                        classmethod(lambda cls, key: key != 'notify_tracking_added'))
+
+    with app.test_request_context():
+        EmailManager.notify_shipment_sent(
+            sr, tracking_number='ABC123', courier='inpost', courier_name='InPost')
+
+    assert captured_email == []
+
+
+def test_email_skipped_when_no_recipient(app, db, make_user, make_order,
+                                         captured_email):
+    """Brak adresu e-mail kończy się cicho, bez wyjątku.
+
+    Kolumna users.email jest NOT NULL, więc adresu nie da się wyzerować —
+    brak odbiorcy odtwarzamy zleceniem bez konta klienta i bez zamówień,
+    czyli dokładnie tą sytuacją, przed którą broni się metoda.
+    """
+    from utils.email_manager import EmailManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=0)
+    sr.user_id = None
+    db.session.commit()
+
+    with app.test_request_context():
+        EmailManager.notify_shipment_sent(sr)
+
+    assert captured_email == []
