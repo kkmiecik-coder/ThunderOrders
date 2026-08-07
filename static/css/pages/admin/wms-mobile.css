@@ -1129,3 +1129,15 @@ body {
     from { opacity: 0; }
     to { opacity: 1; }
 }
+
+/* Nagłówek panelu pakowania na telefonie */
+.wms-m-pack-sr-info {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    padding: 6px 0;
+}
+
+[data-theme="dark"] .wms-m-pack-sr-info {
+    color: rgba(255, 255, 255, 0.75);
+}

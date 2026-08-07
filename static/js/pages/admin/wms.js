@@ -28,7 +28,8 @@
     var socket = null;
     var currentWorkMode = null; // null | 'desktop' | 'phone'
     var selectedMaterialId = null;
-    var packingSuggestionsCache = {}; // {orderId: {suggestions, all_materials, total_weight}}
+    var packingSuggestionsCache = {}; // {shippingRequestId: {suggestions, all_materials, total_weight}}
+    var currentPackingSrId = null;    // zlecenie, dla którego pokazany jest panel
 
     // ========================================
     // HELPERS
@@ -250,7 +251,7 @@
         socket.on('phone_disconnected', handlePhoneDisconnected);
         socket.on('item_status_updated', handleItemStatusUpdated);
         socket.on('order_picked', handleOrderPicked);
-        socket.on('order_packed', handleOrderPacked);
+        socket.on('shipping_request_packed', handleShippingRequestPacked);
         socket.on('session_state', handleSessionState);
         socket.on('session_progress', handleSessionProgressWS);
 
@@ -371,46 +372,41 @@
         refreshPreviewIfVisible();
     }
 
-    function handleOrderPacked(data) {
-        var orderData = data.order;
-        var sessionProgress = data.session;
+    function handleShippingRequestPacked(data) {
+        // Komputer, który sam spakował, dostaje jeszcze rozgłoszenie po WebSocket —
+        // bez tego strażnika pokazałby ten sam komunikat drugi raz.
+        var packed = data.orders || [];
+        var alreadyApplied = packed.length > 0 && packed.every(function (od) {
+            var order = ordersMap[od.id];
+            return order && order.packing_completed_at;
+        });
+        if (alreadyApplied) return;
 
-        var order = ordersMap[orderData.id];
-        if (order) {
-            order.packing_completed_at = orderData.packed_at;
-            order.status = orderData.status;
-            order.status_display_name = orderData.status_display_name;
-            if (orderData.packaging_material_name) {
-                order.packaging_material_name = orderData.packaging_material_name;
-            }
-            if (orderData.total_package_weight) {
-                order.total_package_weight = orderData.total_package_weight;
-            }
+        applyPackedOrders(data.orders);
+
+        if (data.session) {
+            updateSessionProgress(data.session);
         }
-
-        updateQueueCard(orderData.id);
-
-        if (sessionProgress) {
-            updateSessionProgress(sessionProgress);
-        }
-
         if (data.low_stock_warning) {
             showToast(data.low_stock_warning, 'warning');
         }
 
-        showToast('Zamówienie ' + (orderData.order_number || '') + ' spakowane!', 'success');
+        var srNumber = (data.shipping_request && data.shipping_request.request_number) || '';
+        showToast('Zlecenie ' + srNumber + ' spakowane!', 'success');
 
-        // Re-render current order if it was packed
-        if (currentOrderId === orderData.id) {
+        var stillHere = packed.some(function (od) { return od.id === currentOrderId; });
+        if (stillHere) {
             selectOrder(currentOrderId);
         }
 
-        autoAdvanceToNextOrder(orderData.id);
+        if (packed.length) {
+            autoAdvanceToNextOrder(packed[packed.length - 1].id);
+        }
         refreshPreviewIfVisible();
 
-        // Check if all orders in the SR are packed → show shipping panel
-        if (order && order.shipping_request) {
-            checkAndShowShippingPanel(order.shipping_request);
+        var firstOrder = packed.length ? ordersMap[packed[0].id] : null;
+        if (firstOrder && firstOrder.shipping_request) {
+            checkAndShowShippingPanel(firstOrder.shipping_request);
         }
     }
 
@@ -833,6 +829,7 @@
             if (order) {
                 updateOrderProgressBar(order);
                 updatePackAction(order);
+                autoAdvanceWithinPackage(order);
             }
 
             updateQueueCard(orderResult.id);
@@ -995,28 +992,44 @@
     function updatePackAction(order) {
         var packAction = el('wmsPackAction');
         var packBtn = el('btnPackOrder');
+        var srInfo = el('wmsPackingSrInfo');
         if (!packAction || !packBtn) return;
 
-        if (!isSessionActive || order.packing_completed_at) {
+        var sr = order && order.shipping_request;
+
+        if (!isSessionActive || !sr) {
             packAction.style.display = 'none';
+            currentPackingSrId = null;
             hidePackingPhoto();
             return;
         }
 
-        if (order.is_picked) {
-            packAction.style.display = '';
-            packBtn.disabled = false;
-            fetchPackingSuggestions(order.id);
+        var group = packingGroupFor(sr.id);
+        var allPicked = group.length > 0 && group.every(function (o) { return o.is_picked; });
 
-            // Show packing photo if available
-            if (order.packing_photo_url) {
-                showPackingPhoto(order.packing_photo_url);
-            } else {
-                hidePackingPhoto();
-            }
-        } else {
+        if (!allPicked) {
             packAction.style.display = 'none';
             packBtn.disabled = true;
+            currentPackingSrId = null;
+            hidePackingPhoto();
+            return;
+        }
+
+        packAction.style.display = '';
+        packBtn.disabled = false;
+        currentPackingSrId = sr.id;
+
+        if (srInfo) {
+            srInfo.textContent = sr.request_number + ' — ' + (sr.shipping_name || '') +
+                ' — ' + group.length + (group.length === 1 ? ' zamówienie' : ' zam.');
+        }
+
+        fetchPackingSuggestions(sr.id);
+
+        var withPhoto = group.find(function (o) { return o.packing_photo_url; });
+        if (withPhoto) {
+            showPackingPhoto(withPhoto.packing_photo_url);
+        } else {
             hidePackingPhoto();
         }
     }
@@ -1025,17 +1038,17 @@
     // PACKAGING SUGGESTIONS
     // ========================================
 
-    function fetchPackingSuggestions(orderId) {
+    function fetchPackingSuggestions(srId) {
         // Use cache if available
-        if (packingSuggestionsCache[orderId]) {
-            renderPackingSuggestions(orderId, packingSuggestionsCache[orderId]);
+        if (packingSuggestionsCache[srId]) {
+            renderPackingSuggestions(srId, packingSuggestionsCache[srId]);
             return;
         }
 
         var loadingEl = el('wmsPackingSuggestionsLoading');
         if (loadingEl) loadingEl.style.display = '';
 
-        fetch('/api/orders/wms/suggest-packaging/' + orderId, {
+        fetch('/api/orders/wms/' + sessionId + '/suggest-packaging-sr/' + srId, {
             headers: { 'X-CSRFToken': getCSRFToken() },
         })
         .then(function (r) { return r.json(); })
@@ -1043,15 +1056,15 @@
             if (loadingEl) loadingEl.style.display = 'none';
             if (!data.success) return;
 
-            packingSuggestionsCache[orderId] = data;
-            renderPackingSuggestions(orderId, data);
+            packingSuggestionsCache[srId] = data;
+            renderPackingSuggestions(srId, data);
         })
         .catch(function () {
             if (loadingEl) loadingEl.style.display = 'none';
         });
     }
 
-    function renderPackingSuggestions(orderId, data) {
+    function renderPackingSuggestions(srId, data) {
         var container = el('wmsPackingSuggestions');
         var warningsEl = el('wmsPackingWarnings');
         var selectEl = el('wmsPackingMaterialSelect');
@@ -1140,6 +1153,11 @@
         if (weightInput && data.total_weight) {
             weightInput.value = data.total_weight.toFixed(2);
         }
+
+        // Opakowanie z wyceny zlecenia — podpowiadamy, nie zmuszamy
+        if (data.suggested_material_id) {
+            selectPackingMaterial(data.suggested_material_id, container, selectEl);
+        }
     }
 
     function selectPackingMaterial(materialId, container, selectEl) {
@@ -1161,11 +1179,42 @@
         return div.innerHTML;
     }
 
-    function packOrder(orderId) {
-        var order = ordersMap[orderId];
-        if (!order) return;
+    /**
+     * Zamówienia danego zlecenia obecne w tej sesji i jeszcze niespakowane —
+     * dokładnie to, co idzie do jednego kartonu.
+     */
+    function packingGroupFor(srId) {
+        return (sessionData.orders || []).filter(function (o) {
+            return o.shipping_request && o.shipping_request.id === srId &&
+                   !o.packing_completed_at;
+        });
+    }
 
-        // Get selected material from dropdown or suggestion card
+    /**
+     * Po zebraniu całego zamówienia przeskakuje na kolejne z tej samej paczki,
+     * żeby nie trzeba było klikać kafelków w trakcie kompletowania zlecenia.
+     * Gdy paczka jest już cała zebrana, zostajemy na miejscu — wtedy pokazuje
+     * się panel pakowania (currentPackingSrId jest ustawione).
+     */
+    function autoAdvanceWithinPackage(order) {
+        if (!order.is_picked || currentPackingSrId) return;
+        if (order.id !== currentOrderId) return;
+
+        var sr = order.shipping_request;
+        if (!sr) return;
+
+        var next = packingGroupFor(sr.id).find(function (o) {
+            return o.id !== order.id && !o.is_picked;
+        });
+        if (next) selectOrder(next.id);
+    }
+
+    function packShippingRequest(srId) {
+        var group = packingGroupFor(srId);
+        if (!group.length) return;
+
+        var sr = group[0].shipping_request;
+
         var selectEl = el('wmsPackingMaterialSelect');
         var materialId = selectedMaterialId || (selectEl ? parseInt(selectEl.value) || null : null);
 
@@ -1174,58 +1223,67 @@
 
         var sendEmailCheckbox = el('wmsSendEmailCheckbox');
         var sendEmail = sendEmailCheckbox ? sendEmailCheckbox.checked : false;
+        var hasPhoto = group.some(function (o) { return o.packing_photo_url; });
 
-        if (!confirm('Czy na pewno oznaczyć zamówienie ' + order.order_number + ' jako spakowane?')) {
-            return;
-        }
-
-        var body = { order_id: orderId };
+        var body = { shipping_request_id: srId };
         if (materialId) body.packaging_material_id = materialId;
         if (weight) body.total_package_weight = weight;
-        if (sendEmail && order.packing_photo_url) body.send_email = true;
+        if (sendEmail && hasPhoto) body.send_email = true;
 
         var packBtn = el('btnPackOrder');
         setButtonLoading(packBtn, true);
 
-        postJSON('/admin/orders/wms/' + sessionId + '/pack-order', body).then(function (result) {
+        postJSON('/admin/orders/wms/' + sessionId + '/pack-shipping-request', body)
+        .then(function (result) {
             setButtonLoading(packBtn, false);
             if (!result.success) {
                 showToast(result.message || 'Błąd pakowania', 'error');
                 return;
             }
 
-            order.packing_completed_at = result.order.packed_at;
-            order.status = result.order.status;
-            order.status_display_name = result.order.status_display_name;
+            applyPackedOrders(result.orders);
 
-            // Reset packing state
             selectedMaterialId = null;
-            delete packingSuggestionsCache[orderId];
-
-            updateQueueCard(orderId);
+            currentPackingSrId = null;
+            delete packingSuggestionsCache[srId];
 
             if (result.session) {
                 updateSessionProgress(result.session);
             }
-
             if (result.low_stock_warning) {
                 showToast(result.low_stock_warning, 'warning');
             }
 
-            showToast(result.message || 'Zamówienie spakowane!', 'success');
+            showToast(result.message || 'Zlecenie spakowane!', 'success');
 
-            selectOrder(orderId);
-            autoAdvanceToNextOrder(orderId);
+            var lastId = result.orders[result.orders.length - 1].id;
+            selectOrder(lastId);
+            autoAdvanceToNextOrder(lastId);
 
-            // Check if all orders in the SR are packed → show shipping panel
-            if (order.shipping_request) {
-                checkAndShowShippingPanel(order.shipping_request);
-            }
+            checkAndShowShippingPanel(sr);
 
         }).catch(function (err) {
             setButtonLoading(packBtn, false);
-            console.error('WMS packOrder error:', err);
+            console.error('WMS packShippingRequest error:', err);
             showToast('Błąd połączenia', 'error');
+        });
+    }
+
+    /** Nanosi na lokalny stan zamówienia zwrócone przez backend jako spakowane. */
+    function applyPackedOrders(packedOrders) {
+        (packedOrders || []).forEach(function (od) {
+            var order = ordersMap[od.id];
+            if (!order) return;
+            order.packing_completed_at = od.packed_at;
+            order.status = od.status;
+            order.status_display_name = od.status_display_name;
+            if (od.packaging_material_name) {
+                order.packaging_material_name = od.packaging_material_name;
+            }
+            if (od.total_package_weight) {
+                order.total_package_weight = od.total_package_weight;
+            }
+            updateQueueCard(od.id);
         });
     }
 
@@ -1450,11 +1508,11 @@
         if (btnComplete) btnComplete.addEventListener('click', completeSession);
         if (btnCancel) btnCancel.addEventListener('click', cancelSession);
 
-        // Pack order button
+        // Pack shipping request button
         var btnPack = el('btnPackOrder');
         if (btnPack) {
             btnPack.addEventListener('click', function () {
-                if (currentOrderId) packOrder(currentOrderId);
+                if (currentPackingSrId) packShippingRequest(currentPackingSrId);
             });
         }
 
@@ -1501,14 +1559,8 @@
                 selectOrder(orders[idx].id);
             }
 
-            // Enter — trigger packing if order is fully picked
-            if (e.key === 'Enter' && currentOrderId && isSessionActive) {
-                var order = ordersMap[currentOrderId];
-                if (order && order.is_picked && !order.packing_completed_at) {
-                    e.preventDefault();
-                    packOrder(currentOrderId);
-                }
-            }
+            // Pakowanie wyłącznie przyciskiem — bez pytania „na pewno?" Enter
+            // pakowałby całe zlecenie jednym przypadkowym stuknięciem.
         });
     }
 
@@ -1709,6 +1761,7 @@
                     showToast(result.message || 'Zlecenie oznaczone jako wysłane', 'success');
                     panelEl.remove();
                     activeShippingPanel = null;
+                    finishSessionIfNothingLeft();
                 } else {
                     showToast(result.message || 'Błąd', 'error');
                 }
@@ -1734,6 +1787,31 @@
         panelEl.remove();
         activeShippingPanel = null;
         showToast('Pominięto wysyłkę — uzupełnij tracking z dashboardu', 'info');
+        finishSessionIfNothingLeft();
+    }
+
+    /**
+     * Zamyka sesję, gdy nie ma w niej już nic do roboty — czyli wszystkie
+     * zamówienia są spakowane. Przy kilku zleceniach w jednej sesji (kilku
+     * klientach) sesja żyje dalej, dopóki zostało cokolwiek niespakowanego.
+     */
+    function finishSessionIfNothingLeft() {
+        var orders = sessionData.orders || [];
+        var allPacked = orders.length > 0 && orders.every(function (o) {
+            return o.packing_completed_at;
+        });
+        if (!allPacked) return;
+
+        postJSON('/admin/orders/wms/' + sessionId + '/complete', {}).then(function (result) {
+            if (!result.success) return;
+            showToast('Wszystko spakowane — sesja zakończona', 'success');
+            if (result.redirect_url) {
+                // chwila zwłoki, żeby komunikat zdążył się pokazać
+                setTimeout(function () { window.location.href = result.redirect_url; }, 1500);
+            }
+        }).catch(function (err) {
+            console.error('WMS finishSessionIfNothingLeft error:', err);
+        });
     }
 
     /**

@@ -2,16 +2,24 @@
 WMS Utilities — Packaging Suggestion Algorithm
 ================================================
 
-Provides suggest_packaging(order) which analyzes order items' dimensions/weight
-and returns ranked packaging material suggestions.
+Provides suggest_packaging_for_orders(orders), which analyzes the items of one
+or more orders packed together and returns ranked packaging suggestions.
+Jedno zlecenie wysyłki jedzie w jednej paczce, więc dopasowanie liczymy po
+sumie wagi i objętości wszystkich zamówień z paczki.
 """
 
 from modules.orders.wms_models import PackagingMaterial
 
 
 def suggest_packaging(order):
+    """Sugestie opakowań dla pojedynczego zamówienia — cienka nakładka
+    na suggest_packaging_for_orders(), zostawiona dla istniejących endpointów."""
+    return suggest_packaging_for_orders([order])
+
+
+def suggest_packaging_for_orders(orders):
     """
-    Analyze order items and suggest best-fit packaging materials.
+    Analyze items of orders packed together and suggest best-fit packaging materials.
 
     Returns dict with keys:
       - suggestions: list of top 3 material dicts (sorted by fit_score desc, cost asc)
@@ -19,7 +27,9 @@ def suggest_packaging(order):
       - total_weight: total product weight in kg (float)
       - total_volume: total needed volume in cm³ (float)
     """
-    items = order.items or []
+    items = []
+    for order in orders or []:
+        items.extend(order.items or [])
 
     if not items:
         return {
@@ -364,14 +374,18 @@ def reopen_orders_for_wms(orders, mode, shipping_requests=()):
     mode='full'   — czyści też odhaczone pozycje; sesja startuje od zbierania
     mode='repack' — pozycje zostają zebrane; sesja startuje od pakowania
 
-    Opakowanie wraca na stan i przypisanie się czyści, żeby ponowne pakowanie
-    odjęło je normalnie — dzięki temu stan magazynowy nie rozjeżdża się przy
-    wielokrotnym cofaniu tego samego zlecenia.
+    Opakowanie wraca na stan raz na paczkę (jedno zlecenie wysyłki = jeden karton)
+    i przypisanie się czyści, żeby ponowne pakowanie odjęło je normalnie — dzięki
+    temu stan magazynowy nie rozjeżdża się przy wielokrotnym cofaniu.
 
     Zamówienia w innym statusie niż 'spakowane' są pomijane bez zmian —
     zlecenie może być mieszane.
     """
     from extensions import db
+
+    # Opakowanie schodzi ze stanu raz na paczkę (jedno zlecenie = jeden karton),
+    # więc przy cofaniu też oddajemy je raz — inaczej stan rósłby z powietrza.
+    returned_packages = set()
 
     for order in orders:
         if order.status != 'spakowane':
@@ -382,9 +396,13 @@ def reopen_orders_for_wms(orders, mode, shipping_requests=()):
         order.packed_by = None
 
         if order.packaging_material_id:
-            mat = db.session.get(PackagingMaterial, order.packaging_material_id)
-            if mat:   # materiał mógł zostać skasowany od czasu pakowania
-                mat.quantity_in_stock = (mat.quantity_in_stock or 0) + 1
+            sr = order.shipping_request
+            package_key = ('sr', sr.id) if sr else ('order', order.id)
+            if package_key not in returned_packages:
+                returned_packages.add(package_key)
+                mat = db.session.get(PackagingMaterial, order.packaging_material_id)
+                if mat:   # materiał mógł zostać skasowany od czasu pakowania
+                    mat.quantity_in_stock = (mat.quantity_in_stock or 0) + 1
             order.packaging_material_id = None
 
         if mode == 'full':
