@@ -34,7 +34,7 @@
 - Produces: `suggest_packaging_for_orders(orders) -> dict` z kluczami `suggestions` (list), `warnings` (list[str]), `total_weight` (float), `total_volume` (float)
 - Produces: `suggest_packaging(order) -> dict` — bez zmian w zachowaniu, deleguje do powyższej
 
-- [ ] **Step 1: Napisz test, który ma nie przejść**
+- [x] **Step 1: Napisz test, który ma nie przejść**
 
 Utwórz `tests/test_wms_packing_group.py`:
 
@@ -108,12 +108,12 @@ def test_suggest_for_group_without_items_warns(app, db, make_user, make_order):
     assert result['warnings'] == ['Zamówienie nie ma pozycji']
 ```
 
-- [ ] **Step 2: Uruchom test i sprawdź, że nie przechodzi**
+- [x] **Step 2: Uruchom test i sprawdź, że nie przechodzi**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -v`
 Expected: FAIL — `ImportError: cannot import name 'suggest_packaging_for_orders'`
 
-- [ ] **Step 3: Zaimplementuj minimum**
+- [x] **Step 3: Zaimplementuj minimum**
 
 W `modules/orders/wms_utils.py` zamień docstring modułu (linie 1-7) na:
 
@@ -155,12 +155,12 @@ def suggest_packaging_for_orders(orders):
 
 Reszta ciała funkcji (od `if not items:` w dół) zostaje **bez żadnych zmian**.
 
-- [ ] **Step 4: Uruchom testy i sprawdź, że przechodzą**
+- [x] **Step 4: Uruchom testy i sprawdź, że przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -v`
 Expected: PASS (3 passed)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add modules/orders/wms_utils.py tests/test_wms_packing_group.py
@@ -187,7 +187,7 @@ git commit -m "feat(wms): sugestie opakowań liczone dla grupy zamówień"
   - `get_packing_group(session, shipping_request) -> list[Order]`
   - `pack_shipping_request_group(session, shipping_request, packaging_material_id=None, total_package_weight=None, send_email=False, user_id=None) -> dict` z kluczami `orders` (list[dict]), `low_stock_warning` (str | None), `shipping_request` (dict | None), `packed_at` (str, ISO)
 
-- [ ] **Step 1: Napisz testy, które mają nie przejść**
+- [x] **Step 1: Napisz testy, które mają nie przejść**
 
 Dopisz na końcu `tests/test_wms_packing_group.py`:
 
@@ -397,12 +397,12 @@ def test_pack_group_with_deleted_material_warns_and_packs(app, db, make_user, ma
         assert o.packaging_material_id is None
 ```
 
-- [ ] **Step 2: Uruchom testy i sprawdź, że nie przechodzą**
+- [x] **Step 2: Uruchom testy i sprawdź, że nie przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'modules.orders.wms_packing'`
 
-- [ ] **Step 3: Utwórz `modules/orders/wms_packing.py`**
+- [x] **Step 3: Utwórz `modules/orders/wms_packing.py`**
 
 ```python
 """
@@ -630,12 +630,12 @@ def pack_shipping_request_group(session, shipping_request, packaging_material_id
     }
 ```
 
-- [ ] **Step 4: Uruchom testy i sprawdź, że przechodzą**
+- [x] **Step 4: Uruchom testy i sprawdź, że przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -v`
 Expected: PASS (10 passed)
 
-- [ ] **Step 5: Usuń przeniesione helpery z `wms.py` i podepnij import**
+- [x] **Step 5: Usuń przeniesione helpery z `wms.py` i podepnij import**
 
 W `modules/orders/wms.py` skasuj funkcje `_release_order_lock` (linie 235-238) oraz
 `_update_sr_after_packing` (linie 241-287) wraz z ich nagłówkami komentarzy.
@@ -661,12 +661,12 @@ grep -n "_release_order_lock\|_update_sr_after_packing" modules/orders/wms.py
 `_update_sr_after_packing(order)` → `update_sr_after_packing(order)`.
 Po zamianie ta sama komenda nie może zwrócić nic.
 
-- [ ] **Step 6: Uruchom cały zestaw testów WMS**
+- [x] **Step 6: Uruchom cały zestaw testów WMS**
 
 Run: `python -m pytest tests/test_wms_ship_and_reopen.py tests/test_wms_packing_group.py -v`
 Expected: PASS (wszystkie)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add modules/orders/wms_packing.py modules/orders/wms.py tests/test_wms_packing_group.py
@@ -685,7 +685,7 @@ git commit -m "feat(wms): wspólna logika pakowania zlecenia jako jednej paczki"
 - Consumes: `pack_shipping_request_group()`, `PackingGroupError` z Taska 2
 - Produces: `POST /admin/orders/wms/<int:session_id>/pack-shipping-request` — body JSON `{shipping_request_id, packaging_material_id?, total_package_weight?, send_email?}`, odpowiedź `{success, message, orders: [...], session: {...}, shipping_request: {...}, low_stock_warning?}`
 
-- [ ] **Step 1: Napisz testy, które mają nie przejść**
+- [x] **Step 1: Napisz testy, które mają nie przejść**
 
 Dopisz na końcu `tests/test_wms_packing_group.py`:
 
@@ -749,12 +749,12 @@ def test_old_pack_order_endpoint_is_gone(client, app, db, make_user, make_order,
     assert r.status_code == 404
 ```
 
-- [ ] **Step 2: Uruchom testy i sprawdź, że nie przechodzą**
+- [x] **Step 2: Uruchom testy i sprawdź, że nie przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -k endpoint -v`
 Expected: FAIL — 404 na `pack-shipping-request`
 
-- [ ] **Step 3: Zamień endpoint w `modules/orders/wms.py`**
+- [x] **Step 3: Zamień endpoint w `modules/orders/wms.py`**
 
 Usuń **całą** funkcję `wms_pack_order()` wraz z dekoratorami (linie 795-939, od
 `@orders_bp.route('/admin/orders/wms/<int:session_id>/pack-order', methods=['POST'])`
@@ -833,12 +833,12 @@ def wms_pack_shipping_request(session_id):
 Nazwa pokoju `wms_{session.id}` jest ta sama, której używa `_get_room()`
 (`modules/orders/wms_events.py:21`) i pozostałe emity w `wms.py` (linie 1086, 1148, 1425).
 
-- [ ] **Step 4: Uruchom testy i sprawdź, że przechodzą**
+- [x] **Step 4: Uruchom testy i sprawdź, że przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -v`
 Expected: PASS (13 passed)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add modules/orders/wms.py tests/test_wms_packing_group.py
@@ -857,7 +857,7 @@ git commit -m "feat(wms): endpoint pakowania całego zlecenia zamiast pojedyncze
 - Consumes: nic
 - Produces: `reopen_orders_for_wms(orders, mode, shipping_requests=())` — zachowanie bez zmian poza zwrotem opakowania liczonym raz na zlecenie
 
-- [ ] **Step 1: Napisz test, który ma nie przejść**
+- [x] **Step 1: Napisz test, który ma nie przejść**
 
 Dopisz na końcu `tests/test_wms_packing_group.py`:
 
@@ -890,12 +890,12 @@ def test_reopen_returns_one_material_per_package(app, db, make_user, make_order,
         assert o.status == 'dostarczone_gom'
 ```
 
-- [ ] **Step 2: Uruchom test i sprawdź, że nie przechodzi**
+- [x] **Step 2: Uruchom test i sprawdź, że nie przechodzi**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -k reopen_returns_one -v`
 Expected: FAIL — `assert 9 == 7` (stan urósł o 3 zamiast o 1)
 
-- [ ] **Step 3: Popraw `reopen_orders_for_wms()`**
+- [x] **Step 3: Popraw `reopen_orders_for_wms()`**
 
 W `modules/orders/wms_utils.py` zamień pętlę (linie 376-396) na:
 
@@ -939,13 +939,13 @@ Zaktualizuj też docstring funkcji (linie 367-369) — akapit o opakowaniu zamie
     temu stan magazynowy nie rozjeżdża się przy wielokrotnym cofaniu.
 ```
 
-- [ ] **Step 4: Uruchom testy i sprawdź, że przechodzą**
+- [x] **Step 4: Uruchom testy i sprawdź, że przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py tests/test_wms_ship_and_reopen.py -v`
 Expected: PASS — w szczególności `test_reopen_full_resets_picking` i
 `test_reopen_repack_keeps_picking` (zlecenia jednozamówieniowe, więc dalej `+1`)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add modules/orders/wms_utils.py tests/test_wms_packing_group.py
@@ -968,7 +968,7 @@ git commit -m "fix(wms): powrót zlecenia do WMS oddaje jedno opakowanie na pacz
   - `GET /api/orders/wms/<int:session_id>/suggest-packaging-sr/<int:sr_id>/<session_token>` (telefon, autoryzacja tokenem)
   - obie zwracają `{success, suggestions, warnings, total_weight, total_volume, all_materials, suggested_material_id, orders_count}`
 
-- [ ] **Step 1: Napisz testy, które mają nie przejść**
+- [x] **Step 1: Napisz testy, które mają nie przejść**
 
 Dopisz na końcu `tests/test_wms_packing_group.py`:
 
@@ -1010,12 +1010,12 @@ def test_suggest_sr_endpoint_mobile_requires_valid_token(client, app, db, make_u
     assert bad.status_code == 403
 ```
 
-- [ ] **Step 2: Uruchom testy i sprawdź, że nie przechodzą**
+- [x] **Step 2: Uruchom testy i sprawdź, że nie przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -k suggest_sr -v`
 Expected: FAIL — 404 na nowych adresach
 
-- [ ] **Step 3: Dodaj wspólny payload materiałów i nowe endpointy**
+- [x] **Step 3: Dodaj wspólny payload materiałów i nowe endpointy**
 
 W `modules/orders/wms.py` w bloku importów z `wms_utils` (linia 30) dopisz
 `suggest_packaging_for_orders` do listy importowanych nazw.
@@ -1105,12 +1105,12 @@ zamień oba bloki budujące `all_materials_data` (linie ~1233-1248 i ~1294-1309)
 wywołanie `_packaging_materials_payload()`, a w zwracanym JSON-ie użyj
 `'all_materials': _packaging_materials_payload(),`.
 
-- [ ] **Step 4: Uruchom testy i sprawdź, że przechodzą**
+- [x] **Step 4: Uruchom testy i sprawdź, że przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -v`
 Expected: PASS (16 passed — Task 4 dołożył jeden test)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add modules/orders/wms.py tests/test_wms_packing_group.py
@@ -1129,7 +1129,7 @@ git commit -m "feat(wms): sugestie opakowań dla całego zlecenia wysyłki"
 - Consumes: `pack_shipping_request_group()`, `PackingGroupError` (Task 2)
 - Produces: handler SocketIO `mark_shipping_request_packed` przyjmujący `{shipping_request_id, packaging_material_id?, weight?, send_email?}`, emitujący do pokoju sesji zdarzenie `shipping_request_packed` z polami `orders`, `session`, `shipping_request`, `low_stock_warning`
 
-- [ ] **Step 1: Napisz test, który ma nie przejść**
+- [x] **Step 1: Napisz test, który ma nie przejść**
 
 Dopisz na końcu `tests/test_wms_packing_group.py`:
 
@@ -1170,12 +1170,12 @@ def test_socket_handler_uses_shared_packing(app, db, make_user, make_order, make
         assert o.status == 'spakowane'
 ```
 
-- [ ] **Step 2: Uruchom test i sprawdź, że nie przechodzi**
+- [x] **Step 2: Uruchom test i sprawdź, że nie przechodzi**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -k socket_handler -v`
 Expected: FAIL — `AttributeError: module has no attribute 'handle_mark_shipping_request_packed'`
 
-- [ ] **Step 3: Zamień handler w `modules/orders/wms_events.py`**
+- [x] **Step 3: Zamień handler w `modules/orders/wms_events.py`**
 
 Usuń całą funkcję `handle_mark_order_packed()` wraz z dekoratorem
 `@socketio.on('mark_order_packed')` (linie 246-360) i wstaw w to miejsce:
@@ -1238,12 +1238,12 @@ def handle_mark_shipping_request_packed(data):
     emit('session_progress', session_progress, to=room)
 ```
 
-- [ ] **Step 4: Uruchom testy i sprawdź, że przechodzą**
+- [x] **Step 4: Uruchom testy i sprawdź, że przechodzą**
 
 Run: `python -m pytest tests/test_wms_packing_group.py -v`
 Expected: PASS (17 passed)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add modules/orders/wms_events.py tests/test_wms_packing_group.py
@@ -1265,7 +1265,7 @@ git commit -m "feat(wms): telefon pakuje całe zlecenie przez wspólną logikę"
 
 **Uwaga:** w tym repo nie ma testów JavaScript (brak `package.json`), więc weryfikacja jest ręczna, opisana w Kroku 6.
 
-- [ ] **Step 1: Zmień nagłówek panelu w szablonie**
+- [x] **Step 1: Zmień nagłówek panelu w szablonie**
 
 W `templates/admin/orders/wms.html` zamień linie 275-276 (`<h3>Pakowanie</h3>` wraz
 z linią ostrzeżeń) na:
@@ -1279,7 +1279,7 @@ z linią ostrzeżeń) na:
 Zmień etykietę wagi (linia 296) na `<label for="wmsPackingWeight">Waga całej paczki (kg):</label>`
 oraz napis na przycisku (linia 321) z `Potwierdź pakowanie` na `Spakuj zlecenie`.
 
-- [ ] **Step 2: Dodaj styl nagłówka**
+- [x] **Step 2: Dodaj styl nagłówka**
 
 Na końcu `static/css/pages/admin/wms.css` dopisz (jasny i ciemny motyw — obowiązkowo oba):
 
@@ -1296,7 +1296,7 @@ Na końcu `static/css/pages/admin/wms.css` dopisz (jasny i ciemny motyw — obow
 }
 ```
 
-- [ ] **Step 3: Przebuduj logikę panelu w `static/js/pages/admin/wms.js`**
+- [x] **Step 3: Przebuduj logikę panelu w `static/js/pages/admin/wms.js`**
 
 a) Zamień stan cache (linia 31) na klucz po zleceniu:
 
@@ -1552,7 +1552,7 @@ oraz blok obsługi Entera (linie 1504-1509) na:
                 }
 ```
 
-- [ ] **Step 4: Sprawdź, że nie zostały wywołania starych nazw**
+- [x] **Step 4: Sprawdź, że nie zostały wywołania starych nazw**
 
 Run:
 ```bash
@@ -1560,12 +1560,12 @@ grep -n "packOrder\|handleOrderPacked\|pack-order\|suggest-packaging/" static/js
 ```
 Expected: brak wyników.
 
-- [ ] **Step 5: Uruchom pełny zestaw testów (regresja backendu)**
+- [x] **Step 5: Uruchom pełny zestaw testów (regresja backendu)**
 
 Run: `python -m pytest -q`
 Expected: PASS — bez nowych błędów
 
-- [ ] **Step 6: Weryfikacja ręczna w przeglądarce**
+- [x] **Step 6: Weryfikacja ręczna w przeglądarce**
 
 1. Uruchom serwer deweloperski narzędziem podglądu (`preview_start`), nie przez Bash.
 2. Wejdź w `WMS → Zlecenia wysyłki`, zabierz do WMS zlecenie z **co najmniej dwoma** zamówieniami.
@@ -1575,7 +1575,7 @@ Expected: PASS — bez nowych błędów
 6. Sprawdź konsolę przeglądarki (`read_console_messages`) — bez błędów.
 7. W `WMS → Materiały` sprawdź, że stan wybranego opakowania spadł **o 1**.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add templates/admin/orders/wms.html static/js/pages/admin/wms.js static/css/pages/admin/wms.css
@@ -1595,7 +1595,7 @@ git commit -m "feat(wms): panel pakowania na poziomie zlecenia na komputerze"
 - Consumes: `GET /api/orders/wms/<session_id>/suggest-packaging-sr/<sr_id>/<session_token>`, zdarzenia `mark_shipping_request_packed` / `shipping_request_packed` (Taski 5, 6)
 - Produces: nic dla kolejnych zadań
 
-- [ ] **Step 1: Dodaj nagłówek zlecenia w szablonie telefonu**
+- [x] **Step 1: Dodaj nagłówek zlecenia w szablonie telefonu**
 
 W `templates/admin/orders/wms_mobile.html` zaraz po otwarciu sekcji (po linii 70) wstaw:
 
@@ -1607,7 +1607,7 @@ W `templates/admin/orders/wms_mobile.html` zaraz po otwarciu sekcji (po linii 70
 Zmień etykietę wagi (linia 88) na `<label for="wmsMPackingWeight">Waga całej paczki (kg):</label>`
 i napis przycisku (linia 132) z `Spakuj zamówienie` na `Spakuj zlecenie`.
 
-- [ ] **Step 2: Dodaj styl nagłówka**
+- [x] **Step 2: Dodaj styl nagłówka**
 
 Na końcu `static/css/pages/admin/wms-mobile.css` dopisz (oba motywy):
 
@@ -1625,7 +1625,7 @@ Na końcu `static/css/pages/admin/wms-mobile.css` dopisz (oba motywy):
 }
 ```
 
-- [ ] **Step 3: Przebuduj logikę w `static/js/pages/admin/wms-mobile.js`**
+- [x] **Step 3: Przebuduj logikę w `static/js/pages/admin/wms-mobile.js`**
 
 a) Zamień komentarz przy cache (linia 28) i dodaj stan zlecenia:
 
@@ -1818,7 +1818,7 @@ h) Zamień handler zdarzenia (linie 199-232) na:
         });
 ```
 
-- [ ] **Step 4: Sprawdź, że nie zostały wywołania starych nazw**
+- [x] **Step 4: Sprawdź, że nie zostały wywołania starych nazw**
 
 Run:
 ```bash
@@ -1826,12 +1826,12 @@ grep -n "mark_order_packed\|order_packed\|suggest-packaging/" static/js/pages/ad
 ```
 Expected: brak wyników.
 
-- [ ] **Step 5: Uruchom pełny zestaw testów**
+- [x] **Step 5: Uruchom pełny zestaw testów**
 
 Run: `python -m pytest -q`
 Expected: PASS
 
-- [ ] **Step 6: Weryfikacja ręczna na telefonie (widok mobilny w podglądzie)**
+- [x] **Step 6: Weryfikacja ręczna na telefonie (widok mobilny w podglądzie)**
 
 1. Uruchom serwer podglądu i przełącz okno na `preset: "mobile"`.
 2. Wejdź do sesji WMS przez adres mobilny (z tokenem sesji).
@@ -1840,7 +1840,7 @@ Expected: PASS
 5. Sprawdź, że widok komputera (druga karta) zaktualizował się przez WebSocket.
 6. Sprawdź konsolę (`read_console_messages`) — bez błędów.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add templates/admin/orders/wms_mobile.html static/js/pages/admin/wms-mobile.js static/css/pages/admin/wms-mobile.css
@@ -1858,12 +1858,12 @@ git commit -m "feat(wms): panel pakowania na poziomie zlecenia na telefonie"
 - Consumes: wszystko powyżej
 - Produces: gałąź gotowa do decyzji o wdrożeniu
 
-- [ ] **Step 1: Pełny zestaw testów**
+- [x] **Step 1: Pełny zestaw testów**
 
 Run: `python -m pytest -q`
 Expected: PASS, zero błędów i zero nowych ostrzeżeń o brakujących nazwach
 
-- [ ] **Step 2: Sprawdź, że nigdzie nie zostały odwołania do usuniętych ścieżek**
+- [x] **Step 2: Sprawdź, że nigdzie nie zostały odwołania do usuniętych ścieżek**
 
 Run:
 ```bash
@@ -1871,24 +1871,24 @@ grep -rn "pack-order\|mark_order_packed\|_update_sr_after_packing\|_release_orde
 ```
 Expected: brak wyników
 
-- [ ] **Step 3: Sprawdź, że nie dodano migracji**
+- [x] **Step 3: Sprawdź, że nie dodano migracji**
 
 Run: `git diff --name-only main...HEAD -- migrations/`
 Expected: brak wyników (zmiana miała nie ruszać schematu bazy)
 
-- [ ] **Step 4: Przegląd zmian**
+- [x] **Step 4: Przegląd zmian**
 
 Run: `git diff main...HEAD --stat`
 Expected: zmiany wyłącznie w `modules/orders/`, `static/`, `templates/`, `tests/`, `docs/`
 
-- [ ] **Step 5: Commit odhaczonego planu**
+- [x] **Step 5: Commit odhaczonego planu**
 
 ```bash
 git add -f docs/superpowers/plans/2026-08-07-wms-pakowanie-na-zlecenie.md
 git commit -m "docs(wms): odhaczony plan pakowania na poziomie zlecenia"
 ```
 
-- [ ] **Step 6: Zgłoś gotowość właścicielce**
+- [x] **Step 6: Zgłoś gotowość właścicielce**
 
 Podsumuj: co się zmieniło, co zostało sprawdzone testami, co sprawdzone ręcznie.
 **Nie scalaj do `main` i nie pushuj** — decyzja o wdrożeniu należy do właścicielki,
