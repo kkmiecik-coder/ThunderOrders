@@ -195,6 +195,27 @@ def test_email_skipped_when_toggle_disabled(app, db, make_user, make_order,
     assert captured_email == []
 
 
+def test_email_without_tracking_uses_status_toggle(app, db, make_user, make_order,
+                                                    captured_email, monkeypatch):
+    """Bez numeru przesyłki liczy się przełącznik 'Zmiana statusu', nie 'Numer przesyłki'.
+
+    Odwrotność sąsiedniego testu: tu wyłączamy notify_status_change, a
+    notify_tracking_added zostawiamy włączony. Gdyby metoda sprawdzała na
+    sztywno tylko notify_tracking_added (ignorując brak numeru przesyłki),
+    ten test by tego nie złapał — a ten test właśnie po to istnieje.
+    """
+    from utils.email_manager import EmailManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=2)
+    monkeypatch.setattr(EmailManager, 'is_email_enabled',
+                        classmethod(lambda cls, key: key != 'notify_status_change'))
+
+    with app.test_request_context():
+        EmailManager.notify_shipment_sent(sr)
+
+    assert captured_email == []
+
+
 def test_email_skipped_when_no_recipient(app, db, make_user, make_order,
                                          captured_email):
     """Brak adresu e-mail kończy się cicho, bez wyjątku.
