@@ -970,6 +970,46 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
     )
 
 
+def send_shipment_sent_email(user_email, user_name, request_number, order_numbers,
+                             tracking_number=None, courier_name=None, tracking_url=None,
+                             shipping_requests_url=None):
+    """
+    Wysyła JEDEN mail o wysłanej paczce — na całe zlecenie wysyłki.
+
+    Zastępuje mail per zamówienie: klient dostaje jedną wiadomość z listą
+    wszystkich zamówień jadących w tej paczce. Blok ze śledzeniem pojawia się
+    w szablonie tylko wtedy, gdy jest numer przesyłki — temat maila rozróżnia
+    obie sytuacje, treść jest ta sama.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        request_number (str): Numer zlecenia wysyłki (np. WYS/000001)
+        order_numbers (list): Lista numerów zamówień w paczce (same stringi)
+        tracking_number (str): Numer przesyłki (opcjonalny)
+        courier_name (str): Nazwa kuriera do wyświetlenia (opcjonalna)
+        tracking_url (str): URL do śledzenia przesyłki (opcjonalny)
+        shipping_requests_url (str): URL do listy zleceń wysyłki klienta
+    """
+    if tracking_number:
+        subject = f'Numer przesyłki do Twojej paczki - {request_number} - ThunderOrders'
+    else:
+        subject = f'Twoja paczka została wysłana - {request_number} - ThunderOrders'
+
+    return send_email(
+        to=user_email,
+        subject=subject,
+        template='shipment_sent',
+        user_name=user_name,
+        request_number=request_number,
+        order_numbers=order_numbers,
+        tracking_number=tracking_number,
+        courier_name=courier_name,
+        tracking_url=tracking_url,
+        shipping_requests_url=shipping_requests_url
+    )
+
+
 def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline'):
     """Wysyła email z przypomnieniem o niezapłaconych etapach zamówienia."""
     return send_email(
