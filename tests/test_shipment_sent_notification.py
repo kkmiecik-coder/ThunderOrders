@@ -234,3 +234,76 @@ def test_email_skipped_when_no_recipient(app, db, make_user, make_order,
         EmailManager.notify_shipment_sent(sr)
 
     assert captured_email == []
+
+
+# ---------- Task 3: PushManager.notify_shipment_sent ----------
+
+@pytest.mark.parametrize('count,expected', [
+    (1, '1 zamówienie'),
+    (2, '2 zamówienia'),
+    (4, '4 zamówienia'),
+    (5, '5 zamówień'),
+    (12, '12 zamówień'),
+    (22, '22 zamówienia'),
+])
+def test_orders_label_polish_plural(count, expected):
+    """Odmiana 'zamówienie' w treści pusha — 1/2-4/5+ i wyjątek dla 12-14."""
+    from utils.push_manager import _orders_label
+
+    assert _orders_label(count) == expected
+
+
+def test_push_sends_once_per_package(app, db, make_user, make_order, monkeypatch):
+    """Trzy zamówienia w paczce = jeden push, nie trzy."""
+    from utils.push_manager import PushManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=3,
+                         tracking='ABC123', courier='inpost')
+    calls = []
+    monkeypatch.setattr(PushManager, '_fire_and_forget',
+                        staticmethod(lambda **kw: calls.append(kw)))
+
+    with app.test_request_context():
+        PushManager.notify_shipment_sent(sr, tracking_number='ABC123',
+                                         courier_name='InPost')
+
+    assert len(calls) == 1
+    assert sr.request_number in calls[0]['title']
+    assert 'InPost' in calls[0]['body']
+    assert 'ABC123' in calls[0]['body']
+    assert '3 zamówienia' in calls[0]['body']
+    assert calls[0]['tag'] == f'shipment-sent-{sr.id}'
+
+
+def test_push_without_tracking_has_no_number(app, db, make_user, make_order, monkeypatch):
+    """Bez numeru przesyłki push mówi tylko o wysłaniu paczki."""
+    from utils.push_manager import PushManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=2)
+    calls = []
+    monkeypatch.setattr(PushManager, '_fire_and_forget',
+                        staticmethod(lambda **kw: calls.append(kw)))
+
+    with app.test_request_context():
+        PushManager.notify_shipment_sent(sr)
+
+    assert len(calls) == 1
+    assert 'Paczka wysłana' in calls[0]['body']
+    assert '2 zamówienia' in calls[0]['body']
+
+
+def test_push_skipped_when_no_user(app, db, make_user, make_order, monkeypatch):
+    """Zlecenie bez konta klienta nie wywala pusha — po prostu go nie ma."""
+    from utils.push_manager import PushManager
+
+    sr = _sr_with_orders(db, make_user, make_order, count=1)
+    sr.user_id = None
+    db.session.commit()
+    calls = []
+    monkeypatch.setattr(PushManager, '_fire_and_forget',
+                        staticmethod(lambda **kw: calls.append(kw)))
+
+    with app.test_request_context():
+        PushManager.notify_shipment_sent(sr)
+
+    assert calls == []

@@ -50,6 +50,19 @@ _fcm_creds = None
 _fcm_creds_lock = threading.Lock()
 
 
+def _orders_label(count):
+    """Odmienia 'zamówienie' po polsku na potrzeby treści pusha.
+
+    1 -> zamówienie, 2-4 -> zamówienia, 5+ -> zamówień,
+    z wyjątkiem 12-14, które idą jak 5+ ('12 zamówień').
+    """
+    if count == 1:
+        return '1 zamówienie'
+    if 2 <= count % 10 <= 4 and not (12 <= count % 100 <= 14):
+        return f'{count} zamówienia'
+    return f'{count} zamówień'
+
+
 class PushManager:
     """Centralny dispatcher push notifications dla ThunderOrders."""
 
@@ -747,6 +760,34 @@ class PushManager:
             body=f'Nowy status: {new_status_name}',
             url=url_for('client.shipping_requests_list', _external=True),
             tag=f'shipping-{shipping_request.id}',
+            notification_type='shipping_updates'
+        )
+
+    @staticmethod
+    def notify_shipment_sent(shipping_request, tracking_number=None, courier_name=None):
+        """Push o wysłanej paczce — JEDEN na zlecenie wysyłki, nie na zamówienie.
+
+        Bez tego klient z trzema zamówieniami w jednym kartonie dostawał trzy
+        powiadomienia o tej samej przesyłce.
+        """
+        user = shipping_request.user
+        if not user:
+            return
+
+        from flask import url_for
+
+        label = _orders_label(len(list(shipping_request.orders)))
+        if tracking_number:
+            body = f'{courier_name or "Kurier"}: {tracking_number} — {label}'
+        else:
+            body = f'Paczka wysłana — {label}'
+
+        PushManager._fire_and_forget(
+            user_id=user.id,
+            title=f'Wysyłka: {shipping_request.request_number}',
+            body=body,
+            url=url_for('client.shipping_requests_list', _external=True),
+            tag=f'shipment-sent-{shipping_request.id}',
             notification_type='shipping_updates'
         )
 
