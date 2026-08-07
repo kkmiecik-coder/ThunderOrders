@@ -325,8 +325,14 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
                 courier_name=courier_name, tracking_url=sr.tracking_url)
             PushManager.notify_shipment_sent(
                 sr, tracking_number=tracking_number, courier_name=courier_name)
-        elif order_status and changed_status_order_ids:
+        elif order_status and changed_status_order_ids and not sr.tracking_number:
             # Bez numeru przesyłki — ta sama wiadomość, tylko bez bloku śledzenia.
+            # Warunek "not sr.tracking_number" jest tu kluczowy: jeśli zlecenie MA już
+            # numer przesyłki (dopisany wcześniej przez "Dodaj koszty"), klient dostał
+            # już maila z trackingiem i "Oznacz jako wysłane" nie ma mu nic nowego do
+            # powiedzenia. Bez tego warunku klient dostawałby DRUGI mail — tym samym
+            # szablonem, ale bez numeru przesyłki — co wygląda jak uboższy duplikat,
+            # a nie jak druga wiadomość.
             EmailManager.notify_shipment_sent(sr)
             PushManager.notify_shipment_sent(sr)
     except Exception as err:

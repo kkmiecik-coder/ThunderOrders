@@ -774,9 +774,15 @@ class PushManager:
         if not user:
             return
 
+        orders_count = len(list(shipping_request.orders))
+        if orders_count == 0:
+            # Puste zlecenie (bez żadnych zamówień) nie ma czego zapowiadać —
+            # push „0 zamówień" tylko wprowadzałby klienta w błąd.
+            return
+
         from flask import url_for
 
-        label = _orders_label(len(list(shipping_request.orders)))
+        label = _orders_label(orders_count)
         if tracking_number:
             body = f'{courier_name or "Kurier"}: {tracking_number} — {label}'
         else:

@@ -454,3 +454,123 @@ def test_update_sr_creates_shipment_per_order(client, db, make_user, make_order,
 
     assert r.status_code == 200
     assert OrderShipment.query.filter_by(tracking_number='WPISY1').count() == 3
+
+
+# ---------- Finalna recenzja: znalezisko 1 — tłumaczenie nazwy kuriera ----------
+
+def test_update_sr_pocztex_courier_name_capitalized(client, db, make_user, make_order,
+                                                     login, monkeypatch):
+    """Dopisanie numeru z kurierem 'pocztex' przez PUT ma dać w powiadomieniu
+    courier_name='Pocztex', a nie surowy slug 'pocztex'.
+
+    Regres: lokalny słownik courier_names w routes.py nie miał klucza
+    'pocztex', mimo że jest wybieralny w interfejsie i COURIER_NAMES w
+    wms_utils.py go ma."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=1)
+
+    captured_email_kwargs = {}
+    captured_push_kwargs = {}
+    monkeypatch.setattr(
+        EmailManager, 'notify_shipment_sent',
+        staticmethod(lambda sr, **kw: captured_email_kwargs.update(kw)))
+    monkeypatch.setattr(
+        PushManager, 'notify_shipment_sent',
+        staticmethod(lambda sr, **kw: captured_push_kwargs.update(kw)))
+
+    r = client.put(f'/admin/orders/shipping-requests/{sr.id}',
+                   json={'tracking_number': 'POCZTEX1', 'courier': 'pocztex'})
+
+    assert r.status_code == 200
+    assert captured_email_kwargs.get('courier_name') == 'Pocztex'
+    assert captured_push_kwargs.get('courier_name') == 'Pocztex'
+
+
+# ---------- Finalna recenzja: znalezisko 2 — brak drugiego, uboższego maila ----------
+
+def test_full_sequence_edit_then_ship_sends_exactly_one_notification(
+        client, db, make_user, make_order, login, package_notifications):
+    """Pełna, realna sekwencja: admin najpierw dopisuje kuriera i numer przesyłki
+    przez okno „Dodaj koszty" (PUT), a potem klika „Oznacz jako wysłane" (POST
+    .../ship). Klient ma dostać za całą sekwencję dokładnie JEDNO powiadomienie
+    — to z numerem przesyłki z pierwszego kroku. Zlecenie z numerem przesyłki
+    zostało już raz zgłoszone klientowi, więc „Oznacz jako wysłane" nie wysyła
+    drugiej, uboższej wiadomości o tej samej paczce."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=2)
+
+    r1 = client.put(f'/admin/orders/shipping-requests/{sr.id}',
+                    json={'tracking_number': 'SEKWENCJA1', 'courier': 'dpd'})
+    assert r1.status_code == 200
+
+    r2 = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship', json={})
+    assert r2.status_code == 200
+
+    assert package_notifications['email'] == ['SEKWENCJA1']
+    assert package_notifications['push'] == ['SEKWENCJA1']
+
+
+def test_ship_without_prior_tracking_still_notifies_once(
+        client, db, make_user, make_order, login, package_notifications):
+    """Przypadek, który ma dalej działać: zlecenie BEZ numeru przesyłki, oznaczone
+    jako wysłane wprost (bez wcześniejszego PUT z trackingiem), nadal wysyła
+    jedno powiadomienie bez numeru."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order, orders_count=2)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship', json={})
+
+    assert r.status_code == 200
+    assert package_notifications['email'] == [None]
+    assert package_notifications['push'] == [None]
+
+
+# ---------- Finalna recenzja: znalezisko 4 — puste zlecenie nie wysyła nic ----------
+
+def test_email_skipped_when_no_orders(app, db, make_user, captured_email):
+    """Zlecenie bez żadnych zamówień nie ma o czym powiadamiać — pusta paczka
+    nie wysyła maila, nawet gdy ma już numer przesyłki i użytkownika."""
+    from modules.orders.models import ShippingRequest
+    from utils.email_manager import EmailManager
+
+    u = make_user()
+    sr = ShippingRequest(request_number=ShippingRequest.generate_request_number(),
+                         user_id=u.id, status='spakowane',
+                         tracking_number='PUSTA1', courier='dpd')
+    db.session.add(sr)
+    db.session.commit()
+
+    with app.test_request_context():
+        EmailManager.notify_shipment_sent(
+            sr, tracking_number='PUSTA1', courier='dpd', courier_name='DPD')
+
+    assert captured_email == []
+
+
+def test_push_skipped_when_no_orders(app, db, make_user, monkeypatch):
+    """Zlecenie bez żadnych zamówień nie wysyła pusha „0 zamówień"."""
+    from modules.orders.models import ShippingRequest
+    from utils.push_manager import PushManager
+
+    u = make_user()
+    sr = ShippingRequest(request_number=ShippingRequest.generate_request_number(),
+                         user_id=u.id, status='spakowane',
+                         tracking_number='PUSTA2', courier='dpd')
+    db.session.add(sr)
+    db.session.commit()
+
+    calls = []
+    monkeypatch.setattr(PushManager, '_fire_and_forget',
+                        staticmethod(lambda **kw: calls.append(kw)))
+
+    with app.test_request_context():
+        PushManager.notify_shipment_sent(
+            sr, tracking_number='PUSTA2', courier_name='DPD')
+
+    assert calls == []

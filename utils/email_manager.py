@@ -999,6 +999,16 @@ class EmailManager:
         from utils.email_sender import send_shipment_sent_email
 
         orders = list(shipping_request.orders)
+        if not orders:
+            # Puste zlecenie (bez żadnych zamówień) nie ma czego wymieniać w mailu —
+            # klient dostałby wiadomość z pustą listą zamówień. Nie ma o czym
+            # powiadamiać, więc po prostu nic nie wysyłamy.
+            current_app.logger.info(
+                f"Shipping request {shipping_request.request_number} has no orders, "
+                f"skipping shipment email"
+            )
+            return
+
         user = shipping_request.user
         # Zlecenie bez użytkownika (usunięte konto) — adres bierzemy z zamówienia,
         # Order.customer_email i tak sięga do konta klienta.
