@@ -21,42 +21,71 @@
 
 .pagination {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
 }
 
-.pagination-btn {
+.pagination-arrow {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    height: 36px;
-    padding: 0 10px;
-    border-radius: 8px;
-    border: 1px solid #E5E7EB;
-    background: #fff;
-    color: #374151;
-    font-size: 0.88rem;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: var(--card-bg, #fff);
+    color: #555;
     text-decoration: none;
-    transition: all 0.15s;
-}
-
-.pagination-btn:hover {
-    background: #F3F4F6;
-    border-color: #D1D5DB;
-}
-
-.pagination-btn.active {
-    background: #667eea;
-    border-color: #667eea;
-    color: #fff;
+    font-size: 18px;
     font-weight: 600;
 }
 
-.pagination-ellipsis {
-    display: flex;
-    align-items: center;
-    padding: 0 4px;
-    color: #9CA3AF;
+.pagination-arrow:hover {
+    background: #f0f0f0;
+    border-color: #ccc;
+}
+
+.pagination-arrow.disabled {
+    color: #ccc;
+    cursor: not-allowed;
+    background: #fafafa;
+}
+
+.pagination-arrow.disabled:hover {
+    background: #fafafa;
+    border-color: #ddd;
+}
+
+/* Pole skoku do strony. Strzałki kręcenia chowamy — numer wpisuje się
+   z klawiatury, a natywne strzałki zjadałyby połowę wąskiego pola. */
+.pagination-input {
+    width: 50px;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 13px;
+    background: var(--card-bg, #fff);
+    color: #333;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.pagination-input::-webkit-outer-spin-button,
+.pagination-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.pagination-sep {
+    font-size: 14px;
+    color: #999;
+}
+
+.pagination-total {
+    font-size: 13px;
+    color: #555;
+    font-weight: 500;
 }
 
 .pagination-info {
@@ -65,32 +94,123 @@
 }
 
 /* ==========================================
+   SELEKTOR „ILE NA STRONIE"
+   ========================================== */
+
+.pagination-per-page {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.pagination-per-page-label {
+    font-size: 0.82rem;
+    color: #6B7280;
+    white-space: nowrap;
+}
+
+.pagination-per-page-select {
+    height: 36px;
+    padding: 0 28px 0 10px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    color: #374151;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    /* Własna strzałka — natywna różni się między przeglądarkami i nie da się
+       jej dopasować do reszty paska. */
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 14px;
+}
+
+.pagination-per-page-select:hover {
+    background-color: #F3F4F6;
+    border-color: #D1D5DB;
+}
+
+.pagination-per-page-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+/* ==========================================
    DARK MODE
    ========================================== */
 
-[data-theme="dark"] .pagination-btn {
+[data-theme="dark"] .pagination-arrow {
     background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-    color: rgba(255, 255, 255, 0.8);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.7);
 }
 
-[data-theme="dark"] .pagination-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(240, 147, 251, 0.3);
+[data-theme="dark"] .pagination-arrow:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.4);
+    color: #f093fb;
 }
 
-[data-theme="dark"] .pagination-btn.active {
-    background: linear-gradient(135deg, #f093fb, #f5576c);
-    border-color: transparent;
-    color: #fff;
+[data-theme="dark"] .pagination-arrow.disabled {
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(255, 255, 255, 0.2);
 }
 
-[data-theme="dark"] .pagination-ellipsis {
+[data-theme="dark"] .pagination-arrow.disabled:hover {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .pagination-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .pagination-sep {
     color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .pagination-total {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="dark"] .pagination-info {
     color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .pagination-per-page-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .pagination-per-page-select {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-opacity='0.6' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] .pagination-per-page-select:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pagination-per-page-select:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+/* Lista rozwinięta rysuje się natywnie — bez tego opcje bywają białym
+   tekstem na białym tle w ciemnym motywie. */
+[data-theme="dark"] .pagination-per-page-select option {
+    background: #2a2338;
+    color: #ffffff;
 }
 
 /* ==========================================
@@ -114,8 +234,14 @@
     }
 
     /* Minimalny cel dotyku 44×44 px. */
-    .pagination-btn {
-        min-width: 44px;
+    .pagination-arrow {
+        width: 44px;
+        height: 44px;
+    }
+
+    .pagination-input,
+    .pagination-per-page-select {
+        min-width: 56px;
         height: 44px;
     }
 }

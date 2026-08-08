@@ -1282,6 +1282,13 @@ def register_context_processors(app):
             'maintenance_mode': getattr(g, 'maintenance_mode', False),
         }
 
+    # Opcje selektora „ile na stronie" — jedno źródło prawdy z backendem.
+    # Jako global Jinja, a NIE context processor: components/_pagination.html
+    # jest importowane bez `with context`, więc makro nie widziałoby kontekstu
+    # szablonu i selektor wyszedłby pusty.
+    from utils.pagination import PER_PAGE_CHOICES
+    app.jinja_env.globals['per_page_choices'] = PER_PAGE_CHOICES
+
 
 def register_template_filters(app):
     """

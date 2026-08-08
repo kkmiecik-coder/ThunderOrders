@@ -1,13 +1,21 @@
 {% extends "admin/base_admin.html" %}
+{% from "components/_pagination.html" import pagination_nav %}
 
 {% block title %}Użytkownicy{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pagination.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/clients-list.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/user-groups.css') }}">
 {% endblock %}
 
 {% block content %}
+{# Linki paginacji przenoszą WSZYSTKIE aktywne parametry (filtry, sortowanie),
+   a nie tylko trzy wypisane z ręki — inaczej skok na kolejną stronę gubił
+   sortowanie kolumn. #}
+{% macro client_page_url(n) %}{{ url_for('admin.clients_list', page=n, per_page=per_page, **(request.args|reject_key('page')|reject_key('per_page'))) }}{% endmacro %}
+{# Zmiana liczby pozycji wraca na stronę 1 — stary numer wskazywałby na co innego. #}
+{% macro client_per_page_url(v) %}{{ url_for('admin.clients_list', per_page=v, **(request.args|reject_key('page')|reject_key('per_page'))) }}{% endmacro %}
 <div class="clients-page">
     <!-- Top Bar -->
     <div class="clients-top-bar">
@@ -83,36 +91,13 @@
 
         <div class="toolbar-right">
             <span class="clients-count">
-                Klientów na stronę: <strong>{{ pagination.per_page }} z {{ pagination.total }}</strong>
+                <strong>{{ pagination.items|length }} z {{ pagination.total }}</strong>
             </span>
 
-            <!-- Per Page Selector -->
-            <select class="toolbar-select" id="per-page-select" onchange="changePerPage(this.value)">
-                <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
-                <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
-                <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
-            </select>
-
-            <!-- Pagination -->
-            {% if pagination.pages > 1 %}
-            <div class="pagination-compact">
-                {% if pagination.has_prev %}
-                <a href="{{ url_for('admin.clients_list', page=pagination.prev_num, per_page=pagination.per_page, search=search, status=status_filter, role=role_filter) }}"
-                   class="pagination-arrow">‹</a>
-                {% else %}
-                <span class="pagination-arrow disabled">‹</span>
-                {% endif %}
-
-                <span class="pagination-info">{{ pagination.page }} / {{ pagination.pages }}</span>
-
-                {% if pagination.has_next %}
-                <a href="{{ url_for('admin.clients_list', page=pagination.next_num, per_page=pagination.per_page, search=search, status=status_filter, role=role_filter) }}"
-                   class="pagination-arrow">›</a>
-                {% else %}
-                <span class="pagination-arrow disabled">›</span>
-                {% endif %}
-            </div>
-            {% endif %}
+            {# Paginacja i wybór liczby pozycji: wspólny komponent
+               (components/_pagination.html). Wariant compact, bo siedzi
+               w pasku narzędzi — licznik „X z Y" jest tuż obok. #}
+            {{ pagination_nav(pagination, client_page_url, 'Strony listy użytkowników', true, client_per_page_url, per_page) }}
         </div>
     </div>
 
@@ -431,6 +416,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/components/pagination.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/user-groups.js') }}"></script>
 
 <script>
@@ -461,12 +447,8 @@ function applyRoleFilter(role) {
     window.location.href = url.toString();
 }
 
-function changePerPage(perPage) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('per_page', perPage);
-    url.searchParams.set('page', '1');
-    window.location.href = url.toString();
-}
+// Liczbę użytkowników na stronę obsługuje wspólny komponent paginacji
+// (js/components/pagination.js).
 
 function sortBy(column) {
     const url = new URL(window.location.href);

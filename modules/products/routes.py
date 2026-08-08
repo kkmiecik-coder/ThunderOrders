@@ -114,30 +114,21 @@ def list_products():
 
     query = query.order_by(primary, id_tiebreak)
 
-    # Pagination
+    # Paginacja — wspólny wybór „ile na stronie" (utils/pagination.py),
+    # zapamiętywany na czas sesji logowania.
+    from utils.pagination import resolve_per_page, paginate_with_choice
+
     page = request.args.get('page', 1, type=int)
-    per_page_raw = request.args.get('per_page', '50')
+    per_page = resolve_per_page('products', default=50)
 
-    # Accept 'all' sentinel or any positive int, capped at 10000
-    if str(per_page_raw).lower() == 'all':
-        per_page = 10000
-    else:
-        try:
-            per_page = int(per_page_raw)
-        except (ValueError, TypeError):
-            per_page = 50
-        if per_page < 1:
-            per_page = 50
-        elif per_page > 10000:
-            per_page = 10000
-
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    pagination = paginate_with_choice(query, page, per_page)
     products = pagination.items
 
     return render_template(
         'admin/warehouse/products_list.html',
         products=products,
         pagination=pagination,
+        per_page=per_page,
         search_form=search_form,
         current_sort=sort_by,
         current_order=sort_order
@@ -2458,12 +2449,134 @@ def get_products_to_order():
     return products_to_order
 
 
+STOCK_ORDER_SORT_COLUMNS = {
+    # klucz z URL -> nazwa atrybutu modelu (wspólna dla ProxyOrder i PolandOrder)
+    'order_number': 'order_number',
+    'status': 'status',
+    'status_changed': 'updated_at',
+    'date': 'created_at',
+}
+
+
+def _apply_stock_order_filters(query, model, filters):
+    """
+    Filtry wspólne dla zakładek PROXY / Polska / Archiwum.
+
+    Wcześniej robił to JavaScript na wyrenderowanych wierszach — po podzieleniu
+    listy na strony filtrowałby tylko widoczne pozycje, więc logika musiała
+    trafić do zapytania.
+    """
+    from datetime import datetime, timedelta
+
+    if filters['q']:
+        query = query.filter(model.order_number.ilike(f"%{filters['q']}%"))
+
+    if filters['tracking'] and hasattr(model, 'tracking_number'):
+        query = query.filter(model.tracking_number.ilike(f"%{filters['tracking']}%"))
+
+    if filters['statuses']:
+        query = query.filter(model.status.in_(filters['statuses']))
+
+    if filters['date_from']:
+        try:
+            query = query.filter(
+                model.created_at >= datetime.strptime(filters['date_from'], '%Y-%m-%d'))
+        except ValueError:
+            pass  # śmieci w URL ignorujemy zamiast wywracać stronę
+
+    if filters['date_to']:
+        try:
+            # Data „do" ma obejmować cały dzień, a created_at trzyma godzinę.
+            end = datetime.strptime(filters['date_to'], '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(model.created_at < end)
+        except ValueError:
+            pass
+
+    return query
+
+
+def _apply_stock_order_sort(query, model, sort_key, direction, amount_attr):
+    """Sortowanie zakładek zamówień; domyślnie najnowsze na górze."""
+    if sort_key == 'amount':
+        column = getattr(model, amount_attr)
+    elif sort_key in STOCK_ORDER_SORT_COLUMNS:
+        column = getattr(model, STOCK_ORDER_SORT_COLUMNS[sort_key])
+    else:
+        return query.order_by(model.created_at.desc(), model.id.desc())
+
+    query = query.order_by(column.asc() if direction == 'asc' else column.desc())
+    # Stabilny rozstrzygacz remisów — bez niego ta sama pozycja mogłaby się
+    # pojawić na dwóch stronach paginacji.
+    return query.order_by(model.id.desc())
+
+
+def _read_stock_order_filters():
+    """Parametry filtrów i sortowania z URL (wspólne nazwy dla wszystkich zakładek)."""
+    return {
+        'q': (request.args.get('q') or '').strip(),
+        'tracking': (request.args.get('tracking') or '').strip(),
+        'date_from': (request.args.get('date_from') or '').strip(),
+        'date_to': (request.args.get('date_to') or '').strip(),
+        'statuses': [s for s in request.args.getlist('status') if s],
+        'sort': (request.args.get('sort') or '').strip(),
+        'dir': 'asc' if request.args.get('dir') == 'asc' else 'desc',
+    }
+
+
+def _filter_products_to_order(products, filters, payment_filter):
+    """
+    Zakładka „Do zamówienia" nie ma zapytania — pozycje powstają w Pythonie
+    z kilku źródeł (get_products_to_order), więc filtr też jest tutaj.
+    """
+    result = products
+
+    if filters['q']:
+        needle = filters['q'].lower()
+        result = [p for p in result if needle in (p['product'].name or '').lower()]
+
+    if payment_filter in ('proxy', 'polska'):
+        want_proxy = payment_filter == 'proxy'
+        result = [p for p in result if (p.get('payment_stages') == 4) == want_proxy]
+
+    return result
+
+
+def _sort_products_to_order(products, filters, price_map):
+    """
+    Sortowanie zakładki „Do zamówienia".
+
+    Cena i wartość zakupu liczą się z mapy cen efektywnych (przeliczenie walut),
+    a nie prosto z kolumny — inaczej kolejność nie zgadzałaby się z tym, co
+    widać w tabeli dla produktów bez ceny w PLN.
+    """
+    sort_key = filters['sort']
+    if not sort_key:
+        return products
+
+    def cena(item):
+        return price_map.get(item['product'].id, {}).get('pln') or 0
+
+    klucze = {
+        'product_name': lambda p: (p['product'].name or '').lower(),
+        'sku': lambda p: (p['product'].sku or '').lower(),
+        'quantity': lambda p: p['to_order'],
+        'payment_type': lambda p: 'proxy' if p.get('payment_stages') == 4 else 'polska',
+        'purchase_price': cena,
+        'purchase_value': lambda p: p['to_order'] * cena(p),
+    }
+    if sort_key not in klucze:
+        return products
+
+    return sorted(products, key=klucze[sort_key], reverse=(filters['dir'] == 'desc'))
+
+
 @products_bp.route('/stock-orders', methods=['GET'])
 @login_required
 @role_required('admin', 'mod')
 def stock_orders():
     """Stock orders page with tabs for DO ZAMÓWIENIA, PROXY and Polska"""
     from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, ProductSeries, Manufacturer
+    from utils.pagination import resolve_per_page, paginate_with_choice, paginate_list
 
     # Get active tab from query parameter (default: do_zamowienia)
     active_tab = request.args.get('tab', 'do_zamowienia')
@@ -2497,22 +2610,41 @@ def stock_orders():
     polska_count = PolandOrder.query.filter(PolandOrder.is_archived == False).count()
     archiwum_count = PolandOrder.query.filter(PolandOrder.is_archived == True).count()
 
-    # Get data based on active tab
+    # Filtry, sortowanie i paginacja — wszystko po stronie serwera, bo lista
+    # jest dzielona na strony (JS filtrowałby tylko widoczne wiersze).
+    filters = _read_stock_order_filters()
+    payment_filter = (request.args.get('payment') or '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = resolve_per_page(f'stock_orders_{active_tab}', default=20)
+    pagination = None
+    to_order_price_map = None
+
     if active_tab == 'do_zamowienia':
-        products_to_order = all_products_to_order
+        filtered = _filter_products_to_order(all_products_to_order, filters, payment_filter)
+        # Mapa cen dla CAŁEGO przefiltrowanego zbioru — sortowanie po cenie
+        # i wartości zakupu musi widzieć wszystkie pozycje, nie tylko tę stronę.
+        to_order_price_map = _build_effective_pln_map(products_to_order=filtered)
+        filtered = _sort_products_to_order(filtered, filters, to_order_price_map)
+        pagination = paginate_list(filtered, page, per_page)
+        products_to_order = pagination.items
     elif active_tab == 'proxy':
-        proxy_orders_list = ProxyOrder.query.filter(
-            ProxyOrder.order_type == 'proxy',
-            ~ProxyOrder.id.in_(consumed_proxy_ids)
-        ).order_by(ProxyOrder.created_at.desc()).all()
-    elif active_tab == 'archiwum':
-        poland_orders_list = PolandOrder.query.filter(
-            PolandOrder.is_archived == True
-        ).order_by(PolandOrder.created_at.desc()).all()
-    else:  # polska
-        poland_orders_list = PolandOrder.query.filter(
-            PolandOrder.is_archived == False
-        ).order_by(PolandOrder.created_at.desc()).all()
+        query = _apply_stock_order_filters(
+            ProxyOrder.query.filter(
+                ProxyOrder.order_type == 'proxy',
+                ~ProxyOrder.id.in_(consumed_proxy_ids),
+            ), ProxyOrder, filters)
+        query = _apply_stock_order_sort(query, ProxyOrder, filters['sort'], filters['dir'],
+                                        'total_amount_pln')
+        pagination = paginate_with_choice(query, page, per_page)
+        proxy_orders_list = pagination.items
+    else:  # polska / archiwum — ta sama tabela, różni się flagą archiwum
+        query = _apply_stock_order_filters(
+            PolandOrder.query.filter(PolandOrder.is_archived == (active_tab == 'archiwum')),
+            PolandOrder, filters)
+        query = _apply_stock_order_sort(query, PolandOrder, filters['sort'], filters['dir'],
+                                        'total_amount')
+        pagination = paginate_with_choice(query, page, per_page)
+        poland_orders_list = pagination.items
 
     # Get filter data for modal
     categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
@@ -2523,7 +2655,9 @@ def stock_orders():
 
     # Build effective PLN price map: product_id -> {'pln': float, 'original': float|None, 'currency': str|None}
     # When product.purchase_price_pln is missing, convert from purchase_price using current system rate.
-    effective_pln_prices = _build_effective_pln_map(
+    # Dla „Do zamówienia" mapa powstała już przy sortowaniu (obejmuje cały
+    # przefiltrowany zbiór), więc nie liczymy jej drugi raz.
+    effective_pln_prices = to_order_price_map if to_order_price_map is not None else _build_effective_pln_map(
         products_to_order=products_to_order,
         proxy_orders=proxy_orders_list,
         poland_orders=poland_orders_list,
@@ -2545,6 +2679,10 @@ def stock_orders():
         series_list=series_list,
         tags=tags,
         effective_pln_prices=effective_pln_prices,
+        pagination=pagination,
+        per_page=per_page,
+        filters=filters,
+        payment_filter=payment_filter,
     )
 
 

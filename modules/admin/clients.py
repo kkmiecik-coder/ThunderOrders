@@ -38,9 +38,12 @@ def clients_list():
     Lista wszystkich klientów
     GET /admin/clients
     """
-    # Parametry paginacji i sortowania
+    # Parametry paginacji i sortowania. Liczba pozycji na stronie idzie przez
+    # wspólny helper (utils/pagination.py) — zapamiętywana na czas sesji logowania.
+    from utils.pagination import resolve_per_page, paginate_with_choice
+
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = resolve_per_page('clients', default=50)
     sort_by = request.args.get('sort', 'created_at')
     sort_dir = request.args.get('dir', 'desc')
 
@@ -97,7 +100,7 @@ def clients_list():
         query = query.order_by(sort_column.desc())
 
     # Paginacja
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    pagination = paginate_with_choice(query, page, per_page)
     clients = pagination.items
 
     # Statystyki - wszystkich użytkowników (nie tylko klientów)
@@ -112,6 +115,7 @@ def clients_list():
         title='Użytkownicy',
         clients=clients,
         pagination=pagination,
+        per_page=per_page,
         search=search,
         status_filter=status_filter,
         role_filter=role_filter,

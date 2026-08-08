@@ -367,14 +367,16 @@ def wms_dashboard():
     materials_count = len(materials)
 
     # --- Shipping Requests tab data ---
+    from utils.pagination import resolve_per_page, paginate_with_choice
+
     sr_status_filter = request.args.get('status', '')
     order_type_filter = request.args.get('order_type', '')
     sr_search = request.args.get('search', '')
     sr_page = request.args.get('page', 1, type=int)
-    sr_per_page = 20
+    sr_per_page = resolve_per_page('wms_shipping', default=20)
 
     sr_query = build_shipping_requests_query(sr_status_filter, order_type_filter, sr_search)
-    sr_pagination = sr_query.paginate(page=sr_page, per_page=sr_per_page, error_out=False)
+    sr_pagination = paginate_with_choice(sr_query, sr_page, sr_per_page)
     shipping_requests = sr_pagination.items
 
     sr_statuses = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).all()
@@ -404,6 +406,7 @@ def wms_dashboard():
         order_type_filter=order_type_filter,
         sr_search=sr_search,
         sr_total_count=sr_total_count,
+        sr_per_page=sr_per_page,
     )
 
 

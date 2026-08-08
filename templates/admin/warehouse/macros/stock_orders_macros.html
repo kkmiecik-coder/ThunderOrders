@@ -19,41 +19,66 @@
 {% endmacro %}
 
 
+{#
+  Filtry zakładek zamówień. Od czasu wprowadzenia paginacji filtrowanie jest
+  SERWEROWE — to zwykły formularz GET, a nie chowanie wierszy w JS (JS widziałby
+  tylko bieżącą stronę). Pola wysyłają formularz same: teksty z opóźnieniem,
+  daty i statusy od razu (js/components/server-filters.js).
+#}
 {% macro order_filters(tab, statuses, has_tracking=false) %}
-{% set suffix = 'Poland' if tab == 'polska' else ('Archiwum' if tab == 'archiwum' else '') %}
-<div class="orders-filters">
+<form class="orders-filters" method="GET" action="{{ url_for('products.stock_orders') }}"
+      data-server-filters>
+    <input type="hidden" name="tab" value="{{ tab }}">
+    {# Sortowanie przenosimy, żeby filtrowanie go nie gubiło. Numeru strony
+       celowo NIE — nowy filtr zaczyna od strony 1. #}
+    {% if filters.sort %}
+    <input type="hidden" name="sort" value="{{ filters.sort }}">
+    <input type="hidden" name="dir" value="{{ filters.dir }}">
+    {% endif %}
+
     <div class="filter-group">
-        <label>Nr zamówienia</label>
-        <input type="text" id="filterOrderNumber{{ suffix }}" class="filter-input" placeholder="Szukaj..." oninput="applyFilters{{ suffix }}()">
+        <label for="filterOrderNumber-{{ tab }}">Nr zamówienia</label>
+        <input type="text" id="filterOrderNumber-{{ tab }}" name="q" class="filter-input"
+               placeholder="Szukaj..." value="{{ filters.q }}" autocomplete="off" data-filter-debounce>
     </div>
     {% if has_tracking %}
     <div class="filter-group">
-        <label>Numer Kfriday RS</label>
-        <input type="text" id="filterTracking{{ suffix }}" class="filter-input" placeholder="Szukaj..." oninput="applyFilters{{ suffix }}()">
+        <label for="filterTracking-{{ tab }}">Numer Kfriday RS</label>
+        <input type="text" id="filterTracking-{{ tab }}" name="tracking" class="filter-input"
+               placeholder="Szukaj..." value="{{ filters.tracking }}" autocomplete="off" data-filter-debounce>
     </div>
     {% endif %}
     <div class="filter-group">
-        <label>Data od</label>
-        <input type="date" id="filterDateFrom{{ suffix }}" class="filter-input" onchange="applyFilters{{ suffix }}()">
+        <label for="filterDateFrom-{{ tab }}">Data od</label>
+        <input type="date" id="filterDateFrom-{{ tab }}" name="date_from" class="filter-input"
+               value="{{ filters.date_from }}" data-filter-submit>
     </div>
     <div class="filter-group">
-        <label>Data do</label>
-        <input type="date" id="filterDateTo{{ suffix }}" class="filter-input" onchange="applyFilters{{ suffix }}()">
+        <label for="filterDateTo-{{ tab }}">Data do</label>
+        <input type="date" id="filterDateTo-{{ tab }}" name="date_to" class="filter-input"
+               value="{{ filters.date_to }}" data-filter-submit>
     </div>
     <div class="filter-group filter-group-status">
         <label>Status</label>
         <div class="multi-select-wrapper">
-            <button type="button" class="multi-select-trigger" onclick="toggleStatusMultiSelect{{ suffix }}()">
-                <span id="statusSelectText{{ suffix }}">Wszystkie statusy</span>
+            <button type="button" class="multi-select-trigger" data-multi-select-trigger>
+                <span>
+                    {%- if filters.statuses -%}
+                        Wybrano: {{ filters.statuses|length }}
+                    {%- else -%}
+                        Wszystkie statusy
+                    {%- endif -%}
+                </span>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                     <path d="M6 8L2 4h8L6 8z"/>
                 </svg>
             </button>
-            <div id="statusMultiSelect{{ suffix }}" class="multi-select-dropdown" style="display: none;">
+            <div class="multi-select-dropdown" data-multi-select-dropdown style="display: none;">
                 {% for value, label in statuses %}
                 <div class="multi-select-option">
                     <label>
-                        <input type="checkbox" value="{{ value }}" onchange="updateStatusFilter{{ suffix }}()">
+                        <input type="checkbox" name="status" value="{{ value }}"
+                               {% if value in filters.statuses %}checked{% endif %} data-filter-submit>
                         <span class="badge badge-{{ value }}">{{ label }}</span>
                     </label>
                 </div>
@@ -62,11 +87,39 @@
         </div>
     </div>
     <div class="filter-actions-inline">
-        <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllFilters{{ suffix }}()">
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('products.stock_orders', tab=tab) }}">
             Wyczyść filtry
-        </button>
+        </a>
     </div>
-</div>
+</form>
+{% endmacro %}
+
+
+{#
+  Nagłówek sortujący. Sortowanie jest serwerowe (lista jest paginowana), więc
+  nagłówek to link, a nie handler JS. Zmiana kolumny wraca na stronę 1.
+#}
+{# Wszystkie makra korzystają z `active_tab` — zakładki są serwerowe, więc
+   w danym renderze aktywna jest dokładnie jedna. #}
+{% macro sort_th(column, label, extra_class='') %}
+{% set aktywna = filters.sort == column %}
+<th class="sortable {{ extra_class }} {% if aktywna %}{{ 'sorted-asc' if filters.dir == 'asc' else 'sorted-desc' }}{% endif %}"
+    data-column="{{ column }}">
+    <a class="sort-link" href="{{ url_for('products.stock_orders', tab=active_tab,
+        sort=column, dir=('desc' if aktywna and filters.dir == 'asc' else 'asc'),
+        **(request.args|reject_key('sort')|reject_key('dir')|reject_key('page')|reject_key('tab')))|trim }}">{{ label }}</a>
+</th>
+{% endmacro %}
+
+
+{# Paginacja zakładki — ten sam komponent co na pozostałych listach. #}
+{% macro stock_page_url(n) %}{{ url_for('products.stock_orders', tab=active_tab, page=n, per_page=per_page, **(request.args|reject_key('page')|reject_key('per_page')|reject_key('tab'))) }}{% endmacro %}
+
+{% macro stock_per_page_url(v) %}{{ url_for('products.stock_orders', tab=active_tab, per_page=v, **(request.args|reject_key('page')|reject_key('per_page')|reject_key('tab'))) }}{% endmacro %}
+
+{% macro stock_pagination(compact=false) %}
+{% from "components/_pagination.html" import pagination_nav %}
+{% if pagination %}{{ pagination_nav(pagination, stock_page_url, 'Strony listy zamówień', compact, stock_per_page_url, per_page) }}{% endif %}
 {% endmacro %}
 
 

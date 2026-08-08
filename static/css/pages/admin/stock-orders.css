@@ -320,10 +320,25 @@
     background-color: #f3f4f6;
 }
 
+/* Sortowanie jest serwerowe — nagłówek to link, ale ma wyglądać jak nagłówek. */
+.data-table th.sortable .sort-link {
+    display: block;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    text-decoration: none;
+    padding-right: 16px;
+}
+
 .data-table th.sortable::after {
     content: '⇅';
     position: absolute;
     right: 8px;
+    /* Nagłówek to link blokowy (cała komórka klikalna), więc wskaźnik trzeba
+       wyśrodkować w pionie — inaczej ląduje pod etykietą kolumny. */
+    top: 50%;
+    transform: translateY(-50%);
     opacity: 0.3;
     font-size: 14px;
 }

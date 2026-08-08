@@ -144,6 +144,7 @@ def offers_list():
     """Lista stron sprzedaży — filtrowanie, sortowanie i paginacja po stronie serwera."""
     from sqlalchemy import func
     from modules.offers.models import get_local_now
+    from utils.pagination import resolve_per_page, paginate_with_choice
 
     # Automatyczna aktualizacja statusów (scheduled->active, active->ended, ended->active)
     # PRZED zapytaniami listy — status decyduje o zakładce i kolejności.
@@ -159,14 +160,14 @@ def offers_list():
     current_query = build_offers_query(False, search_query, sort_column, sort_dir)
     closed_query = build_offers_query(True, search_query, sort_column, sort_dir)
 
-    current_pagination = current_query.paginate(
-        page=request.args.get('page_current', 1, type=int),
-        per_page=OFFERS_PER_PAGE, error_out=False,
-    )
-    closed_pagination = closed_query.paginate(
-        page=request.args.get('page_closed', 1, type=int),
-        per_page=OFFERS_PER_PAGE, error_out=False,
-    )
+    # Jeden wybór „ile na stronie" dla obu zakładek — dwa niezależne byłyby
+    # myląco różne przy tej samej liście.
+    per_page = resolve_per_page('offers', default=OFFERS_PER_PAGE)
+
+    current_pagination = paginate_with_choice(
+        current_query, request.args.get('page_current', 1, type=int), per_page)
+    closed_pagination = paginate_with_choice(
+        closed_query, request.args.get('page_closed', 1, type=int), per_page)
 
     # Statystyki (pigułki w nagłówku) — po WSZYSTKICH stronach, niezależnie od filtra.
     status_counts = dict(
@@ -189,6 +190,7 @@ def offers_list():
         search_query=search_query,
         sort_column=sort_column,
         sort_dir=sort_dir,
+        per_page=per_page,
     )
 
 

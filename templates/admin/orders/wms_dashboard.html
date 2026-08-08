@@ -15,9 +15,12 @@
 {# Paginacja zleceń wysyłki — wspólny komponent na górze (przy wyszukiwarce)
    i na dole listy. Wariant compact pomija podpis "Strona X z Y", bo na górze
    miejsca jest mało, a informacja i tak zostaje pod listą. #}
-{% macro sr_page_url(n) %}{{ url_for('orders.wms_dashboard', tab='shipping', page=n, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}{% endmacro %}
+{% macro sr_page_url(n) %}{{ url_for('orders.wms_dashboard', tab='shipping', page=n, status=sr_status_filter, order_type=order_type_filter, search=sr_search, per_page=sr_per_page) }}{% endmacro %}
 
-{% macro sr_pagination_nav(pagination, compact=false) %}{{ pagination_nav(pagination, sr_page_url, 'Strony zleceń wysyłki', compact) }}{% endmacro %}
+{# Zmiana liczby pozycji wraca na stronę 1 — stary numer wskazywałby na co innego. #}
+{% macro sr_per_page_url(value) %}{{ url_for('orders.wms_dashboard', tab='shipping', per_page=value, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}{% endmacro %}
+
+{% macro sr_pagination_nav(pagination, compact=false) %}{{ pagination_nav(pagination, sr_page_url, 'Strony zleceń wysyłki', compact, sr_per_page_url, sr_per_page) }}{% endmacro %}
 
 <div class="wms-dashboard-page">
 
@@ -847,6 +850,7 @@
 <script src="{{ url_for('static', filename='js/pages/admin/wms-dashboard.js') }}"></script>
 {% if active_tab == 'shipping' %}
 <script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pagination.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/shipping-requests.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/shipping-request-modal.js') }}"></script>
 {% endif %}

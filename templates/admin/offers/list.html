@@ -14,8 +14,11 @@
 {% from "components/_pagination.html" import pagination_nav %}
 {# Linki paginacji — każda zakładka ma własny numer strony, więc przy zmianie
    jednej trzeba przenieść stan drugiej (inaczej „Zamknięte" wracałyby na 1). #}
-{% macro current_page_url(n) %}{{ url_for('admin.offers_list', page_current=n, page_closed=(closed_pagination.page if closed_pagination.page > 1 else None), search=search_query or None, sort=sort_column or None, dir=(sort_dir if sort_column else None)) }}{% endmacro %}
-{% macro closed_page_url(n) %}{{ url_for('admin.offers_list', page_closed=n, page_current=(current_pagination.page if current_pagination.page > 1 else None), search=search_query or None, sort=sort_column or None, dir=(sort_dir if sort_column else None)) }}{% endmacro %}
+{% macro current_page_url(n) %}{{ url_for('admin.offers_list', page_current=n, page_closed=(closed_pagination.page if closed_pagination.page > 1 else None), search=search_query or None, sort=sort_column or None, dir=(sort_dir if sort_column else None), per_page=per_page) }}{% endmacro %}
+{% macro closed_page_url(n) %}{{ url_for('admin.offers_list', page_closed=n, page_current=(current_pagination.page if current_pagination.page > 1 else None), search=search_query or None, sort=sort_column or None, dir=(sort_dir if sort_column else None), per_page=per_page) }}{% endmacro %}
+{# Zmiana liczby pozycji cofa OBIE zakładki na stronę 1 — przy większej wartości
+   dotychczasowy numer strony i tak wskazywałby na co innego. #}
+{% macro per_page_url(value) %}{{ url_for('admin.offers_list', per_page=value, search=search_query or None, sort=sort_column or None, dir=(sort_dir if sort_column else None)) }}{% endmacro %}
 <div class="offer-page">
     <div class="offer-page-head">
     <!-- Header -->
@@ -112,10 +115,10 @@
     <div class="offer-tabs-content">
         <div id="tab-current" class="offer-tab-panel offer-tab-active" data-tab-key="current">
             {% if current_pages %}
-                {{ pagination_nav(current_pagination, current_page_url, 'Strony — bieżące strony sprzedaży', true) }}
+                {{ pagination_nav(current_pagination, current_page_url, 'Strony — bieżące strony sprzedaży', true, per_page_url, per_page) }}
                 {{ items.offer_mobile_cards(current_pages) }}
                 {{ items.offer_table(current_pages, 'current') }}
-                {{ pagination_nav(current_pagination, current_page_url, 'Strony — bieżące strony sprzedaży') }}
+                {{ pagination_nav(current_pagination, current_page_url, 'Strony — bieżące strony sprzedaży', false, per_page_url, per_page) }}
             {% elif search_query %}
                 <div class="offer-tab-empty">Brak bieżących stron pasujących do „{{ search_query }}"</div>
             {% else %}
@@ -124,10 +127,10 @@
         </div>
         <div id="tab-closed" class="offer-tab-panel" data-tab-key="closed">
             {% if closed_pages %}
-                {{ pagination_nav(closed_pagination, closed_page_url, 'Strony — zamknięte strony sprzedaży', true) }}
+                {{ pagination_nav(closed_pagination, closed_page_url, 'Strony — zamknięte strony sprzedaży', true, per_page_url, per_page) }}
                 {{ items.offer_mobile_cards(closed_pages) }}
                 {{ items.offer_table(closed_pages, 'closed') }}
-                {{ pagination_nav(closed_pagination, closed_page_url, 'Strony — zamknięte strony sprzedaży') }}
+                {{ pagination_nav(closed_pagination, closed_page_url, 'Strony — zamknięte strony sprzedaży', false, per_page_url, per_page) }}
             {% elif search_query %}
                 <div class="offer-tab-empty">Brak zamkniętych stron pasujących do „{{ search_query }}"</div>
             {% else %}
@@ -352,6 +355,7 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pagination.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/offer-list.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/offer-close-modal.js') }}"></script>
 <script>

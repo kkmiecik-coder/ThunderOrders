@@ -410,6 +410,10 @@ def register():
 @login_required
 def logout():
     """Wylogowanie użytkownika"""
+    from utils.pagination import clear_per_page_preferences
+
+    # Ustawienia „ile pozycji na stronie" żyją tylko w sesji logowania.
+    clear_per_page_preferences()
     logout_user()
     flash('Zostałeś wylogowany.', 'info')
     return redirect(url_for('auth.login'))

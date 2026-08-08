@@ -1,55 +1,91 @@
-{# Wspólny komponent paginacji (WMS + strony sprzedaży).
+{# Wspólny komponent paginacji (strony sprzedaży, WMS, lista produktów).
+
+   Wygląd: [Na stronie: 50 v]  ‹ [numer] / 16 ›
+   Pole numeru pozwala skoczyć na dowolną stronę — przy kilkunastu stronach jest
+   to krótsze niż lista wszystkich numerów.
 
    Użycie:
      {% from "components/_pagination.html" import pagination_nav %}
      {% macro moja_strona_url(n) %}{{ url_for('...', page=n) }}{% endmacro %}
-     {{ pagination_nav(paginacja, moja_strona_url, 'Strony zleceń wysyłki') }}
+     {% macro moja_ilosc_url(v) %}{{ url_for('...', per_page=v) }}{% endmacro %}
+     {{ pagination_nav(paginacja, moja_strona_url, 'Strony zleceń wysyłki',
+                       per_page_url=moja_ilosc_url, per_page=wybrana_ilosc) }}
 
    Argumenty:
-     pagination  — obiekt Flask-SQLAlchemy Pagination
-     page_url    — makro/funkcja: numer strony -> URL (bez zbędnych białych znaków)
-     aria_label  — etykieta dla czytników ekranu
-     compact     — wariant bez podpisu „Strona X z Y" (do pasków nad listą,
-                   gdzie miejsca jest mało, a informacja zostaje pod listą)
+     pagination   — obiekt Flask-SQLAlchemy Pagination
+     page_url     — makro/funkcja: numer strony -> URL (bez zbędnych białych znaków).
+                    Wołane też z '__PAGE__' jako wzorzec dla pola numeru strony.
+     aria_label   — etykieta dla czytników ekranu
+     compact      — wariant bez etykiety selektora i bez podsumowania
+                    (do pasków nad listą, gdzie miejsca jest mało)
+     per_page_url — makro/funkcja: wybór -> URL. Podanie jej włącza selektor
+                    „ile na stronie"; pominięcie zostawia samą paginację.
+     per_page     — aktualny wybór (liczba albo 'all'), do zaznaczenia opcji
+
+   Przy włączonym selektorze pasek renderuje się TAKŻE gdy wynik mieści się na
+   jednej stronie — inaczej wybór „Wszystkie" chowałby selektor razem
+   z paginacją i nie dałoby się wrócić do mniejszej wartości.
 #}
-{% macro pagination_nav(pagination, page_url, aria_label='Strony', compact=false) %}
-{% if pagination.pages > 1 %}
+
+{# Odmiana „pozycja" przez liczbę: 1 pozycja, 2-4 pozycje, 5+ pozycji. #}
+{% macro _pozycje(n) %}{% if n == 1 %}pozycja{% elif n % 10 >= 2 and n % 10 <= 4 and not (n % 100 >= 12 and n % 100 <= 14) %}pozycje{% else %}pozycji{% endif %}{% endmacro %}
+
+{% macro pagination_nav(pagination, page_url, aria_label='Strony', compact=false, per_page_url=none, per_page=none) %}
+{% set show_pages = pagination.pages > 1 %}
+{% if show_pages or per_page_url %}
 <div class="pagination-wrapper{% if compact %} pagination-wrapper-compact{% endif %}">
+    {% if per_page_url %}
+    <div class="pagination-per-page">
+        {% if not compact %}
+        <span class="pagination-per-page-label" aria-hidden="true">Na stronie:</span>
+        {% endif %}
+        {# Wartością opcji jest gotowy URL — js/components/pagination.js tylko
+           przenosi przeglądarkę pod wybrany adres, bez sklejania parametrów. #}
+        <select class="pagination-per-page-select" aria-label="Liczba pozycji na stronie">
+            {% for choice in per_page_choices %}
+            <option value="{{ per_page_url(choice)|trim }}"
+                    {% if per_page|string == choice|string %}selected{% endif %}>
+                {{ 'Wszystkie' if choice == 'all' else choice }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if show_pages %}
     <nav class="pagination" aria-label="{{ aria_label }}">
         {% if pagination.has_prev %}
         <a href="{{ page_url(pagination.prev_num)|trim }}"
-           class="pagination-btn" aria-label="Poprzednia strona">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 18l-6-6 6-6"/>
-            </svg>
-        </a>
+           class="pagination-arrow" aria-label="Poprzednia strona" rel="prev">‹</a>
+        {% else %}
+        <span class="pagination-arrow disabled" aria-hidden="true">‹</span>
         {% endif %}
 
-        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if page_num %}
-                <a href="{{ page_url(page_num)|trim }}"
-                   class="pagination-btn {% if page_num == pagination.page %}active{% endif %}"
-                   {% if page_num == pagination.page %}aria-current="page"{% endif %}>
-                    {{ page_num }}
-                </a>
-            {% else %}
-                <span class="pagination-ellipsis">...</span>
-            {% endif %}
-        {% endfor %}
+        {# Wzorzec URL z podmienialnym numerem — JS wstawia w miejsce __PAGE__
+           wpisaną wartość, dzięki czemu nie musi znać pozostałych parametrów. #}
+        <input type="number"
+               class="pagination-input"
+               value="{{ pagination.page }}"
+               min="1"
+               max="{{ pagination.pages }}"
+               inputmode="numeric"
+               aria-label="Numer strony, łącznie {{ pagination.pages }}"
+               data-page-url-template="{{ page_url('__PAGE__')|trim }}">
+
+        <span class="pagination-sep" aria-hidden="true">/</span>
+        <span class="pagination-total">{{ pagination.pages }}</span>
 
         {% if pagination.has_next %}
         <a href="{{ page_url(pagination.next_num)|trim }}"
-           class="pagination-btn" aria-label="Następna strona">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 18l6-6-6-6"/>
-            </svg>
-        </a>
+           class="pagination-arrow" aria-label="Następna strona" rel="next">›</a>
+        {% else %}
+        <span class="pagination-arrow disabled" aria-hidden="true">›</span>
         {% endif %}
     </nav>
+    {% endif %}
+
     {% if not compact %}
-    <div class="pagination-info">
-        Strona {{ pagination.page }} z {{ pagination.pages }}
-    </div>
+    <div class="pagination-info">{{ pagination.total }} {{ _pozycje(pagination.total)|trim }}</div>
     {% endif %}
 </div>
 {% endif %}

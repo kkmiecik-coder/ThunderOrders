@@ -179,51 +179,8 @@
   font-weight: 600;
 }
 
-/* ==========================================
-   Pagination Compact
-   ========================================== */
-.pagination-compact {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pagination-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: var(--card-bg);
-  color: #555;
-  text-decoration: none;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.pagination-arrow:hover {
-  background: #f0f0f0;
-  border-color: #ccc;
-}
-
-.pagination-arrow.disabled {
-  color: #ccc;
-  cursor: not-allowed;
-  background: #fafafa;
-}
-
-.pagination-arrow.disabled:hover {
-  background: #fafafa;
-  border-color: #ddd;
-}
-
-.pagination-info {
-  font-size: 13px;
-  color: #555;
-  font-weight: 500;
-}
+/* Paginacja i wybór liczby pozycji: wspólny komponent —
+   css/components/pagination.css */
 
 /* ==========================================
    Table
@@ -973,30 +930,6 @@
 
 [data-theme="dark"] .clients-count strong {
   color: #f093fb;
-}
-
-/* Pagination - Dark Mode */
-[data-theme="dark"] .pagination-arrow {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(240, 147, 251, 0.2);
-  color: rgba(255, 255, 255, 0.8);
-  transition: all 0.5s ease;
-}
-
-[data-theme="dark"] .pagination-arrow:hover {
-  background: rgba(240, 147, 251, 0.15);
-  border-color: #f093fb;
-  color: #ffffff;
-}
-
-[data-theme="dark"] .pagination-arrow.disabled {
-  background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(240, 147, 251, 0.1);
-  color: rgba(255, 255, 255, 0.2);
-}
-
-[data-theme="dark"] .pagination-info {
-  color: rgba(255, 255, 255, 0.7);
 }
 
 /* Table Container - Dark Mode */

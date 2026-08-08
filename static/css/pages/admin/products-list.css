@@ -423,65 +423,8 @@
   font-weight: 600;
 }
 
-/* ==========================================
-   Pagination Compact
-   ========================================== */
-.pagination-compact {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pagination-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: var(--card-bg);
-  color: #555;
-  text-decoration: none;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.pagination-arrow:hover {
-  background: #f0f0f0;
-  border-color: #ccc;
-}
-
-.pagination-arrow.disabled {
-  color: #ccc;
-  cursor: not-allowed;
-  background: #fafafa;
-}
-
-.pagination-arrow.disabled:hover {
-  background: #fafafa;
-  border-color: #ddd;
-}
-
-.pagination-input {
-  width: 50px;
-  padding: 5px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  text-align: center;
-  font-size: 13px;
-}
-
-.pagination-sep {
-  font-size: 14px;
-  color: #999;
-}
-
-.pagination-total {
-  font-size: 13px;
-  color: #555;
-  font-weight: 500;
-}
+/* Paginacja i wybór liczby pozycji: wspólny komponent —
+   css/components/pagination.css */
 
 /* ==========================================
    Products Table
@@ -2094,38 +2037,6 @@
 
 [data-theme="dark"] .products-count strong {
   color: #f0f0f0;
-}
-
-/* Pagination */
-[data-theme="dark"] .pagination-arrow {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(240, 147, 251, 0.2);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-[data-theme="dark"] .pagination-arrow:hover {
-  background: rgba(240, 147, 251, 0.1);
-  border-color: rgba(240, 147, 251, 0.4);
-  color: #f093fb;
-}
-
-[data-theme="dark"] .pagination-arrow.disabled {
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.2);
-}
-
-[data-theme="dark"] .pagination-input {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(240, 147, 251, 0.2);
-  color: #f0f0f0;
-}
-
-[data-theme="dark"] .pagination-sep {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-[data-theme="dark"] .pagination-total {
-  color: rgba(255, 255, 255, 0.7);
 }
 
 /* Products Table Container */
