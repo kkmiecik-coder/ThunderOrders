@@ -4,11 +4,13 @@
    Markup: templates/components/_pagination.html
    ========================================== */
 
+/* Układ pionowy: numery stron na górze, pod nimi „Pokaż: [liczba]",
+   na końcu podsumowanie. Całość trzyma się prawej krawędzi. */
 .pagination-wrapper {
     display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: var(--space-3);
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2);
     margin-top: var(--space-5);
     padding: var(--space-3) 0;
 }
@@ -103,41 +105,46 @@
     gap: var(--space-2);
 }
 
+/* Wybór liczby pozycji to ustawienie drugoplanowe — celowo drobniejszy
+   i cichszy niż numery stron, żeby nie konkurował z nimi o uwagę. */
 .pagination-per-page-label {
-    font-size: 0.82rem;
-    color: #6B7280;
+    font-size: 0.75rem;
+    color: #9CA3AF;
     white-space: nowrap;
 }
 
 .pagination-per-page-select {
-    height: 36px;
-    padding: 0 28px 0 10px;
-    border-radius: 8px;
+    height: 26px;
+    padding: 0 20px 0 8px;
+    border-radius: 5px;
+    /* Tło i obramowanie są delikatne, ale muszą być — bez nich pole nie czyta
+       się jako klikalne, tylko jako zwykły tekst obok etykiety. */
     border: 1px solid #E5E7EB;
-    background: #fff;
-    color: #374151;
-    font-size: 0.88rem;
+    background-color: #F3F4F6;
+    color: #4B5563;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: all 0.15s;
     /* Własna strzałka — natywna różni się między przeglądarkami i nie da się
        jej dopasować do reszty paska. */
     appearance: none;
     -webkit-appearance: none;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 8px center;
-    background-size: 14px;
+    background-position: right 4px center;
+    background-size: 11px;
 }
 
 .pagination-per-page-select:hover {
-    background-color: #F3F4F6;
+    background-color: #E5E7EB;
     border-color: #D1D5DB;
+    color: #374151;
 }
 
 .pagination-per-page-select:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    border-color: #D1D5DB;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.12);
 }
 
 /* ==========================================
@@ -186,24 +193,25 @@
 }
 
 [data-theme="dark"] .pagination-per-page-label {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="dark"] .pagination-per-page-select {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-    color: rgba(255, 255, 255, 0.8);
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-opacity='0.6' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-color: rgba(255, 255, 255, 0.07);
+    border-color: rgba(240, 147, 251, 0.18);
+    color: rgba(255, 255, 255, 0.7);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-opacity='0.45' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
 [data-theme="dark"] .pagination-per-page-select:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    border-color: rgba(240, 147, 251, 0.3);
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(240, 147, 251, 0.35);
+    color: #ffffff;
 }
 
 [data-theme="dark"] .pagination-per-page-select:focus {
-    border-color: #f093fb;
-    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+    border-color: rgba(240, 147, 251, 0.4);
+    box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.12);
 }
 
 /* Lista rozwinięta rysuje się natywnie — bez tego opcje bywają białym
@@ -218,13 +226,20 @@
    ========================================== */
 
 @media (max-width: 768px) {
-    /* Na telefonie paginacja idzie na środek — na wąskim ekranie dosunięcie
-       do prawej wygląda jak ucięte, a kciuk i tak celuje w środek. */
+    /* Na telefonie wszystko mieści się w jednym rzędzie, wyśrodkowanym —
+       dosunięcie do prawej wygląda jak ucięte, a kciuk i tak celuje w środek. */
     .pagination-wrapper {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
         justify-content: center;
         align-items: center;
-        gap: var(--space-2);
+        gap: var(--space-3);
+    }
+
+    /* W układzie pionowym „Pokaż" stoi pod numerami stron, a w rzędzie ma być
+       przed nimi — kolejność w HTML zostaje, przestawia ją order. */
+    .pagination-per-page {
+        order: -1;
     }
 
     /* Dużo stron = zawijanie w kolejne rzędy, każdy wyśrodkowany. */

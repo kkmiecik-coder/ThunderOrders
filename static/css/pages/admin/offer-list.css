@@ -48,6 +48,15 @@
     justify-content: flex-end;
 }
 
+/* „Dodaj stronę" siedzi pod pigułkami statystyk, wyrównany do ich prawej
+   krawędzi (pigułki też są dosunięte w prawo). */
+.header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-3);
+}
+
 .stat-card {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
@@ -2992,5 +3001,33 @@
     .offer-toolbar-pagination {
         margin-left: 0;
         width: 100%;
+    }
+}
+
+/* ====================================================================
+   PIGUŁKI STATYSTYK NA TELEFONIE — na końcu pliku celowo, żeby nadpisać
+   reguły bazowe niezależnie od kolejności wyżej.
+   ==================================================================== */
+@media (max-width: 768px) {
+    /* Dwie kolumny zamiast trzech i minmax(0, 1fr) zamiast 1fr: samo 1fr nie
+       pozwala kolumnie zejść poniżej szerokości treści, więc pigułki
+       („ZAPLANOWANE 0" + white-space: nowrap) rozpychały siatkę poza ekran. */
+    .stats-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .stat-card {
+        min-width: 0;
+        padding: var(--space-2) var(--space-3);
+        gap: var(--space-1);
+    }
+
+    /* Dłuższe etykiety („ZAPLANOWANE", „ZAKOŃCZONE") muszą się zmieścić
+       w połowie wąskiego ekranu — bez tego wracamy do rozpychania. */
+    .stat-card .stat-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.68rem;
     }
 }

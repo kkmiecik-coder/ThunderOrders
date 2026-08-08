@@ -34,24 +34,6 @@
 {% set show_pages = pagination.pages > 1 %}
 {% if show_pages or per_page_url %}
 <div class="pagination-wrapper{% if compact %} pagination-wrapper-compact{% endif %}">
-    {% if per_page_url %}
-    <div class="pagination-per-page">
-        {% if not compact %}
-        <span class="pagination-per-page-label" aria-hidden="true">Na stronie:</span>
-        {% endif %}
-        {# Wartością opcji jest gotowy URL — js/components/pagination.js tylko
-           przenosi przeglądarkę pod wybrany adres, bez sklejania parametrów. #}
-        <select class="pagination-per-page-select" aria-label="Liczba pozycji na stronie">
-            {% for choice in per_page_choices %}
-            <option value="{{ per_page_url(choice)|trim }}"
-                    {% if per_page|string == choice|string %}selected{% endif %}>
-                {{ 'Wszystkie' if choice == 'all' else choice }}
-            </option>
-            {% endfor %}
-        </select>
-    </div>
-    {% endif %}
-
     {% if show_pages %}
     <nav class="pagination" aria-label="{{ aria_label }}">
         {% if pagination.has_prev %}
@@ -82,6 +64,23 @@
         <span class="pagination-arrow disabled" aria-hidden="true">›</span>
         {% endif %}
     </nav>
+    {% endif %}
+
+    {# Wybór liczby pozycji stoi POD paginacją, nie obok niej. #}
+    {% if per_page_url %}
+    <div class="pagination-per-page">
+        <span class="pagination-per-page-label" aria-hidden="true">Pokaż:</span>
+        {# Wartością opcji jest gotowy URL — js/components/pagination.js tylko
+           przenosi przeglądarkę pod wybrany adres, bez sklejania parametrów. #}
+        <select class="pagination-per-page-select" aria-label="Liczba pozycji na stronie">
+            {% for choice in per_page_choices %}
+            <option value="{{ per_page_url(choice)|trim }}"
+                    {% if per_page|string == choice|string %}selected{% endif %}>
+                {{ 'Wszystkie' if choice == 'all' else choice }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
     {% endif %}
 
     {% if not compact %}
