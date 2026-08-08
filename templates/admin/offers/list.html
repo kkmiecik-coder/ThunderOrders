@@ -5,11 +5,17 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/offer-list.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pagination.css') }}">
 {% endblock %}
 
 {% block content %}
 {% import "admin/offers/_list_items.html" as items with context %}
 {% from "components/_bulk_toolbar.html" import bulk_toolbar %}
+{% from "components/_pagination.html" import pagination_nav %}
+{# Linki paginacji — każda zakładka ma własny numer strony, więc przy zmianie
+   jednej trzeba przenieść stan drugiej (inaczej „Zamknięte" wracałyby na 1). #}
+{% macro current_page_url(n) %}{{ url_for('admin.offers_list', page_current=n, page_closed=(closed_pagination.page if closed_pagination.page > 1 else None), search=search_query or None, sort=sort_column or None, dir=(sort_dir if sort_column else None)) }}{% endmacro %}
+{% macro closed_page_url(n) %}{{ url_for('admin.offers_list', page_closed=n, page_current=(current_pagination.page if current_pagination.page > 1 else None), search=search_query or None, sort=sort_column or None, dir=(sort_dir if sort_column else None)) }}{% endmacro %}
 <div class="offer-page">
     <div class="offer-page-head">
     <!-- Header -->
@@ -22,27 +28,27 @@
             <!-- Stats (pigułki) -->
             <div class="stats-row">
                 <div class="stat-card">
-                    <span class="stat-value">{{ pages|length }}</span>
+                    <span class="stat-value">{{ total_count }}</span>
                     <span class="stat-label">Wszystkie</span>
                 </div>
                 <div class="stat-card stat-draft">
-                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'draft')|list|length }}</span>
+                    <span class="stat-value">{{ status_counts.get('draft', 0) }}</span>
                     <span class="stat-label">Drafty</span>
                 </div>
                 <div class="stat-card stat-scheduled">
-                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'scheduled')|list|length }}</span>
+                    <span class="stat-value">{{ status_counts.get('scheduled', 0) }}</span>
                     <span class="stat-label">Zaplanowane</span>
                 </div>
                 <div class="stat-card stat-active">
-                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'active')|list|length }}</span>
+                    <span class="stat-value">{{ status_counts.get('active', 0) }}</span>
                     <span class="stat-label">Aktywne</span>
                 </div>
                 <div class="stat-card stat-paused">
-                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'paused')|list|length }}</span>
+                    <span class="stat-value">{{ status_counts.get('paused', 0) }}</span>
                     <span class="stat-label">Wstrzymane</span>
                 </div>
                 <div class="stat-card stat-ended">
-                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'ended')|list|length }}</span>
+                    <span class="stat-value">{{ status_counts.get('ended', 0) }}</span>
                     <span class="stat-label">Zakończone</span>
                 </div>
             </div>
@@ -50,16 +56,30 @@
     </div>
 
     <!-- Toolbar: szukajka + dodaj stronę -->
-    {% if pages %}
+    {% if total_count %}
     <div class="offer-toolbar">
-        <div class="offer-search-bar">
-            <svg class="offer-search-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
-            </svg>
-            <input type="text" id="offerSearchInput" class="offer-search-input"
-                   placeholder="Szukaj strony po nazwie..." autocomplete="off"
-                   aria-label="Szukaj strony sprzedaży po nazwie">
-        </div>
+        {# Filtrowanie serwerowe — formularz GET. Sortowanie przenosimy w ukrytych
+           polach, żeby wyszukiwanie go nie gubiło; numery stron celowo NIE,
+           bo nowy filtr zaczyna od strony 1. #}
+        <form class="offer-search-form" method="GET" action="{{ url_for('admin.offers_list') }}" role="search">
+            {% if sort_column %}
+            <input type="hidden" name="sort" value="{{ sort_column }}">
+            <input type="hidden" name="dir" value="{{ sort_dir }}">
+            {% endif %}
+            <div class="offer-search-bar">
+                <svg class="offer-search-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                </svg>
+                <input type="text" id="offerSearchInput" name="search" class="offer-search-input"
+                       value="{{ search_query }}"
+                       placeholder="Szukaj strony po nazwie..." autocomplete="off"
+                       aria-label="Szukaj strony sprzedaży po nazwie">
+                {% if search_query %}
+                <a class="offer-search-clear" href="{{ url_for('admin.offers_list', sort=sort_column or None, dir=(sort_dir if sort_column else None)) }}"
+                   title="Wyczyść wyszukiwanie" aria-label="Wyczyść wyszukiwanie">&times;</a>
+                {% endif %}
+            </div>
+        </form>
         <button type="button" class="btn btn-primary offer-toolbar-add" onclick="openCreateModal()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
@@ -67,35 +87,49 @@
             Dodaj stronę
         </button>
     </div>
-    <div class="offer-search-empty is-hidden" id="offerSearchEmpty"></div>
     {% endif %}
     </div><!-- /.offer-page-head -->
 
-    {% if pages %}
+    {% if total_count %}
     <div class="offer-page-body">
     <!-- Nawigacja zakładek (reuse initializeOfferTabs z offer-list.js) -->
     <div class="offer-tabs-navigation">
         <button type="button" class="offer-tab-button offer-tab-active" data-tab="tab-current">
-            Bieżące ({{ current_pages|length }})
+            Bieżące ({{ current_pagination.total }})
         </button>
         <button type="button" class="offer-tab-button" data-tab="tab-closed">
-            Zamknięte ({{ closed_pages|length }})
+            Zamknięte ({{ closed_pagination.total }})
         </button>
     </div>
 
+    {# Zaznaczanie jest serwerowe: przeglądarka dostaje identyfikatory WSZYSTKICH
+       stron pasujących do filtra (nie tylko widocznych 20), żeby „Zaznacz
+       wszystkie" i reguły dostępności akcji masowych działały na całym zbiorze. #}
+    <script type="application/json" id="offerSelectionData">
+        {{ {'current': current_selection, 'closed': closed_selection}|tojson }}
+    </script>
+
     <div class="offer-tabs-content">
-        <div id="tab-current" class="offer-tab-panel offer-tab-active">
+        <div id="tab-current" class="offer-tab-panel offer-tab-active" data-tab-key="current">
             {% if current_pages %}
+                {{ pagination_nav(current_pagination, current_page_url, 'Strony — bieżące strony sprzedaży', true) }}
                 {{ items.offer_mobile_cards(current_pages) }}
                 {{ items.offer_table(current_pages, 'current') }}
+                {{ pagination_nav(current_pagination, current_page_url, 'Strony — bieżące strony sprzedaży') }}
+            {% elif search_query %}
+                <div class="offer-tab-empty">Brak bieżących stron pasujących do „{{ search_query }}"</div>
             {% else %}
                 <div class="offer-tab-empty">Brak bieżących stron sprzedaży</div>
             {% endif %}
         </div>
-        <div id="tab-closed" class="offer-tab-panel">
+        <div id="tab-closed" class="offer-tab-panel" data-tab-key="closed">
             {% if closed_pages %}
+                {{ pagination_nav(closed_pagination, closed_page_url, 'Strony — zamknięte strony sprzedaży', true) }}
                 {{ items.offer_mobile_cards(closed_pages) }}
                 {{ items.offer_table(closed_pages, 'closed') }}
+                {{ pagination_nav(closed_pagination, closed_page_url, 'Strony — zamknięte strony sprzedaży') }}
+            {% elif search_query %}
+                <div class="offer-tab-empty">Brak zamkniętych stron pasujących do „{{ search_query }}"</div>
             {% else %}
                 <div class="offer-tab-empty">Brak zamkniętych stron sprzedaży</div>
             {% endif %}

@@ -1,0 +1,56 @@
+{# Wspólny komponent paginacji (WMS + strony sprzedaży).
+
+   Użycie:
+     {% from "components/_pagination.html" import pagination_nav %}
+     {% macro moja_strona_url(n) %}{{ url_for('...', page=n) }}{% endmacro %}
+     {{ pagination_nav(paginacja, moja_strona_url, 'Strony zleceń wysyłki') }}
+
+   Argumenty:
+     pagination  — obiekt Flask-SQLAlchemy Pagination
+     page_url    — makro/funkcja: numer strony -> URL (bez zbędnych białych znaków)
+     aria_label  — etykieta dla czytników ekranu
+     compact     — wariant bez podpisu „Strona X z Y" (do pasków nad listą,
+                   gdzie miejsca jest mało, a informacja zostaje pod listą)
+#}
+{% macro pagination_nav(pagination, page_url, aria_label='Strony', compact=false) %}
+{% if pagination.pages > 1 %}
+<div class="pagination-wrapper{% if compact %} pagination-wrapper-compact{% endif %}">
+    <nav class="pagination" aria-label="{{ aria_label }}">
+        {% if pagination.has_prev %}
+        <a href="{{ page_url(pagination.prev_num)|trim }}"
+           class="pagination-btn" aria-label="Poprzednia strona">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+            </svg>
+        </a>
+        {% endif %}
+
+        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+                <a href="{{ page_url(page_num)|trim }}"
+                   class="pagination-btn {% if page_num == pagination.page %}active{% endif %}"
+                   {% if page_num == pagination.page %}aria-current="page"{% endif %}>
+                    {{ page_num }}
+                </a>
+            {% else %}
+                <span class="pagination-ellipsis">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+        <a href="{{ page_url(pagination.next_num)|trim }}"
+           class="pagination-btn" aria-label="Następna strona">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+            </svg>
+        </a>
+        {% endif %}
+    </nav>
+    {% if not compact %}
+    <div class="pagination-info">
+        Strona {{ pagination.page }} z {{ pagination.pages }}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endmacro %}

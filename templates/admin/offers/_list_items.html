@@ -1,10 +1,24 @@
 {# Makra listy stron sprzedaży. Importowane w list.html z `with context`,
-   aby current_user / csrf_token() / url_for / filtry format_date były dostępne. #}
+   aby current_user / csrf_token() / url_for / filtry format_date oraz stan
+   filtra i sortowania (search_query / sort_column / sort_dir) były dostępne. #}
+
+{# Link sortujący nagłówka kolumny. Sortowanie jest serwerowe, więc zmiana
+   kolumny cofa OBIE zakładki na stronę 1 (pominięte page_current/page_closed).
+   Pierwsze kliknięcie sortuje rosnąco, kolejne przełącza kierunek. #}
+{% macro offer_sort_url(column) %}{{ url_for('admin.offers_list', search=search_query or None, sort=column, dir=('desc' if sort_column == column and sort_dir == 'asc' else 'asc')) }}{% endmacro %}
+
+{% macro offer_sort_class(column) %}{% if sort_column == column %}{{ 'sorted-asc' if sort_dir == 'asc' else 'sorted-desc' }}{% endif %}{% endmacro %}
+
+{% macro offer_sort_th(column, label) %}
+<th class="sortable {{ offer_sort_class(column)|trim }}" data-column="{{ column }}">
+    <a class="offer-sort-link" href="{{ offer_sort_url(column)|trim }}">{{ label }}</a>
+</th>
+{% endmacro %}
 
 {% macro offer_mobile_cards(pages) %}
 <div class="offer-cards-mobile">
     {% for page in pages %}
-    <div class="offer-card" data-search-name="{{ page.name }}">
+    <div class="offer-card">
         <div class="offer-card-header">
             <input type="checkbox" class="offer-checkbox offer-card-checkbox"
                    value="{{ page.id }}"
@@ -163,28 +177,20 @@
                     <th class="offer-checkbox-col">
                         <input type="checkbox" id="selectAll-{{ tab_id }}" class="offer-select-all" aria-label="Zaznacz wszystkie">
                     </th>
-                    <th class="sortable" data-column="name" onclick="sortOfferTable('name', this)">Nazwa</th>
-                    <th class="sortable" data-column="ptype" onclick="sortOfferTable('ptype', this)">Typ</th>
-                    <th class="sortable" data-column="shipping" onclick="sortOfferTable('shipping', this)">Typ wysyłki</th>
-                    <th class="sortable" data-column="status" onclick="sortOfferTable('status', this)">Status</th>
-                    <th class="sortable" data-column="created" onclick="sortOfferTable('created', this)">Utworzono</th>
-                    <th class="sortable" data-column="starts" onclick="sortOfferTable('starts', this)">Rozpoczęcie</th>
-                    <th class="sortable" data-column="ends" onclick="sortOfferTable('ends', this)">Zakończenie</th>
-                    <th class="sortable" data-column="deadline" onclick="sortOfferTable('deadline', this)">Termin płatności</th>
+                    {{ offer_sort_th('name', 'Nazwa') }}
+                    {{ offer_sort_th('ptype', 'Typ') }}
+                    {{ offer_sort_th('shipping', 'Typ wysyłki') }}
+                    {{ offer_sort_th('status', 'Status') }}
+                    {{ offer_sort_th('created', 'Utworzono') }}
+                    {{ offer_sort_th('starts', 'Rozpoczęcie') }}
+                    {{ offer_sort_th('ends', 'Zakończenie') }}
+                    {{ offer_sort_th('deadline', 'Termin płatności') }}
                     <th>Akcje</th>
                 </tr>
             </thead>
             <tbody>
                 {% for page in pages %}
-                <tr data-search-name="{{ page.name }}"
-                    data-name="{{ page.name }}"
-                    data-ptype="{{ page.page_type }}"
-                    data-shipping="{{ 'proxy' if page.payment_stages == 4 else 'polska' }}"
-                    data-status="{{ page.status }}"
-                    data-created="{{ page.created_at.timestamp() if page.created_at else 0 }}"
-                    data-starts="{{ page.starts_at.timestamp() if page.starts_at else 0 }}"
-                    data-ends="{{ page.ends_at.timestamp() if page.ends_at else 0 }}"
-                    data-deadline="{{ page.payment_deadline.timestamp() if page.payment_deadline else 0 }}">
+                <tr>
                     <td class="offer-checkbox-col">
                         <input type="checkbox" class="offer-checkbox"
                                value="{{ page.id }}"

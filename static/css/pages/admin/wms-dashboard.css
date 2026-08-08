@@ -1775,66 +1775,7 @@
     justify-content: flex-end;
 }
 
-/* Pagination */
-.pagination-wrapper {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: var(--space-3);
-    margin-top: var(--space-5);
-    padding: var(--space-3) 0;
-}
-
-/* Wariant w pasku nad listą — bez własnych marginesów */
-.pagination-wrapper-compact {
-    margin-top: 0;
-    padding: 0;
-}
-
-.pagination {
-    display: flex;
-    gap: 4px;
-}
-
-.pagination-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 36px;
-    height: 36px;
-    padding: 0 10px;
-    border-radius: 8px;
-    border: 1px solid #E5E7EB;
-    background: #fff;
-    color: #374151;
-    font-size: 0.88rem;
-    text-decoration: none;
-    transition: all 0.15s;
-}
-
-.pagination-btn:hover {
-    background: #F3F4F6;
-    border-color: #D1D5DB;
-}
-
-.pagination-btn.active {
-    background: #667eea;
-    border-color: #667eea;
-    color: #fff;
-    font-weight: 600;
-}
-
-.pagination-ellipsis {
-    display: flex;
-    align-items: center;
-    padding: 0 4px;
-    color: #9CA3AF;
-}
-
-.pagination-info {
-    font-size: 0.82rem;
-    color: #6B7280;
-}
+/* Paginacja: wspólny komponent — css/components/pagination.css */
 
 /* ================================================ */
 /* DARK MODE — SHIPPING REQUESTS TAB                */
@@ -1860,31 +1801,6 @@
 
 [data-theme="dark"] .sr-card-paid {
     border-left-color: #10B981;
-}
-
-[data-theme="dark"] .pagination-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-    color: rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="dark"] .pagination-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(240, 147, 251, 0.3);
-}
-
-[data-theme="dark"] .pagination-btn.active {
-    background: linear-gradient(135deg, #f093fb, #f5576c);
-    border-color: transparent;
-    color: #fff;
-}
-
-[data-theme="dark"] .pagination-ellipsis {
-    color: rgba(255, 255, 255, 0.4);
-}
-
-[data-theme="dark"] .pagination-info {
-    color: rgba(255, 255, 255, 0.5);
 }
 
 /* ================================================ */

@@ -85,7 +85,6 @@
 .table-container {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
     overflow: hidden;
 }
 
@@ -956,7 +955,7 @@
         align-items: stretch;
     }
 
-    .offer-search-bar {
+    .offer-search-form {
         width: 100%;
     }
 
@@ -1661,7 +1660,6 @@
 .offer-tabs-navigation {
     display: flex;
     gap: var(--space-2);
-    margin-bottom: var(--space-6);
     border-bottom: 2px solid var(--border-color);
     background: var(--bg-primary);
     padding: 0 var(--space-6); /* Horizontal padding only */
@@ -1710,7 +1708,12 @@
 .offer-tab-panel {
     display: none;
     animation: fadeIn 0.3s ease-in-out;
-    padding: 0 var(--space-6) var(--space-6) var(--space-6); /* Add padding to tab content */
+}
+
+/* Górna paginacja siedzi między zakładkami a listą — wariant compact nie ma
+   własnych marginesów (w WMS jest w pasku), więc odstęp dodajemy tutaj. */
+.offer-tab-panel > .pagination-wrapper-compact {
+    padding: var(--space-4) 0;
 }
 
 .offer-tab-panel.offer-tab-active {
@@ -2688,10 +2691,39 @@
     margin-bottom: var(--space-4);
 }
 
-.offer-search-bar {
-    position: relative;
+/* Szukajka jest formularzem GET (filtr serwerowy) — form przejmuje rolę
+   elastycznego elementu paska, pasek wyszukiwania wypełnia go w całości. */
+.offer-search-form {
     flex: 1;
     min-width: 0;
+}
+
+.offer-search-bar {
+    position: relative;
+    width: 100%;
+}
+
+/* Krzyżyk czyszczący filtr — link do listy bez ?search= */
+.offer-search-clear {
+    position: absolute;
+    right: var(--space-3);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 20px;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.offer-search-clear:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 .offer-toolbar-add {
@@ -2725,13 +2757,6 @@
     box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
 }
 
-.offer-search-empty {
-    padding: var(--space-6);
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: var(--text-base);
-}
-
 /* Współdzielona klasa ukrywania (filtr) */
 .is-hidden {
     display: none !important;
@@ -2758,8 +2783,13 @@
     color: rgba(255, 255, 255, 0.5);
 }
 
-[data-theme="dark"] .offer-search-empty {
-    color: rgba(255, 255, 255, 0.6);
+[data-theme="dark"] .offer-search-clear {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .offer-search-clear:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
 }
 
 /* ====================================================================
@@ -2890,10 +2920,22 @@
     padding-right: 24px;
 }
 
+/* Sortowanie jest serwerowe — nagłówek to link, ale ma wyglądać jak nagłówek. */
+.offer-table th.sortable .offer-sort-link {
+    display: block;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+}
+
 .offer-table th.sortable::after {
     content: '⇅';
     position: absolute;
     right: 8px;
+    /* Nagłówek to link blokowy (cała komórka klikalna), więc wskaźnik trzeba
+       wyśrodkować w pionie — inaczej ląduje pod etykietą kolumny. */
+    top: 50%;
+    transform: translateY(-50%);
     opacity: 0.3;
     font-size: 14px;
 }

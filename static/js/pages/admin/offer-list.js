@@ -4,60 +4,11 @@
  */
 
 /**
- * Sortowanie tabeli stron sprzedaży — odwzorowanie mechanizmu ze stock-orders.
- * Zawężone do tabeli klikniętego nagłówka (obie zakładki są w DOM jednocześnie).
- * Stan sortowania trzymany per <table> w data-sort-column / data-sort-dir.
+ * Sortowanie i filtrowanie listy stron sprzedaży są serwerowe (parametry
+ * ?sort/?dir/?search), bo lista jest paginowana — sortowanie w przeglądarce
+ * układałoby tylko 20 wierszy bieżącej strony. Nagłówki kolumn to zwykłe linki
+ * generowane w _list_items.html.
  */
-const OFFER_NUMERIC_COLUMNS = new Set(['created', 'starts', 'ends', 'deadline']);
-const OFFER_STATUS_PRIORITY = { active: 0, paused: 1, scheduled: 2, draft: 3, ended: 4 };
-
-function sortOfferTable(column, thEl) {
-    const table = thEl.closest('table');
-    if (!table) return;
-    const tbody = table.querySelector('tbody');
-    if (!tbody) return;
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-
-    // Toggle kierunku; stan per tabela
-    let dir = 'asc';
-    if (table.dataset.sortColumn === column) {
-        dir = table.dataset.sortDir === 'asc' ? 'desc' : 'asc';
-    }
-    table.dataset.sortColumn = column;
-    table.dataset.sortDir = dir;
-
-    // Wskaźniki tylko w tej tabeli
-    table.querySelectorAll('th.sortable').forEach(h => {
-        h.classList.remove('sorted-asc', 'sorted-desc');
-        if (h.dataset.column === column) {
-            h.classList.add(dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
-        }
-    });
-
-    const key = column;
-    const isNumeric = OFFER_NUMERIC_COLUMNS.has(column);
-    const isStatus = column === 'status';
-
-    rows.sort((a, b) => {
-        let av = a.dataset[key] || '';
-        let bv = b.dataset[key] || '';
-        if (isStatus) {
-            av = OFFER_STATUS_PRIORITY[av] ?? 99;
-            bv = OFFER_STATUS_PRIORITY[bv] ?? 99;
-        } else if (isNumeric) {
-            av = parseFloat(av) || 0;
-            bv = parseFloat(bv) || 0;
-        } else {
-            av = av.toLowerCase();
-            bv = bv.toLowerCase();
-        }
-        if (av < bv) return dir === 'asc' ? -1 : 1;
-        if (av > bv) return dir === 'asc' ? 1 : -1;
-        return 0;
-    });
-
-    rows.forEach(row => tbody.appendChild(row));
-}
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeOfferTabs();
@@ -467,48 +418,34 @@ async function deleteReminderRule(ruleId, rowElement) {
 }
 
 /**
- * Live-filtr listy stron sprzedaży po nazwie.
- * Chowa/pokazuje już wyrenderowane karty mobile i wiersze tabeli.
+ * Szukajka stron sprzedaży — filtr jest serwerowy (?search=), więc pole tylko
+ * wysyła formularz. Wysyłka jest opóźniona (debounce), żeby zachować wrażenie
+ * pisania „na żywo" bez przeładowania po każdym znaku.
  * Guard: jeśli na stronie nie ma pola szukajki, nic nie robi.
  */
 function initializeOfferSearch() {
     const input = document.getElementById('offerSearchInput');
     if (!input) return;
 
-    const emptyMessage = document.getElementById('offerSearchEmpty');
-    const containers = document.querySelectorAll('.offer-cards-mobile, .table-container');
-    const items = document.querySelectorAll('[data-search-name]');
+    const form = input.form;
+    if (!form) return;
 
-    // lowercase + usunięcie znaków diakrytycznych (m.in. polskich ogonków),
-    // żeby "lacie" znajdowało "Łacie"
-    const normalize = (str) => (str || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .trim();
+    // Po przeładowaniu wracamy kursorem na koniec wpisanej frazy, żeby pisanie
+    // dało się kontynuować bez klikania w pole.
+    if (input.value) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }
 
+    let timer = null;
     input.addEventListener('input', function() {
-        const query = normalize(input.value);
-        // Liczy węzły DOM, nie strony — każda strona ma 2 wpisy (karta + wiersz).
-        // Do logiki braku wyników liczy się tylko 0 vs >0, więc to wystarcza.
-        let visibleNodeCount = 0;
+        clearTimeout(timer);
+        timer = setTimeout(() => form.submit(), 400);
+    });
 
-        items.forEach(item => {
-            const name = normalize(item.getAttribute('data-search-name'));
-            const matches = query === '' || name.includes(query);
-            item.classList.toggle('is-hidden', !matches);
-            if (matches) visibleNodeCount++;
-        });
-
-        const noResults = query !== '' && visibleNodeCount === 0;
-        containers.forEach(c => c.classList.toggle('is-hidden', noResults));
-
-        if (emptyMessage) {
-            emptyMessage.classList.toggle('is-hidden', !noResults);
-            if (noResults) {
-                emptyMessage.textContent = `Brak stron pasujących do „${input.value.trim()}"`;
-            }
-        }
+    // Enter wysyła od razu — bez czekania na debounce.
+    form.addEventListener('submit', function() {
+        clearTimeout(timer);
     });
 }
 
@@ -529,23 +466,45 @@ function initializeBulkActions() {
     // Operujemy po klasie, nie po id.
     const selectAllBoxes = Array.from(document.querySelectorAll('.offer-select-all'));
 
+    // Lista jest paginowana, więc zaznaczenie NIE może opierać się na wierszach
+    // w DOM — te pokazują tylko bieżące 20. Serwer podaje identyfikatory i
+    // metadane wszystkich stron pasujących do filtra, per zakładka.
+    const selectionData = readSelectionData();
+    const selectedIds = new Set();
+
+    function readSelectionData() {
+        const el = document.getElementById('offerSelectionData');
+        if (!el) return { current: [], closed: [] };
+        try {
+            const parsed = JSON.parse(el.textContent);
+            return { current: parsed.current || [], closed: parsed.closed || [] };
+        } catch (e) {
+            console.error('Nie udało się odczytać danych zaznaczenia:', e);
+            return { current: [], closed: [] };
+        }
+    }
+
+    function activeTabKey() {
+        const panel = document.querySelector('.offer-tab-panel.offer-tab-active');
+        return (panel && panel.dataset.tabKey) || 'current';
+    }
+
+    // Wpisy bieżącej zakładki: [{id, status, fullyClosed}]
+    function tabEntries() {
+        return selectionData[activeTabKey()] || [];
+    }
+
+    function selectedEntries() {
+        return tabEntries().filter(entry => selectedIds.has(String(entry.id)));
+    }
+
     function getCsrfToken() {
         const el = document.querySelector('input[name="csrf_token"]');
         return el ? el.value : '';
     }
 
-    // Tylko widoczne checkboxy (uwzględnia szukajkę chowającą wiersze klasą .is-hidden)
-    function getVisibleCheckboxes() {
-        return Array.from(document.querySelectorAll('.offer-checkbox'))
-            .filter(cb => cb.offsetParent !== null);
-    }
-
-    function getSelected() {
-        return getVisibleCheckboxes().filter(cb => cb.checked);
-    }
-
     function getSelectedIds() {
-        return getSelected().map(cb => cb.value);
+        return selectedEntries().map(entry => String(entry.id));
     }
 
     function syncRowHighlight(cb) {
@@ -555,19 +514,62 @@ function initializeBulkActions() {
         if (card) card.classList.toggle('card-selected', cb.checked);
     }
 
+    // Przepisuje stan zaznaczenia na checkboxy widoczne na bieżącej stronie.
+    function syncCheckboxesFromState() {
+        document.querySelectorAll('.offer-checkbox').forEach(cb => {
+            cb.checked = selectedIds.has(String(cb.value));
+            syncRowHighlight(cb);
+        });
+    }
+
+    // Zmiana strony paginacji to pełne przeładowanie, więc zaznaczenie musi
+    // przeżyć poza DOM-em — inaczej przejście na stronę 2 kasowałoby wybór
+    // zrobiony na stronie 1. sessionStorage: znika po zamknięciu karty.
+    const SELECTION_STORAGE_KEY = 'offerBulkSelection';
+
+    function restoreSelection() {
+        let stored;
+        try {
+            stored = JSON.parse(sessionStorage.getItem(SELECTION_STORAGE_KEY) || 'null');
+        } catch (e) {
+            return;
+        }
+        if (!stored || stored.tab !== activeTabKey()) return;
+
+        // Przecięcie z aktualnym wynikiem filtra — po zawężeniu szukajki
+        // zaznaczenie nie może obejmować stron, których już nie widać.
+        const allowed = new Set(tabEntries().map(entry => String(entry.id)));
+        (stored.ids || []).forEach(id => {
+            if (allowed.has(String(id))) selectedIds.add(String(id));
+        });
+    }
+
+    function persistSelection() {
+        try {
+            sessionStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify({
+                tab: activeTabKey(),
+                ids: Array.from(selectedIds),
+            }));
+        } catch (e) {
+            // Prywatny tryb przeglądarki może blokować zapis — zaznaczenie
+            // wtedy po prostu nie przetrwa zmiany strony.
+        }
+    }
+
     function updateToolbar() {
-        const selected = getSelected();
+        const selected = selectedEntries();
         const count = selected.length;
 
+        persistSelection();
         pasek.update(count);
 
         if (selectAllBoxes.length) {
-            const visible = getVisibleCheckboxes();
-            const allChecked = visible.length > 0 && visible.every(cb => cb.checked);
-            const someChecked = visible.some(cb => cb.checked);
+            const entries = tabEntries();
+            const allChecked = entries.length > 0 &&
+                entries.every(entry => selectedIds.has(String(entry.id)));
             selectAllBoxes.forEach(box => {
                 box.checked = allChecked;
-                box.indeterminate = someChecked && !allChecked;
+                box.indeterminate = count > 0 && !allChecked;
             });
         }
 
@@ -576,11 +578,11 @@ function initializeBulkActions() {
 
     // Polityka „zablokuj całą akcję" — lustro reguł backendu
     function updateButtonAvailability(selected) {
-        const anyFullyClosed = selected.some(cb => cb.dataset.fullyClosed === '1');
+        const anyFullyClosed = selected.some(entry => entry.fullyClosed);
         const allActiveOrPaused = selected.length > 0 &&
-            selected.every(cb => cb.dataset.status === 'active' || cb.dataset.status === 'paused');
-        const anyActive = selected.some(cb => cb.dataset.status === 'active');
-        const allEnded = selected.length > 0 && selected.every(cb => cb.dataset.status === 'ended');
+            selected.every(entry => entry.status === 'active' || entry.status === 'paused');
+        const anyActive = selected.some(entry => entry.status === 'active');
+        const allEnded = selected.length > 0 && selected.every(entry => entry.status === 'ended');
 
         setBtn('activate', !anyFullyClosed, 'Nie można aktywować — w zaznaczeniu jest strona całkowicie zamknięta.');
         setBtn('set-dates', !anyFullyClosed, 'Nie można ustawić dat — w zaznaczeniu jest strona całkowicie zamknięta.');
@@ -596,38 +598,41 @@ function initializeBulkActions() {
         btn.title = enabled ? '' : reasonIfDisabled;
     }
 
+    // „Zaznacz wszystkie" obejmuje CAŁĄ przefiltrowaną zakładkę, nie tylko
+    // wiersze widoczne na bieżącej stronie paginacji.
     selectAllBoxes.forEach(box => {
         box.addEventListener('change', function() {
-            getVisibleCheckboxes().forEach(cb => {
-                cb.checked = this.checked;
-                syncRowHighlight(cb);
+            const checked = this.checked;
+            tabEntries().forEach(entry => {
+                if (checked) {
+                    selectedIds.add(String(entry.id));
+                } else {
+                    selectedIds.delete(String(entry.id));
+                }
             });
+            syncCheckboxesFromState();
             updateToolbar();
         });
     });
 
     document.querySelectorAll('.offer-checkbox').forEach(cb => {
         cb.addEventListener('change', function() {
+            if (this.checked) {
+                selectedIds.add(String(this.value));
+            } else {
+                selectedIds.delete(String(this.value));
+            }
             syncRowHighlight(this);
             updateToolbar();
         });
     });
 
-    // Odśwież pasek po filtrowaniu szukajką — zaznaczenia w ukrytych wierszach
-    // przestają się liczyć (licznik, select-all i dostępność przycisków na bieżąco).
-    const bulkSearchInput = document.getElementById('offerSearchInput');
-    if (bulkSearchInput) {
-        bulkSearchInput.addEventListener('input', updateToolbar);
-    }
-
     // Zmiana zakładki: wyczyść zaznaczenie z poprzedniej zakładki, by pasek
-    // akcji masowych nie operował na ukrytych (innej zakładki) stronach.
+    // akcji masowych nie operował na stronach z drugiej zakładki.
     document.querySelectorAll('.offer-tab-button').forEach(tabBtn => {
         tabBtn.addEventListener('click', function() {
-            document.querySelectorAll('.offer-checkbox').forEach(cb => {
-                cb.checked = false;
-                syncRowHighlight(cb);
-            });
+            selectedIds.clear();
+            syncCheckboxesFromState();
             updateToolbar();
         });
     });
@@ -895,5 +900,7 @@ function initializeBulkActions() {
     // Inicjalizacja
     setupBulkSetDropdown();
     setupBulkButtons();
+    restoreSelection();
+    syncCheckboxesFromState();
     updateToolbar();
 }

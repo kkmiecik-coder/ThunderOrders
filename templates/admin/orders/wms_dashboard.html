@@ -4,57 +4,20 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pagination.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/wms-dashboard.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/shipping-requests-list.css') }}">
 {% endblock %}
 
 {% block content %}
 {% from "components/_bulk_toolbar.html" import bulk_toolbar %}
-{# Paginacja zleceń wysyłki — ten sam komponent na górze (przy wyszukiwarce)
+{% from "components/_pagination.html" import pagination_nav %}
+{# Paginacja zleceń wysyłki — wspólny komponent na górze (przy wyszukiwarce)
    i na dole listy. Wariant compact pomija podpis "Strona X z Y", bo na górze
    miejsca jest mało, a informacja i tak zostaje pod listą. #}
-{% macro sr_pagination_nav(pagination, compact=false) %}
-{% if pagination.pages > 1 %}
-<div class="pagination-wrapper{% if compact %} pagination-wrapper-compact{% endif %}">
-    <nav class="pagination" aria-label="Strony zleceń wysyłki">
-        {% if pagination.has_prev %}
-        <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=pagination.prev_num, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}"
-           class="pagination-btn" aria-label="Poprzednia strona">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 18l-6-6 6-6"/>
-            </svg>
-        </a>
-        {% endif %}
+{% macro sr_page_url(n) %}{{ url_for('orders.wms_dashboard', tab='shipping', page=n, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}{% endmacro %}
 
-        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if page_num %}
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=page_num, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}"
-                   class="pagination-btn {% if page_num == pagination.page %}active{% endif %}"
-                   {% if page_num == pagination.page %}aria-current="page"{% endif %}>
-                    {{ page_num }}
-                </a>
-            {% else %}
-                <span class="pagination-ellipsis">...</span>
-            {% endif %}
-        {% endfor %}
-
-        {% if pagination.has_next %}
-        <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=pagination.next_num, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}"
-           class="pagination-btn" aria-label="Następna strona">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 18l6-6-6-6"/>
-            </svg>
-        </a>
-        {% endif %}
-    </nav>
-    {% if not compact %}
-    <div class="pagination-info">
-        Strona {{ pagination.page }} z {{ pagination.pages }}
-    </div>
-    {% endif %}
-</div>
-{% endif %}
-{% endmacro %}
+{% macro sr_pagination_nav(pagination, compact=false) %}{{ pagination_nav(pagination, sr_page_url, 'Strony zleceń wysyłki', compact) }}{% endmacro %}
 
 <div class="wms-dashboard-page">
 

@@ -18,29 +18,119 @@ import json
 # Kolejność statusów w zakładce „Bieżące" (od góry).
 _OFFER_STATUS_ORDER = {'active': 0, 'paused': 1, 'scheduled': 2, 'draft': 3, 'ended': 4}
 
+# Liczba stron sprzedaży na jedną stronę paginacji (parytet ze zleceniami wysyłki w WMS).
+OFFERS_PER_PAGE = 20
 
-def split_and_sort_offer_pages(pages):
+# Kolumny, po których wolno sortować listę: nazwa z URL -> wyrażenie SQL.
+# Klucze muszą się zgadzać z data-column w nagłówkach tabeli (_list_items.html).
+def _offer_sort_expressions():
+    """Mapa 'nazwa kolumny z URL' -> wyrażenie SQL do ORDER BY."""
+    return {
+        'name': OfferPage.name,
+        'ptype': OfferPage.page_type,
+        # „Typ wysyłki" to widok na payment_stages (4 = Proxy, reszta = Polska).
+        'shipping': OfferPage.payment_stages,
+        'status': _offer_status_order_expr(),
+        'created': OfferPage.created_at,
+        'starts': OfferPage.starts_at,
+        'ends': OfferPage.ends_at,
+        'deadline': OfferPage.payment_deadline,
+    }
+
+
+def _offer_status_order_expr():
+    """Priorytet statusu jako wyrażenie SQL (nieznane statusy na koniec)."""
+    from sqlalchemy import case
+    return case(_OFFER_STATUS_ORDER, value=OfferPage.status, else_=99)
+
+
+def offers_status_refresh_candidates(now):
     """
-    Dzieli strony ofertowe na (current_pages, closed_pages) i sortuje obie grupy.
+    Strony, którym `check_and_update_status()` MOŻE zmienić status w chwili `now`.
 
-    - closed  = strony całkowicie zamknięte (is_fully_closed == True)
-    - current = cała reszta (draft/scheduled/active/paused oraz ended-niezamknięte)
-
-    Sortowanie w obu grupach:
-    1) priorytet statusu wg _OFFER_STATUS_ORDER,
-    2) strony bez starts_at (NULL) na końcu grupy,
-    3) starts_at malejąco (najnowsze pierwsze).
+    Lustro warunków z OfferPage.check_and_update_status() — pozwala odświeżyć
+    statusy bez ładowania całej tabeli, gdy lista jest paginowana.
     """
-    def sort_key(p):
-        return (
-            _OFFER_STATUS_ORDER.get(p.status, 99),  # nieznane statusy na koniec (99)
-            p.starts_at is None,
-            -p.starts_at.timestamp() if p.starts_at else 0.0,
+    from sqlalchemy import and_, or_
+
+    return OfferPage.query.filter(
+        or_(
+            # scheduled -> active
+            and_(
+                OfferPage.status == 'scheduled',
+                OfferPage.starts_at.isnot(None),
+                OfferPage.starts_at <= now,
+            ),
+            # active -> ended
+            and_(
+                OfferPage.status == 'active',
+                OfferPage.ends_at.isnot(None),
+                OfferPage.ends_at <= now,
+            ),
+            # ended -> active (admin przesunął datę końca na później)
+            and_(
+                OfferPage.status == 'ended',
+                or_(OfferPage.ends_at.is_(None), OfferPage.ends_at > now),
+                or_(OfferPage.starts_at.is_(None), OfferPage.starts_at <= now),
+            ),
+        )
+    )
+
+
+def build_offers_query(closed, search='', sort='', direction='desc'):
+    """
+    Buduje zapytanie o strony sprzedaży dla jednej zakładki.
+
+    closed    — True: zakładka „Zamknięte" (is_fully_closed), False: „Bieżące"
+    search    — filtr po nazwie (LIKE, bez rozróżniania wielkości liter)
+    sort      — klucz z _offer_sort_expressions(); puste = sortowanie domyślne
+    direction — 'asc' | 'desc' (dotyczy tylko sortowania po kolumnie)
+
+    Sortowanie domyślne (bez `sort`) odwzorowuje dotychczasową kolejność:
+    1) priorytet statusu, 2) strony bez starts_at na końcu, 3) starts_at malejąco.
+    """
+    from sqlalchemy import or_
+
+    # is_fully_closed ma default=True/False, ale kolumna dopuszcza NULL
+    # (starsze wiersze) — NULL traktujemy jak „niezamknięta".
+    query = OfferPage.query.filter(
+        OfferPage.is_fully_closed.is_(True) if closed
+        else or_(OfferPage.is_fully_closed.is_(False), OfferPage.is_fully_closed.is_(None))
+    )
+
+    if search:
+        query = query.filter(OfferPage.name.ilike(f'%{search}%'))
+
+    expressions = _offer_sort_expressions()
+    if sort in expressions:
+        column = expressions[sort]
+        query = query.order_by(column.asc() if direction == 'asc' else column.desc())
+    else:
+        query = query.order_by(
+            _offer_status_order_expr().asc(),
+            OfferPage.starts_at.is_(None).asc(),   # NULL-e na koniec grupy
+            OfferPage.starts_at.desc(),
         )
 
-    closed = sorted([p for p in pages if p.is_fully_closed], key=sort_key)
-    current = sorted([p for p in pages if not p.is_fully_closed], key=sort_key)
-    return current, closed
+    # Stabilny rozstrzygacz remisów — bez niego ta sama strona mogłaby się
+    # pojawić na dwóch stronach paginacji (albo zniknąć z obu).
+    return query.order_by(OfferPage.id.desc())
+
+
+def offers_selection_rows(query):
+    """
+    Metadane WSZYSTKICH stron pasujących do filtra (nie tylko widocznej strony).
+
+    Zasila „Zaznacz wszystkie" i reguły dostępności akcji masowych po stronie
+    przeglądarki — bez tego zaznaczenie obejmowałoby tylko bieżące 20 wierszy.
+    """
+    rows = query.with_entities(
+        OfferPage.id, OfferPage.status, OfferPage.is_fully_closed
+    ).all()
+    return [
+        {'id': row_id, 'status': status, 'fullyClosed': bool(fully_closed)}
+        for row_id, status, fully_closed in rows
+    ]
 
 
 # ============================================
@@ -51,22 +141,54 @@ def split_and_sort_offer_pages(pages):
 @login_required
 @admin_required
 def offers_list():
-    """Lista wszystkich stron sprzedaży"""
-    pages = OfferPage.query.order_by(OfferPage.created_at.desc()).all()
+    """Lista stron sprzedaży — filtrowanie, sortowanie i paginacja po stronie serwera."""
+    from sqlalchemy import func
+    from modules.offers.models import get_local_now
 
-    # Automatyczna aktualizacja statusów (scheduled->active, active->ended)
-    for page in pages:
+    # Automatyczna aktualizacja statusów (scheduled->active, active->ended, ended->active)
+    # PRZED zapytaniami listy — status decyduje o zakładce i kolejności.
+    for page in offers_status_refresh_candidates(get_local_now()).all():
         page.check_and_update_status()
 
-    # Podział na zakładki + sortowanie PO aktualizacji statusów (zmienia status).
-    current_pages, closed_pages = split_and_sort_offer_pages(pages)
+    search_query = (request.args.get('search') or '').strip()
+    sort_column = request.args.get('sort') or ''
+    sort_dir = 'asc' if request.args.get('dir') == 'asc' else 'desc'
+    if sort_column not in _offer_sort_expressions():
+        sort_column = ''
+
+    current_query = build_offers_query(False, search_query, sort_column, sort_dir)
+    closed_query = build_offers_query(True, search_query, sort_column, sort_dir)
+
+    current_pagination = current_query.paginate(
+        page=request.args.get('page_current', 1, type=int),
+        per_page=OFFERS_PER_PAGE, error_out=False,
+    )
+    closed_pagination = closed_query.paginate(
+        page=request.args.get('page_closed', 1, type=int),
+        per_page=OFFERS_PER_PAGE, error_out=False,
+    )
+
+    # Statystyki (pigułki w nagłówku) — po WSZYSTKICH stronach, niezależnie od filtra.
+    status_counts = dict(
+        db.session.query(OfferPage.status, func.count(OfferPage.id))
+        .group_by(OfferPage.status).all()
+    )
+    total_count = sum(status_counts.values())
 
     return render_template(
         'admin/offers/list.html',
         title='Strony sprzedaży',
-        pages=pages,                  # globalne statystyki + warunek widoczności
-        current_pages=current_pages,
-        closed_pages=closed_pages,
+        total_count=total_count,
+        status_counts=status_counts,
+        current_pages=current_pagination.items,
+        closed_pages=closed_pagination.items,
+        current_pagination=current_pagination,
+        closed_pagination=closed_pagination,
+        current_selection=offers_selection_rows(current_query),
+        closed_selection=offers_selection_rows(closed_query),
+        search_query=search_query,
+        sort_column=sort_column,
+        sort_dir=sort_dir,
     )
 
 
