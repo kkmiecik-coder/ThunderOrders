@@ -91,6 +91,9 @@
             Wyczyść filtry
         </a>
     </div>
+    {# Paginacja siedzi w pasku filtrów, po ich prawej stronie. Select nie ma
+       atrybutu name, więc nie trafia do zapytania przy wysyłce formularza. #}
+    {{ stock_pagination(true) }}
 </form>
 {% endmacro %}
 

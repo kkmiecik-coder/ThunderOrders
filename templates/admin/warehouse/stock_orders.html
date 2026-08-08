@@ -52,37 +52,47 @@
             <!-- DO ZAMÓWIENIA Tab Content -->
             <div class="tab-header">
                 <h2>Produkty do zamówienia</h2>
-                {# Filtry serwerowe — lista jest paginowana, więc chowanie wierszy
-                   w JS filtrowałoby tylko bieżącą stronę. Lista typów płatności
-                   jest stała (proxy = 4 etapy, polska = 3), a nie budowana
-                   z widocznych pozycji — inaczej znikałaby po odfiltrowaniu. #}
-                <form class="tab-filters" method="GET" action="{{ url_for('products.stock_orders') }}"
-                      data-server-filters>
-                    <input type="hidden" name="tab" value="do_zamowienia">
-                    {% if filters.sort %}
-                    <input type="hidden" name="sort" value="{{ filters.sort }}">
-                    <input type="hidden" name="dir" value="{{ filters.dir }}">
-                    {% endif %}
-                    <div class="filter-group">
-                        <input type="text" name="q" class="filter-input" placeholder="Szukaj produktu..."
-                               value="{{ filters.q }}" autocomplete="off" data-filter-debounce
-                               aria-label="Szukaj produktu">
-                    </div>
-                    <div class="filter-group">
-                        <select name="payment" class="filter-select" data-filter-submit
-                                aria-label="Typ płatności">
-                            <option value="">Wszystkie typy płatności</option>
-                            <option value="proxy" {% if payment_filter == 'proxy' %}selected{% endif %}>Proxy (4 płat.)</option>
-                            <option value="polska" {% if payment_filter == 'polska' %}selected{% endif %}>Polska (3 płat.)</option>
-                        </select>
-                    </div>
-                </form>
             </div>
+
+            {# Filtry serwerowe — lista jest paginowana, więc chowanie wierszy
+               w JS filtrowałoby tylko bieżącą stronę. Ten sam układ co
+               w zakładkach PROXY i Polska (makro order_filters): etykiety nad
+               polami, „Wyczyść filtry" i paginacja po prawej. Lista typów
+               płatności jest stała (proxy = 4 etapy, polska = 3), a nie budowana
+               z widocznych pozycji — inaczej znikałaby po odfiltrowaniu. #}
+            <form class="orders-filters" method="GET" action="{{ url_for('products.stock_orders') }}"
+                  data-server-filters>
+                <input type="hidden" name="tab" value="do_zamowienia">
+                {% if filters.sort %}
+                <input type="hidden" name="sort" value="{{ filters.sort }}">
+                <input type="hidden" name="dir" value="{{ filters.dir }}">
+                {% endif %}
+                <div class="filter-group">
+                    <label for="filterToOrderProduct">Produkt</label>
+                    <input type="text" id="filterToOrderProduct" name="q" class="filter-input"
+                           placeholder="Szukaj..." value="{{ filters.q }}" autocomplete="off"
+                           data-filter-debounce>
+                </div>
+                <div class="filter-group">
+                    <label for="filterToOrderPayment">Typ płatności</label>
+                    <select id="filterToOrderPayment" name="payment" class="filter-input" data-filter-submit>
+                        <option value="">Wszystkie typy płatności</option>
+                        <option value="proxy" {% if payment_filter == 'proxy' %}selected{% endif %}>Proxy (4 płat.)</option>
+                        <option value="polska" {% if payment_filter == 'polska' %}selected{% endif %}>Polska (3 płat.)</option>
+                    </select>
+                </div>
+                <div class="filter-actions-inline">
+                    <a class="btn btn-sm btn-secondary" href="{{ url_for('products.stock_orders', tab='do_zamowienia') }}">
+                        Wyczyść filtry
+                    </a>
+                </div>
+                {# Paginacja w pasku filtrów, po ich prawej stronie. #}
+                {{ stock_pagination(true) }}
+            </form>
 
             <!-- Products to Order Table -->
             <div class="orders-list">
                 {% if products_to_order %}
-                    {{ stock_pagination(true) }}
                     <div class="table-responsive">
                         <table class="data-table" id="toOrderTable">
                             <thead>
@@ -218,7 +228,6 @@
             <!-- Proxy Orders List -->
             <div class="orders-list">
                 {% if proxy_orders %}
-                    {{ stock_pagination(true) }}
                     <div class="table-responsive">
                         <table class="data-table" id="proxyOrdersTable">
                             <thead>
@@ -321,7 +330,6 @@
             <!-- Poland Orders List -->
             <div class="orders-list">
                 {% if poland_orders %}
-                    {{ stock_pagination(true) }}
                     <div class="table-responsive">
                         <table class="data-table" id="polandOrdersTable">
                             <thead>
@@ -496,7 +504,6 @@
             <!-- Archived Poland Orders List -->
             <div class="orders-list">
                 {% if poland_orders %}
-                    {{ stock_pagination(true) }}
                     <div class="table-responsive">
                         <table class="data-table" id="archiwumOrdersTable">
                             <thead>

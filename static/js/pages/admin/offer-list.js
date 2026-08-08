@@ -30,6 +30,15 @@ function initializeOfferTabs() {
 
     if (tabButtons.length === 0) return;
 
+    // Paginacja siedzi w pasku szukajki, wspólnym dla obu zakładek, więc każda
+    // ma tam własny komplet — pokazujemy ten od zakładki, która jest na wierzchu.
+    function pokazPaginacjeZakladki(tabId) {
+        const klucz = tabId.replace('tab-', '');
+        document.querySelectorAll('.offer-toolbar-pagination').forEach(el => {
+            el.classList.toggle('is-hidden', el.dataset.tabKey !== klucz);
+        });
+    }
+
     tabButtons.forEach(button => {
         button.addEventListener('click', function() {
             const targetTab = this.getAttribute('data-tab');
@@ -44,6 +53,8 @@ function initializeOfferTabs() {
             if (targetPanel) {
                 targetPanel.classList.add('offer-tab-active');
             }
+
+            pokazPaginacjeZakladki(targetTab);
 
             // Save active tab to localStorage
             localStorage.setItem('offerActiveTab', targetTab);

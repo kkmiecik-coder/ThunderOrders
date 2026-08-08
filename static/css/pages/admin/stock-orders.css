@@ -231,8 +231,17 @@
     cursor: pointer;
 }
 
+/* „Wyczyść filtry" i paginacja lądują razem po prawej stronie paska filtrów —
+   margin-left na przycisku wypycha oba bloki, paginacja idzie zaraz za nim. */
 .filter-actions-inline {
     margin-left: auto;
+}
+
+.orders-filters .pagination-wrapper {
+    /* Pasek filtrów wyrównuje pola do dołu (align-items: flex-end), a paginacja
+       ma stać w jednej linii z przyciskiem, nie pod etykietami. */
+    margin-top: 0;
+    padding: 0;
 }
 
 /* Checkbox column */
@@ -2512,3 +2521,24 @@
 }
 
 
+
+/* ====================================================================
+   PASEK FILTRÓW NA TELEFONIE — na końcu pliku celowo, żeby nadpisać
+   reguły bazowe niezależnie od ich kolejności wyżej.
+   ==================================================================== */
+@media (max-width: 768px) {
+    /* Pasek układa się w kolumnę: margines auto z układu poziomego zepchnąłby
+       „Wyczyść filtry" na prawą krawędź, a paginacja została po lewej. */
+    .orders-filters .filter-actions-inline {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .orders-filters .filter-actions-inline .btn {
+        width: 100%;
+    }
+
+    .orders-filters .pagination-wrapper {
+        width: 100%;
+    }
+}

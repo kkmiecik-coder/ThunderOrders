@@ -956,6 +956,14 @@
     }
 
     .offer-search-form {
+        max-width: none;
+        width: 100%;
+    }
+
+    /* Paginacja idzie pod szukajkę, wyśrodkowana — margines auto z widoku
+       poziomego zepchnąłby ją na prawą krawędź. */
+    .offer-toolbar-pagination {
+        margin-left: 0;
         width: 100%;
     }
 
@@ -2691,11 +2699,21 @@
     margin-bottom: var(--space-4);
 }
 
-/* Szukajka jest formularzem GET (filtr serwerowy) — form przejmuje rolę
-   elastycznego elementu paska, pasek wyszukiwania wypełnia go w całości. */
+/* Szukajka jest formularzem GET (filtr serwerowy). Nie rozciąga się na całą
+   szerokość — obok niej stoi paginacja, a wolne miejsce zostaje między nimi.
+   Ograniczenie przez max-width, NIE flex-basis: gdy pasek układa się w kolumnę
+   (telefon), baza flex odnosi się do wysokości i rozdymała formularz. */
 .offer-search-form {
-    flex: 1;
+    flex: 1 1 auto;
+    max-width: 340px;
     min-width: 0;
+}
+
+/* Paginacja w jednym rzędzie z szukajką, dosunięta w prawo. Pasek jest wspólny
+   dla obu zakładek, więc w DOM są oba komplety — ukryty ma display:none, więc
+   nie zajmuje miejsca i margines zawsze działa na tym widocznym. */
+.offer-toolbar-pagination {
+    margin-left: auto;
 }
 
 .offer-search-bar {
@@ -2956,4 +2974,23 @@
 [data-theme="dark"] .offer-table th.sorted-asc::after,
 [data-theme="dark"] .offer-table th.sorted-desc::after {
     color: #f093fb;
+}
+
+/* ====================================================================
+   PASEK NARZĘDZI NA TELEFONIE — na końcu pliku celowo
+   Reguły bazowe .offer-search-form / .offer-toolbar-pagination stoją niżej
+   niż wcześniejszy blok @media, więc nadpisanie musi być po nich.
+   ==================================================================== */
+@media (max-width: 768px) {
+    .offer-search-form {
+        max-width: none;
+        width: 100%;
+    }
+
+    /* Paginacja pod szukajką, wyśrodkowana — margines auto z układu poziomego
+       zepchnąłby ją na prawą krawędź. */
+    .offer-toolbar-pagination {
+        margin-left: 0;
+        width: 100%;
+    }
 }
