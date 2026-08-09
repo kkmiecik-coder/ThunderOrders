@@ -49,6 +49,8 @@ Ustalone po audycie kodu (2026-08-09):
   fallback na adres z pierwszego zamówienia jest wyłączony.
 - Wdrożenie idzie **jednym planem, w całości** — żadnego okna, w którym konsolidacja
   działa, a zabezpieczenia jeszcze nie.
+- **Skonsolidowane zlecenie anuluje wyłącznie admin.** Klient nie może wypisać się z paczki
+  zbiorczej ani jej rozwiązać — to ustalenie między kilkoma osobami i magazynem.
 
 ## Decyzje
 
@@ -270,8 +272,9 @@ Zlecenie źródłowe pokazuje klientowi:
 - wspólny numer śledzenia,
 - **wyłącznie własne** zamówienia, przez `display_orders`.
 
-Anulowanie zlecenia wpiętego w konsolidację jest zablokowane (`can_cancel`), a blokada
-działa po stronie serwera w obu ścieżkach — web i mobile.
+Anulowania klient nie ma w ogóle, dopóki zlecenie jest w konsolidacji — wyplątać go z paczki
+może tylko admin. Przycisk jest ukryty, a endpoint odrzuca żądanie z wyjaśnieniem, w obu
+ścieżkach (web i mobile).
 
 Druga powierzchnia to **karta zamówienia** (`templates/client/orders/detail.html`), lista
 zamówień i mapa śledzenia. Wszystkie przechodzą na `client_shipping_request`, żeby klient
@@ -368,10 +371,16 @@ Dotyczy to również:
 
 ### Anulowanie i kasowanie zleceń
 
-- `can_cancel` zwraca `False` dla zlecenia zbiorczego **i** dla źródłowego. Blokada musi
-  wejść po stronie serwera w obu ścieżkach: web (`modules/client/shipping.py:293`) i mobile
+- **Skonsolidowanego zlecenia klient nie anuluje — nigdy.** Paczka zbiorcza jest ustaleniem
+  między kilkoma osobami, więc rozmontować ją może wyłącznie admin, wypinając zlecenie albo
+  rozwiązując konsolidację. `can_cancel` zwraca `False` dla zlecenia zbiorczego **i** dla
+  źródłowego, niezależnie od statusu, kosztu i trackingu. Blokada wchodzi po stronie serwera
+  w obu ścieżkach: web (`modules/client/shipping.py:293`) i mobile
   (`modules/api_mobile/shipping_routes.py:200`) — ukrycie przycisku w szablonie niczego nie
   zamyka, bo endpoint mobilny przyjmuje dowolne `request_id` należące do użytkownika.
+  Odrzucenie zwraca czytelny powód („zlecenie jest częścią paczki zbiorczej — skontaktuj się
+  z obsługą”), a nie gołe 403. Po wypięciu przez admina zlecenie wraca pod zwykłe reguły
+  `can_cancel`.
 - Kasowanie zlecenia zbiorczego (bulk-delete, `routes.py:4002`) najpierw odpina źródła
   i zeruje `lead_source_request_id`, a dopiero potem kasuje rekord.
 - Usunięcie konta klienta (`modules/auth/models.py:673`, `modules/admin/clients.py:522`)
