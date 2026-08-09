@@ -691,6 +691,22 @@ class Order(db.Model):
         return None
 
     @property
+    def client_shipping_request(self):
+        """Zlecenie wysyłki, które należy POKAZAĆ właścicielowi tego zamówienia.
+
+        shipping_request zwraca zlecenie, w którym zamówienie fizycznie leży — po
+        konsolidacji jest to paczka zbiorcza z adresem i zamówieniami innej osoby.
+        Każdy widok klienta musi używać tej właściwości, inaczej pokaże cudze dane.
+        """
+        if not self.shipping_request_orders:
+            return None
+        ro = self.shipping_request_orders[0]
+        if ro.source_request_id:
+            from modules.orders.models import ShippingRequest
+            return db.session.get(ShippingRequest, ro.source_request_id)
+        return ro.shipping_request
+
+    @property
     def is_in_shipping_request(self):
         """Returns True if this order is assigned to a shipping request."""
         return self.shipping_request is not None
@@ -1537,9 +1553,63 @@ class ShippingRequest(db.Model):
         return [ro.order for ro in self.request_orders if ro.order]
 
     @property
+    def is_consolidation(self):
+        """Paczka zbiorcza: ma podpięte zlecenia źródłowe. Jedyne źródło prawdy —
+        nie ma osobnej flagi w bazie, żeby stan nie mógł się rozjechać z relacją."""
+        return bool(self.consolidated_sources)
+
+    @property
+    def is_consolidated_source(self):
+        """Zlecenie oddane do paczki zbiorczej — nie jest już samodzielną paczką."""
+        return self.consolidated_into_id is not None
+
+    @property
+    def display_orders(self):
+        """Zamówienia, które należą do TEGO zlecenia z punktu widzenia jego właściciela.
+
+        Po konsolidacji wiersze junction wiszą przy zleceniu zbiorczym, więc źródłowe
+        musi odnaleźć swoje zamówienia po source_request_id. Wszystko, co pokazujemy
+        klientowi, idzie tędy — self.orders dałoby mu zamówienia obcych osób.
+        """
+        if self.consolidated_into_id and self.consolidated_into:
+            return [
+                ro.order for ro in self.consolidated_into.request_orders
+                if ro.source_request_id == self.id and ro.order
+            ]
+        return self.orders
+
+    @property
+    def consolidation_participants(self):
+        """Uczestnicy paczki zbiorczej, pogrupowani po właścicielu.
+
+        Kolejność: zlecenie wiodące pierwsze, reszta wg numeru zlecenia. Z tego
+        korzystają karta w WMS, modal, maile i pushe — jedno miejsce grupowania.
+        """
+        if not self.is_consolidation:
+            return []
+        po_zrodle = {}
+        for ro in self.request_orders:
+            if not ro.order or not ro.source_request_id:
+                continue
+            po_zrodle.setdefault(ro.source_request_id, []).append(ro.order)
+
+        wynik = []
+        for source in self.consolidated_sources:
+            wynik.append({
+                'user': source.user,
+                'source_request': source,
+                'orders': po_zrodle.get(source.id, []),
+            })
+        wynik.sort(key=lambda u: (
+            u['source_request'].id != self.lead_source_request_id,
+            u['source_request'].request_number or '',
+        ))
+        return wynik
+
+    @property
     def orders_count(self):
         """Returns number of orders in this shipping request"""
-        return len(self.request_orders)
+        return len(self.display_orders)
 
     @property
     def status_badge_color(self):
@@ -1564,6 +1634,11 @@ class ShippingRequest(db.Model):
         - No shipping cost has been set (no admin quote)
         - No tracking number has been added
         """
+        # Paczka zbiorcza to ustalenie między kilkoma osobami i magazynem — rozmontować
+        # ją może wyłącznie admin, niezależnie od statusu, kosztu i numeru przesyłki.
+        if self.is_consolidated_source or self.is_consolidation:
+            return False
+
         if not self.status_rel or not self.status_rel.is_initial:
             return False
 
@@ -1621,9 +1696,9 @@ class ShippingRequest(db.Model):
         """
         from decimal import Decimal
         total = Decimal('0.00')
-        for ro in self.request_orders:
-            if ro.order and ro.order.shipping_cost:
-                total += Decimal(str(ro.order.shipping_cost))
+        for order in self.display_orders:
+            if order.shipping_cost:
+                total += Decimal(str(order.shipping_cost))
         return total if total > 0 else None
 
     @property

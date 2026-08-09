@@ -62,3 +62,123 @@ def test_konsolidacja_ma_relacje_do_zrodel(db, make_user, make_order):
     assert {s.id for s in zbiorcze.consolidated_sources} == {sr_a.id, sr_b.id}
     assert zbiorcze.lead_source.id == sr_a.id
     assert sr_b.consolidated_into.id == zbiorcze.id
+
+
+def _skonsoliduj(db, zbiorcze, zrodla, lead):
+    """Ręczne złożenie konsolidacji — serwis powstaje dopiero w Task 3."""
+    from modules.orders.models import ShippingRequestOrder
+    for zr in zrodla:
+        for ro in list(zr.request_orders):
+            ro.shipping_request_id = zbiorcze.id
+            ro.source_request_id = zr.id
+        zr.consolidated_into_id = zbiorcze.id
+    zbiorcze.lead_source_request_id = lead.id
+    db.session.commit()
+    db.session.expire_all()
+
+
+def test_display_orders_zwraca_tylko_wlasne_zamowienia(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, orders_a = _sr(db, a, make_order, orders_count=2)
+    sr_b, orders_b = _sr(db, b, make_order, orders_count=1)
+
+    from modules.orders.models import ShippingRequest
+    zbiorcze = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=a.id, status='oplacone', address_type='home')
+    db.session.add(zbiorcze)
+    db.session.flush()
+    _skonsoliduj(db, zbiorcze, [sr_a, sr_b], sr_a)
+
+    assert zbiorcze.is_consolidation is True
+    assert sr_b.is_consolidated_source is True
+    assert {o.id for o in sr_b.display_orders} == {orders_b[0].id}
+    assert {o.id for o in sr_a.display_orders} == {o.id for o in orders_a}
+    assert len(zbiorcze.display_orders) == 3
+
+
+def test_uczestnicy_pogrupowani_po_wlascicielu(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order, orders_count=2)
+    sr_b, _ = _sr(db, b, make_order, orders_count=1)
+
+    from modules.orders.models import ShippingRequest
+    zbiorcze = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=a.id, status='oplacone', address_type='home')
+    db.session.add(zbiorcze)
+    db.session.flush()
+    _skonsoliduj(db, zbiorcze, [sr_a, sr_b], sr_a)
+
+    uczestnicy = zbiorcze.consolidation_participants
+    assert len(uczestnicy) == 2
+    assert [len(u['orders']) for u in uczestnicy] == [2, 1]
+    assert uczestnicy[0]['source_request'].id == sr_a.id
+
+
+def test_zamowienie_pokazuje_klientowi_jego_zlecenie(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)
+    sr_b, orders_b = _sr(db, b, make_order)
+
+    from modules.orders.models import ShippingRequest
+    zbiorcze = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=a.id, status='oplacone', address_type='home')
+    db.session.add(zbiorcze)
+    db.session.flush()
+    _skonsoliduj(db, zbiorcze, [sr_a, sr_b], sr_a)
+
+    zamowienie_b = orders_b[0]
+    # WMS musi widzieć paczkę zbiorczą…
+    assert zamowienie_b.shipping_request.id == zbiorcze.id
+    # …ale klient B swoje własne zlecenie, nie cudzy adres.
+    assert zamowienie_b.client_shipping_request.id == sr_b.id
+
+
+def test_skonsolidowanego_zlecenia_klient_nie_anuluje(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order, status='czeka_na_wycene')
+    sr_b, _ = _sr(db, b, make_order, status='czeka_na_wycene')
+
+    from modules.orders.models import ShippingRequest
+    assert sr_a.can_cancel is True  # przed konsolidacją wolno
+
+    zbiorcze = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=a.id, status='czeka_na_wycene', address_type='home')
+    db.session.add(zbiorcze)
+    db.session.flush()
+    _skonsoliduj(db, zbiorcze, [sr_a, sr_b], sr_a)
+
+    # Status początkowy, brak kosztu i trackingu — a mimo to nie wolno.
+    assert sr_a.can_cancel is False
+    assert sr_b.can_cancel is False
+    assert zbiorcze.can_cancel is False
+
+
+def test_koszt_zrodlowego_liczony_z_jego_zamowien(db, make_user, make_order):
+    from decimal import Decimal
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, orders_a = _sr(db, a, make_order)
+    sr_b, orders_b = _sr(db, b, make_order)
+    orders_a[0].shipping_cost = Decimal('12.00')
+    orders_b[0].shipping_cost = Decimal('8.00')
+    db.session.commit()
+
+    from modules.orders.models import ShippingRequest
+    zbiorcze = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=a.id, status='oplacone', address_type='home')
+    db.session.add(zbiorcze)
+    db.session.flush()
+    _skonsoliduj(db, zbiorcze, [sr_a, sr_b], sr_a)
+
+    assert sr_b.calculated_shipping_cost == Decimal('8.00')
+    assert zbiorcze.calculated_shipping_cost == Decimal('20.00')
+    assert sr_b.orders_count == 1
