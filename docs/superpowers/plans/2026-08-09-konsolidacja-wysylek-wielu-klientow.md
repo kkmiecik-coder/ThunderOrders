@@ -1159,13 +1159,10 @@ Miejsca (nazwy funkcji, bo numery linii przesuną się w trakcie pracy):
 | `modules/orders/wms_packing.py` | `update_sr_after_packing` | po ustawieniu `sr.status = 'spakowane'` |
 | `modules/admin/payment_confirmations.py` | `_check_sr_auto_oplacone` | **w tej samej transakcji** — funkcja ma własny `db.session.commit()`, wywołanie musi być przed nim |
 
-W `_check_sr_auto_oplacone` dodatkowo, po znalezieniu zlecenia:
-
-```python
-    # Zlecenie źródłowe: opłacenie podnosi status paczki, gdy zapłacili już wszyscy.
-    from modules.orders.consolidation import przelicz_status_zbiorczego
-    przelicz_status_zbiorczego(sr)
-```
+Uwaga: `_check_sr_auto_oplacone` wymaga większej przebudowy niż dopięcie jednej linijki —
+znajduje zlecenie przez wiersz junction, więc po konsolidacji zawsze trafia na paczkę
+zbiorczą, nigdy na źródłowe. Całość tej ścieżki robi **Task 6**; tutaj dodaj wyłącznie
+`propaguj_na_zrodla(sr)` przed jej `db.session.commit()`.
 
 - [ ] **Step 6: Test integracyjny wysyłki przez WMS**
 
@@ -1236,15 +1233,41 @@ def test_puste_zrodlowe_nie_wskakuje_na_oplacone(db, make_user, make_order):
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
     sr_a.status = 'czeka_na_oplacenie'
+    sr_b.status = 'czeka_na_oplacenie'
+    zbiorcze.status = 'czeka_na_oplacenie'
     db.session.commit()
 
     from modules.admin.payment_confirmations import _check_sr_auto_oplacone
-    # Zamówienie należy do zbiorczego; źródłowe jest puste i nie ma czego zatwierdzać.
-    zamowienie = zbiorcze.request_orders[0].order
-    _check_sr_auto_oplacone(zamowienie)
+    # Nikt nie ma zatwierdzonego E4 — nikt nie może wskoczyć na 'oplacone'.
+    _check_sr_auto_oplacone(sr_a.display_orders[0])
     db.session.commit()
 
     assert sr_a.status == 'czeka_na_oplacenie'
+    assert zbiorcze.status == 'czeka_na_oplacenie'
+
+
+def test_oplacenie_przez_jednego_uczestnika_podnosi_tylko_jego_zlecenie(db, make_user, make_order):
+    """Klient płaci za swoje zamówienia niezależnie — nie ma czekać, aż zapłacą inni,
+    żeby zobaczyć u siebie 'opłacone'. Paczka czeka na komplet."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    for sr in (sr_a, sr_b, zbiorcze):
+        sr.status = 'czeka_na_oplacenie'
+    db.session.commit()
+
+    from modules.orders.models import PaymentConfirmation
+    zamowienie_a = sr_a.display_orders[0]
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie_a.id, payment_stage='domestic_shipping', status='approved'))
+    db.session.commit()
+
+    from modules.admin.payment_confirmations import _check_sr_auto_oplacone
+    _check_sr_auto_oplacone(zamowienie_a)
+    db.session.expire_all()
+
+    assert sr_a.status == 'oplacone'
+    assert sr_b.status == 'czeka_na_oplacenie'
+    assert zbiorcze.status == 'czeka_na_oplacenie'
 ```
 
 - [ ] **Step 2: Uruchom testy — mają paść**
@@ -1264,15 +1287,78 @@ W `modules/orders/wms_packing.py`, w `update_sr_after_packing`, tuż po pobraniu
         return
 ```
 
-W `modules/admin/payment_confirmations.py`, w `_check_sr_auto_oplacone`, po znalezieniu `sr`:
+W `modules/admin/payment_confirmations.py` przebuduj `_check_sr_auto_oplacone`. Funkcja
+znajduje zlecenie przez `ShippingRequestOrder.query.filter_by(order_id=...)`, więc po
+konsolidacji **zawsze** dostaje paczkę zbiorczą. Dwa skutki bez tej poprawki: zlecenia
+źródłowe nigdy nie wychodzą z „czeka na opłacenie" (klient, który zapłacił, widzi u siebie
+wieczne oczekiwanie), a paczka czeka na komplet wpłat bez pokazania, kto już zapłacił.
+
+Zaraz po `sr = sro.shipping_request` i sprawdzeniu, że istnieje, wstaw gałąź dla paczki
+zbiorczej — **przed** warunkiem `if sr.status != 'czeka_na_oplacenie'`:
 
 ```python
-    # Puste zlecenie źródłowe przeszłoby pętlę bez ani jednej iteracji i zostało
-    # uznane za opłacone. Płatności rozstrzygamy na paczce zbiorczej.
-    if sr.is_consolidated_source:
-        from modules.orders.consolidation import przelicz_status_zbiorczego
-        przelicz_status_zbiorczego(sr)
+    # Paczka zbiorcza: każdy uczestnik rozlicza się osobno, więc status ustawiamy
+    # per zlecenie źródłowe, a paczkę podnosimy dopiero, gdy zapłacili wszyscy.
+    if sr.is_consolidation:
+        _sprawdz_oplacenie_konsolidacji(sr)
         return
+
+    # Zlecenie źródłowe nie ma własnych zamówień — pętla poniżej nie wykonałaby ani
+    # jednej iteracji i uznała je za opłacone (all_paid startuje jako True).
+    if sr.is_consolidated_source:
+        return
+```
+
+Nowa funkcja obok:
+
+```python
+def _sprawdz_oplacenie_konsolidacji(zbiorcze):
+    """Rozlicza paczkę zbiorczą per uczestnik.
+
+    Klient płaci za swoje zamówienia niezależnie, więc jego zlecenie źródłowe
+    przechodzi na 'oplacone' od razu po zatwierdzeniu jego E4. Sama paczka czeka
+    na komplet — WMS i tak nie wypuści nieopłaconej.
+    """
+    from modules.orders.models import ShippingRequestStatus
+    from modules.orders.consolidation import przelicz_status_zbiorczego
+
+    status_obj = ShippingRequestStatus.query.filter_by(slug='oplacone', is_active=True).first()
+    if not status_obj:
+        logger.warning("SR status 'oplacone' not found or inactive — skipping auto-transition")
+        return
+
+    zmienione = []
+    for uczestnik in zbiorcze.consolidation_participants:
+        zrodlo = uczestnik['source_request']
+        if zrodlo.status != 'czeka_na_oplacenie' or not uczestnik['orders']:
+            continue
+        wszystkie_oplacone = all(
+            PaymentConfirmation.query.filter_by(
+                order_id=o.id, payment_stage='domestic_shipping', status='approved'
+            ).first()
+            for o in uczestnik['orders']
+        )
+        if wszystkie_oplacone:
+            zrodlo.status = 'oplacone'
+            zmienione.append(zrodlo)
+
+    if not zmienione:
+        return
+
+    przelicz_status_zbiorczego(zmienione[0])
+    db.session.commit()
+
+    for zrodlo in zmienione:
+        logger.info(f"SR {zrodlo.request_number} auto-transitioned to 'oplacone' "
+                    f"(paczka {zbiorcze.request_number})")
+        try:
+            from utils.email_manager import EmailManager
+            from utils.push_manager import PushManager
+            EmailManager.notify_shipping_status_change(zrodlo, 'czeka_na_oplacenie')
+            PushManager.notify_shipping_status_change(zrodlo, status_obj.name)
+        except Exception as e:
+            logger.error(f"Error sending SR status change notification "
+                         f"for {zrodlo.request_number}: {e}")
 ```
 
 W `modules/orders/wms.py`, w `_wms_lock_blocking_session`, na początku:
