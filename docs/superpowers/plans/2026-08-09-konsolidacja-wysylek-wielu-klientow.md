@@ -919,9 +919,11 @@ def dopnij_do_konsolidacji(target, request_ids):
         if zrodlo.id == target.id:
             raise ConsolidationError('Nie można dopiąć paczki do samej siebie.')
         for ro in list(zrodlo.request_orders):
-            ro.shipping_request_id = target.id
+            # Re-parenting przez relację, nie przez surową kolumnę: request_orders ma
+            # cascade='all, delete-orphan', więc ustawienie samego shipping_request_id
+            # zostawia wiersz osierocony w kolekcji źródła i kasuje go przy flushu.
+            ro.shipping_request = target
             ro.source_request_id = zrodlo.id
-        zrodlo.request_orders = []
         zrodlo.consolidated_into_id = target.id
 
     target.status = status_najmniej_zaawansowany(list(target.consolidated_sources) + nowe)
@@ -930,10 +932,15 @@ def dopnij_do_konsolidacji(target, request_ids):
 
 
 def _oddaj_zamowienia(target, zrodlo):
-    """Zwraca wiersze junction do zlecenia źródłowego, zgodnie ze śladem pochodzenia."""
+    """Zwraca wiersze junction do zlecenia źródłowego, zgodnie ze śladem pochodzenia.
+
+    Przepinamy przez relację (`ro.shipping_request = zrodlo`), nie przez surową
+    kolumnę — `request_orders` ma `cascade='all, delete-orphan'`, więc wiersz
+    ustawiony samą kolumną zostaje osierocony w kolekcji paczki i ginie przy flushu.
+    """
     for ro in list(target.request_orders):
         if ro.source_request_id == zrodlo.id:
-            ro.shipping_request_id = zrodlo.id
+            ro.shipping_request = zrodlo
             ro.source_request_id = None
     zrodlo.consolidated_into_id = None
 
