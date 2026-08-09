@@ -1867,12 +1867,13 @@ def client_detail(order_id):
             except (ValueError, TypeError):
                 pass
 
-    # Shipping city for client marker — only from shipping request
+    # Shipping city for client marker — client_shipping_request, nie shipping_request:
+    # po konsolidacji surowe shipping_request wskazuje paczkę zbiorczą z miastem obcej osoby.
     tracking_shipping_city = ''
     tracking_has_shipping = False
-    if order.shipping_request:
+    if order.client_shipping_request:
         tracking_has_shipping = True
-        tracking_shipping_city = order.shipping_request.shipping_city or ''
+        tracking_shipping_city = order.client_shipping_request.shipping_city or ''
 
     return render_template(
         'client/orders/detail.html',

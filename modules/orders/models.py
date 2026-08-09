@@ -713,13 +713,12 @@ class Order(db.Model):
 
     @property
     def shipping_request_other_orders(self):
-        """
-        Returns list of other orders in the same shipping request (excluding this one).
-        """
-        sr = self.shipping_request
+        """Inne zamówienia klienta z tego samego zlecenia — WYŁĄCZNIE jego własne.
+        Dla paczki zbiorczej surowe request_orders zwróciłyby zamówienia obcych osób."""
+        sr = self.client_shipping_request
         if not sr:
             return []
-        return [ro.order for ro in sr.request_orders if ro.order and ro.order.id != self.id]
+        return [o for o in sr.display_orders if o.id != self.id]
 
     # === WŁAŚCIWOŚCI IKON (lista zamówień admin) ===
 
@@ -846,7 +845,7 @@ class Order(db.Model):
                 'tooltip': f"Wys\u0142ane\nTracking: {tracking}\nKurier: {courier_name}"
             }
         if self.is_in_shipping_request:
-            sr = self.shipping_request
+            sr = self.client_shipping_request
             return {
                 'css_class': 'warning',
                 'tooltip': f"Zlecenie {sr.request_number}\nStatus: {sr.status_display_name}"

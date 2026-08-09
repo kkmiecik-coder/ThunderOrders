@@ -480,8 +480,8 @@
                         Zlecenie wysyłki
                     </h2>
 
-                    {% if order.shipping_request %}
-                        {% set sr = order.shipping_request %}
+                    {% if order.client_shipping_request %}
+                        {% set sr = order.client_shipping_request %}
                         <div class="shipping-request-details">
                             <!-- Header z numerem i statusem -->
                             <div class="sr-header">
@@ -499,7 +499,7 @@
                                 <div class="sr-info-row">
                                     <span class="sr-info-label">Zamówienia:</span>
                                     <span class="sr-info-value">
-                                        {% for o in sr.orders %}
+                                        {% for o in sr.display_orders %}
                                         <a href="{{ url_for('orders.client_detail', order_id=o.id) }}"
                                            class="sr-order-badge {% if o.id == order.id %}current{% endif %}">
                                             {{ o.order_number }}

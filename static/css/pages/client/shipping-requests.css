@@ -102,6 +102,26 @@
     letter-spacing: 0.03em;
 }
 
+/* Badge „wysyłka zbiorcza" — informuje klienta, że jego zamówienie jedzie
+   w paczce razem z zamówieniami innej osoby (konsolidacja wysyłek). */
+.req-consolidated-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #667eea;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.req-consolidated-note {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #666;
+}
+
 /* Card Body */
 .request-card .card-body {
     padding: 16px 20px;
@@ -1020,6 +1040,15 @@
 
 [data-theme="dark"] .request-card .card-header {
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%);
+}
+
+[data-theme="dark"] .req-consolidated-badge {
+    background: rgba(240, 147, 251, 0.15);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .req-consolidated-note {
+    color: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="dark"] .request-card .card-row {

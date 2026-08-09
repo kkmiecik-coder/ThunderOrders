@@ -98,3 +98,22 @@ def test_klient_zrodlowy_widzi_swoje_zamowienia_i_tracking(db, client, login, ma
     assert sr_b.display_orders[0].order_number in tresc
     # …ale nie zamówienie drugiego klienta.
     assert sr_a.display_orders[0].order_number not in tresc
+
+
+def test_karta_zamowienia_nie_pokazuje_cudzego_adresu(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.shipping_address = 'ul. Tajna 7'
+    sr_a.shipping_name = 'Adresat Wiodacy'
+    from modules.orders.consolidation import zmien_wiodace
+    zmien_wiodace(zbiorcze, sr_a.id)
+    db.session.commit()
+
+    zamowienie_b = sr_b.display_orders[0]
+    login(sr_b.user)
+    tresc = client.get(f'/client/orders/{zamowienie_b.id}').get_data(as_text=True)
+
+    assert 'ul. Tajna 7' not in tresc
+    assert 'Adresat Wiodacy' not in tresc
+    assert sr_a.display_orders[0].order_number not in tresc
+    assert sr_b.request_number in tresc
