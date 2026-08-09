@@ -1498,12 +1498,35 @@ class ShippingRequest(db.Model):
     # Termin płatności za wysyłkę PL (E4)
     payment_deadline = db.Column(db.DateTime, nullable=True)
 
+    # Konsolidacja — paczka zbiorcza łącząca zlecenia kilku klientów (task 869eckz7u).
+    # Na zleceniu ŹRÓDŁOWYM: wskazuje paczkę zbiorczą, w której jadą jego zamówienia.
+    consolidated_into_id = db.Column(
+        db.Integer, db.ForeignKey('shipping_requests.id', ondelete='SET NULL'), nullable=True
+    )
+    # Na zleceniu ZBIORCZYM: które ze źródeł jest wiodące (adres, adresat, kontakt).
+    lead_source_request_id = db.Column(
+        db.Integer, db.ForeignKey('shipping_requests.id', ondelete='SET NULL'), nullable=True
+    )
+
+    consolidated_into = db.relationship(
+        'ShippingRequest', remote_side=[id], foreign_keys=[consolidated_into_id],
+        backref=db.backref('consolidated_sources', lazy='select'),
+    )
+    lead_source = db.relationship(
+        'ShippingRequest', remote_side=[id], foreign_keys=[lead_source_request_id],
+    )
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
-    request_orders = db.relationship('ShippingRequestOrder', back_populates='shipping_request', cascade='all, delete-orphan')
+    # foreign_keys jawnie wskazuje shipping_request_id — bez tego SQLAlchemy nie wie,
+    # której z dwóch kolumn FK (ta czy source_request_id) użyć do złączenia.
+    request_orders = db.relationship(
+        'ShippingRequestOrder', back_populates='shipping_request', cascade='all, delete-orphan',
+        foreign_keys='ShippingRequestOrder.shipping_request_id',
+    )
 
     def __repr__(self):
         return f'<ShippingRequest {self.request_number}>'
@@ -1637,10 +1660,20 @@ class ShippingRequestOrder(db.Model):
     shipping_request_id = db.Column(db.Integer, db.ForeignKey('shipping_requests.id'), nullable=False)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     shipping_cost = db.Column(db.Numeric(10, 2), nullable=True)  # Shipping cost for this order
+
+    # Z którego zlecenia przyszło zamówienie. NULL = leży tu od początku.
+    # Bez tego wypięcie i rozwiązanie konsolidacji nie wie, dokąd zwrócić zamówienie.
+    source_request_id = db.Column(
+        db.Integer, db.ForeignKey('shipping_requests.id', ondelete='SET NULL'), nullable=True
+    )
+
     created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
-    shipping_request = db.relationship('ShippingRequest', back_populates='request_orders')
+    # foreign_keys jawnie wskazuje shipping_request_id (patrz komentarz przy request_orders wyżej).
+    shipping_request = db.relationship(
+        'ShippingRequest', back_populates='request_orders', foreign_keys=[shipping_request_id],
+    )
     order = db.relationship('Order', back_populates='shipping_request_orders')
 
     def __repr__(self):
