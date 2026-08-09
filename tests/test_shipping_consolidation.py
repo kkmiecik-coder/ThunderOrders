@@ -264,3 +264,92 @@ def test_przepiecie_nie_kasuje_wierszy_przez_kaskade(db, make_user, make_order):
     db.session.expire_all()
 
     assert ShippingRequestOrder.query.filter_by(shipping_request_id=zbiorcze.id).count() == 4
+
+
+def _konsolidacja(db, make_user, make_order, ile=2, orders_count=1):
+    from modules.orders.consolidation import utworz_konsolidacje
+    zrodla = []
+    for _ in range(ile):
+        sr, _o = _sr(db, make_user(), make_order, orders_count=orders_count)
+        zrodla.append(sr)
+    zbiorcze = utworz_konsolidacje([s.id for s in zrodla], lead_request_id=zrodla[0].id)
+    db.session.commit()
+    return zbiorcze, zrodla
+
+
+def test_zmiana_wiodacego_przepisuje_adres_i_wlasciciela(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_b.shipping_city = 'Gdańsk'
+    db.session.commit()
+
+    from modules.orders.consolidation import zmien_wiodace
+    zmien_wiodace(zbiorcze, sr_b.id)
+    db.session.commit()
+
+    assert zbiorcze.lead_source_request_id == sr_b.id
+    assert zbiorcze.user_id == sr_b.user_id
+    assert zbiorcze.shipping_city == 'Gdańsk'
+
+
+def test_wypiecie_zwraca_zamowienia_do_zrodla(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order, ile=3)
+    sr_c = zrodla[2]
+
+    from modules.orders.consolidation import wypnij_zlecenie
+    rozwiazana = wypnij_zlecenie(zbiorcze, sr_c.id)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert rozwiazana is False
+    assert sr_c.consolidated_into_id is None
+    assert len(sr_c.request_orders) == 1
+    assert len(zbiorcze.request_orders) == 2
+
+
+def test_wypiecie_przedostatniego_rozwiazuje_konsolidacje(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze_id = zbiorcze.id
+
+    from modules.orders.consolidation import wypnij_zlecenie
+    from modules.orders.models import ShippingRequest
+    rozwiazana = wypnij_zlecenie(zbiorcze, sr_b.id)
+    db.session.commit()
+
+    assert rozwiazana is True
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None
+    assert sr_a.consolidated_into_id is None
+    assert len(sr_a.request_orders) == 1
+
+
+def test_rozwiazanie_zwraca_wszystko_i_kasuje_zbiorcze(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order, ile=3, orders_count=2)
+    zbiorcze_id = zbiorcze.id
+
+    from modules.orders.consolidation import rozwiaz_konsolidacje
+    from modules.orders.models import ShippingRequest
+    zwrocone = rozwiaz_konsolidacje(zbiorcze)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert len(zwrocone) == 3
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None
+    for sr in zrodla:
+        assert sr.consolidated_into_id is None
+        assert len(sr.request_orders) == 2
+
+
+def test_edycja_zablokowana_po_spakowaniu(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.status = 'spakowane'
+    db.session.commit()
+
+    from modules.orders.consolidation import wypnij_zlecenie, rozwiaz_konsolidacje, ConsolidationError
+    with pytest.raises(ConsolidationError):
+        wypnij_zlecenie(zbiorcze, sr_b.id)
+    with pytest.raises(ConsolidationError):
+        rozwiaz_konsolidacje(zbiorcze)

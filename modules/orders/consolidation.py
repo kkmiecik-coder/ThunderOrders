@@ -146,3 +146,108 @@ def utworz_konsolidacje(request_ids, lead_request_id, user=None):
     zbiorcze.lead_source_request_id = lead.id
     db.session.flush()
     return zbiorcze
+
+
+# Po spakowaniu skład paczki odpowiada temu, co fizycznie leży w kartonie —
+# zmiana w systemie byłaby kłamstwem wobec magazynu.
+STATUSY_BEZ_EDYCJI = ('spakowane', 'wyslane', 'dostarczone')
+
+
+def _sprawdz_edytowalnosc(target):
+    if not target.is_consolidation:
+        raise ConsolidationError(
+            f'Zlecenie {target.request_number} nie jest paczką zbiorczą.', status_code=404)
+    if target.status in STATUSY_BEZ_EDYCJI:
+        raise ConsolidationError(
+            f'Paczka {target.request_number} jest już spakowana — '
+            f'nie można zmieniać jej składu.', status_code=409)
+    sesja = _sesja_wms_blokujaca(target)
+    if sesja:
+        raise ConsolidationError(
+            f'Paczka {target.request_number} jest w otwartej sesji WMS #{sesja.session_id} — '
+            f'dokończ ją albo anuluj.', status_code=409)
+
+
+def zmien_wiodace(target, lead_request_id):
+    """Przełącza zlecenie wiodące — przepisuje adres, adresata i właściciela paczki."""
+    _sprawdz_edytowalnosc(target)
+    lead = next((s for s in target.consolidated_sources if s.id == lead_request_id), None)
+    if lead is None:
+        raise ConsolidationError('Wskazane zlecenie nie należy do tej paczki.', status_code=404)
+    _kopiuj_adres(target, lead)
+    target.lead_source_request_id = lead.id
+
+
+def dopnij_do_konsolidacji(target, request_ids):
+    """Dokłada kolejne zlecenia do istniejącej paczki zbiorczej."""
+    from modules.orders.models import ShippingRequest
+    _sprawdz_edytowalnosc(target)
+
+    nowe = ShippingRequest.query.filter(ShippingRequest.id.in_(request_ids)).all()
+    if not nowe:
+        raise ConsolidationError('Nie znaleziono zleceń do dopięcia.', status_code=404)
+    waliduj_do_konsolidacji(nowe, target=target)
+
+    for zrodlo in nowe:
+        if zrodlo.id == target.id:
+            raise ConsolidationError('Nie można dopiąć paczki do samej siebie.')
+        for ro in list(zrodlo.request_orders):
+            # Re-parenting przez relację, nie przez surową kolumnę: request_orders ma
+            # cascade='all, delete-orphan', więc ustawienie samego shipping_request_id
+            # zostawia wiersz osierocony w kolekcji źródła i kasuje go przy flushu.
+            ro.shipping_request = target
+            ro.source_request_id = zrodlo.id
+        zrodlo.consolidated_into_id = target.id
+
+    target.status = status_najmniej_zaawansowany(list(target.consolidated_sources) + nowe)
+    db.session.flush()
+    return target
+
+
+def _oddaj_zamowienia(target, zrodlo):
+    """Zwraca wiersze junction do zlecenia źródłowego, zgodnie ze śladem pochodzenia.
+
+    Przepinamy przez relację (`ro.shipping_request = zrodlo`), nie przez surową
+    kolumnę — `request_orders` ma `cascade='all, delete-orphan'`, więc wiersz
+    ustawiony samą kolumną zostaje osierocony w kolekcji paczki i ginie przy flushu.
+    """
+    for ro in list(target.request_orders):
+        if ro.source_request_id == zrodlo.id:
+            ro.shipping_request = zrodlo
+            ro.source_request_id = None
+    zrodlo.consolidated_into_id = None
+
+
+def rozwiaz_konsolidacje(target):
+    """Rozmontowuje paczkę: zamówienia wracają do źródeł, zlecenie zbiorcze znika."""
+    _sprawdz_edytowalnosc(target)
+    zrodla = list(target.consolidated_sources)
+    for zrodlo in zrodla:
+        _oddaj_zamowienia(target, zrodlo)
+    target.lead_source_request_id = None
+    db.session.flush()
+    # Kolekcja jest już pusta, więc delete-orphan nie ma czego zabrać.
+    db.session.delete(target)
+    return zrodla
+
+
+def wypnij_zlecenie(target, source_id):
+    """Wypina jedno zlecenie z paczki. Zwraca True, gdy paczka została rozwiązana,
+    bo z jednym uczestnikiem przestaje mieć sens."""
+    _sprawdz_edytowalnosc(target)
+    zrodlo = next((s for s in target.consolidated_sources if s.id == source_id), None)
+    if zrodlo is None:
+        raise ConsolidationError('Wskazane zlecenie nie należy do tej paczki.', status_code=404)
+
+    _oddaj_zamowienia(target, zrodlo)
+    db.session.flush()
+
+    pozostale = [s for s in target.consolidated_sources if s.id != source_id]
+    if len(pozostale) <= 1:
+        rozwiaz_konsolidacje(target)
+        return True
+
+    if target.lead_source_request_id == source_id:
+        zmien_wiodace(target, pozostale[0].id)
+    target.status = status_najmniej_zaawansowany(pozostale)
+    return False
