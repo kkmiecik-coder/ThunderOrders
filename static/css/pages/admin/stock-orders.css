@@ -52,11 +52,8 @@
 }
 
 /* Tabela idzie na pełną szerokość — boczny padding panelu tylko zabierał
-   miejsce nazwom produktów. Odstęp od krawędzi dają filtry, które mają własny
-   padding, więc ich treść nie dotyka brzegu. */
-.tab-pane > .orders-filters {
-    margin-bottom: 16px;
-}
+   miejsce nazwom produktów. Odstęp od krawędzi dają filtry przez własny
+   padding. */
 
 /* Nagłówki zakładek (.tab-header) usunięte — zakładka nad listą wystarczy
    za tytuł. Style WMS-a są niezależne (wms-dashboard.css). */
@@ -114,8 +111,8 @@
     display: flex;
     gap: 16px;
     align-items: flex-end;
-    margin-bottom: 20px;
-    padding: 16px;
+    /* Odstęp robi padding dookoła, nie margines pod spodem. */
+    padding: 16px 24px;
     background: #f9fafb;
     border-radius: 8px;
     flex-wrap: wrap;
