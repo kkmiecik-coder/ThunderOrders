@@ -42,6 +42,10 @@ def _check_sr_auto_oplacone(order):
 
     # Zlecenie źródłowe nie ma własnych zamówień — pętla poniżej nie wykonałaby ani
     # jednej iteracji i uznała je za opłacone (all_paid startuje jako True).
+    # Obrona w głąb: `sr` wyżej pochodzi z wiersza junction (ShippingRequestOrder),
+    # a ten po konsolidacji zawsze wskazuje paczkę zbiorczą, nigdy puste źródło —
+    # dzisiejszymi ścieżkami wywołania is_consolidated_source=True tu nie zajdzie.
+    # Guard zostaje na wypadek przyszłego wywołującego, który poda `sr` inną drogą.
     if sr.is_consolidated_source:
         return
 
@@ -71,11 +75,9 @@ def _check_sr_auto_oplacone(order):
         old_status = sr.status
         sr.status = 'oplacone'
         # sr tutaj jest zawsze zwykłym (nieskonsolidowanym) zleceniem — gałęzie dla
-        # paczki zbiorczej i dla zlecenia źródłowego wróciły przez return wyżej.
-        # Wywołanie zostaje dla spójności z resztą miejsc zapisu statusu (Task 5);
-        # dla zwykłego zlecenia propaguj_na_zrodla nic nie robi (is_consolidation=False).
-        from modules.orders.consolidation import propaguj_na_zrodla
-        propaguj_na_zrodla(sr)
+        # paczki zbiorczej i dla zlecenia źródłowego wróciły przez return wyżej, więc
+        # propaguj_na_zrodla(sr) byłoby tu trwałym no-opem (is_consolidation=False) —
+        # celowo pominięte, żeby kod nie sugerował propagacji, której nie ma.
         db.session.commit()
 
         logger.info(f"SR {sr.request_number} auto-transitioned to 'oplacone' (all E4 approved)")

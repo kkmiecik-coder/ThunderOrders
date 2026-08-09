@@ -49,6 +49,10 @@ def update_sr_after_packing(order):
     sr = order.shipping_request
     # Zlecenie oddane do paczki zbiorczej nie ma własnych zamówień — all([]) uznałby
     # je za spakowane bez niczego fizycznego. Jego stan przychodzi z propagacji.
+    # Obrona w głąb: `sr` powyżej pochodzi z wiersza junction zamówienia, a ten po
+    # konsolidacji zawsze wskazuje paczkę zbiorczą (nigdy puste źródło) — dzisiejsze
+    # wywołania nie potrafią tu dostarczyć is_consolidated_source=True. Guard zostaje
+    # na wypadek przyszłego wywołującego, który poda `sr` inną drogą.
     if not sr or sr.is_consolidated_source:
         return None
 
