@@ -41,6 +41,15 @@ Potwierdzone z Konradem przed projektowaniem:
 - Karta zbiorcza pokazuje **zamówienia i produkty ze wszystkich zleceń**, pogrupowane
   po właścicielu.
 
+Ustalone po audycie kodu (2026-08-09):
+
+- Anulowane zamówienie **wypina się z paczki automatycznie** — inaczej trwale blokuje
+  wysyłkę wszystkim uczestnikom.
+- Przy zleceniu zbiorczym bez właściciela (usunięte konto) **nie wysyłamy maila w ogóle**;
+  fallback na adres z pierwszego zamówienia jest wyłączony.
+- Wdrożenie idzie **jednym planem, w całości** — żadnego okna, w którym konsolidacja
+  działa, a zabezpieczenia jeszcze nie.
+
 ## Decyzje
 
 | Pytanie | Decyzja | Dlaczego |
@@ -55,6 +64,10 @@ Potwierdzone z Konradem przed projektowaniem:
 | Treść maili o paczce | Budowana per uczestnik | `notify_shipment_sent` wymienia wszystkie zamówienia zlecenia — dla paczki zbiorczej ujawniłoby to numery cudzych zamówień |
 | Wejście w edycję | Ten sam modal w trybie edycji | Jeden komponent i jeden zestaw styli zamiast czterech osobnych dialogów |
 | Układ zamówień w karcie | Grupowanie po kliencie | Nagłówki grup zastępują osobną sekcję „Uczestnicy”; pakujący widzi, czyje rzeczy wkłada do kartonu |
+| Zlecenie widoczne przy zamówieniu | Nowa właściwość `Order.client_shipping_request` | `Order.shipping_request` zwraca zlecenie zbiorcze (potrzebne WMS), więc widoki klienta pokazywałyby cudzy adres — rozdzielamy role zamiast łatać każdy szablon |
+| Anulowane zamówienie | Wypinane z paczki automatycznie | Bramki gotowości wymagają kompletu zamówień; anulowane nigdy go nie osiągnie i zablokuje paczkę wszystkim |
+| Mail przy zleceniu bez właściciela | Brak fallbacku dla zbiorczych | Fallback na `orders[0].customer_email` wysłałby obcej osobie listę zamówień wszystkich uczestników |
+| Nowe klucze obce | Jawne `ondelete='SET NULL'` | Istniejące FK zleceń nie mają `ondelete`, więc kasowanie zlecenia biorącego udział w konsolidacji rzucałoby `IntegrityError` |
 
 ## Model danych
 
@@ -80,8 +93,12 @@ Numer zlecenia zbiorczego powstaje przez istniejące `ShippingRequest.generate_r
 czyli jest kolejnym numerem w serii `WYS/000000` — bez osobnego formatu dla paczek zbiorczych.
 Rozpoznawalność zapewnia badge, nie numer.
 
-Migracja pisana ręcznie i sprawdzana przed `flask db upgrade`. Klucze obce wskazują na tę
-samą tabelę, więc kolejność operacji przy kasowaniu ma znaczenie — patrz „Ryzyka”.
+Migracja pisana ręcznie i sprawdzana przed `flask db upgrade`. Wszystkie trzy klucze obce
+dostają jawne **`ondelete='SET NULL'`**. Istniejące FK zleceń
+(`migrations/versions/8b9c0cbaf032_add_shipping_requests_system.py:62-63, 75-76`) zakładane
+są bez `ondelete`, więc bez tego skasowanie zlecenia biorącego udział w konsolidacji
+kończy się `IntegrityError` — a kasowanie zleceń jest w kodzie w kilku miejscach
+(bulk-delete, anulowanie przez klienta w webie i mobile).
 
 ### Właściwości modelu
 
@@ -95,6 +112,31 @@ can_cancel                # dodatkowo False, gdy consolidated_into_id jest ustaw
 
 `consolidation_participants` jest jedynym miejscem, które grupuje zamówienia po właścicielu —
 korzystają z niego karta, modal, mail o wysyłce i push.
+
+### Rozdzielenie ról `Order.shipping_request`
+
+`Order.shipping_request` (`modules/orders/models.py:685`) zwraca zlecenie przez
+`shipping_request_orders[0]`, więc po konsolidacji **zamówienie klienta źródłowego wskazuje
+paczkę zbiorczą cudzego klienta**. Konsumenci tej właściwości dzielą się na dwie grupy
+o sprzecznych potrzebach:
+
+- **WMS potrzebuje zbiorczego** — grupowanie pakowania (`wms_packing.py:49, 101`), cofanie
+  do sesji (`wms.py:490`), zwrot opakowania na stan (`wms_utils.py:401-406`).
+- **Widoki klienta potrzebują zlecenia właściciela** — karta zamówienia
+  (`templates/client/orders/detail.html:483, 502, 549`), lista zamówień, mapa śledzenia
+  (`modules/orders/routes.py:1873-1875`), tooltip ikony (`models.py:832`).
+
+Bez rozdzielenia klient źródłowy zobaczyłby przy własnym zamówieniu numery cudzych zamówień
+oraz **pełny adres dostawy obcej osoby** — imię, nazwisko, ulicę i miasto. To dane osobowe,
+więc traktujemy to jako blokujące.
+
+```python
+shipping_request         # bez zmian: zlecenie, w którym zamówienie fizycznie leży (zbiorcze)
+client_shipping_request  # zlecenie właściciela: źródłowe, gdy zamówienie jest w konsolidacji
+```
+
+Wszystkie widoki klienta przechodzą na `client_shipping_request`. Właściwość zwraca zlecenie
+wskazane przez `source_request_id`, a gdy go nie ma — to samo co `shipping_request`.
 
 ## Reguły
 
@@ -228,7 +270,13 @@ Zlecenie źródłowe pokazuje klientowi:
 - wspólny numer śledzenia,
 - **wyłącznie własne** zamówienia, przez `display_orders`.
 
-Anulowanie zlecenia wpiętego w konsolidację jest zablokowane (`can_cancel`).
+Anulowanie zlecenia wpiętego w konsolidację jest zablokowane (`can_cancel`), a blokada
+działa po stronie serwera w obu ścieżkach — web i mobile.
+
+Druga powierzchnia to **karta zamówienia** (`templates/client/orders/detail.html`), lista
+zamówień i mapa śledzenia. Wszystkie przechodzą na `client_shipping_request`, żeby klient
+źródłowy widział przy swoim zamówieniu własne zlecenie, a nie paczkę zbiorczą z cudzym
+adresem — szczegóły w sekcji „Rozdzielenie ról `Order.shipping_request`”.
 
 ## Powiadomienia
 
@@ -259,17 +307,151 @@ Przełączniki: korzystamy z istniejących kluczy (`notify_status_change`, `noti
 bez dokładania nowych — nowy klucz startowałby jako włączony i po cichu zmieniłby to, co
 sklep wysyła.
 
+## Zabezpieczenia wymuszone audytem kodu
+
+Audyt (9 agentów, 2026-08-09) znalazł miejsca, w których konsolidacja psuje istniejące
+zachowanie. Poniższe punkty są **częścią zakresu**, nie listą życzeń.
+
+### Puste zlecenie źródłowe kłamie o swoim stanie
+
+Zlecenie źródłowe traci wszystkie `ShippingRequestOrder`, a kilka miejsc interpretuje pustą
+kolekcję jako „wszystko gotowe”, bo `all([])` to `True`:
+
+| Miejsce | Skutek bez zabezpieczenia |
+|---|---|
+| `wms_packing.py:53-57` | źródłowe samo wskakuje na `spakowane` bez fizycznego pakowania |
+| `payment_confirmations.py:43-61` | źródłowe wskakuje na `oplacone` mimo braku wpłaty |
+| `wms.py:865` (`_wms_lock_blocking_session`) | blokada „zlecenie w aktywnej sesji WMS” przestaje działać |
+| `wms.py:885` | admin może „wysłać” puste zlecenie źródłowe z listy |
+| `routes.py:3887` | auto-przejście po wycenie milczy (`any([])` to `False`) |
+
+Każda z tych funkcji dostaje wczesny warunek: zlecenie z ustawionym `consolidated_into_id`
+nie jest samodzielną paczką i nie podlega bramkom gotowości ani akcjom wysyłkowym.
+
+### Eksport InPost wygenerowałby podwójne etykiety
+
+`build_inpost_csv` odrzuca zlecenia tylko na podstawie gabarytu i w ogóle nie czyta zamówień
+(`inpost_export.py:55-74`). Zlecenie źródłowe zachowuje własny adres i `parcel_size`, więc
+trafiłoby do pliku jako pełnoprawny wiersz i nadałoby drugą fizyczną przesyłkę na tę samą
+paczkę. Filtr `consolidated_into_id IS NULL` wchodzi w `admin_export_shipping_requests_inpost`
+(`routes.py:4239`) — czyli w jedyną bramkę przed plikiem dla kuriera.
+
+To samo dotyczy `shipping_requests_filtered_ids` (`wms.py:283`): po propagacji statusu filtr
+„spakowane” zwracałby zbiorcze **i** wszystkie jego źródła, więc „zaznacz na wszystkich
+stronach” + eksport dałoby N+1 przesyłek. Ta sama poprawka zamyka też podwójne maile
+z `admin_bulk_status_shipping_requests` (`routes.py:4179`).
+
+### Powiadomienia: cisza zamiast wycieku
+
+`notify_shipment_sent` (`email_manager.py:1001`) i jego odpowiednik w `PushManager`
+(`push_manager.py:777`) mają wczesny return na pustej liście zamówień. Sama propagacja
+statusu na źródłowe **nie powiadomi więc nikogo** — klienci nie-wiodący nie dowiedzą się,
+że paczka pojechała, a w logu zostanie tylko `INFO`.
+
+Rozwiązanie opisane w sekcji „Powiadomienia”: dla zlecenia zbiorczego iterujemy po
+uczestnikach. Konsekwencja dla testów: `tests/test_shipment_sent_notification.py:536`
+(`test_email_skipped_when_no_orders`) i bliźniaczy test pusha opisują dokładnie to
+zachowanie — trzeba je przepisać tak, by pilnowały pustego zlecenia **niebędącego**
+źródłem konsolidacji.
+
+Dotyczy to również:
+
+- `notify_packing_photo` (`wms_packing.py:201`) — dziś mail ze zdjęciem trafia do właściciela
+  przypadkowego zamówienia z grupy, a zdjęcie pokazuje karton z cudzymi produktami. Dla
+  paczki zbiorczej rozsyłamy do wszystkich uczestników, z informacją, że karton jest wspólny.
+- deep-linków w mailach i pushach (`push_manager.py:752`, `email_manager.py:902, 962, 1035`) —
+  prowadzą do listy zleceń klienta, w której zlecenie zbiorcze jest niewidoczne. Link
+  uczestnika musi prowadzić do jego **własnego** zlecenia źródłowego.
+- `notify_shipping_request_created` (`email_manager.py:899`) — **nie** używamy jej do
+  zlecenia zbiorczego. To jedyny szablon pokazujący kwoty; wysłany do wiodącego ujawniłby
+  kwoty zamówień obcych osób.
+
+### Anulowanie i kasowanie zleceń
+
+- `can_cancel` zwraca `False` dla zlecenia zbiorczego **i** dla źródłowego. Blokada musi
+  wejść po stronie serwera w obu ścieżkach: web (`modules/client/shipping.py:293`) i mobile
+  (`modules/api_mobile/shipping_routes.py:200`) — ukrycie przycisku w szablonie niczego nie
+  zamyka, bo endpoint mobilny przyjmuje dowolne `request_id` należące do użytkownika.
+- Kasowanie zlecenia zbiorczego (bulk-delete, `routes.py:4002`) najpierw odpina źródła
+  i zeruje `lead_source_request_id`, a dopiero potem kasuje rekord.
+- Usunięcie konta klienta (`modules/auth/models.py:673`, `modules/admin/clients.py:522`)
+  zeruje `user_id`. Dla zlecenia zbiorczego bez właściciela mail o wysyłce **nie wychodzi
+  wcale** — fallback na `orders[0].customer_email` (`email_manager.py:1015`) wysłałby obcej
+  osobie listę zamówień wszystkich uczestników.
+
+### Anulowane zamówienie wypina się z paczki
+
+Bramki gotowości wymagają kompletu zamówień: `all(o.status == 'spakowane' …)`
+(`wms_packing.py:53`) oraz zatwierdzonego E4 dla każdego `ro.order_id`
+(`payment_confirmations.py:43-51`). Anulowane zamówienie nigdy tego nie osiągnie, więc jedno
+anulowanie zablokowałoby wysyłkę wszystkim uczestnikom paczki.
+
+Anulowanie zamówienia należącego do konsolidacji usuwa jego powiązanie z paczką
+i przelicza `total_shipping_cost` zlecenia zbiorczego. Gdy właściciel traci w ten sposób
+wszystkie zamówienia, jego zlecenie źródłowe wypina się z konsolidacji.
+
+### Konsolidacja zagnieżdżona
+
+Nic w modelu nie broni ustawienia `consolidated_into_id` na zlecenie, które samo jest już
+źródłem, ani cyklu A→B→A, ani wskazania na samego siebie. Propagacja idzie o jeden poziom,
+więc druga warstwa zostałaby z nieaktualnym statusem, a rekurencja bez guardu zawiesiłaby
+request. Walidacja przy konsolidacji odrzuca: zlecenie już będące źródłem, zlecenie zbiorcze
+jako element scalany (poza trybem dopięcia) oraz każdy przypadek, w którym cel jest
+jednocześnie źródłem.
+
+### Pułapka przy samej implementacji
+
+`ShippingRequest.request_orders` ma `cascade='all, delete-orphan'` (`models.py:1506`). Stary
+`bulk-merge` przenosi wiersze SQL-owym `.update()` (`routes.py:4122`), a zaraz potem kasuje
+zlecenie (`4128`) — działa **wyłącznie** dlatego, że nigdy nie dotyka `sr.request_orders`
+przed UPDATE-em, więc kaskada doczytuje kolekcję leniwie i widzi pustkę.
+
+Kod konsolidacji **musi** odczytać `sr.request_orders`, żeby ustawić `source_request_id`.
+Powtórzenie tamtej sekwencji skasuje więc wiersze, które przed chwilą przeniósł. Przepinamy
+przez ORM albo jawnie odświeżamy kolekcję przed kasowaniem. To samo dotyczy rozwiązywania
+konsolidacji.
+
+### Numer zlecenia
+
+`generate_request_number` (`models.py:1615-1626`) czyta wiersz o najwyższym `id` i
+inkrementuje, bez `SELECT FOR UPDATE`, przy kolumnie z `UNIQUE`. Dziś zlecenia tworzy tylko
+klient; konsolidacja dokłada tworzenie po stronie admina, z natury równolegle do ruchu
+klienckiego. Tworzenie zlecenia zbiorczego obsługuje `IntegrityError` na numerze i ponawia
+generowanie.
+
+### Koszt i termin płatności na zleceniu źródłowym
+
+`calculated_shipping_cost` (`models.py:1594-1604`) sumuje po `request_orders`, więc na
+zleceniu źródłowym zwróci `None` — klient widziałby „oczekuje na wycenę” mimo zapłaty.
+Właściwość liczy się z `display_orders`.
+
+`payment_deadline` i `parcel_size` nie są propagowane świadomie: termin E4 klienta liczy się
+ze zlecenia, w którym leżą jego zamówienia (`models.py:1123-1127`), czyli ze zbiorczego —
+i tak ma być, bo termin dotyczy tej jednej paczki.
+
+`admin_update_shipping_request` (`routes.py:3862`) nie sprawdza, czy zamówienie z żądania
+należy do edytowanego zlecenia. Dziś nieszkodliwe, po konsolidacji to jedyne miejsce, gdzie
+admin ustawia kwotę E4 obcemu klientowi — dokładamy walidację przynależności.
+
 ## Zakres
 
 W zakresie:
 
-- migracja (3 kolumny), właściwości modelu, helper propagacji,
+- migracja (3 kolumny z `ondelete`), właściwości modelu, helper propagacji,
+- rozdzielenie `Order.shipping_request` / `Order.client_shipping_request` i przełączenie
+  widoków klienta na tę drugą,
 - pięć endpointów konsolidacji, usunięcie `bulk-merge`,
 - modal konsolidacji i edycji (tworzenie + zarządzanie),
 - badge i grupowanie zamówień w karcie zbiorczej,
-- ukrycie zleceń źródłowych na liście WMS + filtr „scalone”,
-- panel klienta (web + mobile): filtr, badge, `display_orders`, blokada anulowania,
-- powiadomienia per uczestnik + nowy szablon o scaleniu,
+- ukrycie zleceń źródłowych na liście WMS, w zaznaczaniu „na wszystkich stronach”
+  i w eksporcie InPost + filtr widoku „scalone”,
+- guardy chroniące puste zlecenia źródłowe przed bramkami gotowości i akcjami wysyłkowymi,
+- panel klienta (web + mobile): filtr, badge, `display_orders`, blokada anulowania po
+  stronie serwera,
+- powiadomienia per uczestnik + nowy szablon o scaleniu + brak fallbacku adresata,
+- auto-wypięcie anulowanego zamówienia z paczki,
+- walidacja odrzucająca konsolidacje zagnieżdżone i cykle,
+- obsługa kolizji numeru `WYS` przy tworzeniu zlecenia zbiorczego,
 - testy.
 
 Poza zakresem:
@@ -294,24 +476,48 @@ Poza zakresem:
 - klient źródłowy widzi wyłącznie własne zamówienia,
 - mail o wysyłce nie zawiera numerów zamówień innego uczestnika,
 - blokady: aktywna sesja WMS, zlecenie wysłane, podwójna konsolidacja, edycja po spakowaniu,
-- eksport InPost dla paczki zbiorczej używa adresu wiodącego.
+- eksport InPost dla paczki zbiorczej używa adresu wiodącego,
+- eksport InPost **pomija** zlecenia źródłowe (test na podwójną etykietę),
+- karta zamówienia klienta źródłowego nie pokazuje cudzego adresu ani cudzych numerów
+  zamówień (`client_shipping_request`),
+- puste zlecenie źródłowe nie wskakuje na `spakowane` ani `oplacone` przez `all([])`,
+- anulowanie zamówienia wypina je z paczki i nie blokuje pakowania pozostałych,
+- anulowanie zlecenia (web i mobile) jest odrzucane dla zbiorczego i źródłowego,
+- zlecenie zbiorcze bez właściciela nie wysyła maila do nikogo,
+- konsolidacja zagnieżdżona i cykl są odrzucane,
+- przepięcie zamówień nie kasuje wierszy przez `delete-orphan` (test na pułapkę kaskady).
+
+Na `bulk-merge` nie ma dziś **ani jednego** testu, więc każdy z powyższych punktów pisany
+jest przed zmianą kodu — inaczej przepisujemy tę funkcję bez siatki bezpieczeństwa.
 
 ## Ryzyka
 
-**Klucze obce na tę samą tabelę.** Przy kasowaniu zlecenia zbiorczego trzeba najpierw odpiąć
-źródła (`consolidated_into_id = NULL`) i wyzerować `lead_source_request_id`, inaczej MariaDB
-odrzuci `DELETE`. Dotyczy każdego miejsca robiącego `db.session.delete(ShippingRequest)` —
-w tym bulk-delete i anulowania zleceń.
+**Kompletność propagacji.** Audyt naliczył **osiem** niezależnych miejsc zapisujących status
+lub tracking zlecenia: `routes.py:3837/3839/3841`, `routes.py:3887`, `routes.py:4179`,
+`wms_utils.py:259-266`, `wms_utils.py:418-420` (cofanie do WMS), `wms_packing.py:57`
+i `payment_confirmations.py:61`. Pominięcie któregokolwiek zostawia zlecenie źródłowe ze
+starym statusem u klienta. Test pokrywa każdą ścieżkę osobno, łącznie z cofaniem —
+propagacja musi działać w obie strony, nie tylko do przodu.
 
-**Kompletność propagacji.** Status zlecenia zmienia się w kilku miejscach (bulk-status,
-`ship_shipping_request`, pakowanie, edycja zlecenia). Pominięcie któregokolwiek zostawi
-zlecenie źródłowe ze starym statusem u klienta. Test pokrywa każdą ze ścieżek osobno.
+Osobna pułapka: `_check_sr_auto_oplacone` robi **własny** `db.session.commit()`
+(`payment_confirmations.py:62`) w środku zatwierdzania płatności. Propagacja wpięta w to
+miejsce musi zmieścić się w tej samej transakcji, inaczej zbiorcze i źródłowe rozjadą się
+przy błędzie.
 
 **Liczniki po stronie admina.** Zlecenie zbiorcze i źródłowe współistnieją, więc każde
-`COUNT` po `ShippingRequest` policzy je podwójnie (m.in. `sr_total_count` i statystyki
-klienta). Wymaga przejrzenia razem z filtrem listy.
+`COUNT` po `ShippingRequest` policzy je podwójnie — m.in. `sr_total_count` na dashboardzie
+WMS, statystyki wysyłki i liczniki na karcie klienta. Do przejrzenia razem z filtrem listy.
 
 **Zdjęcie paczki.** Po wdrożeniu pakowania na poziomie zlecenia (spec z 2026-08-07) dane
-paczki kopiują się na każde zamówienie, więc zdjęcie paczki zbiorczej trafi do obu klientów.
-To ta sama paczka, więc jest to poprawne — ale zdjęcie może pokazywać etykietę z adresem
-adresata, o czym warto pamiętać przy treści maila.
+paczki kopiują się na każde zamówienie, więc zdjęcie paczki zbiorczej dotyczy wszystkich
+uczestników. Zdjęcie pokazuje karton z produktami wszystkich osób i może zawierać etykietę
+z adresem adresata — treść maila musi to uprzedzać.
+
+**Zmiana wiodącego po nadaniu przesyłki.** Edycja jest zablokowana po spakowaniu, ale
+tracking bywa wpisywany wcześniej (`admin_update_shipping_request`). Zmiana wiodącego
+przepisuje wtedy adres w bazie, choć etykieta u kuriera pozostaje stara. Modal ostrzega,
+gdy zlecenie ma już numer przesyłki.
+
+**Migracja danych historycznych.** Zlecenia scalone starym `bulk-merge` nie mają zapisanych
+źródeł i nie da się ich odtworzyć. Zostają jak są — bez badge’a i bez uczestników. To
+świadoma decyzja, nie luka.
