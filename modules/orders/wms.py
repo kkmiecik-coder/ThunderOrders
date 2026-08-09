@@ -864,6 +864,11 @@ def wms_ship_sr(session_id):
 
 def _wms_lock_blocking_session(sr):
     """Id otwartej sesji WMS blokującej którekolwiek zamówienie zlecenia, albo None."""
+    # Źródłowe nie ma własnych zamówień, więc pętla po sr.orders nie wykryłaby
+    # blokady. Sesję trzyma paczka zbiorcza — pytamy o nią.
+    if sr.is_consolidated_source and sr.consolidated_into:
+        sr = sr.consolidated_into
+
     lock_cutoff = get_local_now() - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
     for order in sr.orders:
         if order.wms_locked_at and order.wms_locked_at > lock_cutoff:
@@ -881,6 +886,13 @@ def admin_ship_shipping_request(sr_id):
     """
     sr = ShippingRequest.query.get_or_404(sr_id)
     data = request.get_json(silent=True) or {}
+
+    if sr.is_consolidated_source:
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} jedzie w paczce zbiorczej '
+                       f'{sr.consolidated_into.request_number} — wyślij tamtą paczkę.',
+        }), 409
 
     if sr.status not in ('spakowane', 'wyslane'):
         return jsonify({

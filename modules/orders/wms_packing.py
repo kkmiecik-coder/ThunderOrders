@@ -47,7 +47,9 @@ def update_sr_after_packing(order):
     from modules.auth.models import Settings
 
     sr = order.shipping_request
-    if not sr:
+    # Zlecenie oddane do paczki zbiorczej nie ma własnych zamówień — all([]) uznałby
+    # je za spakowane bez niczego fizycznego. Jego stan przychodzi z propagacji.
+    if not sr or sr.is_consolidated_source:
         return None
 
     all_packed = all(o.status == 'spakowane' for o in sr.orders)

@@ -34,6 +34,17 @@ def _check_sr_auto_oplacone(order):
     if not sr:
         return
 
+    # Paczka zbiorcza: każdy uczestnik rozlicza się osobno, więc status ustawiamy
+    # per zlecenie źródłowe, a paczkę podnosimy dopiero, gdy zapłacili wszyscy.
+    if sr.is_consolidation:
+        _sprawdz_oplacenie_konsolidacji(sr)
+        return
+
+    # Zlecenie źródłowe nie ma własnych zamówień — pętla poniżej nie wykonałaby ani
+    # jednej iteracji i uznała je za opłacone (all_paid startuje jako True).
+    if sr.is_consolidated_source:
+        return
+
     # Only transition from 'czeka_na_oplacenie'
     if sr.status != 'czeka_na_oplacenie':
         return
@@ -59,10 +70,10 @@ def _check_sr_auto_oplacone(order):
 
         old_status = sr.status
         sr.status = 'oplacone'
-        # Uwaga (Task 5): sro.shipping_request po konsolidacji zawsze wskazuje na
-        # paczkę zbiorczą, nigdy na źródłowe — więc to wywołanie na razie nie ma
-        # tu efektu praktycznego. Pełne dopięcie tej ścieżki (znalezienie właściwego
-        # zlecenia źródłowego) robi Task 6; tu tylko wpinamy propagację przed commitem.
+        # sr tutaj jest zawsze zwykłym (nieskonsolidowanym) zleceniem — gałęzie dla
+        # paczki zbiorczej i dla zlecenia źródłowego wróciły przez return wyżej.
+        # Wywołanie zostaje dla spójności z resztą miejsc zapisu statusu (Task 5);
+        # dla zwykłego zlecenia propaguj_na_zrodla nic nie robi (is_consolidation=False).
         from modules.orders.consolidation import propaguj_na_zrodla
         propaguj_na_zrodla(sr)
         db.session.commit()
@@ -77,6 +88,55 @@ def _check_sr_auto_oplacone(order):
             PushManager.notify_shipping_status_change(sr, status_obj.name)
         except Exception as e:
             logger.error(f"Error sending SR status change notification for {sr.request_number}: {e}")
+
+
+def _sprawdz_oplacenie_konsolidacji(zbiorcze):
+    """Rozlicza paczkę zbiorczą per uczestnik.
+
+    Klient płaci za swoje zamówienia niezależnie, więc jego zlecenie źródłowe
+    przechodzi na 'oplacone' od razu po zatwierdzeniu jego E4. Sama paczka czeka
+    na komplet — WMS i tak nie wypuści nieopłaconej.
+    """
+    from modules.orders.models import ShippingRequestStatus
+    from modules.orders.consolidation import przelicz_status_zbiorczego
+
+    status_obj = ShippingRequestStatus.query.filter_by(slug='oplacone', is_active=True).first()
+    if not status_obj:
+        logger.warning("SR status 'oplacone' not found or inactive — skipping auto-transition")
+        return
+
+    zmienione = []
+    for uczestnik in zbiorcze.consolidation_participants:
+        zrodlo = uczestnik['source_request']
+        if zrodlo.status != 'czeka_na_oplacenie' or not uczestnik['orders']:
+            continue
+        wszystkie_oplacone = all(
+            PaymentConfirmation.query.filter_by(
+                order_id=o.id, payment_stage='domestic_shipping', status='approved'
+            ).first()
+            for o in uczestnik['orders']
+        )
+        if wszystkie_oplacone:
+            zrodlo.status = 'oplacone'
+            zmienione.append(zrodlo)
+
+    if not zmienione:
+        return
+
+    przelicz_status_zbiorczego(zmienione[0])
+    db.session.commit()
+
+    for zrodlo in zmienione:
+        logger.info(f"SR {zrodlo.request_number} auto-transitioned to 'oplacone' "
+                    f"(paczka {zbiorcze.request_number})")
+        try:
+            from utils.email_manager import EmailManager
+            from utils.push_manager import PushManager
+            EmailManager.notify_shipping_status_change(zrodlo, 'czeka_na_oplacenie')
+            PushManager.notify_shipping_status_change(zrodlo, status_obj.name)
+        except Exception as e:
+            logger.error(f"Error sending SR status change notification "
+                         f"for {zrodlo.request_number}: {e}")
 
 
 @admin_bp.route('/payment-confirmations')

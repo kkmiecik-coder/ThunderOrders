@@ -519,3 +519,67 @@ def test_wyslanie_przez_wms_propaguje_na_zrodla(db, make_user, make_order):
 
     assert sr_a.status == 'wyslane'
     assert sr_b.tracking_number == '622999888'
+
+
+def test_puste_zrodlowe_nie_wskakuje_na_spakowane(db, make_user, make_order):
+    from tests.test_wms_ship_and_reopen import _seed_statuses
+    _seed_sr_statuses(db)
+    _seed_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.status = 'oplacone'
+    db.session.commit()
+
+    from modules.orders.wms_packing import update_sr_after_packing
+    zamowienie = zbiorcze.request_orders[0].order
+    zamowienie.status = 'spakowane'
+    db.session.commit()
+    update_sr_after_packing(zamowienie)
+    db.session.commit()
+
+    # Zlecenie źródłowe nie ma własnych zamówień — all([]) nie może go „spakować".
+    assert sr_a.status != 'spakowane' or zbiorcze.status == 'spakowane'
+    assert sr_a.status == zbiorcze.status
+
+
+def test_puste_zrodlowe_nie_wskakuje_na_oplacone(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.status = 'czeka_na_oplacenie'
+    sr_b.status = 'czeka_na_oplacenie'
+    zbiorcze.status = 'czeka_na_oplacenie'
+    db.session.commit()
+
+    from modules.admin.payment_confirmations import _check_sr_auto_oplacone
+    # Nikt nie ma zatwierdzonego E4 — nikt nie może wskoczyć na 'oplacone'.
+    _check_sr_auto_oplacone(sr_a.display_orders[0])
+    db.session.commit()
+
+    assert sr_a.status == 'czeka_na_oplacenie'
+    assert zbiorcze.status == 'czeka_na_oplacenie'
+
+
+def test_oplacenie_przez_jednego_uczestnika_podnosi_tylko_jego_zlecenie(db, make_user, make_order):
+    """Klient płaci za swoje zamówienia niezależnie — nie ma czekać, aż zapłacą inni,
+    żeby zobaczyć u siebie 'opłacone'. Paczka czeka na komplet."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    for sr in (sr_a, sr_b, zbiorcze):
+        sr.status = 'czeka_na_oplacenie'
+    db.session.commit()
+
+    from decimal import Decimal
+    from modules.orders.models import PaymentConfirmation
+    zamowienie_a = sr_a.display_orders[0]
+    # amount jest NOT NULL w modelu — brief pominął je, dopisane żeby insert przeszedł.
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie_a.id, payment_stage='domestic_shipping', status='approved',
+        amount=Decimal('10.00')))
+    db.session.commit()
+
+    from modules.admin.payment_confirmations import _check_sr_auto_oplacone
+    _check_sr_auto_oplacone(zamowienie_a)
+    db.session.expire_all()
+
+    assert sr_a.status == 'oplacone'
+    assert sr_b.status == 'czeka_na_oplacenie'
+    assert zbiorcze.status == 'czeka_na_oplacenie'
