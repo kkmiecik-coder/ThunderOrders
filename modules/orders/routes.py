@@ -4093,67 +4093,213 @@ def admin_bulk_cancel_shipping_requests():
     })
 
 
-@orders_bp.route('/admin/orders/shipping-requests/bulk-merge', methods=['POST'])
+@orders_bp.route('/admin/orders/shipping-requests/consolidation-preview')
 @login_required
 @role_required('admin', 'mod')
-def admin_bulk_merge_shipping_requests():
+def admin_consolidation_preview():
+    """Dane do modalu konsolidacji — pełne adresy i powody blokady.
+
+    Modal nie może karmić się danymi z kart: karty nie mają kompletu adresów,
+    a stan mógł się zmienić od załadowania strony.
     """
-    Merge multiple shipping requests into one.
-    Uses the oldest request (lowest ID) as the target.
-    All orders from other requests are moved to the target.
-    Other requests are deleted.
-    """
-    data = request.get_json()
-    ids = data.get('ids', [])
+    from modules.orders.consolidation import waliduj_do_konsolidacji, ConsolidationError
 
-    if len(ids) < 2:
-        return jsonify({'error': 'Wybierz co najmniej 2 zlecenia do scalenia'}), 400
+    surowe = request.args.get('ids', '')
+    ids = [int(x) for x in surowe.split(',') if x.strip().isdigit()]
+    if not ids:
+        return jsonify({'error': 'Nie wskazano zleceń'}), 400
 
-    # Get all shipping requests and sort by ID (oldest first)
-    shipping_requests = ShippingRequest.query.filter(ShippingRequest.id.in_(ids)).order_by(ShippingRequest.id.asc()).all()
+    requests_list = ShippingRequest.query.filter(ShippingRequest.id.in_(ids)).all()
 
-    if len(shipping_requests) < 2:
-        return jsonify({'error': 'Nie znaleziono wybranych zleceń'}), 404
-
-    # Verify all requests belong to the same user
-    user_ids = set(sr.user_id for sr in shipping_requests)
-    if len(user_ids) > 1:
-        return jsonify({'error': 'Zaznaczone zlecenia pochodzą od różnych klientów'}), 400
-
-    # Target is the oldest request (first in sorted list)
-    target_request = shipping_requests[0]
-    requests_to_delete = shipping_requests[1:]
-    merged_numbers = [sr.request_number for sr in requests_to_delete]
-
-    # Move all orders from other requests to the target
-    for sr in requests_to_delete:
-        # Update all ShippingRequestOrder associations
-        ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).update({
-            'shipping_request_id': target_request.id
+    pozycje = []
+    for sr in requests_list:
+        pozycje.append({
+            'id': sr.id,
+            'request_number': sr.request_number,
+            # User.full_name jest null-safe i ma fallback na e-mail — ręczne sklejanie
+            # first_name/last_name dawało pusty string dla klientów bez podanego imienia.
+            'client_name': sr.user.full_name if sr.user else 'Brak klienta',
+            'client_email': sr.user.email if sr.user else None,
+            'client_phone': sr.user.phone if sr.user else None,
+            'full_address': sr.full_address,
+            'address_type': sr.address_type,
+            'status': sr.status,
+            'status_name': sr.status_display_name,
+            'orders_count': len(sr.display_orders),
+            'is_consolidation': sr.is_consolidation,
+            'has_tracking': bool(sr.tracking_number),
+            # Potrzebne modalowi w trybie zarządzania gotową paczką (Task 14).
+            'source_ids': [s.id for s in sr.consolidated_sources],
+            'lead_source_request_id': sr.lead_source_request_id,
         })
 
-    # Delete the now-empty requests
-    for sr in requests_to_delete:
-        db.session.delete(sr)
+    blokady = []
+    try:
+        waliduj_do_konsolidacji(requests_list)
+    except ConsolidationError as e:
+        blokady.append(e.message)
 
-    db.session.commit()
+    return jsonify({'success': True, 'requests': pozycje, 'blocked': blokady})
 
-    # Activity log
+
+def _powiadom_o_konsolidacji(zbiorcze):
+    """Powiadomienia dla uczestników paczki. Pełna implementacja w utils/email_manager.py."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    try:
+        EmailManager.notify_shipment_consolidated(zbiorcze)
+        PushManager.notify_shipment_consolidated(zbiorcze)
+    except Exception as e:
+        current_app.logger.error(
+            f'Błąd powiadomienia o konsolidacji {zbiorcze.request_number}: {e}')
+
+
+@orders_bp.route('/admin/orders/shipping-requests/consolidate', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidate_shipping_requests():
+    """Tworzy paczkę zbiorczą albo dopina zlecenia do istniejącej."""
+    from modules.orders.consolidation import (
+        utworz_konsolidacje, dopnij_do_konsolidacji, ConsolidationError)
+
+    data = request.get_json() or {}
+    ids = [int(x) for x in data.get('ids', [])]
+    lead_id = data.get('lead_request_id')
+    target_id = data.get('target_id')
+
+    try:
+        if target_id:
+            target = db.session.get(ShippingRequest, int(target_id))
+            if not target:
+                return jsonify({'error': 'Nie znaleziono paczki zbiorczej'}), 404
+            dopnij_do_konsolidacji(target, [i for i in ids if i != target.id])
+            zbiorcze = target
+        else:
+            if not lead_id:
+                return jsonify({'error': 'Wskaż zlecenie wiodące'}), 400
+            zbiorcze = utworz_konsolidacje(ids, int(lead_id))
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Błąd konsolidacji zleceń {ids}: {e}')
+        return jsonify({'error': 'Nie udało się utworzyć paczki zbiorczej'}), 500
+
+    _powiadom_o_konsolidacji(zbiorcze)
+
     log_activity(
-        user=current_user,
-        action='shipping_requests_merged',
-        entity_type='shipping_request',
-        entity_id=target_request.id,
-        new_value=json.dumps({
-            'target_request_number': target_request.request_number,
-            'merged_request_numbers': merged_numbers,
-            'count': len(merged_numbers) + 1
-        })
+        user=current_user, action='shipping_requests_consolidated',
+        entity_type='shipping_request', entity_id=zbiorcze.id,
+        new_value={
+            'consolidation_number': zbiorcze.request_number,
+            'source_numbers': [s.request_number for s in zbiorcze.consolidated_sources],
+            'lead_request_id': zbiorcze.lead_source_request_id,
+        },
     )
-
     return jsonify({
         'success': True,
-        'message': f'Scalono {len(shipping_requests)} zleceń w {target_request.request_number}'
+        'message': f'Utworzono paczkę zbiorczą {zbiorcze.request_number} '
+                   f'z {len(zbiorcze.consolidated_sources)} zleceń',
+        'consolidation_id': zbiorcze.id,
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>/consolidation/lead',
+                 methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidation_change_lead(shipping_request_id):
+    """Przełącza zlecenie wiodące — zmienia adres i adresata paczki."""
+    from modules.orders.consolidation import zmien_wiodace, ConsolidationError
+
+    target = db.session.get(ShippingRequest, shipping_request_id)
+    if not target:
+        return jsonify({'error': 'Nie znaleziono zlecenia'}), 404
+
+    data = request.get_json() or {}
+    try:
+        zmien_wiodace(target, int(data.get('lead_request_id', 0)))
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+
+    log_activity(
+        user=current_user, action='shipping_request_consolidation_lead_changed',
+        entity_type='shipping_request', entity_id=target.id,
+        new_value={'lead_request_id': target.lead_source_request_id},
+    )
+    return jsonify({
+        'success': True,
+        'message': f'Adresatem paczki {target.request_number} jest teraz {target.shipping_name}',
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>/consolidation/detach',
+                 methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidation_detach(shipping_request_id):
+    """Wypina jedno zlecenie z paczki. Przy jednym uczestniku paczka znika."""
+    from modules.orders.consolidation import wypnij_zlecenie, ConsolidationError
+
+    target = db.session.get(ShippingRequest, shipping_request_id)
+    if not target:
+        return jsonify({'error': 'Nie znaleziono zlecenia'}), 404
+
+    data = request.get_json() or {}
+    numer = target.request_number
+    try:
+        rozwiazana = wypnij_zlecenie(target, int(data.get('source_id', 0)))
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+
+    log_activity(
+        user=current_user, action='shipping_request_consolidation_detached',
+        entity_type='shipping_request',
+        new_value={'consolidation_number': numer, 'source_id': data.get('source_id'),
+                   'dissolved': rozwiazana},
+    )
+    return jsonify({
+        'success': True, 'dissolved': rozwiazana,
+        'message': ('Paczka została rozwiązana — został tylko jeden uczestnik'
+                    if rozwiazana else 'Zlecenie wypięte z paczki'),
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>/consolidation/dissolve',
+                 methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidation_dissolve(shipping_request_id):
+    """Rozmontowuje paczkę zbiorczą — wszystkie zamówienia wracają do swoich zleceń."""
+    from modules.orders.consolidation import rozwiaz_konsolidacje, ConsolidationError
+
+    target = db.session.get(ShippingRequest, shipping_request_id)
+    if not target:
+        return jsonify({'error': 'Nie znaleziono zlecenia'}), 404
+
+    numer = target.request_number
+    try:
+        zrodla = rozwiaz_konsolidacje(target)
+        numery = [s.request_number for s in zrodla]
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+
+    log_activity(
+        user=current_user, action='shipping_request_consolidation_dissolved',
+        entity_type='shipping_request',
+        new_value={'consolidation_number': numer, 'restored_numbers': numery},
+    )
+    return jsonify({
+        'success': True,
+        'message': f'Paczka {numer} rozwiązana — zlecenia wróciły do samodzielnej wysyłki',
     })
 
 
