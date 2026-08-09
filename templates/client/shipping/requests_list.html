@@ -42,7 +42,7 @@
                 <div class="card-row card-row-orders">
                     <span class="row-label">Zamówienia</span>
                     <div class="card-orders-list">
-                        {% for order in req.orders %}
+                        {% for order in req.display_orders %}
                         <div class="card-order-block">
                             <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-badge">
                                 {{ order.order_number }}

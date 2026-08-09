@@ -111,7 +111,9 @@ def _serialize_request(req):
         'total_shipping_cost': to_grosze(req.calculated_shipping_cost),
         'tracking_number': req.tracking_number, 'tracking_url': req.tracking_url,
         'can_cancel': req.can_cancel, 'orders_count': req.orders_count,
-        'orders': [{'id': o.id, 'order_number': o.order_number} for o in req.orders],
+        # display_orders, nie orders — dla zlecenia źródłowego w paczce zbiorczej
+        # request_orders wisi już przy paczce, nie tutaj (parytet z webem).
+        'orders': [{'id': o.id, 'order_number': o.order_number} for o in req.display_orders],
         'created_at': req.created_at.isoformat() if req.created_at else None,
     }
 
@@ -128,9 +130,9 @@ def shipping_available_orders():
 @jwt_required()
 @limiter.limit("60 per minute")
 def shipping_requests_list():
-    from modules.orders.models import ShippingRequest
-    reqs = ShippingRequest.query.filter_by(user_id=int(get_jwt_identity())).order_by(
-        ShippingRequest.created_at.desc()).all()
+    # list_client_requests filtruje paczki zbiorcze (parytet web) — bez tego
+    # klient wiodący widziałby w apce zamówienia obcych osób z paczki.
+    reqs = svc.list_client_requests(int(get_jwt_identity()))
     return json_ok({'requests': [_serialize_request(r) for r in reqs]})
 
 
@@ -201,5 +203,12 @@ def shipping_request_cancel(request_id):
     if not ok:
         if err['code'] == 'not_found':
             return json_err('request_not_found', 'Zlecenie nie istnieje.', 404)
+        if err['code'] == 'consolidated':
+            return json_err(
+                'consolidated',
+                'To zlecenie jedzie w paczce zbiorczej — aby je anulować, '
+                'skontaktuj się z obsługą.',
+                409,
+            )
         return json_err('cannot_cancel', 'Nie można anulować zlecenia w tym statusie.', 409)
     return json_ok({'cancelled': True})

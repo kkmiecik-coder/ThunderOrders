@@ -8,12 +8,11 @@ from flask_login import login_required, current_user
 from extensions import db
 from modules.client import client_bp
 from modules.auth.models import ShippingAddress
-from modules.orders.models import ShippingRequest
 from modules.client.shipping_service import (
     validate_address_payload, create_address,
     set_default_address, soft_delete_address, list_active_addresses,
     get_available_orders, validate_and_create_request, cancel_request,
-    get_shipping_pricing,
+    get_shipping_pricing, list_client_requests,
 )
 
 
@@ -112,10 +111,9 @@ def shipping_requests_list():
     """
     Lista zleceń wysyłki klienta
     """
-    # Get all shipping requests for current user
-    requests = ShippingRequest.query.filter_by(
-        user_id=current_user.id
-    ).order_by(ShippingRequest.created_at.desc()).all()
+    # Zlecenia klienta bez paczek zbiorczych (serwis — parytet z mobile, patrz
+    # list_client_requests: bez filtra klient wiodący widziałby zamówienia obcych osób)
+    requests = list_client_requests(current_user.id)
 
     # Get user's addresses for the modal
     addresses = ShippingAddress.query.filter_by(
@@ -139,26 +137,20 @@ def shipping_requests_list_json():
     Zwraca listę zleceń wysyłki klienta (JSON) - do dynamicznego odświeżania
     """
     try:
-        requests_list = ShippingRequest.query.filter_by(
-            user_id=current_user.id
-        ).order_by(ShippingRequest.created_at.desc()).all()
+        requests_list = list_client_requests(current_user.id)
 
         requests_data = []
         for req in requests_list:
-            # Get orders for this request
-            orders_data = []
-            for ro in req.request_orders[:3]:
-                if ro.order:
-                    orders_data.append({
-                        'id': ro.order.id,
-                        'order_number': ro.order.order_number
-                    })
+            # Zamówienia z punktu widzenia właściciela (display_orders) — dla zlecenia
+            # źródłowego request_orders wisi już przy paczce zbiorczej, nie tutaj.
+            orders_data = [{'id': o.id, 'order_number': o.order_number}
+                           for o in req.display_orders[:3]]
 
             requests_data.append({
                 'id': req.id,
                 'request_number': req.request_number,
                 'orders': orders_data,
-                'orders_count': len(req.request_orders),
+                'orders_count': len(req.display_orders),
                 'address_type': req.address_type,
                 'short_address': req.short_address,
                 'full_address': req.full_address,
@@ -294,6 +286,12 @@ def shipping_requests_cancel(request_id):
         if not ok:
             if err['code'] == 'not_found':
                 return jsonify({'success': False, 'error': 'Zlecenie nie istnieje'}), 404
+            if err['code'] == 'consolidated':
+                return jsonify({
+                    'success': False,
+                    'error': 'To zlecenie jedzie w paczce zbiorczej — aby je anulować, '
+                             'skontaktuj się z obsługą.',
+                }), 400
             return jsonify({
                 'success': False,
                 'error': 'Nie można anulować zlecenia w tym statusie'
