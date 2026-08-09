@@ -274,9 +274,19 @@ def build_shipping_requests_query(status_filter=None, order_type_filter=None, se
         query = query.filter(ShippingRequest.status == status_filter)
 
     if order_type_filter:
+        # Zlecenie źródłowe straciło własne wiersze junction — przeniosły się do
+        # paczki zbiorczej ze śladem source_request_id (patrz consolidation.py).
+        # W widoku źródeł (`consolidation=sources`) filtr typu musi więc czytać
+        # TEN ślad, bo shipping_request_id źródła nigdy nie ma już wierszy —
+        # inaczej żadne źródło nie przeszłoby filtra, mimo że realnie ma
+        # zamówienia danego typu.
+        id_column = (
+            ShippingRequestOrder.source_request_id if consolidation_filter == 'sources'
+            else ShippingRequestOrder.shipping_request_id
+        )
         query = query.filter(
             ShippingRequest.id.in_(
-                db.session.query(ShippingRequestOrder.shipping_request_id)
+                db.session.query(id_column)
                 .join(Order, ShippingRequestOrder.order_id == Order.id)
                 .filter(Order.order_type == order_type_filter)
                 .subquery()

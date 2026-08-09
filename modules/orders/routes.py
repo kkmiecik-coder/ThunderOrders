@@ -4424,6 +4424,25 @@ def admin_export_shipping_requests_inpost():
         return jsonify({'error': 'Nie znaleziono zaznaczonych zleceń'}), 404
 
     csv_text, warnings = build_inpost_csv(shipping_requests)
+
+    # Zlecenia źródłowe odpadły w zapytaniu wyżej po consolidated_into_id — bez
+    # tego admin nie wiedziałby, dlaczego zaznaczył np. 5 pozycji, a plik ma 3
+    # wiersze. Etykieta i tak jedzie z paczką zbiorczą, więc to nie błąd, tylko
+    # informacja.
+    found_ids = {sr.id for sr in shipping_requests}
+    excluded_ids = set(ids) - found_ids
+    if excluded_ids:
+        excluded_sources = ShippingRequest.query.filter(
+            ShippingRequest.id.in_(excluded_ids),
+            ShippingRequest.consolidated_into_id.isnot(None),
+        ).order_by(ShippingRequest.request_number).all()
+        for sr in excluded_sources:
+            paczka = sr.consolidated_into.request_number if sr.consolidated_into else '?'
+            warnings.append(
+                f'{sr.request_number} — jedzie w paczce zbiorczej {paczka}, '
+                f'pominięto (etykieta jest już w pliku dla tej paczki)'
+            )
+
     exported = count_exported_rows(csv_text)
     from modules.orders.models import get_local_now
     filename = f'inpost_{get_local_now().strftime("%Y-%m-%d_%H%M")}.csv'
@@ -4435,7 +4454,9 @@ def admin_export_shipping_requests_inpost():
         new_value=json.dumps({
             'ids': ids,
             'exported': exported,
-            'skipped': len(shipping_requests) - exported,
+            # Liczone od WSZYSTKICH zaznaczonych ID, nie tylko tych, które przeszły
+            # filtr źródeł — inaczej log nie mówi prawdy o realnej liczbie pominiętych.
+            'skipped': len(ids) - exported,
         })
     )
 

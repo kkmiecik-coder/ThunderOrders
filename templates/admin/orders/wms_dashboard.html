@@ -15,10 +15,10 @@
 {# Paginacja zleceń wysyłki — wspólny komponent na górze (przy wyszukiwarce)
    i na dole listy. Wariant compact pomija podpis "Strona X z Y", bo na górze
    miejsca jest mało, a informacja i tak zostaje pod listą. #}
-{% macro sr_page_url(n) %}{{ url_for('orders.wms_dashboard', tab='shipping', page=n, status=sr_status_filter, order_type=order_type_filter, search=sr_search, per_page=sr_per_page) }}{% endmacro %}
+{% macro sr_page_url(n) %}{{ url_for('orders.wms_dashboard', tab='shipping', page=n, status=sr_status_filter, order_type=order_type_filter, search=sr_search, per_page=sr_per_page, consolidation=sr_consolidation_filter) }}{% endmacro %}
 
 {# Zmiana liczby pozycji wraca na stronę 1 — stary numer wskazywałby na co innego. #}
-{% macro sr_per_page_url(value) %}{{ url_for('orders.wms_dashboard', tab='shipping', per_page=value, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}{% endmacro %}
+{% macro sr_per_page_url(value) %}{{ url_for('orders.wms_dashboard', tab='shipping', per_page=value, status=sr_status_filter, order_type=order_type_filter, search=sr_search, consolidation=sr_consolidation_filter) }}{% endmacro %}
 
 {% macro sr_pagination_nav(pagination, compact=false) %}{{ pagination_nav(pagination, sr_page_url, 'Strony zleceń wysyłki', compact, sr_per_page_url, sr_per_page) }}{% endmacro %}
 
@@ -65,21 +65,21 @@
                 <h3>Typ zamówienia</h3>
             </div>
             <div class="sr-status-list sr-type-list">
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter) }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, consolidation=sr_consolidation_filter) }}"
                    class="sr-status-item {% if not order_type_filter %}active{% endif %}">
                     <span class="sr-status-name">Wszystkie</span>
                 </a>
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='on_hand') }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='on_hand', consolidation=sr_consolidation_filter) }}"
                    class="sr-status-item {% if order_type_filter == 'on_hand' %}active{% endif %}">
                     <span class="sr-status-dot" style="background-color: #10b981;"></span>
                     <span class="sr-status-name">On-hand</span>
                 </a>
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='exclusive') }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='exclusive', consolidation=sr_consolidation_filter) }}"
                    class="sr-status-item {% if order_type_filter == 'exclusive' %}active{% endif %}">
                     <span class="sr-status-dot" style="background-color: #f59e0b;"></span>
                     <span class="sr-status-name">Exclusive</span>
                 </a>
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='pre_order') }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='pre_order', consolidation=sr_consolidation_filter) }}"
                    class="sr-status-item {% if order_type_filter == 'pre_order' %}active{% endif %}">
                     <span class="sr-status-dot" style="background-color: #6366f1;"></span>
                     <span class="sr-status-name">Pre-order</span>
@@ -91,12 +91,12 @@
                 <h3>Statusy</h3>
             </div>
             <div class="sr-status-list">
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', order_type=order_type_filter) }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', order_type=order_type_filter, consolidation=sr_consolidation_filter) }}"
                    class="sr-status-item {% if not sr_status_filter %}active{% endif %}">
                     <span class="sr-status-name">Wszystkie</span>
                 </a>
                 {% for status in sr_statuses %}
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=status.slug, order_type=order_type_filter) }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=status.slug, order_type=order_type_filter, consolidation=sr_consolidation_filter) }}"
                    class="sr-status-item {% if sr_status_filter == status.slug %}active{% endif %}">
                     <span class="sr-status-dot" style="background-color: {{ status.badge_color }};"></span>
                     <span class="sr-status-name">{{ status.name }}</span>
@@ -162,6 +162,9 @@
                     {% endif %}
                     {% if order_type_filter %}
                     <input type="hidden" name="order_type" value="{{ order_type_filter }}">
+                    {% endif %}
+                    {% if sr_consolidation_filter %}
+                    <input type="hidden" name="consolidation" value="{{ sr_consolidation_filter }}">
                     {% endif %}
                     <div class="input-icon-wrapper">
                         <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -207,13 +207,16 @@ function selectAllOnPage(shouldSelect) {
     });
 }
 
-/** Filtry z adresu — zaznaczenie ma objąć to, co admin faktycznie widzi. */
+/** Filtry z adresu — zaznaczenie ma objąć to, co admin faktycznie widzi.
+ * Bez consolidation „zaznacz na wszystkich stronach” w widoku „scalone”
+ * cichnie zapytałoby o domyślny widok (bez źródeł) — inny zestaw niż na ekranie. */
 function currentListFilters() {
     const params = new URLSearchParams(window.location.search);
     return new URLSearchParams({
         status: params.get('status') || '',
         order_type: params.get('order_type') || '',
         search: params.get('search') || '',
+        consolidation: params.get('consolidation') || '',
     });
 }
 

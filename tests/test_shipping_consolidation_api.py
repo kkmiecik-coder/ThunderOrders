@@ -199,6 +199,37 @@ def test_filtr_scalone_pokazuje_zrodla(db, client, login, make_user, make_order)
     assert zrodla[0].request_number in tresc
 
 
+def test_filtr_scalone_z_typem_zamowienia_widzi_zrodlo(db, client, login, make_user, make_order):
+    """Źródło traci własne wiersze junction (przeniesione do zbiorczego ze śladem
+    source_request_id) — filtr typu w widoku źródeł musi czytać TEN ślad, inaczej
+    żadne źródło nigdy by go nie przeszło, mimo że realnie ma takie zamówienia."""
+    _seed_sr_statuses(db)
+    from modules.orders.consolidation import utworz_konsolidacje
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)  # zamówienie domyślnego typu on_hand
+
+    order_exclusive = make_order(b, order_type='exclusive')
+    sr_b = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=b.id, status='oplacone', address_type='home',
+    )
+    db.session.add(sr_b)
+    db.session.flush()
+    db.session.add(ShippingRequestOrder(shipping_request_id=sr_b.id, order_id=order_exclusive.id))
+    db.session.commit()
+
+    utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.get('/admin/orders/wms?consolidation=sources&order_type=exclusive')
+    tresc = r.get_data(as_text=True)
+    assert sr_b.request_number in tresc
+    assert sr_a.request_number not in tresc
+
+
 def test_filtered_ids_pomija_zrodla(db, client, login, make_user, make_order):
     _seed_sr_statuses(db)
     zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
@@ -227,3 +258,24 @@ def test_eksport_inpost_nie_dubluje_etykiet(db, client, login, make_user, make_o
     assert csv_text.count(zbiorcze.request_number) <= 1
     for zr in zrodla:
         assert zr.request_number not in csv_text
+
+
+def test_eksport_inpost_ostrzega_o_pominietych_zrodlach(db, client, login, make_user, make_order):
+    """Zaznaczone źródła znikają z zapytania (filtr consolidated_into_id), więc bez
+    jawnego ostrzeżenia admin nie wiedziałby, czemu zaznaczył więcej pozycji, niż
+    ma wierszy w pliku."""
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
+    zbiorcze.parcel_size = 'A'
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/export-inpost',
+                    json={'ids': [zbiorcze.id] + [z.id for z in zrodla]})
+    assert r.status_code == 200
+    dane = r.get_json()
+    assert dane['exported'] == 1
+    ostrzezenia = ' '.join(dane['warnings'])
+    for zr in zrodla:
+        assert zr.request_number in ostrzezenia
+    assert zbiorcze.request_number in ostrzezenia
