@@ -182,3 +182,85 @@ def test_koszt_zrodlowego_liczony_z_jego_zamowien(db, make_user, make_order):
     assert sr_b.calculated_shipping_cost == Decimal('8.00')
     assert zbiorcze.calculated_shipping_cost == Decimal('20.00')
     assert sr_b.orders_count == 1
+
+
+def test_konsolidacja_tworzy_nowy_numer_i_przenosi_zamowienia(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, orders_a = _sr(db, a, make_order, orders_count=2)
+    sr_b, orders_b = _sr(db, b, make_order, orders_count=1)
+
+    from modules.orders.consolidation import utworz_konsolidacje
+    zbiorcze = utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+
+    assert zbiorcze.request_number not in (sr_a.request_number, sr_b.request_number)
+    assert len(zbiorcze.request_orders) == 3
+    assert zbiorcze.user_id == a.id
+    assert zbiorcze.shipping_city == sr_a.shipping_city
+    assert sr_a.consolidated_into_id == zbiorcze.id
+    assert sr_b.consolidated_into_id == zbiorcze.id
+    # Ślad pochodzenia — bez niego wypięcie nie wie, dokąd wrócić.
+    zrodla = {ro.order_id: ro.source_request_id for ro in zbiorcze.request_orders}
+    assert zrodla[orders_b[0].id] == sr_b.id
+    assert zrodla[orders_a[0].id] == sr_a.id
+
+
+def test_status_zbiorczego_to_najmniej_zaawansowany(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order, status='oplacone')
+    sr_b, _ = _sr(db, b, make_order, status='czeka_na_oplacenie')
+
+    from modules.orders.consolidation import utworz_konsolidacje
+    zbiorcze = utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+
+    assert zbiorcze.status == 'czeka_na_oplacenie'
+    # Opłacone zlecenie NIE cofa się — finanse są indywidualne.
+    assert sr_a.status == 'oplacone'
+
+
+def test_odmowa_dla_jednego_zlecenia_i_wyslanych(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)
+    sr_b, _ = _sr(db, b, make_order, status='wyslane')
+
+    from modules.orders.consolidation import utworz_konsolidacje, ConsolidationError
+    with pytest.raises(ConsolidationError):
+        utworz_konsolidacje([sr_a.id], lead_request_id=sr_a.id)
+    with pytest.raises(ConsolidationError):
+        utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+
+
+def test_odmowa_konsolidacji_zagniezdzonej(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b, c = make_user(), make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)
+    sr_b, _ = _sr(db, b, make_order)
+    sr_c, _ = _sr(db, c, make_order)
+
+    from modules.orders.consolidation import utworz_konsolidacje, ConsolidationError
+    utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+
+    with pytest.raises(ConsolidationError):
+        utworz_konsolidacje([sr_a.id, sr_c.id], lead_request_id=sr_c.id)
+
+
+def test_przepiecie_nie_kasuje_wierszy_przez_kaskade(db, make_user, make_order):
+    """Regres: request_orders ma cascade='all, delete-orphan'. Odczytanie kolekcji
+    przed przepięciem i późniejszy delete kasował właśnie przeniesione wiersze."""
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order, orders_count=2)
+    sr_b, _ = _sr(db, b, make_order, orders_count=2)
+
+    from modules.orders.consolidation import utworz_konsolidacje
+    from modules.orders.models import ShippingRequestOrder
+    zbiorcze = utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert ShippingRequestOrder.query.filter_by(shipping_request_id=zbiorcze.id).count() == 4
