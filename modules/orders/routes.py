@@ -3873,6 +3873,11 @@ def admin_update_shipping_request(shipping_request_id):
     if 'order_costs' in data:
         sr.total_shipping_cost = sr.calculated_shipping_cost
 
+    # Zmiana statusu/kuriera/trackingu na paczce zbiorczej zjeżdża na zlecenia
+    # źródłowe — przed commitem, bo helper nie commituje sam.
+    from modules.orders.consolidation import propaguj_na_zrodla
+    propaguj_na_zrodla(sr)
+
     db.session.commit()
 
     # Auto-status: czeka_na_wycene → czeka_na_oplacenie after pricing
@@ -3886,6 +3891,10 @@ def admin_update_shipping_request(shipping_request_id):
             old_status = sr.status
             sr.status = 'czeka_na_oplacenie'
             auto_status_changed = True
+            # Status finansowy, nie logistyczny — propaguj_na_zrodla świadomie NIE
+            # zjedzie z nim w dół (finanse zostają indywidualne), ale wołamy ją tu
+            # konsekwentnie z resztą miejsc zapisu, na wypadek zmiany trackingu/kuriera.
+            propaguj_na_zrodla(sr)
             db.session.commit()
 
     # Sync order statuses based on SR status change
@@ -4168,6 +4177,8 @@ def admin_bulk_status_shipping_requests():
     if not status_obj:
         return jsonify({'error': 'Nieprawidłowy status'}), 400
 
+    from modules.orders.consolidation import propaguj_na_zrodla
+
     updated_count = 0
     changed_requests = []  # (ShippingRequest, old_status) for email notifications
     for sr_id in ids:
@@ -4178,6 +4189,9 @@ def admin_bulk_status_shipping_requests():
                 changed_requests.append((sr, old_status))
             sr.status = new_status
             updated_count += 1
+            # Zmiana zbiorcza może objąć paczkę konsolidacyjną — jej źródła muszą
+            # dostać ten sam stan, zanim padnie wspólny commit poniżej.
+            propaguj_na_zrodla(sr)
 
     db.session.commit()
 

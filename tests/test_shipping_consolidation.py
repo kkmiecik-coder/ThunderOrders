@@ -433,3 +433,89 @@ def test_dopiecie_do_samej_siebie_nie_mutuje_niczego(db, make_user, make_order):
     assert sr_c.consolidated_into_id is None
     assert len(sr_c.request_orders) == 1
     assert len(zbiorcze.request_orders) == 2
+
+
+def test_wyslanie_paczki_propaguje_status_i_tracking(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.status = 'wyslane'
+    zbiorcze.tracking_number = '622334455'
+    zbiorcze.courier = 'inpost'
+
+    from modules.orders.consolidation import propaguj_na_zrodla
+    zmienione = propaguj_na_zrodla(zbiorcze)
+    db.session.commit()
+
+    assert len(zmienione) == 2
+    for sr in (sr_a, sr_b):
+        assert sr.status == 'wyslane'
+        assert sr.tracking_number == '622334455'
+        assert sr.courier == 'inpost'
+
+
+def test_propagacja_nie_cofa_statusu_finansowego(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.status = 'oplacone'
+    sr_b.status = 'czeka_na_oplacenie'
+    zbiorcze.status = 'czeka_na_oplacenie'
+    db.session.commit()
+
+    from modules.orders.consolidation import propaguj_na_zrodla
+    propaguj_na_zrodla(zbiorcze)
+    db.session.commit()
+
+    assert sr_a.status == 'oplacone'
+    assert sr_b.status == 'czeka_na_oplacenie'
+
+
+def test_oplacenie_zrodla_podnosi_status_zbiorczego(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.status = 'czeka_na_oplacenie'
+    sr_b.status = 'czeka_na_oplacenie'
+    zbiorcze.status = 'czeka_na_oplacenie'
+    db.session.commit()
+
+    from modules.orders.consolidation import przelicz_status_zbiorczego
+    sr_a.status = 'oplacone'
+    przelicz_status_zbiorczego(sr_a)
+    db.session.commit()
+    assert zbiorcze.status == 'czeka_na_oplacenie'  # B jeszcze nie zapłacił
+
+    sr_b.status = 'oplacone'
+    przelicz_status_zbiorczego(sr_b)
+    db.session.commit()
+    assert zbiorcze.status == 'oplacone'
+
+
+def test_cofniecie_do_wms_propaguje_w_dol(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.status = 'spakowane'
+    from modules.orders.consolidation import propaguj_na_zrodla
+    propaguj_na_zrodla(zbiorcze)
+    db.session.commit()
+    assert sr_a.status == 'spakowane'
+
+    zbiorcze.status = 'oplacone'
+    propaguj_na_zrodla(zbiorcze)
+    db.session.commit()
+    assert sr_a.status == 'oplacone'
+    assert sr_b.status == 'oplacone'
+
+
+def test_wyslanie_przez_wms_propaguje_na_zrodla(db, make_user, make_order):
+    from tests.test_wms_ship_and_reopen import _seed_statuses
+    _seed_sr_statuses(db)
+    _seed_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.status = 'spakowane'
+    db.session.commit()
+
+    from modules.orders.wms_utils import ship_shipping_request
+    ship_shipping_request(zbiorcze, courier='inpost', tracking_number='622999888')
+    db.session.expire_all()
+
+    assert sr_a.status == 'wyslane'
+    assert sr_b.tracking_number == '622999888'

@@ -59,6 +59,12 @@ def _check_sr_auto_oplacone(order):
 
         old_status = sr.status
         sr.status = 'oplacone'
+        # Uwaga (Task 5): sro.shipping_request po konsolidacji zawsze wskazuje na
+        # paczkę zbiorczą, nigdy na źródłowe — więc to wywołanie na razie nie ma
+        # tu efektu praktycznego. Pełne dopięcie tej ścieżki (znalezienie właściwego
+        # zlecenia źródłowego) robi Task 6; tu tylko wpinamy propagację przed commitem.
+        from modules.orders.consolidation import propaguj_na_zrodla
+        propaguj_na_zrodla(sr)
         db.session.commit()
 
         logger.info(f"SR {sr.request_number} auto-transitioned to 'oplacone' (all E4 approved)")

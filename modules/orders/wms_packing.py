@@ -56,6 +56,10 @@ def update_sr_after_packing(order):
     if all_packed and sr.status != 'spakowane':
         sr.status = 'spakowane'
         sr_status_changed = True
+        # Paczka zbiorcza spakowana — status i tracking zjeżdżają na źródłowe,
+        # żeby ich klienci widzieli, że fizyczna przesyłka jest gotowa.
+        from modules.orders.consolidation import propaguj_na_zrodla
+        propaguj_na_zrodla(sr)
 
     # Auto-add 'spakowane' to allowed shipping statuses (one-time)
     setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()

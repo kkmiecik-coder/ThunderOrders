@@ -313,6 +313,12 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
                 ))
                 new_shipment_order_ids.add(order.id)
 
+    # Paczka zbiorcza wysłana przez WMS: status, tracking i kurier muszą zjechać na
+    # zlecenia źródłowe razem z tym samym commitem — inaczej klient źródłowy zostaje
+    # ze starym statusem, mimo że jego paczka fizycznie już pojechała.
+    from modules.orders.consolidation import propaguj_na_zrodla
+    propaguj_na_zrodla(sr)
+
     # Jeden commit na wszystkie dane — statusy i wpis przesyłki razem albo wcale.
     db.session.commit()
 
@@ -415,6 +421,11 @@ def reopen_orders_for_wms(orders, mode, shipping_requests=()):
                 item.picked_by = None
                 item.wms_status = 'do_zebrania'
 
+    from modules.orders.consolidation import propaguj_na_zrodla
+
     for sr in shipping_requests:
         if sr.status == 'spakowane':
             sr.status = 'oplacone'
+            # Zbiorcza paczka cofnięta do WMS musi ściągnąć źródłowe z powrotem —
+            # inaczej zostają ze statusem 'spakowane', mimo że paczka wróciła do pakowania.
+            propaguj_na_zrodla(sr)

@@ -271,6 +271,62 @@ def rozwiaz_konsolidacje(target):
     return zrodla
 
 
+# Statusy opisujące jedną fizyczną paczkę — te zjeżdżają na zlecenia źródłowe.
+STATUSY_LOGISTYCZNE = ('spakowane', 'wyslane', 'dostarczone')
+
+
+def propaguj_na_zrodla(sr):
+    """Kopiuje stan paczki zbiorczej na jej zlecenia źródłowe.
+
+    Idą tylko statusy logistyczne plus tracking i kurier. Statusy finansowe
+    zostają indywidualne — inaczej zlecenie klienta, który już zapłacił, cofnęłoby
+    się na „czeka na opłacenie" razem z mailem o wpłacie.
+
+    Cofnięcie paczki do WMS też tędy przechodzi: gdy zbiorcze wraca ze „spakowane"
+    na „oplacone", źródłowe muszą zejść razem z nim.
+
+    Uczestnicy przez _uczestnicy_z_bazy (zapytanie po consolidated_into_id), nie
+    przez sr.consolidated_sources — ten sam powód co w innych funkcjach modułu:
+    cache'owany backref nie widzi mutacji surowej kolumny FK w tej samej transakcji.
+
+    Zwraca listę zleceń, którym faktycznie coś się zmieniło.
+    """
+    if not sr.is_consolidation:
+        return []
+
+    zmienione = []
+    for zrodlo in _uczestnicy_z_bazy(sr):
+        zmiana = False
+        if sr.status in STATUSY_LOGISTYCZNE or zrodlo.status in STATUSY_LOGISTYCZNE:
+            if zrodlo.status != sr.status:
+                zrodlo.status = sr.status
+                zmiana = True
+        if zrodlo.tracking_number != sr.tracking_number:
+            zrodlo.tracking_number = sr.tracking_number
+            zmiana = True
+        if zrodlo.courier != sr.courier:
+            zrodlo.courier = sr.courier
+            zmiana = True
+        if zmiana:
+            zmienione.append(zrodlo)
+    return zmienione
+
+
+def przelicz_status_zbiorczego(source):
+    """Podnosi status paczki po zmianie statusu finansowego jednego z uczestników.
+
+    Woła się po stronie zdarzeń płatniczych: paczka jest opłacona dopiero wtedy,
+    gdy zapłacili wszyscy. Paczki po spakowaniu już nie ruszamy — logistyka raz
+    nadana nie cofa się przez zdarzenie finansowe.
+    """
+    if not source.is_consolidated_source:
+        return
+    zbiorcze = source.consolidated_into
+    if not zbiorcze or zbiorcze.status in STATUSY_LOGISTYCZNE:
+        return
+    zbiorcze.status = status_najmniej_zaawansowany(_uczestnicy_z_bazy(zbiorcze))
+
+
 def wypnij_zlecenie(target, source_id):
     """Wypina jedno zlecenie z paczki. Zwraca True, gdy paczka została rozwiązana,
     bo z jednym uczestnikiem przestaje mieć sens.
