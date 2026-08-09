@@ -353,3 +353,83 @@ def test_edycja_zablokowana_po_spakowaniu(db, make_user, make_order):
         wypnij_zlecenie(zbiorcze, sr_b.id)
     with pytest.raises(ConsolidationError):
         rozwiaz_konsolidacje(zbiorcze)
+
+
+def test_dwa_wypiecia_pod_rzad_bez_commitu_nie_korumpuja_stanu(db, make_user, make_order):
+    """Regres z code review: wypnij_zlecenie liczyło pozostałych uczestników przez
+    cache'owaną kolekcję target.consolidated_sources. Drugie wywołanie w tej samej
+    transakcji (bez commit/expire pomiędzy) widziało uczestnika odpiętego przez
+    pierwsze wywołanie jako wciąż należącego do paczki — paczka NIE rozwiązywała się
+    mimo jednego realnego uczestnika, a przy wypinaniu wiodącego zmien_wiodace
+    dostawało jako kandydata na wiodące już niezależne, odpięte zlecenie (sr_b poniżej),
+    co trafiało do bazy po commicie.
+
+    Kolejność wypięć jest tu istotna: najpierw NIE-wiodące (sr_b), potem WIODĄCE
+    (sr_a) — to dokładnie odtwarza scenariusz ze zgłoszenia."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b, sr_c) = _konsolidacja(db, make_user, make_order, ile=3)
+    assert zbiorcze.lead_source_request_id == sr_a.id
+    zbiorcze_id = zbiorcze.id
+
+    from modules.orders.consolidation import wypnij_zlecenie
+    from modules.orders.models import ShippingRequest
+
+    r1 = wypnij_zlecenie(zbiorcze, sr_b.id)  # odpina zlecenie NIE-wiodące
+    r2 = wypnij_zlecenie(zbiorcze, sr_a.id)  # odpina WIODĄCE — zostaje tylko sr_c
+    db.session.commit()
+    db.session.expire_all()
+
+    assert r1 is False
+    assert r2 is True  # pod starym kodem: False — paczka „nie widziała", że zostań 1 uczestnik
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None
+    for sr in (sr_a, sr_b, sr_c):
+        assert sr.consolidated_into_id is None
+        assert len(sr.request_orders) == 1
+
+
+def test_dopiecie_dokleja_zlecenie_ze_sladem_pochodzenia(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_c, orders_c = _sr(db, make_user(), make_order, status='czeka_na_oplacenie')
+
+    from modules.orders.consolidation import dopnij_do_konsolidacji
+    wynik = dopnij_do_konsolidacji(zbiorcze, [sr_c.id])
+    db.session.commit()
+    db.session.expire_all()
+
+    assert wynik.id == zbiorcze.id
+    assert sr_c.consolidated_into_id == zbiorcze.id
+    zrodla = {ro.order_id: ro.source_request_id for ro in zbiorcze.request_orders}
+    assert zrodla[orders_c[0].id] == sr_c.id
+    assert len(sr_c.request_orders) == 0
+    # sr_a, sr_b były 'oplacone' (sort_order wyżej); sr_c 'czeka_na_oplacenie' — to ona
+    # teraz jest najmniej zaawansowanym uczestnikiem paczki.
+    assert zbiorcze.status == 'czeka_na_oplacenie'
+
+
+def test_dopiecie_do_samej_siebie_nie_mutuje_niczego(db, make_user, make_order):
+    """Regres z code review: self-referencja (target we własnej liście request_ids)
+    sprawdzana wewnątrz pętli mutującej zostawiała już przepięte zlecenia stojące na
+    liście PRZED target-em. Walidacja musi być przed jakąkolwiek mutacją — operacja
+    ma zrobić wszystko albo nic.
+
+    sr_c jest tworzone PRZED zbiorcze (niższe id) — zapytanie ShippingRequest.query
+    .filter(id.in_(...)) w SQLite bez ORDER BY zwraca wiersze w kolejności rowid, więc
+    sr_c trafia w pętli PRZED target-em. Pod starym kodem (self-check wewnątrz pętli)
+    to właśnie ta kolejność ujawniała częściową mutację."""
+    _seed_sr_statuses(db)
+    sr_c, orders_c = _sr(db, make_user(), make_order, status='czeka_na_oplacenie')
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    assert sr_c.id < zbiorcze.id
+
+    from modules.orders.consolidation import dopnij_do_konsolidacji, ConsolidationError
+    # sr_c.id PRZED zbiorcze.id na liście — pod starym kodem sr_c zdążyłby się przepiąć,
+    # zanim pętla dotarłaby do zbiorcze i rzuciła wyjątek.
+    with pytest.raises(ConsolidationError):
+        dopnij_do_konsolidacji(zbiorcze, [sr_c.id, zbiorcze.id])
+
+    # Bez commitu/rollbacku — sprawdzamy stan obiektów w pamięci sesji tuż po wyjątku:
+    # gdyby funkcja zmutowała sr_c przed rzuceniem błędu, zobaczylibyśmy to tutaj.
+    assert sr_c.consolidated_into_id is None
+    assert len(sr_c.request_orders) == 1
+    assert len(zbiorcze.request_orders) == 2

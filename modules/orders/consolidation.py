@@ -113,13 +113,19 @@ def utworz_konsolidacje(request_ids, lead_request_id, user=None):
 
     requests = ShippingRequest.query.filter(ShippingRequest.id.in_(request_ids)).all()
     if len(requests) != len(set(request_ids)):
-        raise ConsolidationError('Nie znaleziono części wybranych zleceń.', status_code=404)
+        brakujace = sorted(set(request_ids) - {r.id for r in requests})
+        raise ConsolidationError(
+            f'Nie znaleziono zleceń o id {brakujace} — sprawdź listę do konsolidacji.',
+            status_code=404,
+        )
 
     waliduj_do_konsolidacji(requests)
 
     lead = next((sr for sr in requests if sr.id == lead_request_id), None)
     if lead is None:
-        raise ConsolidationError('Zlecenie wiodące musi być jednym ze scalanych zleceń.')
+        raise ConsolidationError(
+            f'Zlecenie wiodące #{lead_request_id} nie jest jednym ze scalanych zleceń.',
+        )
 
     zbiorcze = ShippingRequest(
         request_number=_nowy_numer(),
@@ -168,12 +174,32 @@ def _sprawdz_edytowalnosc(target):
             f'dokończ ją albo anuluj.', status_code=409)
 
 
+def _uczestnicy_z_bazy(target):
+    """Aktualni uczestnicy paczki — zapytaniem do bazy, NIE przez cache'owaną kolekcję
+    `target.consolidated_sources`.
+
+    Backref `consolidated_sources` (od `consolidated_into`), raz załadowany w danej
+    sesji, nie synchronizuje się z mutacjami surowej kolumny `consolidated_into_id` —
+    a dokładnie tak odpina uczestników `_oddaj_zamowienia`. Efekt: drugie wywołanie
+    funkcji edycyjnej na tym samym obiekcie w tej samej transakcji (bez commit/expire
+    pomiędzy) widziałoby uczestnika odpiętego przez pierwsze wywołanie jako wciąż
+    należącego do paczki — stąd błędne liczenie „pozostałych" i możliwość przełączenia
+    wiodącego na już niezależne zlecenie. Zapytanie po kolumnie FK nie ma tego problemu:
+    autoflush przed SELECT-em widzi każdą wcześniejszą, jeszcze niescommitowaną zmianę.
+    """
+    from modules.orders.models import ShippingRequest
+    return ShippingRequest.query.filter_by(consolidated_into_id=target.id).all()
+
+
 def zmien_wiodace(target, lead_request_id):
     """Przełącza zlecenie wiodące — przepisuje adres, adresata i właściciela paczki."""
     _sprawdz_edytowalnosc(target)
-    lead = next((s for s in target.consolidated_sources if s.id == lead_request_id), None)
+    lead = next((s for s in _uczestnicy_z_bazy(target) if s.id == lead_request_id), None)
     if lead is None:
-        raise ConsolidationError('Wskazane zlecenie nie należy do tej paczki.', status_code=404)
+        raise ConsolidationError(
+            f'Zlecenie #{lead_request_id} nie należy do paczki {target.request_number}.',
+            status_code=404,
+        )
     _kopiuj_adres(target, lead)
     target.lead_source_request_id = lead.id
 
@@ -185,12 +211,23 @@ def dopnij_do_konsolidacji(target, request_ids):
 
     nowe = ShippingRequest.query.filter(ShippingRequest.id.in_(request_ids)).all()
     if not nowe:
-        raise ConsolidationError('Nie znaleziono zleceń do dopięcia.', status_code=404)
+        raise ConsolidationError(
+            f'Nie znaleziono żadnego z podanych zleceń (id {sorted(request_ids)}) '
+            f'do dopięcia do paczki {target.request_number}.',
+            status_code=404,
+        )
+    # Walidacja PRZED jakąkolwiek mutacją. Gdy self-referencja (target we własnej liście
+    # request_ids) była sprawdzana wewnątrz pętli mutującej, zlecenia stojące na liście
+    # PRZED target-em zdążyły się już przepiąć (consolidated_into_id ustawione), zanim
+    # pętla do niego dotarła i rzuciła wyjątek — operacja miała robić wszystko albo nic.
+    if target.id in {sr.id for sr in nowe}:
+        raise ConsolidationError(
+            f'Paczka {target.request_number} nie może zostać dopięta do samej siebie.',
+        )
     waliduj_do_konsolidacji(nowe, target=target)
 
+    uczestnicy_przed = _uczestnicy_z_bazy(target)
     for zrodlo in nowe:
-        if zrodlo.id == target.id:
-            raise ConsolidationError('Nie można dopiąć paczki do samej siebie.')
         for ro in list(zrodlo.request_orders):
             # Re-parenting przez relację, nie przez surową kolumnę: request_orders ma
             # cascade='all, delete-orphan', więc ustawienie samego shipping_request_id
@@ -199,7 +236,7 @@ def dopnij_do_konsolidacji(target, request_ids):
             ro.source_request_id = zrodlo.id
         zrodlo.consolidated_into_id = target.id
 
-    target.status = status_najmniej_zaawansowany(list(target.consolidated_sources) + nowe)
+    target.status = status_najmniej_zaawansowany(uczestnicy_przed + nowe)
     db.session.flush()
     return target
 
@@ -221,7 +258,10 @@ def _oddaj_zamowienia(target, zrodlo):
 def rozwiaz_konsolidacje(target):
     """Rozmontowuje paczkę: zamówienia wracają do źródeł, zlecenie zbiorcze znika."""
     _sprawdz_edytowalnosc(target)
-    zrodla = list(target.consolidated_sources)
+    # Zapytanie do bazy (_uczestnicy_z_bazy), nie target.consolidated_sources — patrz
+    # docstring helpera. Istotne zwłaszcza tu, bo tę funkcję woła też wypnij_zlecenie
+    # w tej samej transakcji, po tym jak inni uczestnicy mogli już zostać odpięci.
+    zrodla = _uczestnicy_z_bazy(target)
     for zrodlo in zrodla:
         _oddaj_zamowienia(target, zrodlo)
     target.lead_source_request_id = None
@@ -233,16 +273,28 @@ def rozwiaz_konsolidacje(target):
 
 def wypnij_zlecenie(target, source_id):
     """Wypina jedno zlecenie z paczki. Zwraca True, gdy paczka została rozwiązana,
-    bo z jednym uczestnikiem przestaje mieć sens."""
+    bo z jednym uczestnikiem przestaje mieć sens.
+
+    Liczbę pozostałych uczestników i samo `zrodlo` czytamy przez _uczestnicy_z_bazy
+    (zapytanie), nie przez target.consolidated_sources (cache'owana kolekcja) — inaczej
+    dwa wywołania tej funkcji na tym samym obiekcie w jednej transakcji, bez commit/expire
+    pomiędzy, drugim razem liczyłyby uczestnika odpiętego w pierwszym wywołaniu jako
+    wciąż należącego do paczki. Skutek byłby podwójny: paczka NIE rozwiązywałaby się mimo
+    jednego realnego uczestnika, a przy wypinaniu wiodącego zmien_wiodace dostawałoby jako
+    kandydata już niezależne, odpięte zlecenie — i to trafiałoby do bazy po commicie.
+    """
     _sprawdz_edytowalnosc(target)
-    zrodlo = next((s for s in target.consolidated_sources if s.id == source_id), None)
+    zrodlo = next((s for s in _uczestnicy_z_bazy(target) if s.id == source_id), None)
     if zrodlo is None:
-        raise ConsolidationError('Wskazane zlecenie nie należy do tej paczki.', status_code=404)
+        raise ConsolidationError(
+            f'Zlecenie #{source_id} nie należy do paczki {target.request_number}.',
+            status_code=404,
+        )
 
     _oddaj_zamowienia(target, zrodlo)
     db.session.flush()
 
-    pozostale = [s for s in target.consolidated_sources if s.id != source_id]
+    pozostale = _uczestnicy_z_bazy(target)
     if len(pozostale) <= 1:
         rozwiaz_konsolidacje(target)
         return True
