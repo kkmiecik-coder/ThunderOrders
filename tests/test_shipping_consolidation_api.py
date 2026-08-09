@@ -176,3 +176,54 @@ def test_detach_odrzuca_nieparsowalny_source_id(db, client, login, make_user, ma
                     json={'source_id': 'abc'})
     assert r.status_code == 400
     assert 'error' in r.get_json()
+
+
+def test_lista_wms_pokazuje_paczke_zamiast_zrodel(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.get('/admin/orders/wms')
+    tresc = r.get_data(as_text=True)
+    assert zbiorcze.request_number in tresc
+    assert zrodla[0].request_number not in tresc
+
+
+def test_filtr_scalone_pokazuje_zrodla(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.get('/admin/orders/wms?consolidation=sources')
+    tresc = r.get_data(as_text=True)
+    assert zrodla[0].request_number in tresc
+
+
+def test_filtered_ids_pomija_zrodla(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.get('/api/orders/shipping-requests/filtered-ids')
+    ids = {int(x['id']) for x in r.get_json()['requests']}
+    assert zbiorcze.id in ids
+    assert zrodla[0].id not in ids
+
+
+def test_eksport_inpost_nie_dubluje_etykiet(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
+    zbiorcze.parcel_size = 'A'
+    for zr in zrodla:
+        zr.parcel_size = 'A'
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/export-inpost',
+                    json={'ids': [zbiorcze.id] + [z.id for z in zrodla]})
+    assert r.status_code == 200
+    csv_text = r.get_json()['csv']
+    # Jedna paczka fizyczna = jeden wiersz, niezależnie od liczby zaznaczonych zleceń.
+    assert csv_text.count(zbiorcze.request_number) <= 1
+    for zr in zrodla:
+        assert zr.request_number not in csv_text

@@ -4414,7 +4414,10 @@ def admin_export_shipping_requests_inpost():
         return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
 
     shipping_requests = ShippingRequest.query.filter(
-        ShippingRequest.id.in_(ids)
+        ShippingRequest.id.in_(ids),
+        # Zlecenie źródłowe ma własny adres i gabaryt, więc trafiłoby do pliku
+        # jako druga przesyłka na tę samą paczkę — realny koszt u kuriera.
+        ShippingRequest.consolidated_into_id.is_(None),
     ).order_by(ShippingRequest.request_number).all()
 
     if not shipping_requests:

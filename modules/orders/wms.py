@@ -242,7 +242,8 @@ def _build_session_data(session):
 # ====================
 
 
-def build_shipping_requests_query(status_filter=None, order_type_filter=None, search=None):
+def build_shipping_requests_query(status_filter=None, order_type_filter=None, search=None,
+                                   consolidation_filter=None):
     """Zlecenia wysyłki po filtrach z listy — wspólne dla widoku i zaznaczania.
 
     Zaznaczanie „na wszystkich stronach" musi objąć dokładnie te zlecenia,
@@ -250,8 +251,24 @@ def build_shipping_requests_query(status_filter=None, order_type_filter=None, se
     """
     from modules.auth.models import User
     from sqlalchemy import or_, func
+    from sqlalchemy.orm import selectinload
 
     query = ShippingRequest.query
+
+    if consolidation_filter == 'sources':
+        # Podgląd zleceń oddanych do paczek zbiorczych — normalnie ukrytych.
+        query = query.filter(ShippingRequest.consolidated_into_id.isnot(None))
+    else:
+        # Domyślnie admin widzi jedną paczkę zamiast N pozycji tej samej przesyłki.
+        query = query.filter(ShippingRequest.consolidated_into_id.is_(None))
+
+    # Karta zbiorcza pokazuje uczestników i ich zamówienia — bez tego mamy N+1
+    # na źródłach/userach (can_cancel, consolidation_participants) i na
+    # zamówieniach (orders_count, calculated_shipping_cost, karta listy).
+    query = query.options(
+        selectinload(ShippingRequest.consolidated_sources).selectinload(ShippingRequest.user),
+        selectinload(ShippingRequest.request_orders).selectinload(ShippingRequestOrder.order),
+    )
 
     if status_filter:
         query = query.filter(ShippingRequest.status == status_filter)
@@ -295,6 +312,7 @@ def shipping_requests_filtered_ids():
         request.args.get('status', ''),
         request.args.get('order_type', ''),
         request.args.get('search', ''),
+        request.args.get('consolidation', ''),
     )
 
     rows = query.with_entities(
@@ -372,17 +390,21 @@ def wms_dashboard():
     sr_status_filter = request.args.get('status', '')
     order_type_filter = request.args.get('order_type', '')
     sr_search = request.args.get('search', '')
+    sr_consolidation_filter = request.args.get('consolidation', '')
     sr_page = request.args.get('page', 1, type=int)
     sr_per_page = resolve_per_page('wms_shipping', default=20)
 
-    sr_query = build_shipping_requests_query(sr_status_filter, order_type_filter, sr_search)
+    sr_query = build_shipping_requests_query(
+        sr_status_filter, order_type_filter, sr_search, sr_consolidation_filter)
     sr_pagination = paginate_with_choice(sr_query, sr_page, sr_per_page)
     shipping_requests = sr_pagination.items
 
     sr_statuses = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).all()
 
-    # SR count for badge
-    sr_total_count = ShippingRequest.query.count()
+    # SR count for badge — bez zleceń źródłowych, żeby liczba na zakładce zgadzała
+    # się z tym, co admin faktycznie widzi na liście domyślnej.
+    sr_total_count = ShippingRequest.query.filter(
+        ShippingRequest.consolidated_into_id.is_(None)).count()
 
     return render_template(
         'admin/orders/wms_dashboard.html',
@@ -405,6 +427,7 @@ def wms_dashboard():
         sr_status_filter=sr_status_filter,
         order_type_filter=order_type_filter,
         sr_search=sr_search,
+        sr_consolidation_filter=sr_consolidation_filter,
         sr_total_count=sr_total_count,
         sr_per_page=sr_per_page,
     )
