@@ -89,3 +89,90 @@ def test_stary_bulk_merge_zniknal(db, client, login, make_user):
     login(_admin(make_user))
     r = client.post('/admin/orders/shipping-requests/bulk-merge', json={'ids': [1, 2]})
     assert r.status_code == 404
+
+
+def test_konsolidacja_dopina_do_istniejacej_paczki(db, client, login, make_user, make_order):
+    """Gałąź target_id — jedyna, której do tej pory nic nie sprawdzało (użyje jej Task 14)."""
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order, ile=2)
+    c = make_user()
+    sr_c, _ = _sr(db, c, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_c.id], 'target_id': zbiorcze.id,
+    })
+    assert r.status_code == 200
+    db.session.expire_all()
+    assert sr_c.consolidated_into_id == zbiorcze.id
+
+
+def test_preview_same_nieparsowalne_ids(db, client, login, make_user):
+    login(_admin(make_user))
+    r = client.get('/admin/orders/shipping-requests/consolidation-preview?ids=abc,def')
+    assert r.status_code == 400
+    assert 'error' in r.get_json()
+
+
+def test_konsolidacja_odrzuca_nieparsowalne_ids(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)
+    sr_b, _ = _sr(db, b, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, 'abc'], 'lead_request_id': sr_a.id,
+    })
+    assert r.status_code == 400
+    assert 'error' in r.get_json()
+
+
+def test_konsolidacja_odrzuca_nieparsowalny_target_id(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)
+    sr_b, _ = _sr(db, b, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, sr_b.id], 'target_id': 'abc',
+    })
+    assert r.status_code == 400
+    assert 'error' in r.get_json()
+
+
+def test_konsolidacja_odrzuca_nieparsowalny_lead_request_id(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)
+    sr_b, _ = _sr(db, b, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, sr_b.id], 'lead_request_id': 'abc',
+    })
+    assert r.status_code == 400
+    assert 'error' in r.get_json()
+
+
+def test_zmiana_wiodacego_odrzuca_nieparsowalny_id(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order, ile=2)
+    login(_admin(make_user))
+
+    r = client.post(f'/admin/orders/shipping-requests/{zbiorcze.id}/consolidation/lead',
+                    json={'lead_request_id': 'abc'})
+    assert r.status_code == 400
+    assert 'error' in r.get_json()
+
+
+def test_detach_odrzuca_nieparsowalny_source_id(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order, ile=2)
+    login(_admin(make_user))
+
+    r = client.post(f'/admin/orders/shipping-requests/{zbiorcze.id}/consolidation/detach',
+                    json={'source_id': 'abc'})
+    assert r.status_code == 400
+    assert 'error' in r.get_json()

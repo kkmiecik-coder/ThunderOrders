@@ -4163,13 +4163,20 @@ def admin_consolidate_shipping_requests():
         utworz_konsolidacje, dopnij_do_konsolidacji, ConsolidationError)
 
     data = request.get_json() or {}
-    ids = [int(x) for x in data.get('ids', [])]
-    lead_id = data.get('lead_request_id')
-    target_id = data.get('target_id')
+    # Payload buduje modal (Task 14) na podstawie zaznaczenia kart — złośliwy albo
+    # uszkodzony JSON nie może dać gołego 500 bez treści (nieobsłużony ValueError
+    # z int()), tylko czytelny komunikat z kodem 400, zgodnie z resztą modułu
+    # (patrz np. export_orders, admin_add_custom_product).
+    try:
+        ids = [int(x) for x in data.get('ids', [])]
+        target_id = int(data['target_id']) if data.get('target_id') else None
+        lead_id = int(data['lead_request_id']) if data.get('lead_request_id') else None
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Nieprawidłowy format identyfikatorów zleceń — oczekiwano liczb całkowitych'}), 400
 
     try:
         if target_id:
-            target = db.session.get(ShippingRequest, int(target_id))
+            target = db.session.get(ShippingRequest, target_id)
             if not target:
                 return jsonify({'error': 'Nie znaleziono paczki zbiorczej'}), 404
             dopnij_do_konsolidacji(target, [i for i in ids if i != target.id])
@@ -4177,7 +4184,7 @@ def admin_consolidate_shipping_requests():
         else:
             if not lead_id:
                 return jsonify({'error': 'Wskaż zlecenie wiodące'}), 400
-            zbiorcze = utworz_konsolidacje(ids, int(lead_id))
+            zbiorcze = utworz_konsolidacje(ids, lead_id)
         db.session.commit()
     except ConsolidationError as e:
         db.session.rollback()
@@ -4220,7 +4227,12 @@ def admin_consolidation_change_lead(shipping_request_id):
 
     data = request.get_json() or {}
     try:
-        zmien_wiodace(target, int(data.get('lead_request_id', 0)))
+        lead_request_id = int(data.get('lead_request_id', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Nieprawidłowy identyfikator zlecenia wiodącego — oczekiwano liczby całkowitej'}), 400
+
+    try:
+        zmien_wiodace(target, lead_request_id)
         db.session.commit()
     except ConsolidationError as e:
         db.session.rollback()
@@ -4252,7 +4264,12 @@ def admin_consolidation_detach(shipping_request_id):
     data = request.get_json() or {}
     numer = target.request_number
     try:
-        rozwiazana = wypnij_zlecenie(target, int(data.get('source_id', 0)))
+        source_id = int(data.get('source_id', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Nieprawidłowy identyfikator zlecenia do wypięcia — oczekiwano liczby całkowitej'}), 400
+
+    try:
+        rozwiazana = wypnij_zlecenie(target, source_id)
         db.session.commit()
     except ConsolidationError as e:
         db.session.rollback()
@@ -4261,7 +4278,7 @@ def admin_consolidation_detach(shipping_request_id):
     log_activity(
         user=current_user, action='shipping_request_consolidation_detached',
         entity_type='shipping_request',
-        new_value={'consolidation_number': numer, 'source_id': data.get('source_id'),
+        new_value={'consolidation_number': numer, 'source_id': source_id,
                    'dissolved': rozwiazana},
     )
     return jsonify({
