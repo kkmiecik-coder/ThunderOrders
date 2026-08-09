@@ -40,7 +40,6 @@
 /* Tab Content */
 .tab-content {
     display: none;
-    padding: 24px;
 }
 
 .tab-content.active {
@@ -49,33 +48,12 @@
 
 .tab-pane {
     background: var(--card-bg);
-    border-radius: 8px;
     padding: 24px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.tab-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.tab-header h2 {
-    font-size: 20px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0;
-}
-
-/* Tab Filters (inline in tab-header) */
-.tab-filters {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
+/* Nagłówki zakładek (.tab-header) usunięte — zakładka nad listą wystarczy
+   za tytuł. Style WMS-a są niezależne (wms-dashboard.css). */
 
 .filter-input,
 .filter-select {
@@ -1075,18 +1053,9 @@
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(240, 147, 251, 0.15);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="dark"] .tab-header {
-    border-bottom-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .tab-header h2 {
-    color: #f0f0f0;
-    text-shadow: 0 0 15px rgba(240, 147, 251, 0.3);
-}
 
 /* Orders Filters */
 [data-theme="dark"] .orders-filters {
@@ -1302,8 +1271,6 @@
 .tab-link,
 .tab-content,
 .tab-pane,
-.tab-header,
-.tab-header h2,
 .orders-filters,
 .filter-input,
 .multi-select-trigger,
@@ -2541,4 +2508,131 @@
     .orders-filters .pagination-wrapper {
         width: 100%;
     }
+}
+
+/* Przycisk dociągający pozostałe pozycje zamówienia (lista pokazuje 3). */
+.items-show-all {
+    margin-top: 6px;
+    padding: 4px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: transparent;
+    color: #6366f1;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.items-show-all:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.items-show-all:disabled {
+    cursor: progress;
+    opacity: 0.7;
+}
+
+[data-theme="dark"] .items-show-all {
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .items-show-all:hover:not(:disabled) {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+/* ====================================================================
+   SZEROKOŚCI KOLUMN — na końcu pliku celowo, żeby nadpisać reguły bazowe
+   niezależnie od ich kolejności wyżej.
+
+   Zasada: każda kolumna zajmuje tyle, ile potrzebuje jej treść, a całą
+   pozostałą szerokość zagarnia „Produkty" — tam nazwy były nie do odczytania.
+   ==================================================================== */
+
+/* Trik na szerokości w table-layout: auto — kolumna z width: 1% i nowrap
+   kurczy się do swojej treści, a kolumna bez ograniczeń (Produkty) zagarnia
+   całą resztę. Samo width: 100% na „Produktach" nie wystarczało, bo pozostałe
+   kolumny i tak wymuszały swoje szerokości. */
+.data-table th:not(.products-col),
+.data-table td:not(.products-cell) {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.data-table .products-cell,
+.data-table th.products-col {
+    width: auto;
+    min-width: 340px;
+    max-width: none;
+    white-space: normal;
+}
+
+/* Wewnątrz „Produktów": nazwa bierze resztę, kolumny kosztów tyle, ile mają
+   treści. minmax(0, …) pozwala nazwie skrócić się wielokropkiem zamiast
+   rozpychać wiersz. */
+.poland-inner-header,
+.poland-inner-row,
+.poland-inner-totals {
+    /* Nazwa dostaje minimum, którym rozpycha kolumnę „Produkty" — bez tego
+       zapada się do zera, bo sąsiednie kolumny tabeli wygrywają walkę
+       o szerokość i nazwy stają się nieczytelne. */
+    /* Nagłówek, wiersze i „Suma" to trzy osobne siatki — przy max-content każda
+       liczyłaby szerokości u siebie i kwoty nie stałyby w jednej linii.
+       Stałe szerokości kolumn kosztów wyrównują je między wierszami. */
+    grid-template-columns: minmax(200px, 1fr) 96px 76px 96px;
+    column-gap: 10px;
+}
+
+.poland-inner-col-name,
+.product-item-info {
+    min-width: 0;
+}
+
+/* Długie nazwy skracamy wielokropkiem zamiast łamać wiersz w pionie. */
+.product-item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---- Dopasowania kolumny „Produkty" i statusu ---- */
+
+/* Status zajmował więcej miejsca, niż potrzebuje — wrapper rozciągał się na
+   całą komórkę. Ogranicza się teraz do szerokości samej pigułki. */
+.data-table td .status-dropdown-wrapper {
+    display: inline-block;
+}
+
+.data-table .status-badge-button {
+    white-space: nowrap;
+}
+
+/* Kwoty Cło/VAT stoją jedna pod drugą: ołówek edycji ma stałe miejsce obok
+   liczby, zamiast przesuwać ją w lewo o swoją szerokość. */
+.poland-inner-row .poland-customs-item-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.poland-customs-item-cell .btn-edit-customs-item {
+    margin-left: 0;
+}
+
+/* Nagłówek i „Suma:" nie mają ołówka, więc bez tego marginesu ich treść
+   wypadała bardziej w prawo niż kwoty w wierszach.
+   24 px = szerokość ołówka (20) + odstęp (4). */
+.poland-inner-header .poland-inner-col:last-child,
+.poland-inner-totals .poland-inner-col:last-child {
+    padding-right: 30px;
+}
+
+/* Kwota w kolumnie „Koszt zakupu" ma własny odstęp od prawej (blok .price-pln),
+   więc nagłówek dostaje taki sam — inaczej stoi o 8 px dalej niż liczby. */
+.poland-inner-header .poland-inner-col:nth-child(2) {
+    padding-right: 14px;
 }

@@ -1642,6 +1642,47 @@ function _bulkMove(targetTab) {
 function bulkMoveToPolska() { _bulkMove('polska'); }
 function bulkMoveToProxy() { _bulkMove('proxy'); }
 
+/**
+ * „Pokaż wszystkie" — dociąga pozostałe pozycje zamówienia.
+ *
+ * Lista renderuje tylko pierwsze trzy pozycje, bo zamówienia po 100+ produktów
+ * rozdymały stronę i mnożyły zapytania do bazy. Resztę serwer zwraca gotowym
+ * fragmentem HTML z tego samego szablonu, więc dociągnięty widok wygląda
+ * identycznie jak wyrenderowany od razu.
+ */
+document.addEventListener('click', function (event) {
+    const przycisk = event.target.closest('[data-show-all-items]');
+    if (!przycisk || przycisk.disabled) return;
+
+    const komorka = przycisk.closest('td');
+    const lista = komorka ? komorka.querySelector('[data-items-list]') : null;
+    if (!lista) return;
+
+    const etykieta = przycisk.textContent;
+    przycisk.disabled = true;
+    przycisk.classList.add('is-loading');
+    przycisk.textContent = 'Wczytywanie...';
+
+    fetch(`/admin/products/stock-orders/items/${przycisk.dataset.kind}/${przycisk.dataset.orderId}`)
+        .then(odp => {
+            if (!odp.ok) throw new Error(`HTTP ${odp.status}`);
+            return odp.text();
+        })
+        .then(html => {
+            lista.innerHTML = html;
+            przycisk.remove();
+        })
+        .catch(err => {
+            console.error('Nie udało się wczytać pozycji:', err);
+            przycisk.disabled = false;
+            przycisk.classList.remove('is-loading');
+            przycisk.textContent = etykieta;
+            if (typeof window.showToast === 'function') {
+                window.showToast('Nie udało się wczytać pozycji zamówienia.', 'error');
+            }
+        });
+});
+
 // Zamykanie rozwijanych list zmiany statusu przy kliknięciu obok.
 // (Listę wielokrotnego wyboru w filtrach obsługuje js/components/server-filters.js.)
 document.addEventListener('click', function(event) {

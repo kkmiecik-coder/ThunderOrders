@@ -50,9 +50,6 @@
         <div class="tab-pane">
             {% if active_tab == 'do_zamowienia' %}
             <!-- DO ZAMÓWIENIA Tab Content -->
-            <div class="tab-header">
-                <h2>Produkty do zamówienia</h2>
-            </div>
 
             {# Filtry serwerowe — lista jest paginowana, więc chowanie wierszy
                w JS filtrowałoby tylko bieżącą stronę. Ten sam układ co
@@ -218,9 +215,6 @@
 
             {% elif active_tab == 'proxy' %}
             <!-- PROXY Tab Content -->
-            <div class="tab-header">
-                <h2>Zamówienia PROXY</h2>
-            </div>
 
             <!-- Filters Section -->
             {{ order_filters('proxy', [('zamowiono', 'Zamówiono'), ('dostarczone_do_proxy', 'Dostarczone do Proxy'), ('anulowane', 'Anulowane')]) }}
@@ -236,7 +230,7 @@
                                         <input type="checkbox" id="selectAllOrders" onchange="toggleSelectAll(this)">
                                     </th>
                                     {{ sort_th('order_number', 'Nr zamowienia') }}
-                                    <th>Produkty</th>
+                                    <th class="products-col">Produkty</th>
                                     {{ sort_th('status', 'Status') }}
                                     {{ sort_th('status_changed', 'Ostatnia zmiana') }}
                                     {{ sort_th('date', 'Data zamowienia') }}
@@ -258,20 +252,21 @@
                                         <input type="checkbox" class="order-checkbox proxy-checkbox" value="{{ order.id }}" onchange="handleCheckboxChange()">
                                     </td>
                                     <td class="font-semibold">{{ order.order_number }}</td>
+                                    {# Renderujemy pierwsze trzy pozycje; resztę dociąga
+                                       „Pokaż wszystkie" (js/pages/admin/stock-orders.js). #}
+                                    {% set podglad = items_preview.get(order.id, {'items': [], 'total': 0}) %}
                                     <td class="products-cell">
-                                        <div class="products-list-compact">
-                                            {% for item in order.items %}
-                                            {% set product = item.product %}
-                                            {% set primary_image = product.primary_image if product else None %}
-                                            <div class="product-item-compact">
-                                                {{ product_thumbnail_compact(product) }}
-                                                <div class="product-item-info">
-                                                    <span class="product-item-name">{{ product.name if product else '-' }}</span>
-                                                    <span class="product-item-qty">({{ item.quantity }} szt)</span>
-                                                </div>
-                                            </div>
-                                            {% endfor %}
+                                        <div class="products-list-compact" data-items-list>
+                                            {% with items = podglad['items'], kind = 'proxy' %}
+                                                {% include "admin/warehouse/macros/_stock_order_items.html" %}
+                                            {% endwith %}
                                         </div>
+                                        {% if podglad['total'] > items_preview_limit %}
+                                        <button type="button" class="items-show-all" data-show-all-items
+                                                data-kind="proxy" data-order-id="{{ order.id }}">
+                                            Pokaż wszystkie ({{ podglad['total'] }})
+                                        </button>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         {{ status_dropdown(order, [('zamowiono', 'Zamówiono'), ('dostarczone_do_proxy', 'Dostarczone do Proxy'), ('anulowane', 'Anulowane')], 'toggleStatusDropdown', 'changeOrderStatus', 'status-dropdown') }}
@@ -320,9 +315,6 @@
 
             {% elif active_tab == 'polska' %}
             <!-- POLSKA Tab Content -->
-            <div class="tab-header">
-                <h2>Zamówienia POLSKA</h2>
-            </div>
 
             <!-- Filters Section -->
             {{ order_filters('polska', [('zamowione', 'Zamówione'), ('dostarczone_gom', 'Dostarczone GOM'), ('anulowane', 'Anulowane')], has_tracking=true) }}
@@ -338,7 +330,7 @@
                                         <input type="checkbox" id="selectAllPolandOrders" onchange="toggleSelectAllPoland(this)">
                                     </th>
                                     {{ sort_th('order_number', 'Nr') }}
-                                    <th>Produkty</th>
+                                    <th class="products-col">Produkty</th>
                                     {{ sort_th('status', 'Status') }}
                                     <th>Kfriday RS</th>
                                     {{ sort_th('amount', 'Koszty') }}
@@ -368,60 +360,30 @@
                                                 <div class="poland-inner-col text-right">Wysyłka</div>
                                                 <div class="poland-inner-col text-right">Cło/VAT</div>
                                             </div>
-                                            {% set ns_totals = namespace(purchase=0, purchase_orig=0, currency=None, customs=0, shipping=0) %}
-                                            {% for item in order.items %}
-                                            {% set product = item.product %}
-                                            {% set price_info = effective_pln_prices.get(product.id, {}) if product else {} %}
-                                            {% set purchase_pln = price_info.get('pln') or 0 %}
-                                            {% set purchase_orig = price_info.get('original') or 0 %}
-                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_pln * item.quantity) %}
-                                            {% if price_info.get('currency') and price_info.currency != 'PLN' %}
-                                                {% set ns_totals.purchase_orig = ns_totals.purchase_orig + (purchase_orig * item.quantity) %}
-                                                {% set ns_totals.currency = price_info.currency %}
-                                            {% endif %}
-                                            {% set ns_totals.customs = ns_totals.customs + (item.customs_vat_amount or 0) %}
-                                            {% set ns_totals.shipping = ns_totals.shipping + (item.shipping_cost or 0) %}
-                                            <div class="poland-inner-row {% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
-                                                <div class="poland-inner-col poland-inner-col-name">
-                                                    <div class="product-item-compact">
-                                                        {{ product_thumbnail_compact(product) }}
-                                                        <div class="product-item-info">
-                                                            <span class="product-item-name">{{ product.name if product else '-' }}</span>
-                                                            <span class="product-item-qty">({{ item.quantity }} szt)</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="poland-inner-col text-right">
-                                                    <div class="price-pln">{{ purchase_pln|format_currency('PLN') }}</div>
-                                                    {% if price_info.get('currency') and price_info.currency != 'PLN' and price_info.get('original') %}
-                                                    <div class="price-krw">{{ price_info.original|format_currency(price_info.currency, 0) }}</div>
-                                                    {% endif %}
-                                                </div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(item.shipping_cost or 0) }} zł</div>
-                                                <div class="poland-inner-col text-right poland-customs-item-cell">
-                                                    <span class="poland-item-customs-amount" data-item-id="{{ item.id }}">{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
-                                                    <button class="btn-edit-customs-item" onclick="openCustomsVatModalForItem({{ order.id }}, {{ item.id }})" title="Edytuj Cło/VAT">
-                                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                                            <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L5.33301 13.3334L1.33301 14.6667L2.66634 10.6667L11.333 2.00004Z"/>
-                                                        </svg>
-                                                    </button>
-                                                </div>
+                                            {% set podglad = items_preview.get(order.id, {'items': [], 'total': 0}) %}
+                                            {% set sumy = poland_totals.get(order.id, {}) %}
+                                            <div class="poland-inner-rows" data-items-list>
+                                                {% with items = podglad['items'], kind = 'poland' %}
+                                                    {% include "admin/warehouse/macros/_stock_order_items.html" %}
+                                                {% endwith %}
                                             </div>
-                                            {% endfor %}
                                             <div class="poland-inner-totals">
                                                 <div class="poland-inner-col text-right">Suma:</div>
                                                 <div class="poland-inner-col text-right">
-                                                    <div class="price-pln">{{ ns_totals.purchase|format_currency('PLN') }}</div>
-                                                    {% if ns_totals.currency and ns_totals.purchase_orig %}
-                                                    <div class="price-krw">{{ ns_totals.purchase_orig|format_currency(ns_totals.currency, 0) }}</div>
+                                                    <div class="price-pln">{{ sumy.purchase|format_currency('PLN') }}</div>
+                                                    {% if sumy.currency and sumy.purchase_orig %}
+                                                    <div class="price-krw">{{ sumy.purchase_orig|format_currency(sumy.currency, 0) }}</div>
                                                     {% endif %}
                                                 </div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.shipping) }} zł</div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.customs) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(sumy.shipping) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(sumy.customs) }} zł</div>
                                             </div>
                                         </div>
-                                        {% if order.items|length > 3 %}
-                                        <span class="poland-products-toggle" onclick="togglePolandProducts(this)">Pokaż więcej ({{ order.items|length - 3 }})</span>
+                                        {% if podglad['total'] > items_preview_limit %}
+                                        <button type="button" class="items-show-all" data-show-all-items
+                                                data-kind="poland" data-order-id="{{ order.id }}">
+                                            Pokaż wszystkie ({{ podglad['total'] }})
+                                        </button>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -494,9 +456,6 @@
 
             {% elif active_tab == 'archiwum' %}
             <!-- ARCHIWUM Tab Content -->
-            <div class="tab-header">
-                <h2>Archiwum zamówień POLSKA</h2>
-            </div>
 
             <!-- Filters Section -->
             {{ order_filters('archiwum', [('zamowione', 'Zamówione'), ('dostarczone_gom', 'Dostarczone GOM'), ('anulowane', 'Anulowane')], has_tracking=true) }}
@@ -512,7 +471,7 @@
                                         <input type="checkbox" id="selectAllArchiwumOrders" onchange="toggleSelectAllArchiwum(this)">
                                     </th>
                                     {{ sort_th('order_number', 'Nr') }}
-                                    <th>Produkty</th>
+                                    <th class="products-col">Produkty</th>
                                     {{ sort_th('status', 'Status') }}
                                     <th>Kfriday RS</th>
                                     {{ sort_th('amount', 'Koszty') }}
@@ -541,55 +500,30 @@
                                                 <div class="poland-inner-col text-right">Wysyłka</div>
                                                 <div class="poland-inner-col text-right">Cło/VAT</div>
                                             </div>
-                                            {% set ns_totals = namespace(purchase=0, purchase_orig=0, currency=None, customs=0, shipping=0) %}
-                                            {% for item in order.items %}
-                                            {% set product = item.product %}
-                                            {% set price_info = effective_pln_prices.get(product.id, {}) if product else {} %}
-                                            {% set purchase_pln = price_info.get('pln') or 0 %}
-                                            {% set purchase_orig = price_info.get('original') or 0 %}
-                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_pln * item.quantity) %}
-                                            {% if price_info.get('currency') and price_info.currency != 'PLN' %}
-                                                {% set ns_totals.purchase_orig = ns_totals.purchase_orig + (purchase_orig * item.quantity) %}
-                                                {% set ns_totals.currency = price_info.currency %}
-                                            {% endif %}
-                                            {% set ns_totals.customs = ns_totals.customs + (item.customs_vat_amount or 0) %}
-                                            {% set ns_totals.shipping = ns_totals.shipping + (item.shipping_cost or 0) %}
-                                            <div class="poland-inner-row {% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
-                                                <div class="poland-inner-col poland-inner-col-name">
-                                                    <div class="product-item-compact">
-                                                        {{ product_thumbnail_compact(product) }}
-                                                        <div class="product-item-info">
-                                                            <span class="product-item-name">{{ product.name if product else '-' }}</span>
-                                                            <span class="product-item-qty">({{ item.quantity }} szt)</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="poland-inner-col text-right">
-                                                    <div class="price-pln">{{ purchase_pln|format_currency('PLN') }}</div>
-                                                    {% if price_info.get('currency') and price_info.currency != 'PLN' and price_info.get('original') %}
-                                                    <div class="price-krw">{{ price_info.original|format_currency(price_info.currency, 0) }}</div>
-                                                    {% endif %}
-                                                </div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(item.shipping_cost or 0) }} zł</div>
-                                                <div class="poland-inner-col text-right">
-                                                    <span>{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
-                                                </div>
+                                            {% set podglad = items_preview.get(order.id, {'items': [], 'total': 0}) %}
+                                            {% set sumy = poland_totals.get(order.id, {}) %}
+                                            <div class="poland-inner-rows" data-items-list>
+                                                {% with items = podglad['items'], kind = 'poland' %}
+                                                    {% include "admin/warehouse/macros/_stock_order_items.html" %}
+                                                {% endwith %}
                                             </div>
-                                            {% endfor %}
                                             <div class="poland-inner-totals">
                                                 <div class="poland-inner-col text-right">Suma:</div>
                                                 <div class="poland-inner-col text-right">
-                                                    <div class="price-pln">{{ ns_totals.purchase|format_currency('PLN') }}</div>
-                                                    {% if ns_totals.currency and ns_totals.purchase_orig %}
-                                                    <div class="price-krw">{{ ns_totals.purchase_orig|format_currency(ns_totals.currency, 0) }}</div>
+                                                    <div class="price-pln">{{ sumy.purchase|format_currency('PLN') }}</div>
+                                                    {% if sumy.currency and sumy.purchase_orig %}
+                                                    <div class="price-krw">{{ sumy.purchase_orig|format_currency(sumy.currency, 0) }}</div>
                                                     {% endif %}
                                                 </div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.shipping) }} zł</div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.customs) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(sumy.shipping) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(sumy.customs) }} zł</div>
                                             </div>
                                         </div>
-                                        {% if order.items|length > 3 %}
-                                        <span class="poland-products-toggle" onclick="togglePolandProducts(this)">Pokaż więcej ({{ order.items|length - 3 }})</span>
+                                        {% if podglad['total'] > items_preview_limit %}
+                                        <button type="button" class="items-show-all" data-show-all-items
+                                                data-kind="poland" data-order-id="{{ order.id }}">
+                                            Pokaż wszystkie ({{ podglad['total'] }})
+                                        </button>
                                         {% endif %}
                                     </td>
                                     <td>

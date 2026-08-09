@@ -2570,6 +2570,131 @@ def _sort_products_to_order(products, filters, price_map):
     return sorted(products, key=klucze[sort_key], reverse=(filters['dir'] == 'desc'))
 
 
+ITEMS_PREVIEW_LIMIT = 3
+
+
+def load_items_preview(item_model, fk_column, order_ids, limit=ITEMS_PREVIEW_LIMIT,
+                       cost_columns=()):
+    """
+    Podgląd pozycji zamówień bez lawiny zapytań.
+
+    Zwraca {order_id: {'items': [obiekty], 'total': int, 'rows': [krotki]}}.
+
+    Dwa zapytania na całą stronę zamiast dwóch na każdą pozycję:
+      1. lekkie — same kolumny (id, order_id, product_id, ilość, koszty) dla
+         WSZYSTKICH pozycji widocznych zamówień; potrzebne do liczników i sum,
+         a waży tyle co nic, bo nie tworzy obiektów ORM;
+      2. pełne — tylko pierwsze `limit` pozycji na zamówienie, z dociągniętym
+         produktem i jego zdjęciami (joinedload), bo bez tego każda pozycja
+         dobierała je osobno.
+
+    Resztę pozycji dociąga na żądanie endpoint stock_order_items.
+    """
+    from sqlalchemy.orm import joinedload
+    from modules.products.models import Product
+
+    puste = {}
+    if not order_ids:
+        return puste
+
+    kolumny = [fk_column, item_model.id, item_model.product_id, item_model.quantity]
+    kolumny += [getattr(item_model, nazwa) for nazwa in cost_columns]
+
+    wiersze = db.session.query(*kolumny).filter(
+        fk_column.in_(order_ids)
+    ).order_by(fk_column, item_model.id).all()
+
+    podglad = {oid: {'items': [], 'total': 0, 'rows': []} for oid in order_ids}
+    do_pobrania = []
+    for wiersz in wiersze:
+        wpis = podglad.setdefault(wiersz[0], {'items': [], 'total': 0, 'rows': []})
+        wpis['total'] += 1
+        wpis['rows'].append(wiersz)
+        if wpis['total'] <= limit:
+            do_pobrania.append(wiersz[1])
+
+    if do_pobrania:
+        pozycje = item_model.query.options(
+            joinedload(item_model.product)
+        ).filter(item_model.id.in_(do_pobrania)).order_by(item_model.id).all()
+        for pozycja in pozycje:
+            podglad[getattr(pozycja, fk_column.key)]['items'].append(pozycja)
+
+    return podglad
+
+
+def _prices_for_preview(preview):
+    """
+    Ceny efektywne dla WSZYSTKICH produktów z widocznych zamówień — także tych
+    spoza podglądu, bo sumy w kolumnie kosztów obejmują całe zamówienie.
+    Produkty pobierane jednym zapytaniem po unikalnych identyfikatorach.
+    """
+    product_ids = {w[2] for dane in preview.values() for w in dane['rows'] if w[2]}
+    if not product_ids:
+        return {}
+    return _effective_pln_from_products(
+        Product.query.filter(Product.id.in_(product_ids)).all())
+
+
+def poland_items_totals(rows, prices):
+    """
+    Sumy wiersza zamówienia do Polski liczone ze WSZYSTKICH pozycji.
+
+    Szablon sumował je w pętli po `order.items`; po ograniczeniu widoku do
+    trzech pozycji taka suma pokazywałaby część kosztów jako całość, więc
+    liczymy ją tutaj — z lekkich krotek, nie z obiektów.
+    """
+    sumy = {'purchase': 0, 'purchase_orig': 0, 'currency': None,
+            'shipping': 0, 'customs': 0}
+
+    for _, _, product_id, quantity, shipping_cost, customs_vat in rows:
+        ceny = prices.get(product_id) or {}
+        pln = ceny.get('pln') or 0
+        sumy['purchase'] += pln * quantity
+        if ceny.get('currency') and ceny['currency'] != 'PLN':
+            sumy['purchase_orig'] += (ceny.get('original') or 0) * quantity
+            sumy['currency'] = ceny['currency']
+        sumy['shipping'] += shipping_cost or 0
+        sumy['customs'] += customs_vat or 0
+
+    return sumy
+
+
+@products_bp.route('/stock-orders/items/<kind>/<int:order_id>', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def stock_order_items(kind, order_id):
+    """
+    Wszystkie pozycje jednego zamówienia — dociągane po kliknięciu
+    „Pokaż wszystkie". Zwraca gotowy fragment HTML z tych samych makr, co lista,
+    żeby widok dociągnięty nie rozjechał się z wyrenderowanym od razu.
+    """
+    from sqlalchemy.orm import joinedload
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem
+
+    if kind not in ('proxy', 'poland'):
+        abort(404)
+
+    if kind == 'proxy':
+        order = db.session.get(ProxyOrder, order_id) or abort(404)
+        items = ProxyOrderItem.query.options(
+            joinedload(ProxyOrderItem.product)
+        ).filter_by(proxy_order_id=order_id).order_by(ProxyOrderItem.id).all()
+    else:
+        order = db.session.get(PolandOrder, order_id) or abort(404)
+        items = PolandOrderItem.query.options(
+            joinedload(PolandOrderItem.product)
+        ).filter_by(poland_order_id=order_id).order_by(PolandOrderItem.id).all()
+
+    prices = _effective_pln_from_products(
+        [it.product for it in items if it.product])
+
+    return render_template(
+        'admin/warehouse/macros/_stock_order_items.html',
+        kind=kind, order=order, items=items, effective_pln_prices=prices,
+    )
+
+
 @products_bp.route('/stock-orders', methods=['GET'])
 @login_required
 @role_required('admin', 'mod')
@@ -2655,13 +2780,32 @@ def stock_orders():
 
     # Build effective PLN price map: product_id -> {'pln': float, 'original': float|None, 'currency': str|None}
     # When product.purchase_price_pln is missing, convert from purchase_price using current system rate.
-    # Dla „Do zamówienia" mapa powstała już przy sortowaniu (obejmuje cały
-    # przefiltrowany zbiór), więc nie liczymy jej drugi raz.
-    effective_pln_prices = to_order_price_map if to_order_price_map is not None else _build_effective_pln_map(
-        products_to_order=products_to_order,
-        proxy_orders=proxy_orders_list,
-        poland_orders=poland_orders_list,
-    )
+    # Podgląd pozycji: renderujemy pierwsze trzy na zamówienie, resztę dociąga
+    # na żądanie endpoint stock_order_items. Dzięki temu strona z zamówieniem
+    # na 100+ pozycji nie buduje tysięcy wierszy ani nie robi zapytania na
+    # każdy produkt z osobna.
+    items_preview = {}
+    poland_totals = {}
+
+    if to_order_price_map is not None:
+        effective_pln_prices = to_order_price_map
+    elif proxy_orders_list:
+        items_preview = load_items_preview(
+            ProxyOrderItem, ProxyOrderItem.proxy_order_id,
+            [o.id for o in proxy_orders_list])
+        effective_pln_prices = _prices_for_preview(items_preview)
+    elif poland_orders_list:
+        items_preview = load_items_preview(
+            PolandOrderItem, PolandOrderItem.poland_order_id,
+            [o.id for o in poland_orders_list],
+            cost_columns=('shipping_cost', 'customs_vat_amount'))
+        effective_pln_prices = _prices_for_preview(items_preview)
+        poland_totals = {
+            oid: poland_items_totals(dane['rows'], effective_pln_prices)
+            for oid, dane in items_preview.items()
+        }
+    else:
+        effective_pln_prices = {}
 
     return render_template(
         'admin/warehouse/stock_orders.html',
@@ -2683,6 +2827,9 @@ def stock_orders():
         per_page=per_page,
         filters=filters,
         payment_filter=payment_filter,
+        items_preview=items_preview,
+        poland_totals=poland_totals,
+        items_preview_limit=ITEMS_PREVIEW_LIMIT,
     )
 
 
@@ -2730,8 +2877,24 @@ def _build_effective_pln_map(products_to_order=None, proxy_orders=None, poland_o
     for it in poland_items:
         _add_product(it.product)
 
-    # Cache exchange rates per currency code (avoid repeated lookups)
     rate_cache = {}
+
+    return _effective_pln_from_products(products_seen.values(), rate_cache=rate_cache)
+
+
+def _effective_pln_from_products(products, rate_cache=None):
+    """
+    Mapa product_id -> {'pln', 'original', 'currency'} dla podanych produktów.
+
+    Wydzielone z _build_effective_pln_map, żeby dało się policzyć ceny dla
+    produktów pobranych po ID (podgląd pozycji), bez chodzenia po order.items —
+    ten dostęp był źródłem lawiny zapytań przy dużych zamówieniach.
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+    from utils.currency import get_exchange_rate
+
+    if rate_cache is None:
+        rate_cache = {}
 
     def _rate_for(currency):
         if currency in rate_cache:
@@ -2746,7 +2909,7 @@ def _build_effective_pln_map(products_to_order=None, proxy_orders=None, poland_o
 
     cents = Decimal('0.01')
     result = {}
-    for product in products_seen.values():
+    for product in products:
         original = product.purchase_price  # Decimal or None
         currency = product.purchase_currency or 'PLN'
 
