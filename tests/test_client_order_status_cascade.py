@@ -11,6 +11,10 @@ from datetime import datetime
 from decimal import Decimal
 
 import pytest
+@pytest.fixture(autouse=True)
+def _strona_sprzedazy(strona_sprzedazy):
+    """Zamówienia w tym pliku powstają z `offer_page_id=1`, a to kolumna FK — strona
+    o tym id musi realnie istnieć (fixture `strona_sprzedazy` w conftest)."""
 
 
 def _make_poland_batch(db, product_id, qty, status='dostarczone_gom',

@@ -14,10 +14,25 @@ def _auth(client, db, make_user):
     return {'Authorization': f'Bearer {token}'}, u
 
 
+def _autor_strony(db):
+    """Autor strony sprzedaży. `offer_pages.created_by` to FK NOT NULL do `users` —
+    strona bez istniejącego autora to stan, którego produkcja nie ma (zakłada ją
+    zalogowany admin). Helper nie może zakładać, że test wołał wcześniej `_auth`."""
+    from modules.auth.models import User
+    autor = User.query.filter_by(email='autor-oferty@example.com').first()
+    if autor is None:
+        autor = User(email='autor-oferty@example.com', role='admin',
+                     is_active=True, email_verified=True)
+        db.session.add(autor)
+        db.session.commit()
+    return autor
+
+
 def _preorder_page(db, status='active', payment_stages=3):
     from modules.offers.models import OfferPage
     p = OfferPage(name=f'PO {status}', token=OfferPage.generate_token(), status=status,
-                  page_type='preorder', payment_stages=payment_stages, created_by=1)
+                  page_type='preorder', payment_stages=payment_stages,
+                  created_by=_autor_strony(db).id)
     db.session.add(p); db.session.commit()
     return p
 
@@ -25,7 +40,8 @@ def _preorder_page(db, status='active', payment_stages=3):
 def _exclusive_page(db, status='active'):
     from modules.offers.models import OfferPage
     p = OfferPage(name=f'EX {status}', token=OfferPage.generate_token(), status=status,
-                  page_type='exclusive', payment_stages=4, created_by=1)
+                  page_type='exclusive', payment_stages=4,
+                  created_by=_autor_strony(db).id)
     db.session.add(p); db.session.commit()
     return p
 

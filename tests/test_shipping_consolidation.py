@@ -3,7 +3,13 @@ import pytest
 
 
 def _seed_sr_statuses(db):
-    """Statusy zleceń wysyłki w kolejności łańcucha — sort_order decyduje o „najmniej zaawansowanym"."""
+    """Statusy zleceń wysyłki w kolejności łańcucha — sort_order decyduje o „najmniej
+    zaawansowanym".
+
+    Produkcyjny komplet sieje już conftest (na produkcji robi to migracja), więc
+    funkcja jedynie dopilnowuje, że nic nie brakuje — powtórny INSERT tych samych
+    slugów łamałby unikalność `slug`.
+    """
     from modules.orders.models import ShippingRequestStatus
     for i, (slug, name) in enumerate([
         ('czeka_na_wycene', 'Czeka na wycenę'),
@@ -13,6 +19,8 @@ def _seed_sr_statuses(db):
         ('wyslane', 'Wysłane'),
         ('dostarczone', 'Dostarczone'),
     ]):
+        if ShippingRequestStatus.query.filter_by(slug=slug).first():
+            continue
         db.session.add(ShippingRequestStatus(
             slug=slug, name=name, sort_order=i,
             is_active=True, is_initial=(slug == 'czeka_na_wycene'),
@@ -925,11 +933,9 @@ def test_zamowienie_do_zwrotu_wypina_sie_z_paczki(db, make_user, make_order):
 def test_admin_ustawiajac_do_zwrotu_tez_wypina_z_paczki(db, client, login, make_user, make_order):
     """Ta sama luka po stronie ręcznej zmiany statusu w panelu — inaczej admin
     wpisujący 'do zwrotu' jednemu klientowi zamraża paczkę pozostałym."""
-    from modules.orders.models import OrderStatus
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
-    db.session.add(OrderStatus(slug='do_zwrotu', name='Do zwrotu', is_active=True))
-    db.session.commit()
+    # Status 'do_zwrotu' jest w produkcyjnym słowniku sianym przez conftest.
 
     zamowienie = sr_b.display_orders[0]
     login(make_user(role='admin', email='admin-zwrot@example.com', profile_completed=True))

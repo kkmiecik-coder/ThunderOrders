@@ -3,6 +3,11 @@ from modules.admin.routes import get_shipping_alert_counts
 
 
 def _seed_status(db, slug, name):
+    """Słowniki statusów sieje już conftest (tak jak migracja na produkcji) — tu
+    zostaje tylko dosianie slugów spoza produkcyjnego kompletu."""
+    s = ShippingRequestStatus.query.filter_by(slug=slug).first()
+    if s:
+        return s
     s = ShippingRequestStatus(slug=slug, name=name, is_active=True)
     db.session.add(s)
     return s
