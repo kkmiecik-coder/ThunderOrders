@@ -1685,6 +1685,31 @@ class ShippingRequest(db.Model):
             return self.shipping_address or '-'
 
     @property
+    def addressee_name(self):
+        """Pełne imię i nazwisko adresata — do widoków admina, magazynu i etykiet.
+
+        `shipping_name` wypełnia się WYŁĄCZNIE przy dostawie na adres domowy. Przy
+        paczkomacie adres siedzi w polach `pickup_*`, a rubryka z nazwiskiem zostaje
+        pusta — w tym sklepie to zdecydowana większość zleceń. Adresatem jest wtedy po
+        prostu właściciel zlecenia, więc pytamy najpierw adres, potem konto.
+
+        Konto bywa usunięte (`user_id` jest nullable) albo bez wypełnionego profilu —
+        wtedy None, żeby wołający pokazał swój zastępnik zamiast „None”. Świadomie NIE
+        sięgamy po `User.full_name`: ono degraduje do adresu e-mail, a e-mail w miejscu
+        nazwiska adresata wygląda jak błąd danych.
+        """
+        z_adresu = (self.shipping_name or '').strip()
+        if z_adresu:
+            return z_adresu
+        if not self.user:
+            return None
+        z_konta = ' '.join(czesc for czesc in (
+            (self.user.first_name or '').strip(),
+            (self.user.last_name or '').strip(),
+        ) if czesc)
+        return z_konta or None
+
+    @property
     def short_addressee_name(self):
         """Imię i pierwsza litera nazwiska adresata, np. „Karolina B.”.
 
@@ -1692,15 +1717,30 @@ class ShippingRequest(db.Model):
         (sekcja „Panel klienta”) wymaga, żeby wiedzieli dokąd jedzie ich paczka, ale bez
         ujawniania pełnego nazwiska obcej osoby. Property na modelu, nie sklejanie w
         Jinja, bo ta sama skrócona forma trafi też do maili o scaleniu/wysyłce.
+
+        Źródło nazwy jak w `addressee_name` (adres → konto): przy paczkomacie
+        `shipping_name` jest puste, więc wcześniej cała funkcja mówiła uczestnikowi, że
+        paczka jedzie „do innej osoby”, nie mówiąc do której — czyli nie mówiła nic.
         """
-        name = (self.shipping_name or '').strip()
-        if not name:
+        z_adresu = (self.shipping_name or '').strip()
+        if z_adresu:
+            # Jedno pole tekstowe: nie odróżnimy imienia od nazwiska, więc bierzemy
+            # pierwszy i ostatni człon — pojedynczy człon zostaje bez zmian.
+            czlony = z_adresu.split()
+            if len(czlony) == 1:
+                return czlony[0]
+            return f"{czlony[0]} {czlony[-1][0].upper()}."
+
+        if not self.user:
             return None
-        parts = name.split()
-        if len(parts) == 1:
-            return parts[0]
-        first, last = parts[0], parts[-1]
-        return f"{first} {last[0].upper()}." if last else first
+        imie = (self.user.first_name or '').strip()
+        nazwisko = (self.user.last_name or '').strip()
+        # Bez imienia nie ma formy „Imię N.”, a samo nazwisko obcej osoby ujawnia
+        # więcej, niż pozwala kontrakt — oddajemy None, żeby wołający użył swojego
+        # zastępnika („osoby odbierającej paczkę”).
+        if not imie:
+            return None
+        return f"{imie} {nazwisko[0].upper()}." if nazwisko else imie
 
     @property
     def full_address(self):

@@ -4395,9 +4395,14 @@ def admin_consolidation_change_lead(shipping_request_id):
         entity_type='shipping_request', entity_id=target.id,
         new_value={'lead_request_id': target.lead_source_request_id},
     )
+    # addressee_name, nie shipping_name — przy paczkomacie to drugie jest puste
+    # i komunikat brzmiał „jest teraz None”.
+    adresat = target.addressee_name
     return jsonify({
         'success': True,
-        'message': f'Adresatem paczki {target.request_number} jest teraz {target.shipping_name}',
+        'message': (f'Adresatem paczki {target.request_number} jest teraz {adresat}'
+                    if adresat else
+                    f'Zmieniono zlecenie wiodące paczki {target.request_number}'),
     })
 
 

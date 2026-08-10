@@ -142,10 +142,9 @@ def test_powiadomienie_o_scaleniu_idzie_do_wszystkich(db, przechwycone, monkeypa
                         lambda **kw: maile.append(kw) or None)
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
-    # Pełny adres z nazwiskiem pod kontrolą testu — inaczej `_sr()` buduje go z
-    # first_name/last_name usera, które fixture make_user zostawia puste (None None),
-    # a wtedy asercja „pełne nazwisko nie wyciekło” byłaby pusta (sprawdzałaby brak
-    # napisu 'None', nie realny wyciek).
+    # Nazwisko w rubryce adresowej pod kontrolą testu — chodzi o asercję „pełne
+    # nazwisko nie wyciekło", więc musi to być nazwisko inne niż to z konta
+    # uczestnika, żeby dało się je jednoznacznie wypatrzeć w treści maila.
     zbiorcze.shipping_name = 'Karolina Testowska'
     db.session.commit()
 
@@ -244,3 +243,37 @@ def test_zdjecie_paczki_uprzedza_o_wspolnym_kartonie(db, zdjecia, make_user, mak
     assert zbiorcze.short_addressee_name in mail_b['consolidation_note']
     # Pełne nazwisko adresata nie może wyciec do obcej osoby.
     assert zbiorcze.shipping_name not in mail_b['consolidation_note']
+
+
+def test_maile_nazywaja_adresata_takze_przy_paczkomacie(db, przechwycone, monkeypatch,
+                                                        make_user, make_order):
+    """Przy paczkomacie `shipping_name` jest puste, więc oba maile (o scaleniu i o
+    wysyłce) wpadały w zastępnik „osoby odbierającej paczkę" — uczestnik czytał, że
+    paczka jedzie do kogoś innego, ale nie dowiadywał się, u kogo ją odebrać."""
+    import utils.email_sender as es
+    maile_scalenie = []
+    monkeypatch.setattr(es, 'prepare_shipment_consolidated_email',
+                        lambda **kw: maile_scalenie.append(kw) or None)
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.address_type = 'pickup_point'
+    zbiorcze.shipping_name = None
+    zbiorcze.pickup_courier = 'InPost'
+    zbiorcze.pickup_point_id = 'KRA01M'
+    db.session.commit()
+
+    from utils.email_manager import EmailManager
+    EmailManager.notify_shipment_consolidated(zbiorcze)
+    EmailManager.notify_shipment_sent(zbiorcze, tracking_number='622333444', courier='inpost')
+
+    skrot = f'{sr_a.user.first_name} {sr_a.user.last_name[0]}.'
+    assert zbiorcze.short_addressee_name == skrot
+
+    mail_scalenie_b = {m['user_email']: m for m in maile_scalenie}[sr_b.user.email]
+    assert mail_scalenie_b['recipient_name'] == skrot
+    assert 'osoby odbierającej paczkę' not in mail_scalenie_b['recipient_name']
+
+    mail_wysylka_b = {m['user_email']: m for m in przechwycone['email']}[sr_b.user.email]
+    assert skrot in mail_wysylka_b['consolidation_note']
+    # Pełne nazwisko obcej osoby nadal nie wychodzi z serwera.
+    assert sr_a.user.last_name not in mail_wysylka_b['consolidation_note']

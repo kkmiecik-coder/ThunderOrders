@@ -34,7 +34,10 @@ def _sr(db, user, make_order, status='oplacone', orders_count=1):
     sr = ShippingRequest(
         request_number=ShippingRequest.generate_request_number(),
         user_id=user.id, status=status, address_type='home',
-        shipping_name=f'{user.first_name} {user.last_name}',
+        # Nazwa adresata tylko wtedy, gdy klient ją ma. Wcześniej fixture wpisywała
+        # dosłowne „None None" dla bezimiennych użytkowników i maskowała pustą
+        # rubrykę adresata — czyli dokładnie to, co testy adresata mają sprawdzać.
+        shipping_name=' '.join(p for p in (user.first_name, user.last_name) if p) or None,
         shipping_address='ul. Kwiatowa 12', shipping_postal_code='30-001',
         shipping_city='Kraków',
     )
@@ -274,11 +277,22 @@ def test_przepiecie_nie_kasuje_wierszy_przez_kaskade(db, make_user, make_order):
     assert ShippingRequestOrder.query.filter_by(shipping_request_id=zbiorcze.id).count() == 4
 
 
+# Uczestnicy paczki zbiorczej mają nazwiska, bo połowa funkcji (notatka w panelu,
+# maile, nagłówek pakowania) mówi WŁAŚNIE o adresacie — na bezimiennych kontach
+# asercje o adresacie przechodziły, nic realnie nie sprawdzając.
+_UCZESTNICY = [
+    ('Anna', 'Kowalska'), ('Piotr', 'Zielinski'), ('Iga', 'Bednarek'),
+    ('Marek', 'Sowa'), ('Ewa', 'Lis'),
+]
+
+
 def _konsolidacja(db, make_user, make_order, ile=2, orders_count=1):
     from modules.orders.consolidation import utworz_konsolidacje
     zrodla = []
-    for _ in range(ile):
-        sr, _o = _sr(db, make_user(), make_order, orders_count=orders_count)
+    for i in range(ile):
+        imie, nazwisko = _UCZESTNICY[i % len(_UCZESTNICY)]
+        sr, _o = _sr(db, make_user(first_name=imie, last_name=nazwisko), make_order,
+                     orders_count=orders_count)
         zrodla.append(sr)
     zbiorcze = utworz_konsolidacje([s.id for s in zrodla], lead_request_id=zrodla[0].id)
     db.session.commit()
@@ -559,7 +573,10 @@ def test_oplacenie_przez_jednego_uczestnika_podnosi_tylko_jego_zlecenie(db, make
 def test_short_addressee_name_przypadki_brzegowe(db, make_user, make_order):
     """`short_addressee_name` skraca adresata do 'Imię P.' — uczestnicy paczki zbiorczej
     niebędący adresatem mają tego użyć zamiast pełnego shipping_name (spec: panel klienta).
-    Sprawdza też przypadki brzegowe: brak nazwiska, brak imienia i nazwiska, pusty ciąg."""
+    Sprawdza też przypadki brzegowe: brak nazwiska, wieloczłonowe imię, pusty ciąg.
+
+    Klient BEZ imienia i nazwiska na koncie, żeby sprawdzać wyłącznie gałąź adresową —
+    fallback na konto ma własny test niżej."""
     _seed_sr_statuses(db)
     sr, _o = _sr(db, make_user(), make_order)
 
@@ -576,12 +593,100 @@ def test_short_addressee_name_przypadki_brzegowe(db, make_user, make_order):
     sr.shipping_name = 'Karolina'
     assert sr.short_addressee_name == 'Karolina'
 
-    # Brak adresata w ogóle (np. zlecenie typu paczkomat bez wypełnionego shipping_name).
+    # Brak adresata w ogóle i konto bez danych — nie ma z czego zbudować formy.
     sr.shipping_name = None
     assert sr.short_addressee_name is None
 
     sr.shipping_name = '   '
     assert sr.short_addressee_name is None
+
+
+def test_adresat_przy_paczkomacie_idzie_z_konta_klienta(db, make_user, make_order):
+    """Sedno funkcji dla dominującego scenariusza tego sklepu: przy dostawie do
+    paczkomatu adres siedzi w polach `pickup_*`, a `shipping_name` zostaje puste
+    (46 z 48 zleceń na sandboxie). Bez sięgnięcia po właściciela zlecenia panel
+    klienta i maile mówiły „paczka jedzie do innej osoby", nie mówiąc do której."""
+    _seed_sr_statuses(db)
+    user = make_user(first_name='Karolina', last_name='Burza')
+    sr, _o = _sr(db, user, make_order)
+    sr.address_type = 'pickup_point'
+    sr.shipping_name = None
+    sr.pickup_courier = 'InPost'
+    sr.pickup_point_id = 'KRA01M'
+    db.session.commit()
+
+    assert sr.short_addressee_name == 'Karolina B.'
+    assert sr.addressee_name == 'Karolina Burza'
+
+
+def test_adres_wygrywa_z_kontem_gdy_paczka_idzie_do_kogos_innego(db, make_user, make_order):
+    """Adres bywa wystawiony na kogoś innego niż właściciel konta (rodzic, partner) —
+    to on odbiera paczkę, więc rubryka adresowa ma pierwszeństwo przed profilem."""
+    _seed_sr_statuses(db)
+    sr, _o = _sr(db, make_user(first_name='Karolina', last_name='Burza'), make_order)
+    sr.shipping_name = 'Zuzanna Kopysc'
+    db.session.commit()
+
+    assert sr.addressee_name == 'Zuzanna Kopysc'
+    assert sr.short_addressee_name == 'Zuzanna K.'
+
+
+def test_adresat_z_konta_przypadki_brzegowe(db, make_user, make_order):
+    """Konto bywa niekompletne albo usunięte (`user_id` jest nullable). Kontrakt:
+    forma skrócona albo sensowna, albo None — nigdy „None", nigdy e-mail i nigdy
+    samo nazwisko obcej osoby."""
+    _seed_sr_statuses(db)
+    user = make_user(first_name='Karolina', last_name=None)
+    sr, _o = _sr(db, user, make_order)
+    sr.shipping_name = None
+    db.session.commit()
+
+    # Samo imię — nie ma czego skracać.
+    assert sr.short_addressee_name == 'Karolina'
+    assert sr.addressee_name == 'Karolina'
+
+    # Samo nazwisko: nie ma formy „Imię N.", a gołe nazwisko ujawniałoby uczestnikowi
+    # więcej, niż pozwala kontrakt — wołający ma użyć swojego zastępnika.
+    user.first_name = None
+    user.last_name = 'Burza'
+    db.session.commit()
+    assert sr.short_addressee_name is None
+    assert sr.addressee_name == 'Burza'  # admin i etykieta widzą, co jest
+
+    # Konto bez danych — pod żadnym pozorem nie podstawiamy e-maila (User.full_name
+    # degraduje właśnie do niego).
+    user.last_name = None
+    db.session.commit()
+    assert sr.short_addressee_name is None
+    assert sr.addressee_name is None
+
+    # Konto usunięte — zlecenie zostaje w historii bez właściciela.
+    sr.user_id = None
+    db.session.commit()
+    db.session.expire_all()
+    assert sr.short_addressee_name is None
+    assert sr.addressee_name is None
+
+
+def test_paczka_zbiorcza_dziedziczy_adresata_po_wiodacym(db, make_user, make_order):
+    """Paczka zbiorcza kopiuje adres ORAZ `user_id` wiodącego, więc przy paczkomacie
+    (pusty `shipping_name`) adresat wciąż daje się nazwać — to jego widzą uczestnicy
+    w panelu, w mailu i magazynier w panelu pakowania."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.address_type = 'pickup_point'
+    sr_a.shipping_name = None
+    sr_a.pickup_courier = 'InPost'
+    sr_a.pickup_point_id = 'KRA01M'
+    db.session.commit()
+
+    from modules.orders.consolidation import zmien_wiodace
+    zmien_wiodace(zbiorcze, sr_a.id)
+    db.session.commit()
+
+    assert zbiorcze.shipping_name is None
+    assert zbiorcze.short_addressee_name == f'{sr_a.user.first_name} {sr_a.user.last_name[0]}.'
+    assert zbiorcze.addressee_name == f'{sr_a.user.first_name} {sr_a.user.last_name}'
 
 
 def test_anulowane_zamowienie_wypina_sie_z_paczki(db, make_user, make_order):

@@ -592,7 +592,10 @@ def global_search():
 
                 ship_results.append({
                     'title': sr.request_number,
-                    'subtitle': sr.shipping_name or '',
+                    # addressee_name, nie shipping_name — przy paczkomacie rubryka
+                    # z nazwiskiem jest pusta i wynik wyszukiwarki nie mówił, czyje
+                    # to zlecenie.
+                    'subtitle': sr.addressee_name or '',
                     'url': url
                 })
             results['shipping_requests'] = ship_results

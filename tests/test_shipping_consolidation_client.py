@@ -225,3 +225,27 @@ def test_klient_wiodacy_nie_anuluje_paczki_zbiorczej_mobile(db, client, make_use
 
     from modules.orders.models import ShippingRequest
     assert db.session.get(ShippingRequest, zbiorcze.id) is not None
+
+
+def test_uczestnik_widzi_adresata_takze_przy_paczkomacie(db, client, login, make_user, make_order):
+    """96% zleceń w tym sklepie to paczkomaty, a tam `shipping_name` jest puste —
+    notatka „Paczka jedzie na adres" znikała z karty (warunek w szablonie wymaga
+    adresata), więc uczestnik nie wiedział, u kogo odebrać swoje rzeczy."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.address_type = 'pickup_point'
+    sr_a.shipping_name = None
+    sr_a.pickup_courier = 'InPost'
+    sr_a.pickup_point_id = 'KRA01M'
+    from modules.orders.consolidation import zmien_wiodace
+    zmien_wiodace(zbiorcze, sr_a.id)
+    sr_b.user.profile_completed = True
+    db.session.commit()
+    login(sr_b.user)
+
+    tresc = client.get('/client/shipping/requests').get_data(as_text=True)
+
+    imie, nazwisko = sr_a.user.first_name, sr_a.user.last_name
+    assert f'Paczka jedzie na adres: {imie} {nazwisko[0]}.' in tresc
+    # Skrót, nie pełne dane osobowe obcej osoby.
+    assert nazwisko not in tresc
