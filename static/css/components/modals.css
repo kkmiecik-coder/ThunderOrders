@@ -4497,6 +4497,25 @@
 
 .sr-settings-grid .form-group { margin-bottom: 0; min-width: 0; }
 
+/* Zdanie „co blokuje paczkę zbiorczą" nad podziałem kosztu — ostrzeżenie, nie akcent
+   marki, stąd bursztyn zamiast fioletu. Ta sama treść co na karcie WMS, ale własne
+   style: modal żyje też w detail.html, bez CSS listy zleceń. */
+.sr-split-note {
+    margin: 16px 0 0;
+    padding: 8px 11px;
+    border-radius: 8px;
+    background: #fff8ec;
+    border: 1px solid #f7e2bf;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: #8a5a12;
+}
+
+.sr-split-note + .sr-split {
+    margin-top: 12px;
+    padding-top: 12px;
+}
+
 .sr-split {
     margin-top: 16px;
     padding-top: 14px;
@@ -4644,6 +4663,12 @@
 
 [data-theme="dark"] .sr-split { border-top-color: rgba(240, 147, 251, 0.15); }
 
+[data-theme="dark"] .sr-split-note {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #fbbf5a;
+}
+
 /* Mobile: lista jako przewijalny pasek żetonów nad szczegółami */
 @media (max-width: 768px) {
     /* Kolumna zamiast siatki: w gridzie wiersz listy dostawal wysokosc
@@ -4687,6 +4712,7 @@
     .sr-fact-orders { gap: 2px 14px; }
     .sr-settings-grid { gap: 12px; }
     .sr-split { margin-top: 12px; padding-top: 12px; }
+    .sr-split-note { margin-top: 12px; font-size: 12px; }
 
     .sr-bulk-bar { padding: 10px 16px; }
     /* W kolumnie flex-basis z desktopu stawal sie WYSOKOSCIA, a align-items:

@@ -991,3 +991,100 @@ def test_get_zlecenia_mowi_czy_to_paczka_zbiorcza(db, client, login, make_user, 
     dane_zrodla = client.get(f'/admin/orders/shipping-requests/{zrodlo.id}').get_json()
     assert dane_zrodla['is_consolidation'] is False
     assert dane_zrodla['is_consolidated_source'] is True
+
+
+# ---------- Stan rozliczeń uczestników na karcie i w modalu ----------
+
+def test_karta_pokazuje_status_kazdego_uczestnika(db, client, login, make_user, make_order):
+    """Pigułka na nagłówku karty niesie status NAJMNIEJ zaawansowany ze scalanych, więc
+    przy mieszanych rozliczeniach mówiła „Czeka na wycenę" nad zleceniem, które było
+    już opłacone. Nagłówek grupy uczestnika dokłada status JEGO zlecenia."""
+    from test_shipping_consolidation import _ustaw_statusy
+    from modules.orders.models import ShippingRequestStatus
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-group-status' in tresc
+    # Kropka bierze kolor ZLECENIA UCZESTNIKA — zielony opłaconego musi być na karcie
+    # obok bursztynu paczki, inaczej renderowalibyśmy status zbiorczego dwa razy.
+    kolory = {s.slug: s.badge_color for s in ShippingRequestStatus.query.all()}
+    assert f'background-color: {kolory["oplacone"]};' in tresc
+    assert f'background-color: {kolory["czeka_na_wycene"]};' in tresc
+
+
+def test_karta_mowi_co_blokuje_paczke(db, client, login, make_user, make_order):
+    from test_shipping_consolidation import _ustaw_statusy
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_oplacenie'})
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-block-note' in tresc
+    assert f'Czeka na opłacenie: {sr_b.short_addressee_name}' in tresc
+
+
+def test_karta_paczki_rozliczonej_bez_zdania(db, client, login, make_user, make_order):
+    """Wszyscy uczestnicy opłaceni — nie ma czego tłumaczyć, zdanie znika."""
+    _seed_sr_statuses(db)
+    _konsolidacja(db, make_user, make_order)   # oba źródła 'oplacone'
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-group-status' in tresc          # statusy uczestników zostają…
+    assert 'sr-block-note' not in tresc        # …ale bez ostrzeżenia bez treści
+
+
+def test_zwykle_zlecenie_renderuje_sie_bez_zmian(db, client, login, make_user, make_order):
+    """Karta zlecenia jednego klienta nie dostaje ani statusów uczestników, ani zdania
+    o blokadzie — cała gałąź jest pod `sr.is_consolidation`."""
+    _seed_sr_statuses(db)
+    _sr(db, make_user(first_name='Anna', last_name='Kowalska'), make_order,
+        status='czeka_na_wycene')
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-order-group' not in tresc
+    assert 'sr-group-status' not in tresc
+    assert 'sr-block-note' not in tresc
+
+
+def test_get_zlecenia_oddaje_powod_blokady_dla_modalu(db, client, login, make_user, make_order):
+    """Modal wyceny renderuje płaską listę numerów zamówień, bez podziału na ludzi —
+    bez tego pola admin nie wie, czyje pole kosztu zostawia puste."""
+    from test_shipping_consolidation import _ustaw_statusy
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+    login(_admin(make_user))
+
+    dane = client.get(f'/admin/orders/shipping-requests/{zbiorcze.id}').get_json()
+    assert dane['consolidation_block_note'] == f'Czeka na wycenę: {sr_b.short_addressee_name}'
+
+    # Zwykłe zlecenie: pole obecne, ale puste — modal nie musi zgadywać, czy je pominąć.
+    sr_c, _o = _sr(db, make_user(), make_order, status='czeka_na_wycene')
+    zwykle = client.get(f'/admin/orders/shipping-requests/{sr_c.id}').get_json()
+    assert zwykle['consolidation_block_note'] is None
+
+
+def test_zdanie_nie_chowa_sie_razem_z_zamowieniami(db, client, login, make_user, make_order):
+    """Pułapka karty: limit „3 widoczne" liczy się łącznie przez wszystkie grupy, a
+    `toggleExtraOrders` chowa WSZYSTKO z klasą `sr-order-extra` wewnątrz
+    `.sr-orders-compact`. Zdanie o blokadzie dotyczy całej paczki, więc nie może tej
+    klasy dostać ani wylądować wewnątrz grupy uczestnika."""
+    import re
+    from test_shipping_consolidation import _ustaw_statusy
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=3)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'Pokaż więcej (3)' in tresc          # 6 zamówień, 3 widoczne
+    zdanie = re.search(r'<div class="sr-block-note">', tresc)
+    assert zdanie, 'zdanie renderuje się z gołą klasą, bez sr-order-extra'
+    # …i za przyciskiem rozwijania, czyli poza grupami uczestników.
+    assert tresc.index('Pokaż więcej (3)') < zdanie.start()

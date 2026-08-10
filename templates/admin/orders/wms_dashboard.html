@@ -309,6 +309,15 @@
                                         <span class="sr-order-group-name text-muted">Brak klienta</span>
                                         {% endif %}
                                         <span class="sr-order-count">· {{ uczestnik.source_request.request_number }}</span>
+                                        {# Status ZLECENIA UCZESTNIKA, nie paczki: pigułka na nagłówku karty pokazuje
+                                           najmniej zaawansowany ze scalanych, więc bez tego admin nie wiedział, kto
+                                           już zapłacił, a na kogo jeszcze czekamy. Barwę statusu niesie kropka —
+                                           „Czeka na wycenę" ma #F59E0B, który jako tekst na białym tle jest
+                                           nieczytelny (kontrast ~2:1), a etykieta ma zostać czytelna w obu motywach. #}
+                                        <span class="sr-group-status">
+                                            <span class="sr-group-status-dot" style="background-color: {{ uczestnik.source_request.status_badge_color }};"></span>
+                                            {{ uczestnik.source_request.status_display_name }}
+                                        </span>
                                         {% if uczestnik.source_request.id == sr.lead_source_request_id %}
                                         <span class="sr-lead-mark">adresat</span>
                                         {% endif %}
@@ -340,6 +349,16 @@
                                    w pełni ukryta grupa to jeden element-wrapper reprezentujący kilka zamówień naraz,
                                    więc liczenie elementów w JS po zwinięciu zaniżałoby licznik. #}
                                 <button type="button" class="sr-orders-toggle" data-expanded="false" data-hidden-count="{{ ns.i - 3 }}" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ ns.i - 3 }})</button>
+                                {% endif %}
+                                {% if sr.consolidation_block_note %}
+                                {# Poza grupami i poza mechaniką „3 widoczne": to zdanie odpowiada na pytanie
+                                   o CAŁĄ paczkę („dlaczego jeszcze nie jedzie"), więc nie może chować się razem
+                                   z zamówieniami ani dostać klasy sr-order-extra. Znika samo, gdy wszyscy
+                                   uczestnicy są rozliczeni — patrz ShippingRequest.consolidation_block_note. #}
+                                <div class="sr-block-note">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                    <span>{{ sr.consolidation_block_note }}</span>
+                                </div>
                                 {% endif %}
                                 {% else %}
                                 {% for order in sr.orders %}

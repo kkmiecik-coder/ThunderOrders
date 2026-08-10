@@ -1090,3 +1090,95 @@ def test_admin_ustawiajac_do_zwrotu_tez_wypina_z_paczki(db, client, login, make_
     assert zamowienie.status == 'do_zwrotu'
     assert zamowienie.id not in {o.id for o in zbiorcze.display_orders}
     assert len(zbiorcze.request_orders) == 3
+
+
+# ---------- Stan rozliczeń uczestników: „co blokuje paczkę" ----------
+#
+# Paczka zbiorcza dostaje status NAJMNIEJ zaawansowany ze scalanych zleceń. Realny
+# przypadek z produkcji (WYS/000050): jedna klientka opłacona, druga czeka na wycenę —
+# karta pokazywała samo „CZEKA NA WYCENĘ" i admin nie wiedział ani kto już zapłacił,
+# ani na kogo się czeka. Musiał wchodzić w modal i porównywać kwoty przy zamówieniach.
+
+def _ustaw_statusy(db, zbiorcze, statusy):
+    """Rozdaje statusy uczestnikom (mapa zlecenie źródłowe → slug) i przelicza status
+    paczki tą samą drogą co zdarzenia płatnicze, zamiast wpisywać go z palca."""
+    from modules.orders.consolidation import przelicz_status_zbiorczego
+    for zrodlo, status in statusy.items():
+        zrodlo.status = status
+    db.session.commit()
+    przelicz_status_zbiorczego(next(iter(statusy)))
+    db.session.commit()
+    db.session.expire_all()
+
+
+def test_zdanie_wskazuje_uczestnika_bez_wyceny(db, make_user, make_order):
+    """Sedno luki: paczka stoi na „czeka na wycenę" przez JEDNĄ osobę, a karta nie
+    mówiła którą. Uczestnik już opłacony nie może się w tym zdaniu pojawić."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+
+    assert zbiorcze.status == 'czeka_na_wycene'
+    assert zbiorcze.consolidation_block_note == f'Czeka na wycenę: {sr_b.short_addressee_name}'
+    assert sr_a.short_addressee_name not in zbiorcze.consolidation_block_note
+
+
+def test_zdanie_wskazuje_uczestnika_bez_oplaty(db, make_user, make_order):
+    """Etap dalej: wycena jest, brakuje pieniędzy jednego uczestnika."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_oplacenie'})
+
+    assert zbiorcze.status == 'czeka_na_oplacenie'
+    assert zbiorcze.consolidation_block_note == f'Czeka na opłacenie: {sr_b.short_addressee_name}'
+
+
+def test_zdanie_znika_gdy_wszyscy_rozliczeni(db, make_user, make_order):
+    """Paczka opłacona (i każdy status dalej) niczego nie tłumaczy — nie ma blokady,
+    więc nie ma zdania. Inaczej karta straszyłaby ostrzeżeniem bez treści."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)   # oba 'oplacone'
+
+    assert zbiorcze.status == 'oplacone'
+    assert zbiorcze.consolidation_block_note is None
+
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'wyslane', sr_b: 'wyslane'})
+    assert zbiorcze.consolidation_block_note is None
+
+
+def test_zdanie_wymienia_wszystkich_blokujacych_po_przecinku(db, make_user, make_order):
+    """Kilka osób na tym samym etapie = jedno zdanie, nie trzy. Kolejność jak
+    w `consolidation_participants` (wiodące pierwsze), żeby nie skakała między
+    odświeżeniami karty."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b, sr_c) = _konsolidacja(db, make_user, make_order, ile=3)
+    _ustaw_statusy(db, zbiorcze, {
+        sr_a: 'czeka_na_wycene', sr_b: 'oplacone', sr_c: 'czeka_na_wycene'})
+
+    assert zbiorcze.consolidation_block_note == (
+        f'Czeka na wycenę: {sr_a.short_addressee_name}, {sr_c.short_addressee_name}')
+
+
+def test_zdanie_bez_imienia_uczestnika_podaje_numer_zlecenia(db, make_user, make_order):
+    """Konto bywa usunięte albo bez imienia — `short_addressee_name` oddaje wtedy None.
+    Numer zlecenia jest gorszą, ale wciąż działającą wskazówką; „None" na karcie
+    i ciche pominięcie uczestnika są oba nie do przyjęcia."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_b.shipping_name = None
+    sr_b.user_id = None
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+
+    assert sr_b.short_addressee_name is None
+    assert zbiorcze.consolidation_block_note == f'Czeka na wycenę: {sr_b.request_number}'
+
+
+def test_zwykle_zlecenie_nie_ma_zdania(db, make_user, make_order):
+    """Zlecenie bez konsolidacji ma jednego właściciela — nie ma „innych uczestników",
+    na których można czekać, więc karta ma wyglądać dokładnie jak przed zmianą."""
+    _seed_sr_statuses(db)
+    sr, _o = _sr(db, make_user(first_name='Anna', last_name='Kowalska'), make_order,
+                 status='czeka_na_wycene')
+
+    assert sr.is_consolidation is False
+    assert sr.consolidation_block_note is None

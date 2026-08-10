@@ -388,6 +388,19 @@
             </div>
         `).join('') : '';
 
+        // To samo zdanie, które karta WMS pokazuje pod grupami uczestników — serwer
+        // liczy je raz (ShippingRequest.consolidation_block_note). Wiersze podziału
+        // kosztu są tu płaską listą numerów zamówień, bez podziału na ludzi, więc bez
+        // tego admin nie widzi, CZYJE pole zostawia puste. Pusty string, gdy paczka
+        // jest rozliczona albo to zwykłe zlecenie — wtedy nie ma o czym informować.
+        // Własna klasa (nie .sr-block-note z karty): modal wisi też w detail.html,
+        // które nie ładuje shipping-requests-list.css, a style modali żyją w modals.css.
+        // <div>, nie <p>: `[data-theme="dark"] .modal-body p` ma wyższą specyficzność
+        // niż `[data-theme="dark"] .sr-split-note` i zjadało kolor ostrzeżenia.
+        const blockNote = sr.consolidation_block_note
+            ? `<div class="sr-split-note">${escapeHtml(sr.consolidation_block_note)}</div>`
+            : '';
+
         const prefLabels = { karton: 'Karton', koperta: 'Koperta' };
         const courierOptions = Object.entries(COURIER_LABELS).map(([value, label]) =>
             `<option value="${value}"${edits.courier === value ? ' selected' : ''}>${label}</option>`
@@ -461,6 +474,7 @@
                         <input type="text" id="srTracking" class="form-control" placeholder="Numer przesyłki" value="">
                     </div>
                 </div>
+                ${blockNote}
                 ${manyOrders ? `
                 <div class="sr-split">
                     <span class="sr-split-title">Podział kosztu na zamówienia</span>

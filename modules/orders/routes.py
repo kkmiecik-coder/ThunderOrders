@@ -3813,6 +3813,11 @@ def admin_get_shipping_request(shipping_request_id):
         # właścicieli), na zwykłym zleceniu kasuje zlecenie.
         'is_consolidation': sr.is_consolidation,
         'is_consolidated_source': sr.is_consolidated_source,
+        # To samo zdanie co na karcie WMS („Czeka na wycenę: Jagoda R."). Admin
+        # wypełniający kwoty w modalu widzi listę zamówień bez podziału na ludzi —
+        # bez tego nie wie, czyje pola zostawia puste. None na zwykłym zleceniu
+        # i na paczce, w której wszyscy są już rozliczeni.
+        'consolidation_block_note': sr.consolidation_block_note,
         'payment_deadline': sr.payment_deadline.isoformat() if sr.payment_deadline else None,
         'created_at': sr.created_at.isoformat() if sr.created_at else None
     })
