@@ -333,3 +333,22 @@ def generate_slug(text):
     slug = slug.strip('_')                # Remove leading/trailing underscores
 
     return slug
+
+
+# ====================
+# DIAGNOSTYKA BŁĘDÓW
+# ====================
+
+def zaloguj_blad_z_identyfikatorem(kontekst):
+    """Loguje traceback z krótkim identyfikatorem i zwraca ten identyfikator.
+
+    Ten sam ciąg trafia do loga i do komunikatu dla użytkownika, więc zgłoszenie
+    „nie zapisało się" da się skorelować z konkretnym wpisem w logu zamiast zgadywać
+    po godzinie. Samego tracebacka nigdy nie wypuszczamy do przeglądarki.
+    """
+    import uuid
+    from flask import current_app
+
+    blad_id = uuid.uuid4().hex[:8]
+    current_app.logger.exception(f'[{blad_id}] {kontekst}')
+    return blad_id

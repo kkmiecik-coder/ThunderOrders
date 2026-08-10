@@ -884,3 +884,95 @@ def test_zapis_wyceny_zerowanie_wczesniejszej_kwoty(db, client, login, make_user
     assert r.status_code == 200, r.get_data(as_text=True)
     db.session.expire_all()
     assert db.session.get(Order, order_a.id).shipping_cost == Decimal('0.00')
+
+
+def test_zapis_odmawia_zamowienia_spoza_zlecenia_i_mowi_dlaczego(db, client, login, make_user, make_order):
+    """Komunikat ma nazwać zlecenie, zamówienie i powód — nie samo „Błąd zapisu"."""
+    zbiorcze, _order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    obce = make_order(make_user())
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': obce.id, 'shipping_cost': 10}],
+    })
+
+    assert r.status_code == 400
+    blad = r.get_json()['error']
+    assert blad == (f'Nie zapisano zlecenia {zbiorcze.request_number} — '
+                    f'zamówienie {obce.order_number}: nie należy do tego zlecenia wysyłki')
+
+
+def test_zapis_odmawia_kwoty_ktora_nie_jest_liczba(db, client, login, make_user, make_order):
+    """Wcześniej `shipping_cost > 0` na tekście wywalało TypeError → gołe 500."""
+    zbiorcze, order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': order_a.id, 'shipping_cost': 'dwadzieścia'}],
+    })
+
+    assert r.status_code == 400
+    blad = r.get_json()['error']
+    assert zbiorcze.request_number in blad
+    assert order_a.order_number in blad
+    assert 'nie jest liczbą' in blad
+
+
+def test_zapis_odmawia_kwoty_ujemnej(db, client, login, make_user, make_order):
+    from decimal import Decimal
+    from modules.orders.models import Order
+    zbiorcze, order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': order_a.id, 'shipping_cost': -5}],
+    })
+
+    assert r.status_code == 400
+    assert 'ujemna' in r.get_json()['error']
+    db.session.expire_all()
+    assert db.session.get(Order, order_a.id).shipping_cost == Decimal('21.49')   # bez zmian
+
+
+def test_zapis_odmawia_nieczytelnego_terminu_platnosci(db, client, login, make_user, make_order):
+    zbiorcze, _order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}',
+                   json={'payment_deadline': 'jutro'})
+
+    assert r.status_code == 400
+    blad = r.get_json()['error']
+    assert zbiorcze.request_number in blad
+    assert 'termin płatności' in blad
+
+
+def test_nieoczekiwany_blad_zapisu_daje_identyfikator_do_logu(
+        db, client, login, make_user, make_order, monkeypatch, caplog):
+    """Awaria nieprzewidziana ma dać komunikat z numerem zlecenia i identyfikatorem
+    błędu — tym samym, który poszedł do logu obok tracebacka. Bez tego zgłoszenie
+    „nie zapisało się" trzeba było szukać w logach po godzinie."""
+    import re
+    zbiorcze, order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    def wybuchnij(_sr):
+        raise RuntimeError('symulacja awarii bazy')
+
+    monkeypatch.setattr('modules.orders.consolidation.propaguj_na_zrodla', wybuchnij)
+
+    with caplog.at_level('ERROR'):
+        r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+            'order_costs': [{'order_id': order_a.id, 'shipping_cost': 12}],
+        })
+
+    assert r.status_code == 500
+    blad = r.get_json()['error']
+    assert zbiorcze.request_number in blad
+    assert 'Identyfikator błędu' in blad
+    assert 'Traceback' not in blad and 'RuntimeError' not in blad   # bez wnętrzności serwera
+
+    identyfikator = re.search(r'Identyfikator błędu: (\w+)', blad).group(1)
+    assert identyfikator in caplog.text          # ten sam ciąg w logu…
+    assert 'symulacja awarii bazy' in caplog.text  # …obok tracebacka

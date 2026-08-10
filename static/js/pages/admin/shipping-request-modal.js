@@ -84,6 +84,7 @@
         return (sr && sr.request_number) || `#${id}`;
     }
 
+
     function totalCost(id) {
         const edits = state.edits.get(id);
         if (!edits) return 0;
@@ -128,13 +129,19 @@
         detail.innerHTML = '<div class="sr-modal-loading">Ładowanie danych…</div>';
         modal.classList.add('active');
 
+        // Powody nieudanego pobrania — bez nich admin widział „Nie udało się pobrać
+        // danych zlecenia" i nie wiedział, czy to brak uprawnień, 404 czy padnięty serwer.
+        const loadErrors = [];
         const [materials, responses] = await Promise.all([
             fetchMaterials(),
             Promise.all(requested.map(id =>
                 fetch(`/admin/orders/shipping-requests/${id}`)
-                    .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+                    .then(r => (r.ok
+                        ? r.json()
+                        : Promise.reject(new Error(`serwer odpowiedział HTTP ${r.status}`))))
                     .catch(error => {
                         console.error('Nie udało się pobrać zlecenia', id, error);
+                        loadErrors.push(`zlecenie #${id}: ${error.message || 'brak połączenia z serwerem'}`);
                         return null;   // zlecenie odpada, reszta modala działa dalej
                     })
             )),
@@ -154,12 +161,14 @@
         });
 
         if (!loaded.length) {
-            notify('Nie udało się pobrać danych zlecenia', 'error');
+            notify(escapeHtml(`Nie udało się pobrać danych zlecenia — ${loadErrors.join('; ')}`), 'error');
             closeModal();
             return;
         }
         if (loaded.length < requested.length) {
-            notify(`Nie udało się pobrać ${requested.length - loaded.length} z ${requested.length} zleceń`, 'error');
+            notify(escapeHtml(
+                `Nie udało się pobrać ${requested.length - loaded.length} z ${requested.length} `
+                + `zleceń — ${loadErrors.join('; ')}`), 'error');
         }
 
         state.ids = loaded;
@@ -723,7 +732,11 @@
         saveBtn.textContent = 'Zapisywanie…';
 
         const failed = [];
-        const failMessages = [];   // tylko tryb 'ship' — konkretny powód odmowy z serwera
+        // Konkretne powody odmowy prosto z serwera — w OBU trybach. Wcześniej tryb
+        // wyceny gubił treść odpowiedzi i pokazywał samo „Nie zapisano: WYS/000050",
+        // więc admin nie wiedział, co jest nie tak (przy 500 nie wiedział nawet, że
+        // to błąd serwera, a nie jego pomyłka).
+        const failMessages = [];
         state.saveResults.clear();
         for (const id of state.ids) {
             const ship = state.mode === 'ship';
@@ -744,23 +757,26 @@
                 });
                 if (!resp.ok) {
                     failed.push(id);
-                    if (ship) {
-                        // Odpowiedź błędu może nie być JSON-em (np. 500 z serwera) — stąd try/catch i fallback.
-                        let reason = '';
-                        try {
-                            const data = await resp.json();
-                            reason = data && data.message;
-                        } catch (parseError) {
-                            reason = '';
-                        }
-                        failMessages.push(`${requestNumber(id)}: ${reason || `Błąd zapisu (HTTP ${resp.status})`}`);
+                    // Odpowiedź błędu może nie być JSON-em (np. 502 z proxy) — stąd try/catch
+                    // i fallback. Klucz zależy od endpointu: PUT zlecenia oddaje `error`,
+                    // /ship oddaje `message`.
+                    let reason = '';
+                    try {
+                        const data = await resp.json();
+                        reason = data && (data.error || data.message);
+                    } catch (parseError) {
+                        reason = '';
                     }
+                    // Komunikaty backendu zawierają już numer zlecenia, więc nie doklejamy
+                    // go drugi raz — prefiks jest tylko w zastępczym komunikacie.
+                    failMessages.push(reason
+                        || `${requestNumber(id)}: nie zapisano, serwer odpowiedział HTTP ${resp.status}`);
                 }
                 state.saveResults.set(id, resp.ok ? 'saved' : 'save-failed');
             } catch (error) {
                 console.error('Błąd zapisu zlecenia', id, error);
                 failed.push(id);
-                if (ship) failMessages.push(`${requestNumber(id)}: Błąd połączenia z serwerem`);
+                failMessages.push(`${requestNumber(id)}: brak połączenia z serwerem — zapis nie doszedł`);
                 state.saveResults.set(id, 'save-failed');
             }
         }
@@ -777,7 +793,7 @@
             return;
         }
         renderList();   // pozycje dostają klasy saved / save-failed
-        if (state.mode === 'ship' && failMessages.length) {
+        if (failMessages.length) {
             // Kilka nieudanych zleceń pokazujemy jako czytelną listę, nie sklejone w jedną kaszę.
             notify(failMessages.map(escapeHtml).join('<br>'), 'error');
         } else {
@@ -796,22 +812,32 @@
         );
         if (!confirmed) return;
 
+        const czynnosc = `Nie anulowano zlecenia ${sr.request_number}`;
         try {
             const resp = await fetch(`/admin/orders/shipping-requests/${sr.id}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
             });
-            const data = await resp.json();
-            if (data.success) {
+            // Odpowiedź błędu nie musi być JSON-em (np. 502 z proxy) — stąd fallback
+            // na status HTTP zamiast wysypania się na parsowaniu.
+            let data = null;
+            try {
+                data = await resp.json();
+            } catch (parseError) {
+                data = null;
+            }
+            if (resp.ok && data && data.success) {
                 closeModal();
                 sessionStorage.removeItem('wmsShippingSelection');
                 window.location.reload();
             } else {
-                notify(data.message || data.error || 'Nie udało się anulować zlecenia', 'error');
+                const powod = (data && (data.message || data.error))
+                    || `${czynnosc} — serwer odpowiedział HTTP ${resp.status}`;
+                notify(escapeHtml(powod), 'error');
             }
         } catch (error) {
             console.error('Błąd anulowania zlecenia:', error);
-            notify('Nie udało się anulować zlecenia', 'error');
+            notify(`${czynnosc} — brak połączenia z serwerem`, 'error');
         }
     }
 

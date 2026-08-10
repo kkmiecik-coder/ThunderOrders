@@ -958,12 +958,20 @@ def admin_ship_shipping_request(sr_id):
         )
     except (ShippingRequestAlreadyShipped, ShippingRequestUnpaid) as e:
         return jsonify({'success': False, 'message': str(e)}), 409
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        current_app.logger.error(f'Ship SR from list error: {e}')
+        # „Szczegóły w logach" nie dawało admina jak wskazać, KTÓRE logi — modal
+        # wysyła N zleceń w pętli, a log bez identyfikatora trzeba było znajdować
+        # po godzinie zgłoszenia.
+        from modules.orders.utils import zaloguj_blad_z_identyfikatorem
+        blad_id = zaloguj_blad_z_identyfikatorem(
+            f'Nieoczekiwany błąd oznaczania zlecenia {sr.request_number} jako wysłane '
+            f'(id={sr.id})')
         return jsonify({
             'success': False,
-            'message': 'Nie udało się oznaczyć zlecenia jako wysłane — szczegóły w logach.'
+            'message': f'Nie oznaczono zlecenia {sr.request_number} jako wysłane — '
+                       f'nieoczekiwany błąd serwera. Identyfikator błędu: {blad_id} — '
+                       f'podaj go przy zgłoszeniu.',
         }), 500
 
     return jsonify({
