@@ -301,7 +301,13 @@
                                 <div class="sr-order-group{% if grupa_od >= 3 %} sr-order-extra{% endif %}"{% if grupa_od >= 3 %} style="display: none;"{% endif %}>
                                     <div class="sr-order-group-head">
                                         <span class="sr-client-avatar sr-avatar-sm">{{ ((uczestnik.user.first_name or '')[:1] ~ (uczestnik.user.last_name or '')[:1]) | upper if uczestnik.user else '?' }}</span>
+                                        {# user_id jest nullable (konto mogło zostać usunięte, historia zlecenia zostaje) —
+                                           ten sam przypadek co sr.user przy głównym kliencie karty wyżej, ta sama konwencja. #}
+                                        {% if uczestnik.user %}
                                         <span class="sr-order-group-name">{{ uczestnik.user.first_name or '' }} {{ uczestnik.user.last_name or '' }}</span>
+                                        {% else %}
+                                        <span class="sr-order-group-name text-muted">Brak klienta</span>
+                                        {% endif %}
                                         <span class="sr-order-count">· {{ uczestnik.source_request.request_number }}</span>
                                         {% if uczestnik.source_request.id == sr.lead_source_request_id %}
                                         <span class="sr-lead-mark">adresat</span>
@@ -330,7 +336,10 @@
                                 </div>
                                 {% endfor %}
                                 {% if ns.i > 3 %}
-                                <button type="button" class="sr-orders-toggle" data-expanded="false" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ ns.i - 3 }})</button>
+                                {# data-hidden-count: prawdziwa liczba ukrytych ZAMÓWIEŃ, nie elementów .sr-order-extra —
+                                   w pełni ukryta grupa to jeden element-wrapper reprezentujący kilka zamówień naraz,
+                                   więc liczenie elementów w JS po zwinięciu zaniżałoby licznik. #}
+                                <button type="button" class="sr-orders-toggle" data-expanded="false" data-hidden-count="{{ ns.i - 3 }}" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ ns.i - 3 }})</button>
                                 {% endif %}
                                 {% else %}
                                 {% for order in sr.orders %}
@@ -353,7 +362,9 @@
                                 </div>
                                 {% endfor %}
                                 {% if sr.orders|length > 3 %}
-                                <button type="button" class="sr-orders-toggle" data-expanded="false" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ sr.orders|length - 3 }})</button>
+                                {# Bez konsolidacji element = zamówienie 1:1, ale ten sam atrybut co w gałęzi
+                                   zbiorczej — JS czyta go jednolicie, niezależnie od trybu karty. #}
+                                <button type="button" class="sr-orders-toggle" data-expanded="false" data-hidden-count="{{ sr.orders|length - 3 }}" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ sr.orders|length - 3 }})</button>
                                 {% endif %}
                                 {% endif %}
                             </div>

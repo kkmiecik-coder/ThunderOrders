@@ -755,8 +755,14 @@ function toggleExtraOrders(button) {
         order.style.display = isExpanded ? 'none' : '';
     });
 
+    // Liczba w tekście przycisku to liczba ukrytych ZAMÓWIEŃ, nie liczba elementów
+    // .sr-order-extra: w karcie paczki zbiorczej w pełni ukryta grupa uczestnika to
+    // jeden wrapper obejmujący kilka zamówień naraz, więc hiddenOrders.length by ją
+    // zaniżał po zwinięciu. Serwer policzył prawdziwą liczbę raz, w data-hidden-count.
+    const hiddenCount = parseInt(button.dataset.hiddenCount, 10) || hiddenOrders.length;
+
     if (isExpanded) {
-        button.textContent = `Pokaż więcej (${hiddenOrders.length})`;
+        button.textContent = `Pokaż więcej (${hiddenCount})`;
         button.dataset.expanded = 'false';
     } else {
         button.textContent = 'Pokaż mniej';
