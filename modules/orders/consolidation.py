@@ -327,6 +327,71 @@ def przelicz_status_zbiorczego(source):
     zbiorcze.status = status_najmniej_zaawansowany(_uczestnicy_z_bazy(zbiorcze))
 
 
+def odepnij_anulowane_zamowienie(order):
+    """Wyjmuje anulowane zamówienie z paczki zbiorczej.
+
+    Bramki gotowości wymagają KOMPLETU zamówień: `all(o.status == 'spakowane')`
+    przy pakowaniu i zatwierdzonego E4 dla każdego przy opłaceniu. Anulowane
+    zamówienie nigdy ich nie spełni, więc jedno anulowanie zablokowałoby wysyłkę
+    wszystkim uczestnikom paczki.
+
+    Funkcja NIE sprawdza sama order.status — ufa wywołującemu, że woła ją
+    dokładnie wtedy, gdy status faktycznie zmienia się na 'anulowane' (patrz
+    wywołania w routes.py / offer_closure.py).
+    """
+    from modules.orders.models import ShippingRequestOrder
+
+    ro = ShippingRequestOrder.query.filter_by(order_id=order.id).first()
+    if not ro:
+        return
+    zbiorcze = ro.shipping_request
+    if not zbiorcze or not zbiorcze.is_consolidation:
+        return
+    if zbiorcze.status in STATUSY_BEZ_EDYCJI:
+        # Paczka spakowana — fizycznie zawiera tę przesyłkę, więc nie kłamiemy w bazie.
+        return
+
+    source_id = ro.source_request_id
+    # Usuwamy PRZEZ relację (zbiorcze.request_orders.remove(ro)), nie surowym
+    # db.session.delete(ro): request_orders ma cascade='all, delete-orphan', więc
+    # odpięcie od kolekcji i tak skończy się skasowaniem wiersza przy flushu — ale
+    # w odróżnieniu od surowego delete() od razu aktualizuje TĘ SAMĄ listę w pamięci
+    # sesji. Gdyby wywołujący (np. kod czytający wcześniej display_orders) zdążył już
+    # załadować i zcache'ować `zbiorcze.request_orders`, surowy delete() zostawiłby w
+    # niej widmowy wpis — a `_oddaj_zamowienia` niżej (przez rozwiaz_konsolidacje)
+    # iteruje dokładnie tę kolekcję i próbowałaby skasować już nieistniejący wiersz
+    # drugi raz (SAWarning: „0 matched" — nieszkodliwe tu, ale sygnał rozjazdu stanu).
+    zbiorcze.request_orders.remove(ro)
+    db.session.flush()
+
+    if not source_id:
+        return
+    # Zapytanie do bazy, NIE zbiorcze.request_orders — ta kolekcja mogła już zostać
+    # załadowana i zcache'owana wcześniej w tej samej transakcji (np. przez
+    # `display_orders` wywołującego kodu, który czyta `consolidated_into.request_orders`
+    # zanim w ogóle trafi tu, do funkcji). Skasowany wyżej wiersz `ro` zostałby wtedy
+    # wciąż widoczny w tej cache'owanej liście — mimo że w bazie już go nie ma — i
+    # funkcja błędnie uznałaby, że uczestnik ma jeszcze coś w paczce.
+    zostalo = ShippingRequestOrder.query.filter_by(
+        shipping_request_id=zbiorcze.id, source_request_id=source_id
+    ).count()
+    if zostalo:
+        return
+
+    # Uczestnik nie ma już nic w paczce — jego zlecenie wraca do samodzielnego życia.
+    zrodlo = db.session.get(type(zbiorcze), source_id)
+    if zrodlo:
+        zrodlo.consolidated_into_id = None
+    db.session.flush()
+    # _uczestnicy_z_bazy (zapytanie), NIE zbiorcze.consolidated_sources — powyższy
+    # `zbiorcze.is_consolidation` (parę linijek wyżej) już załadował i zcache'ował tę
+    # kolekcję w pamięci sesji; surowa mutacja zrodlo.consolidated_into_id jej nie
+    # odświeża, więc czytana teraz pokazywałaby wciąż-nieaktualne członkostwo i przy
+    # dokładnie jednym pozostałym uczestniku NIE rozwiązałaby paczki.
+    if len(_uczestnicy_z_bazy(zbiorcze)) <= 1:
+        rozwiaz_konsolidacje(zbiorcze)
+
+
 def wypnij_zlecenie(target, source_id):
     """Wypina jedno zlecenie z paczki. Zwraca True, gdy paczka została rozwiązana,
     bo z jednym uczestnikiem przestaje mieć sens.

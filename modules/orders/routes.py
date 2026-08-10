@@ -585,6 +585,14 @@ def admin_update_status(order_id):
     if old_status != new_status:
         order.status = new_status
         order.updated_at = datetime.now()
+
+        if new_status == 'anulowane':
+            # Anulowane zamówienie nigdy nie spełni bramek gotowości paczki
+            # zbiorczej ("all spakowane" / komplet E4) — wypinamy je od razu,
+            # żeby nie zablokowało wysyłki pozostałym uczestnikom.
+            from modules.orders.consolidation import odepnij_anulowane_zamowienie
+            odepnij_anulowane_zamowienie(order)
+
         db.session.commit()
 
         # Auto-add to collection when delivered
@@ -1244,6 +1252,13 @@ def bulk_status_change():
                     order.status = new_status
                     order.updated_at = datetime.now()
                     updated_count += 1
+
+                    if new_status == 'anulowane':
+                        # Patrz komentarz w admin_update_status — to samo dotyczy
+                        # akcji masowej: anulowane zamówienie wypina się z paczki
+                        # zbiorczej, żeby nie blokować wysyłki innym uczestnikom.
+                        from modules.orders.consolidation import odepnij_anulowane_zamowienie
+                        odepnij_anulowane_zamowienie(order)
 
                     # Activity log
                     log_activity(
@@ -2635,11 +2650,28 @@ def migrate_status(status_id):
                 'message': 'Wybrany status zastępczy nie istnieje'
             }), 400
 
+        # Zapisz ID zamówień PRZED masowym .update() — ten bypassuje ORM
+        # (synchronize_session=False), więc żadne pojedyncze zamówienie nie
+        # przejdzie przez zwykłą ścieżkę zmiany statusu. Jeśli status zastępczy
+        # to 'anulowane', musimy je dociągnąć i wypiąć z paczek zbiorczych ręcznie.
+        anulowane_ids = []
+        if new_status_slug == 'anulowane':
+            anulowane_ids = [
+                oid for (oid,) in db.session.query(Order.id).filter_by(status=status.slug).all()
+            ]
+
         # Migrate all orders to new status
         orders_updated = Order.query.filter_by(status=status.slug).update(
             {'status': new_status_slug},
             synchronize_session=False
         )
+
+        if anulowane_ids:
+            from modules.orders.consolidation import odepnij_anulowane_zamowienie
+            for oid in anulowane_ids:
+                zamowienie = db.session.get(Order, oid)
+                if zamowienie:
+                    odepnij_anulowane_zamowienie(zamowienie)
 
         # Delete old status
         db.session.delete(status)

@@ -574,3 +574,63 @@ def test_short_addressee_name_przypadki_brzegowe(db, make_user, make_order):
 
     sr.shipping_name = '   '
     assert sr.short_addressee_name is None
+
+
+def test_anulowane_zamowienie_wypina_sie_z_paczki(db, make_user, make_order):
+    """Anulowanie jednego z kilku zamówień uczestnika wypina tylko ten wiersz
+    junction — reszta zamówień tego uczestnika (i inni uczestnicy) zostają."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
+    zamowienie = sr_b.display_orders[0]
+
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert len(zbiorcze.request_orders) == 3
+    assert zamowienie.id not in {o.id for o in zbiorcze.display_orders}
+    assert sr_b.consolidated_into_id == zbiorcze.id  # drugie zamówienie B zostaje
+
+
+def test_anulowanie_ostatniego_zamowienia_wypina_zlecenie(db, make_user, make_order):
+    """Gdy anulowane zamówienie było ostatnim zamówieniem uczestnika w paczce,
+    jego zlecenie źródłowe wraca do samodzielnego bytu — ale paczka (z dwoma
+    pozostałymi uczestnikami) nadal istnieje."""
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order, ile=3, orders_count=1)
+    sr_c = zrodla[2]
+    zamowienie = sr_c.display_orders[0]
+
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert sr_c.consolidated_into_id is None
+    assert len(zbiorcze.consolidated_sources) == 2
+
+
+def test_anulowanie_jedynego_zamowienia_ostatniego_uczestnika_rozwiazuje_zbiorcze(db, make_user, make_order):
+    """Regres na pułapkę z cache'owanym backrefem: `odepnij_anulowane_zamowienie`
+    wywołuje `zbiorcze.is_consolidation` (czyli `bool(self.consolidated_sources)`)
+    ZANIM odepnie źródło — to ładuje i cache'uje kolekcję `consolidated_sources`
+    w pamięci sesji. Gdyby finalne liczenie „ilu uczestników zostało" czytało tę
+    samą cache'owaną kolekcję zamiast pytać bazę na nowo (_uczestnicy_z_bazy),
+    zobaczyłoby nieaktualny stan sprzed odpięcia i NIE rozwiązałoby paczki mimo
+    jednego realnego uczestnika (dokładnie tak jak w regresie z `wypnij_zlecenie`,
+    patrz `test_dwa_wypiecia_pod_rzad_bez_commitu_nie_korumpuja_stanu`)."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)  # ile=2, orders_count=1
+    zbiorcze_id = zbiorcze.id
+    zamowienie = sr_b.display_orders[0]
+
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    from modules.orders.models import ShippingRequest
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None
+    assert sr_a.consolidated_into_id is None
+    assert sr_b.consolidated_into_id is None

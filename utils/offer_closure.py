@@ -1559,6 +1559,14 @@ def cancel_offer_orders(page_id, order_ids, reason, admin_user_id, notify=True):
         order.status = new_status
         order.updated_at = datetime.now()
 
+        if new_status == 'anulowane':
+            # 'do_zwrotu' zostaje — to opłacone zamówienie, ktoś fizycznie musi
+            # oddać pieniądze, więc paczka i tak nie ruszy do wysyłki. Ale
+            # 'anulowane' nigdy nie spełni bramek gotowości ("all spakowane" /
+            # komplet E4) i zablokowałoby wysyłkę reszcie uczestników paczki.
+            from modules.orders.consolidation import odepnij_anulowane_zamowienie
+            odepnij_anulowane_zamowienie(order)
+
         db.session.add(OrderComment(
             order_id=order.id,
             user_id=admin_user_id,
