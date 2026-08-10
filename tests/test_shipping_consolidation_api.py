@@ -815,3 +815,72 @@ def test_panel_pakowania_zna_adresata_i_wycene(db, make_user, make_order):
     oczekiwany = f'{sr_a.user.first_name} {sr_a.user.last_name}'
     assert payload['addressee_name'] == oczekiwany
     assert payload['total_shipping_cost'] == 42.98
+
+
+def _paczka_z_wycena_mieszana(db, make_user, make_order):
+    """Paczka zbiorcza: zlecenie WYCENIONE + zlecenie NIEWYCENIONE.
+
+    Dokładnie ten układ wywalał produkcję — dopiero konsolidacja stawia w jednym
+    modalu zamówienia z kosztem i bez kosztu, więc część pól wyceny renderuje się
+    pusta i wraca w payloadzie jako 0.
+    """
+    from decimal import Decimal
+    from modules.orders.consolidation import utworz_konsolidacje
+    _seed_sr_statuses(db)
+    sr_a, (order_a,) = _sr(db, make_user(), make_order, status='czeka_na_wycene')
+    sr_b, (order_b,) = _sr(db, make_user(), make_order, status='czeka_na_wycene')
+    order_a.shipping_cost = Decimal('21.49')   # wycenione wcześniej
+    order_b.shipping_cost = Decimal('0.00')    # jeszcze nie wycenione → pole puste w modalu
+    db.session.commit()
+
+    zbiorcze = utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+    return zbiorcze, order_a, order_b
+
+
+def test_zapis_wyceny_z_pustym_polem_kosztu_zapisuje_zero(db, client, login, make_user, make_order):
+    """Regres 500 z produkcji: pusta kwota w modalu wyceny paczki zbiorczej.
+
+    `order.shipping_cost = koszt if koszt > 0 else None` wpisywało NULL do kolumny
+    NOT NULL — pymysql wywalał IntegrityError 1048, a admin dostawał gołe 500 bez
+    komunikatu. Decyzja właściciela produktu: pusta kwota = 0 zł, zapis ma przejść.
+    """
+    from decimal import Decimal
+    from modules.orders.models import Order
+    zbiorcze, order_a, order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [
+            {'order_id': order_a.id, 'shipping_cost': 30.0},   # admin dopisał kwotę
+            {'order_id': order_b.id, 'shipping_cost': 0},      # pole zostawione puste
+        ],
+        'parcel_size': 'A',
+    })
+
+    assert r.status_code == 200, r.get_data(as_text=True)
+    assert r.get_json()['success'] is True
+    db.session.expire_all()
+    assert db.session.get(Order, order_a.id).shipping_cost == Decimal('30.00')
+    # Zero, nie NULL — „brak kosztu" w tym module zawsze znaczyło 0 (patrz
+    # `(o.shipping_cost or 0) > 0` w consolidation.py i email_managerze).
+    assert db.session.get(Order, order_b.id).shipping_cost == Decimal('0.00')
+
+
+def test_zapis_wyceny_zerowanie_wczesniejszej_kwoty(db, client, login, make_user, make_order):
+    """Wyczyszczenie wcześniej wpisanej kwoty też ma przejść, a nie kończyć się 500."""
+    from decimal import Decimal
+    from modules.orders.models import Order
+    zbiorcze, order_a, order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [
+            {'order_id': order_a.id, 'shipping_cost': 0},   # skasowana kwota 21,49
+            {'order_id': order_b.id, 'shipping_cost': 0},
+        ],
+    })
+
+    assert r.status_code == 200, r.get_data(as_text=True)
+    db.session.expire_all()
+    assert db.session.get(Order, order_a.id).shipping_cost == Decimal('0.00')

@@ -3917,7 +3917,13 @@ def admin_update_shipping_request(shipping_request_id):
                     }), 400
 
                 old_cost = float(order.shipping_cost or 0)
-                order.shipping_cost = shipping_cost if shipping_cost > 0 else None
+                # Kolumna `orders.shipping_cost` jest NOT NULL, a cały moduł traktuje
+                # ZERO jako „brak kosztu" (`(o.shipping_cost or 0) > 0` w consolidation.py,
+                # routes.py i email_managerze) — semantyki „NULL = niewycenione" nigdzie nie ma.
+                # Wpisanie None wywalało zapis na IntegrityError 1048 i admin dostawał gołe
+                # 500: konsolidacja po raz pierwszy stawia w jednym modalu zlecenie wycenione
+                # obok niewycenionego, którego pola renderują się puste i wracają jako 0.
+                order.shipping_cost = Decimal(str(shipping_cost or 0))
                 if shipping_cost and float(shipping_cost) > 0 and float(shipping_cost) != old_cost:
                     orders_with_new_cost.append((order, float(shipping_cost)))
 
