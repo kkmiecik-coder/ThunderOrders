@@ -618,11 +618,14 @@ def test_wycena_paczki_podnosi_tylko_wycenionego_uczestnika(
 
 # ---------- Liczniki admina (finalna recenzja, pkt 2) ----------
 #
-# Paczka zbiorcza i jej zlecenia źródłowe współistnieją w tabeli, więc każdy
-# COUNT po ShippingRequest bez filtra `consolidated_into_id IS NULL` liczy jedną
-# fizyczną paczkę tyle razy, ilu ma uczestników (+1).
+# Paczka zbiorcza i jej zlecenia źródłowe współistnieją w tabeli, więc COUNT po
+# ShippingRequest bez żadnego filtra liczy jedną konsolidację tyle razy, ilu ma
+# uczestników (+1). Które wiersze odpadają, zależy od jednostki danego widoku:
+# dashboard liczy PACZKI do obsłużenia, statystyki — ZLECENIA klientów.
 
 def test_kafelki_dashboardu_licza_paczke_raz(db, make_user, make_order):
+    """Kafelki to kolejka zadań magazynu: dwa scalone zlecenia to jeden karton
+    do wyceny, spakowania i wysłania — jedna pozycja na liście WMS, jedna na kafelku."""
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
     for sr in (zbiorcze, sr_a, sr_b):
@@ -635,7 +638,10 @@ def test_kafelki_dashboardu_licza_paczke_raz(db, make_user, make_order):
     assert liczniki['total'] == 1
 
 
-def test_statystyki_wysylki_licza_paczke_raz(db, client, login, make_user, make_order):
+def test_statystyki_wysylki_licza_zlecenia_klientow(db, client, login, make_user, make_order):
+    """Statystyki raportują, ile wysyłek zamówili KLIENCI — dwóch klientów zamówiło
+    dwie, a to, że magazyn włożył je do jednego kartonu, jest jego decyzją operacyjną
+    i nie może wstecznie zmniejszać biznesowego wolumenu."""
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
     for sr in (zbiorcze, sr_a, sr_b):
@@ -645,8 +651,42 @@ def test_statystyki_wysylki_licza_paczke_raz(db, client, login, make_user, make_
 
     dane = client.get('/admin/statistics/api/shipping').get_json()
     kpi = {k['label']: k['raw'] for k in dane['kpis']}
-    assert kpi['Łącznie zleceń wysyłki'] == 1
-    assert kpi['Oczekujących'] == 1
+    assert kpi['Łącznie zleceń wysyłki'] == 2
+    assert kpi['Oczekujących'] == 2
+
+
+def test_statystyki_koszt_wysylki_nie_zmienia_sie_po_konsolidacji(
+        db, client, login, make_user, make_order):
+    """Sedno regresu: zlecenia wycenione PRZED scaleniem trzymają kwoty na sobie, a
+    nowa paczka ma total_shipping_cost = NULL. KPI liczone z kolumny na zleceniu gubiło
+    wtedy całą sumę; liczone z zamówień jest identyczne przed i po konsolidacji."""
+    from modules.orders.models import ShippingRequest
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, orders_a = _sr(db, a, make_order)
+    sr_b, orders_b = _sr(db, b, make_order)
+    for o, kwota in zip(orders_a + orders_b, [15.00, 24.50]):
+        o.shipping_cost = kwota
+    sr_a.total_shipping_cost = 15.00
+    sr_b.total_shipping_cost = 24.50
+    db.session.commit()
+    login(_admin(make_user))
+
+    def _koszt():
+        dane = client.get('/admin/statistics/api/shipping').get_json()
+        return {k['label']: k['raw'] for k in dane['kpis']}['Łączny koszt wysyłki']
+
+    przed = _koszt()
+    assert przed == pytest.approx(39.50)
+
+    from modules.orders.consolidation import utworz_konsolidacje
+    zbiorcze = utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+    # Paczka nie dostała kwoty przy scaleniu — tak działa serwis i tak wygląda stan
+    # w bazie do czasu, aż admin otworzy modal wyceny.
+    assert db.session.get(ShippingRequest, zbiorcze.id).total_shipping_cost is None
+
+    assert _koszt() == pytest.approx(przed)
 
 
 # ---------- Luki pokrycia wymagane specyfikacją (finalna recenzja, pkt 8) ----------

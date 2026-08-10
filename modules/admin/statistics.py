@@ -616,21 +616,35 @@ def statistics_exclusive():
 @role_required('admin', 'mod')
 def statistics_shipping():
     """Dane dla zakładki Wysyłka."""
-    # KPI — bez zleceń źródłowych paczek zbiorczych: jedna fizyczna paczka to
-    # jedna wysyłka, a zlecenie źródłowe współistnieje z nią w tabeli, więc bez
-    # filtra paczka z dwoma źródłami liczyłaby się trzykrotnie.
-    total_requests = ShippingRequest.query.filter(
-        ShippingRequest.consolidated_into_id.is_(None)).count()
+    # Jednostką TEJ zakładki jest ZLECENIE KLIENTA — raportuje, ile wysyłek zamówili
+    # klienci i ile ich to kosztowało. Paczka zbiorcza jest bytem magazynowym: powstaje
+    # obok zleceń źródłowych, które nadal są tym, co klient widzi w panelu. Dlatego z
+    # licznika wypada ONA, a nie źródła — inaczej scalenie dwóch zleceń zamieniałoby
+    # dwie zamówione wysyłki na jedną i zaniżało KPI wstecz.
+    # (Kafelki alertowe dashboardu liczą odwrotnie i słusznie: tam jednostką jest paczka
+    # do obsłużenia przez admina — patrz `get_shipping_alert_counts` w modules/admin/routes.py.)
+    zbiorcze_ids = db.session.query(ShippingRequest.consolidated_into_id).filter(
+        ShippingRequest.consolidated_into_id.isnot(None)).scalar_subquery()
+    nie_paczka_zbiorcza = ~ShippingRequest.id.in_(zbiorcze_ids)
+
+    total_requests = ShippingRequest.query.filter(nie_paczka_zbiorcza).count()
     pending_requests = ShippingRequest.query.filter(
         ShippingRequest.status.in_(['czeka_na_wycene', 'wycenione']),
-        ShippingRequest.consolidated_into_id.is_(None),
+        nie_paczka_zbiorcza,
     ).count()
-    # Ten sam filtr: koszty wszystkich zamówień paczki zbiorczej są zsumowane na
-    # niej samej, więc doliczanie zleceń źródłowych dokładałoby ich stare, sprzed
-    # konsolidacji, kwoty drugi raz.
+    # Suma kosztów idzie z ZAMÓWIEŃ, nie z `ShippingRequest.total_shipping_cost`.
+    # Ta kolumna zapisuje się wyłącznie na aktualnie edytowanym zleceniu, a konsolidacja
+    # ani jej nie przenosi na paczkę, ani nie zeruje na źródłach: zlecenia wycenione
+    # PRZED scaleniem trzymają swoje kwoty, a paczka ma NULL. Każdy filtr po
+    # `consolidated_into_id` gubił wtedy albo kwoty źródeł, albo (bez filtra) liczył je
+    # drugi raz po ponownej wycenie paczki. Zamówienie ma dokładnie jeden wiersz junction
+    # niezależnie od tego, czy i kiedy nastąpiła konsolidacja — suma po zamówieniach jest
+    # więc na moment scalenia odporna.
     total_shipping_cost = db.session.query(
-        func.coalesce(func.sum(ShippingRequest.total_shipping_cost), 0)
-    ).filter(ShippingRequest.consolidated_into_id.is_(None)).scalar() or Decimal('0')
+        func.coalesce(func.sum(Order.shipping_cost), 0)
+    ).filter(
+        Order.id.in_(db.session.query(ShippingRequestOrder.order_id).scalar_subquery())
+    ).scalar() or Decimal('0')
 
     # Wykres kołowy: metody dostawy (z zamówień)
     delivery_counts = db.session.query(
