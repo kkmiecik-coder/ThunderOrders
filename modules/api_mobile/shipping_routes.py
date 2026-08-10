@@ -103,6 +103,14 @@ def _serialize_available_order(order):
 
 
 def _serialize_request(req):
+    # Paczka zbiorcza: bez tych dwóch pól apka pokazywała `full_address` (WŁASNY
+    # adres klienta) jako adres dostawy, choć karton jedzie do innej osoby — czyli
+    # dokładnie scenariusz, przed którym ostrzega spec („inaczej ktoś będzie czekał
+    # pod własnymi drzwiami"). Web ma tu badge „Wysyłka zbiorcza" i zdanie „Paczka
+    # jedzie na adres: <adresat>"; to jest parytet dla apki.
+    # Adresat WYŁĄCZNIE przez short_addressee_name — pełne imię i nazwisko obcej
+    # osoby to dane osobowe, których uczestnik nie ma prawa zobaczyć.
+    zbiorcza = req.consolidated_into if req.is_consolidated_source else None
     return {
         'id': req.id, 'request_number': req.request_number, 'status': req.status,
         'status_display_name': req.status_display_name, 'status_badge_color': req.status_badge_color,
@@ -111,6 +119,8 @@ def _serialize_request(req):
         'total_shipping_cost': to_grosze(req.calculated_shipping_cost),
         'tracking_number': req.tracking_number, 'tracking_url': req.tracking_url,
         'can_cancel': req.can_cancel, 'orders_count': req.orders_count,
+        'is_consolidated': zbiorcza is not None,
+        'consolidation_addressee_name': zbiorcza.short_addressee_name if zbiorcza else None,
         # display_orders, nie orders — dla zlecenia źródłowego w paczce zbiorczej
         # request_orders wisi już przy paczce, nie tutaj (parytet z webem).
         'orders': [{'id': o.id, 'order_number': o.order_number} for o in req.display_orders],

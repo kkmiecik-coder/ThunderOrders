@@ -136,3 +136,51 @@ def test_uczestnik_widzi_skrocone_nazwisko_adresata_nie_pelne(db, client, login,
 
     assert 'Karolina B.' in tresc
     assert 'Burza' not in tresc
+
+
+def _token(client, user, db):
+    user.set_password('Haslo123!')
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/login',
+                    json={'email': user.email, 'password': 'Haslo123!'})
+    return r.get_json()['data']['access_token']
+
+
+def test_mobile_mowi_ze_paczka_jedzie_do_kogos_innego(db, client, make_user, make_order):
+    """Serializer zwracał `full_address` zlecenia źródłowego — czyli WŁASNY adres
+    klienta — więc apka pokazywała go jako adres dostawy, choć karton jedzie do
+    kogoś innego. Web ma w tym miejscu badge „Wysyłka zbiorcza" i zdanie „Paczka
+    jedzie na adres: …"; to jest parytet dla apki. Adresat wyłącznie w formie
+    skróconej — pełne nazwisko obcej osoby to dane osobowe."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.shipping_name = 'Karolina Burza'
+    db.session.commit()
+
+    token = _token(client, sr_b.user, db)
+    dane = client.get('/api/mobile/v1/shipping/requests',
+                      headers={'Authorization': f'Bearer {token}'}).get_json()
+    zlecenia = {r['request_number']: r for r in dane['data']['requests']}
+    moje = zlecenia[sr_b.request_number]
+
+    assert moje['is_consolidated'] is True
+    assert moje['consolidation_addressee_name'] == 'Karolina B.'
+    # Pełne nazwisko adresata nie może wyciec nigdzie w odpowiedzi.
+    import json as _json
+    assert 'Burza' not in _json.dumps(moje, ensure_ascii=False)
+
+
+def test_mobile_zwykle_zlecenie_bez_pol_konsolidacji(db, client, make_user, make_order):
+    """Dokładanie kluczy jest bezpieczne (test mobilny asertuje `set(req) >= {...}`),
+    ale zwykłe zlecenie musi je mieć wyzerowane, żeby apka nie pokazała badge'a."""
+    _seed_sr_statuses(db)
+    u = make_user()
+    sr, _o = _sr(db, u, make_order)
+
+    token = _token(client, u, db)
+    dane = client.get('/api/mobile/v1/shipping/requests',
+                      headers={'Authorization': f'Bearer {token}'}).get_json()
+    moje = dane['data']['requests'][0]
+    assert moje['is_consolidated'] is False
+    assert moje['consolidation_addressee_name'] is None
+
