@@ -4050,9 +4050,21 @@ def admin_delete_shipping_request(shipping_request_id):
     # Kasowanie paczki zbiorczej: zamówienia muszą wrócić do właścicieli, inaczej
     # cascade='all, delete-orphan' zabierze powiązania zamówień obcych klientów.
     if sr.is_consolidation:
-        from modules.orders.consolidation import rozwiaz_konsolidacje, ConsolidationError
+        from modules.orders.consolidation import (
+            rozwiaz_konsolidacje, ConsolidationError, STATUSY_BEZ_EDYCJI)
+        # Pre-check tylko po to, żeby dać komunikat pasujący do KASOWANIA — sam
+        # rozwiaz_konsolidacje() i tak zablokowałby spakowaną paczkę, ale jego
+        # komunikat ("nie można zmieniać jej składu") mówi o edycji składu, nie o
+        # usuwaniu, i myliłby admina próbującego skasować spakowaną paczkę
+        # (code review rundy 1).
+        if sr.status in STATUSY_BEZ_EDYCJI:
+            return jsonify({
+                'success': False,
+                'message': f'Paczka {sr.request_number} jest już spakowana — '
+                           f'nie można jej skasować w tym stanie.',
+            }), 409
         try:
-            rozwiaz_konsolidacje(sr)
+            zrodla = rozwiaz_konsolidacje(sr)
             db.session.commit()
         except ConsolidationError as e:
             db.session.rollback()
@@ -4060,7 +4072,11 @@ def admin_delete_shipping_request(shipping_request_id):
         log_activity(
             user=current_user, action='shipping_request_consolidation_dissolved',
             entity_type='shipping_request',
-            new_value={'consolidation_number': sr.request_number, 'reason': 'delete'},
+            new_value={
+                'consolidation_number': sr.request_number,
+                'restored_numbers': [z.request_number for z in zrodla],
+                'reason': 'delete',
+            },
         )
         return jsonify({'success': True,
                         'message': 'Paczka zbiorcza rozwiązana, zlecenia wróciły do klientów'})
@@ -4120,40 +4136,62 @@ def admin_bulk_cancel_shipping_requests():
     from modules.orders.consolidation import rozwiaz_konsolidacje, ConsolidationError
 
     deleted_numbers = []
-    skipped_numbers = []
+    skipped = []  # lista (numer_zlecenia, powod) — do czytelnego komunikatu dla admina
 
+    # Zaznaczenie w UI przeżywa przełączenie filtra „consolidation=sources"
+    # (trzymane w sessionStorage), więc admin może w jednym żądaniu zaznaczyć
+    # zarówno paczkę zbiorczą, jak i jedno z jej źródeł. Dlatego PIERWSZY PRZEBIEG
+    # rozwiązuje WSZYSTKIE zaznaczone paczki zbiorcze, zanim tkniemy cokolwiek
+    # innego — inaczej wynik zależałby od kolejności ID w `ids`: źródło
+    # przetworzone PRZED swoją paczką miałoby jeszcze consolidated_into_id
+    # ustawione i trafiłoby do pominiętych, mimo że po rozwiązaniu paczki (kilka
+    # linijek dalej w tej samej pętli) staje się zwykłym, skasowalnym zleceniem —
+    # a to właśnie ono, nie coś innego, admin też zaznaczył do usunięcia
+    # (code review rundy 1, task 17).
+    pozostale = []
     for sr_id in ids:
         sr = db.session.get(ShippingRequest, sr_id)
-        if sr:
-            # Zlecenie źródłowe nie ma własnych zamówień (jadą w paczce zbiorczej) —
-            # tak samo jak w admin_delete_shipping_request, pomijamy je zamiast kasować.
-            if sr.is_consolidated_source:
-                skipped_numbers.append(sr.request_number)
-                continue
-            # Paczka zbiorcza: zamówienia muszą wrócić do właścicieli przed skasowaniem,
-            # inaczej cascade='all, delete-orphan' zabrałaby powiązania obcych klientów.
-            if sr.is_consolidation:
-                try:
-                    rozwiaz_konsolidacje(sr)
-                except ConsolidationError:
-                    skipped_numbers.append(sr.request_number)
-                    continue
+        if not sr:
+            continue
+        if sr.is_consolidation:
+            try:
+                rozwiaz_konsolidacje(sr)
+            except ConsolidationError as e:
+                skipped.append((sr.request_number, e.message))
+            else:
                 deleted_numbers.append(sr.request_number)
-                continue
-            active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
-                WmsSessionShippingRequest.shipping_request_id == sr.id,
-                WmsSession.status.in_(['active', 'paused'])
-            ).first()
-            if active_wms:
-                skipped_numbers.append(sr.request_number)
-                continue
-            # Remove old WMS junction records (from completed/cancelled sessions)
-            WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
-            deleted_numbers.append(sr.request_number)
-            # Remove all order associations (orders go back to pool)
-            ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
-            # Delete the shipping request
-            db.session.delete(sr)
+                # Nic więcej do zrobienia z samymi źródłami tutaj — jeśli któreś
+                # z nich jest też w `ids`, drugi przebieg znajdzie je już jako
+                # zwykłe, niekonsolidowane zlecenie: rozwiaz_konsolidacje mutuje
+                # te same obiekty ShippingRequest w tej samej sesji SQLAlchemy
+                # (identity map), więc ich is_consolidated_source jest teraz False.
+        else:
+            pozostale.append(sr)
+
+    for sr in pozostale:
+        # Źródło, którego paczka NIE była (albo była, ale nie dała się rozwiązać)
+        # w tym zaznaczeniu — nadal nie ma własnych zamówień, nie kasujemy.
+        if sr.is_consolidated_source:
+            skipped.append((
+                sr.request_number,
+                f'jedzie w paczce zbiorczej {sr.consolidated_into.request_number} — '
+                f'najpierw wypnij je z paczki',
+            ))
+            continue
+        active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
+            WmsSessionShippingRequest.shipping_request_id == sr.id,
+            WmsSession.status.in_(['active', 'paused'])
+        ).first()
+        if active_wms:
+            skipped.append((sr.request_number, 'powiązane z aktywną sesją WMS'))
+            continue
+        # Remove old WMS junction records (from completed/cancelled sessions)
+        WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
+        deleted_numbers.append(sr.request_number)
+        # Remove all order associations (orders go back to pool)
+        ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
+        # Delete the shipping request
+        db.session.delete(sr)
 
     db.session.commit()
 
@@ -4169,15 +4207,16 @@ def admin_bulk_cancel_shipping_requests():
     )
 
     message = f'Usunięto {len(deleted_numbers)} zleceń'
-    if skipped_numbers:
-        # Powód pominięcia bywa różny (sesja WMS, zlecenie źródłowe w paczce zbiorczej) —
-        # nazwy zleceń w treści wystarczą adminowi do sprawdzenia szczegółów.
-        message += f'. Pominięto {len(skipped_numbers)} zleceń ({", ".join(skipped_numbers)})'
+    if skipped:
+        # Powód przy każdej pozycji — inaczej admin nie dowie się z interfejsu,
+        # dlaczego coś przepadło (code review rundy 1, task 17).
+        opisy = '; '.join(f'{numer} ({powod})' for numer, powod in skipped)
+        message += f'. Pominięto {len(skipped)} zleceń: {opisy}'
 
     return jsonify({
         'success': True,
         'message': message,
-        'skipped_count': len(skipped_numbers)
+        'skipped_count': len(skipped)
     })
 
 

@@ -419,25 +419,43 @@ class EmailManager:
             )
 
     @staticmethod
-    def notify_packing_photo_for_request(sr):
+    def notify_packing_photo_for_request(sr, packed_orders=None):
         """Zdjęcie spakowanej paczki — po jednym mailu na uczestnika.
 
         Dotychczas mail leciał z pojedynczego zamówienia, więc przy paczce zbiorczej
         dostawał go właściciel przypadkowego zamówienia z grupy, a reszta nic.
         Karton jest wspólny, więc zdjęcie należy się każdemu.
+
+        `packed_orders`: opcjonalna lista zamówień, które FIZYCZNIE trafiły do tego
+        kartonu w TEJ sesji WMS (patrz `pack_shipping_request_group` w
+        wms_packing.py). Paczka zbiorcza bywa pakowana częściowo — jeden uczestnik
+        w tej sesji, drugi jeszcze czeka na swoją — więc bez tego filtra
+        uczestnik, którego towaru fizycznie jeszcze nie ma w kartonie, dostałby
+        mylące „Twoja paczka spakowana" (code review rundy 1, task 17; scenariusz
+        analogiczny do test_pack_group_partial_session_leaves_sr_unpacked). Gdy
+        nie podane (domyślne wywołanie, np. ręczny resend z panelu), zachowanie
+        jest jak dotąd — powiadamiamy WSZYSTKICH uczestników zlecenia.
         """
+        packed_ids = {o.id for o in packed_orders} if packed_orders is not None else None
+
         if not sr.is_consolidation:
             # Jeden karton = jeden mail, niezależnie od liczby zamówień w zleceniu —
             # osobny mail na każde zamówienie dublowałby wiadomość temu samemu
             # klientowi (regres z briefu: `for order in sr.orders` łamał
             # test_pack_group_packs_all_orders_once, który wymaga dokładnie 1 maila).
-            if sr.orders:
-                EmailManager.notify_packing_photo(sr.orders[0])
+            kandydaci = sr.orders
+            if packed_ids is not None:
+                kandydaci = [o for o in kandydaci if o.id in packed_ids]
+            if kandydaci:
+                EmailManager.notify_packing_photo(kandydaci[0])
             return
 
         for uczestnik in sr.consolidation_participants:
-            if uczestnik['orders']:
-                EmailManager.notify_packing_photo(uczestnik['orders'][0])
+            zamowienia = uczestnik['orders']
+            if packed_ids is not None:
+                zamowienia = [o for o in zamowienia if o.id in packed_ids]
+            if zamowienia:
+                EmailManager.notify_packing_photo(zamowienia[0])
 
     @staticmethod
     def notify_status_change(order, old_status, new_status):

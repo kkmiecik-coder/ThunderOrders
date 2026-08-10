@@ -1026,17 +1026,26 @@ class PushManager:
         )
 
     @staticmethod
-    def notify_packing_photo_for_request(sr):
+    def notify_packing_photo_for_request(sr, packed_orders=None):
         """Zdjęcie spakowanej paczki — po jednym pushu na uczestnika (patrz
-        EmailManager.notify_packing_photo_for_request — ten sam powód i wzorzec)."""
+        EmailManager.notify_packing_photo_for_request — ten sam powód, wzorzec
+        i znaczenie `packed_orders` przy częściowym pakowaniu paczki zbiorczej)."""
+        packed_ids = {o.id for o in packed_orders} if packed_orders is not None else None
+
         if not sr.is_consolidation:
-            if sr.orders:
-                PushManager.notify_packing_photo(sr.orders[0])
+            kandydaci = sr.orders
+            if packed_ids is not None:
+                kandydaci = [o for o in kandydaci if o.id in packed_ids]
+            if kandydaci:
+                PushManager.notify_packing_photo(kandydaci[0])
             return
 
         for uczestnik in sr.consolidation_participants:
-            if uczestnik['orders']:
-                PushManager.notify_packing_photo(uczestnik['orders'][0])
+            zamowienia = uczestnik['orders']
+            if packed_ids is not None:
+                zamowienia = [o for o in zamowienia if o.id in packed_ids]
+            if zamowienia:
+                PushManager.notify_packing_photo(zamowienia[0])
 
     # ========================================
     # PAYMENT REMINDER

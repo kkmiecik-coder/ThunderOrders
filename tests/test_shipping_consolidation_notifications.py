@@ -198,4 +198,8 @@ def test_zdjecie_paczki_idzie_do_wszystkich_uczestnikow(db, przechwycone, monkey
     from utils.email_manager import EmailManager
     EmailManager.notify_packing_photo_for_request(zbiorcze)
 
+    # `set(...)` samo z siebie dowodzi tylko „co najmniej raz" — długość listy
+    # obok zbioru dowodzi, że nikt nie dostał zdjęcia dwa razy (code review
+    # rundy 1, task 17).
+    assert len(maile) == 2
     assert set(maile) == {sr_a.user_id, sr_b.user_id}

@@ -312,6 +312,25 @@ def test_nie_da_sie_skasowac_zrodlowego(db, client, login, make_user, make_order
     assert 'zbiorcz' in r.get_json()['message'].lower()
 
 
+def test_kasowanie_spakowanej_paczki_ma_komunikat_o_kasowaniu(db, client, login, make_user, make_order):
+    """Regres z code review (rundy 1, task 17): _sprawdz_edytowalnosc (wołane przez
+    rozwiaz_konsolidacje) rzuca „nie można zmieniać jej składu" — trafne przy
+    dopinaniu/wypinaniu, ale mylące przy próbie SKASOWANIA. Endpoint musi dać
+    komunikat pasujący do tego, co admin faktycznie próbował zrobić."""
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order)
+    zbiorcze.status = 'spakowane'
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.delete(f'/admin/orders/shipping-requests/{zbiorcze.id}')
+    assert r.status_code == 409
+    tresc = r.get_json()['message'].lower()
+    assert 'spakowana' in tresc
+    assert 'skasować' in tresc or 'usun' in tresc
+    assert 'skład' not in tresc  # stary, mylący komunikat z _sprawdz_edytowalnosc
+
+
 def test_koszt_tylko_dla_zamowien_z_tego_zlecenia(db, client, login, make_user, make_order):
     _seed_sr_statuses(db)
     a, b = make_user(), make_user()
@@ -328,6 +347,132 @@ def test_koszt_tylko_dla_zamowien_z_tego_zlecenia(db, client, login, make_user, 
     # make_order nigdy nie jest None. Test brief-u zakładał None; realna asercja
     # to „nie 99", czyli że endpoint nie zapisał cudzego kosztu.
     assert orders_b[0].shipping_cost == 0
+
+
+@pytest.fixture
+def bez_powiadomien_o_koszcie(monkeypatch):
+    """Koszt zaakceptowany przez endpoint wysyła mail/push (notify_cost_added).
+    PushManager robi to w wątku tła (_fire_and_forget) — bez podmiany wątek
+    dobija się do zamkniętej już testowej sesji SQLite po zakończeniu testu
+    (PytestUnhandledThreadExceptionWarning). Podmieniamy na wyższym poziomie,
+    tak jak `przechwycone`/`package_notifications` gdzie indziej w pakiecie."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    monkeypatch.setattr(EmailManager, 'notify_cost_added', staticmethod(lambda *a, **kw: None))
+    monkeypatch.setattr(PushManager, 'notify_cost_added', staticmethod(lambda *a, **kw: None))
+
+
+def test_koszt_dla_wlasnego_zamowienia_przechodzi(db, client, login, make_user, make_order,
+                                                   bez_powiadomien_o_koszcie):
+    """Regres z code review (rundy 1, task 17): brief ostrzegał, że regresja na
+    ekranie wyceny byłaby dotkliwa, a jedyny trwały test pokrywał wyłącznie
+    odmowę — trzeba też sprawdzić, że walidacja NIE blokuje poprawnego żądania."""
+    _seed_sr_statuses(db)
+    a = make_user()
+    sr_a, orders_a = _sr(db, a, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{sr_a.id}', json={
+        'order_costs': [{'order_id': orders_a[0].id, 'shipping_cost': 42}],
+    })
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert float(orders_a[0].shipping_cost) == 42.0
+
+
+def test_koszt_dla_uczestnika_paczki_zbiorczej_przechodzi(db, client, login, make_user, make_order,
+                                                           bez_powiadomien_o_koszcie):
+    """Zamówienie NIE-lidera paczki zbiorczej musi przejść walidację — należy do
+    zlecenia zbiorczego przez request_orders (source_request_id), mimo że jego
+    właściciel to nie sr.user (tym jest lider)."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    zamowienie_b = sr_b.display_orders[0]
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': zamowienie_b.id, 'shipping_cost': 15}],
+    })
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert float(zamowienie_b.shipping_cost) == 15.0
+
+
+def test_bulk_cancel_paczka_i_zrodlo_zaznaczone_razem_zrodlo_pierwsze(
+        db, client, login, make_user, make_order):
+    """Regres z code review (rundy 1, task 17): zaznaczenie w UI przeżywa
+    przełączenie filtra `consolidation=sources` (sessionStorage), więc admin może
+    zaznaczyć źródło w widoku źródeł, wrócić do widoku domyślnego, dozaznaczyć
+    paczkę i kliknąć „usuń zaznaczone" — z ID w kolejności [źródło, paczka].
+    Wynik NIE może zależeć od tej kolejności: skoro admin zaznaczył oba, oba mają
+    zniknąć, a nie „źródło ciche przywrócone, bez ostrzeżenia"."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/bulk-cancel', json={
+        'ids': [sr_a.id, zbiorcze.id],
+    })
+    assert r.status_code == 200
+    dane = r.get_json()
+    assert dane['skipped_count'] == 0
+
+    db.session.expire_all()
+    from modules.orders.models import ShippingRequest
+    assert db.session.get(ShippingRequest, zbiorcze.id) is None
+    assert db.session.get(ShippingRequest, sr_a.id) is None
+    odswiezone_b = db.session.get(ShippingRequest, sr_b.id)
+    assert odswiezone_b is not None
+    assert odswiezone_b.consolidated_into_id is None
+    assert len(odswiezone_b.request_orders) == 1
+
+
+def test_bulk_cancel_paczka_i_zrodlo_zaznaczone_razem_paczka_pierwsza(
+        db, client, login, make_user, make_order):
+    """To samo zaznaczenie, ID w kolejności [paczka, źródło] — wynik ma być
+    identyczny jak w poprzednim teście, niezależnie od kolejności."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/bulk-cancel', json={
+        'ids': [zbiorcze.id, sr_a.id],
+    })
+    assert r.status_code == 200
+    dane = r.get_json()
+    assert dane['skipped_count'] == 0
+
+    db.session.expire_all()
+    from modules.orders.models import ShippingRequest
+    assert db.session.get(ShippingRequest, zbiorcze.id) is None
+    assert db.session.get(ShippingRequest, sr_a.id) is None
+    odswiezone_b = db.session.get(ShippingRequest, sr_b.id)
+    assert odswiezone_b is not None
+    assert odswiezone_b.consolidated_into_id is None
+    assert len(odswiezone_b.request_orders) == 1
+
+
+def test_bulk_cancel_samo_zrodlo_bez_paczki_jest_pomijane(db, client, login, make_user, make_order):
+    """Kontrast wobec dwóch powyższych: gdy paczka NIE jest w zaznaczeniu, samo
+    źródło musi zostać pominięte (nie skasowane), z powodem w komunikacie."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/bulk-cancel', json={
+        'ids': [sr_a.id],
+    })
+    assert r.status_code == 200
+    dane = r.get_json()
+    assert dane['skipped_count'] == 1
+    assert sr_a.request_number in dane['message']
+    assert 'paczce zbiorczej' in dane['message']
+
+    db.session.expire_all()
+    from modules.orders.models import ShippingRequest
+    odswiezone_a = db.session.get(ShippingRequest, sr_a.id)
+    assert odswiezone_a is not None
+    assert odswiezone_a.consolidated_into_id == zbiorcze.id
 
 
 def test_eksport_inpost_ostrzega_o_pominietych_zrodlach(db, client, login, make_user, make_order):

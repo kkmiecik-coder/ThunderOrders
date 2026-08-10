@@ -213,9 +213,13 @@ def pack_shipping_request_group(session, shipping_request, packaging_material_id
             from utils.email_manager import EmailManager
             from utils.push_manager import PushManager
             # Per zlecenie, nie per zamówienie: przy paczce zbiorczej ma dostać
-            # to KAŻDY uczestnik, nie tylko właściciel group[0].
-            EmailManager.notify_packing_photo_for_request(shipping_request)
-            PushManager.notify_packing_photo_for_request(shipping_request)
+            # to KAŻDY uczestnik, nie tylko właściciel group[0]. `packed_orders=group`
+            # ogranicza to do uczestników fizycznie spakowanych W TEJ sesji — przy
+            # częściowym pakowaniu paczki zbiorczej (jeden uczestnik teraz, drugi
+            # później) reszta NIE dostaje mylącego „Twoja paczka spakowana"
+            # (code review rundy 1, task 17).
+            EmailManager.notify_packing_photo_for_request(shipping_request, packed_orders=group)
+            PushManager.notify_packing_photo_for_request(shipping_request, packed_orders=group)
         except Exception as email_err:
             current_app.logger.error(f'WMS packing email error: {email_err}')
 
