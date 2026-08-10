@@ -184,3 +184,44 @@ def test_mobile_zwykle_zlecenie_bez_pol_konsolidacji(db, client, make_user, make
     assert moje['is_consolidated'] is False
     assert moje['consolidation_addressee_name'] is None
 
+
+# ---------- Anulowanie SAMEJ paczki zbiorczej (finalna recenzja, pkt 8) ----------
+#
+# Dotychczasowe testy celowały wyłącznie w zlecenie źródłowe. Paczka zbiorcza ma
+# `user_id` klienta wiodącego, więc endpoint klienta przyjmie jej id — i bez
+# gałęzi `req.is_consolidation` skasowałby ją razem z zamówieniami wszystkich
+# uczestników (cascade='all, delete-orphan' na request_orders).
+
+def test_klient_wiodacy_nie_anuluje_paczki_zbiorczej_web(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.status = 'czeka_na_wycene'
+    sr_a.user.profile_completed = True
+    db.session.commit()
+    login(sr_a.user)  # właściciel paczki zbiorczej = klient wiodący
+
+    r = client.post(f'/client/shipping/requests/{zbiorcze.id}/cancel',
+                    headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert r.status_code == 400
+    assert 'zbiorcz' in r.get_json()['error'].lower()
+
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    assert db.session.get(ShippingRequest, zbiorcze.id) is not None
+    # Kasowanie paczki zabrałoby ze sobą zamówienia obu uczestników.
+    assert ShippingRequestOrder.query.filter_by(shipping_request_id=zbiorcze.id).count() == 2
+
+
+def test_klient_wiodacy_nie_anuluje_paczki_zbiorczej_mobile(db, client, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze.status = 'czeka_na_wycene'
+    db.session.commit()
+
+    token = _token(client, sr_a.user, db)
+    r = client.post(f'/api/mobile/v1/shipping/requests/{zbiorcze.id}/cancel',
+                    headers={'Authorization': f'Bearer {token}'})
+    assert r.status_code == 409
+    assert r.get_json()['error']['code'] == 'consolidated'
+
+    from modules.orders.models import ShippingRequest
+    assert db.session.get(ShippingRequest, zbiorcze.id) is not None

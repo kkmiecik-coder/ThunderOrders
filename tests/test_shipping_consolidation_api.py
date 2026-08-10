@@ -648,3 +648,53 @@ def test_statystyki_wysylki_licza_paczke_raz(db, client, login, make_user, make_
     assert kpi['Łącznie zleceń wysyłki'] == 1
     assert kpi['Oczekujących'] == 1
 
+
+# ---------- Luki pokrycia wymagane specyfikacją (finalna recenzja, pkt 8) ----------
+
+def test_konsolidacja_odrzuca_zlecenie_w_aktywnej_sesji_wms(
+        db, client, login, make_user, make_order):
+    """Spec, sekcja „Wejście w konsolidację": zlecenie wiszące w otwartej sesji WMS
+    nie może zmienić składu — magazynier ma je fizycznie na stole."""
+    from modules.orders.wms_models import WmsSession, WmsSessionShippingRequest
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, _ = _sr(db, a, make_order)
+    sr_b, _ = _sr(db, b, make_order)
+    magazynier = _admin(make_user)
+
+    sesja = WmsSession(session_token='tok-konsolidacja', user_id=magazynier.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionShippingRequest(session_id=sesja.id, shipping_request_id=sr_b.id))
+    db.session.commit()
+    login(magazynier)
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, sr_b.id], 'lead_request_id': sr_a.id,
+    })
+    assert r.status_code == 409
+    blad = r.get_json()['error']
+    assert sr_b.request_number in blad
+    assert 'sesji WMS' in blad
+    db.session.expire_all()
+    assert sr_a.consolidated_into_id is None
+
+
+def test_nie_laczymy_dwoch_paczek_zbiorczych(db, client, login, make_user, make_order):
+    """Spec, „poza zakresem": łączenie dwóch paczek zbiorczych. Dotąd testy trafiały
+    wyłącznie w gałąź `is_consolidated_source` (zlecenie źródłowe), nigdy w
+    `is_consolidation` dla elementu scalanego."""
+    _seed_sr_statuses(db)
+    paczka_1, _ = _konsolidacja(db, make_user, make_order)
+    paczka_2, _ = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [paczka_1.id, paczka_2.id], 'target_id': paczka_1.id,
+    })
+    assert r.status_code == 409
+    blad = r.get_json()['error']
+    assert paczka_2.request_number in blad
+    assert 'paczką zbiorczą' in blad
+    db.session.expire_all()
+    assert paczka_2.consolidated_into_id is None
