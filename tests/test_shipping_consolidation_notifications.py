@@ -126,3 +126,30 @@ def test_status_change_wszyscy_uczestnicy_dostaja_push(db, przechwycone, make_us
 
     odbiorcy = {p['user_id'] for p in przechwycone['push']}
     assert odbiorcy == {sr_a.user_id, sr_b.user_id}
+
+
+# ---------- Powiadomienie o samym scaleniu (Task 12) ----------
+#
+# Task 11 pokrył wysyłkę i zmianę statusu, ale nie samo utworzenie paczki
+# zbiorczej. Bez tego klient dowiaduje się o zmianie dopiero z maila o
+# wysyłce, w którym nagle pojawia się cudzy adres.
+
+def test_powiadomienie_o_scaleniu_idzie_do_wszystkich(db, przechwycone, monkeypatch,
+                                                      make_user, make_order):
+    import utils.email_sender as es
+    maile = []
+    monkeypatch.setattr(es, 'prepare_shipment_consolidated_email',
+                        lambda **kw: maile.append(kw) or None)
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    EmailManager.notify_shipment_consolidated(zbiorcze)
+    PushManager.notify_shipment_consolidated(zbiorcze)
+
+    assert {m['user_email'] for m in maile} == {sr_a.user.email, sr_b.user.email}
+    # Adresat wie, że to jego adres; pozostali widzą, do kogo jedzie paczka.
+    assert any(m['is_recipient'] for m in maile)
+    assert any(not m['is_recipient'] for m in maile)
+    assert {p['user_id'] for p in przechwycone['push']} == {sr_a.user_id, sr_b.user_id}

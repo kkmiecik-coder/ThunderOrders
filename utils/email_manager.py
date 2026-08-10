@@ -34,6 +34,7 @@ REJESTR EMAILI:
         - notify_shipping_request_created(shipping_request, user) -> potwierdzenie zlecenia wysyłki
         - notify_shipping_status_change(shipping_request, old_status_slug) -> zmiana statusu zlecenia wysyłki
         - notify_shipment_sent(shipping_request, ...) -> jeden mail o wysłanej paczce
+        - notify_shipment_consolidated(shipping_request) -> mail o połączeniu wysyłek w paczkę zbiorczą
 
     ADMIN:
         - notify_admin_payment_uploaded(order, stage_names) -> nowe potwierdzenie płatności
@@ -1176,6 +1177,60 @@ class EmailManager:
         send_email_batch(wiadomosci)
         current_app.logger.info(
             f'Wysłano {len(wiadomosci)} maili o paczce zbiorczej {sr.request_number}')
+
+    @staticmethod
+    def notify_shipment_consolidated(sr):
+        """Informuje uczestników, że ich wysyłki pojechały do jednej paczki.
+
+        Bez tego klient dowiaduje się o zmianie dopiero z maila o wysyłce, gdzie
+        nagle pojawia się cudzy adres. Świadomie korzysta z istniejącego klucza
+        przełącznika ('notify_status_change') zamiast dokładać nowy — patrz
+        komentarz w notify_shipment_sent.
+        """
+        if not EmailManager.is_email_enabled('notify_status_change'):
+            current_app.logger.info(
+                "Email notification 'notify_status_change' is disabled, skipping")
+            return
+        if not sr.is_consolidation:
+            return
+
+        from flask import url_for
+        from utils.email_sender import prepare_shipment_consolidated_email, send_email_batch
+
+        # Poza aktywnym requestem (np. wywołanie z serwisu konsolidacji spoza
+        # kontekstu żądania) url_for wywali RuntimeError brakiem SERVER_NAME —
+        # degradujemy do braku linku zamiast tracić powiadomienia wszystkich uczestników.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+        adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
+
+        wiadomosci = []
+        for uczestnik in sr.consolidation_participants:
+            user = uczestnik['user']
+            if not user or not user.email:
+                current_app.logger.warning(
+                    f'Uczestnik paczki {sr.request_number} bez adresu e-mail — pomijam')
+                continue
+            wiadomosci.append(prepare_shipment_consolidated_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=uczestnik['source_request'].request_number,
+                order_numbers=[o.order_number for o in uczestnik['orders']],
+                recipient_name=adresat,
+                is_recipient=uczestnik['source_request'].id == sr.lead_source_request_id,
+                shipping_requests_url=requests_url,
+            ))
+
+        if not wiadomosci:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników z adresem e-mail przy scaleniu')
+            return
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o konsolidacji {sr.request_number}')
 
     # ========================================
     # COST NOTIFICATION EMAILS

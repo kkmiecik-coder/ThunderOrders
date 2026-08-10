@@ -1074,6 +1074,28 @@ def prepare_shipment_sent_email(user_email, user_name, request_number, order_num
     )
 
 
+def prepare_shipment_consolidated_email(user_email, user_name, request_number, order_numbers,
+                                        recipient_name, is_recipient,
+                                        shipping_requests_url=None):
+    """Mail o połączeniu wysyłki w paczkę zbiorczą — wersja wsadowa (jedno połączenie SMTP).
+
+    Wysyłany raz, w chwili utworzenia paczki — inaczej uczestnik dowiaduje się
+    o zmianie dopiero z maila o wysyłce, gdzie nagle pojawia się cudzy adres.
+    Tylko wersja batchowa: to powiadomienie zawsze idzie do >=2 uczestników naraz.
+    """
+    return prepare_email(
+        to=user_email,
+        subject=f'Twoja wysyłka {request_number} została połączona w paczkę zbiorczą',
+        template='shipment_consolidated',
+        user_name=user_name,
+        request_number=request_number,
+        order_numbers=order_numbers,
+        recipient_name=recipient_name,
+        is_recipient=is_recipient,
+        shipping_requests_url=shipping_requests_url,
+    )
+
+
 def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline'):
     """Wysyła email z przypomnieniem o niezapłaconych etapach zamówienia."""
     return send_email(

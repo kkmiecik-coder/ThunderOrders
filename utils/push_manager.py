@@ -846,6 +846,36 @@ class PushManager:
             notification_type='shipping_updates'
         )
 
+    @staticmethod
+    def notify_shipment_consolidated(sr):
+        """Push o połączeniu wysyłek — po jednym na uczestnika paczki."""
+        from flask import url_for
+        if not sr.is_consolidation:
+            return
+
+        # Poza aktywnym requestem url_for wywali RuntimeError brakiem SERVER_NAME —
+        # degradujemy do '/' zamiast tracić powiadomienia wszystkich uczestników.
+        try:
+            url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
+        adresat = sr.short_addressee_name or 'innej osoby'
+        for uczestnik in sr.consolidation_participants:
+            user = uczestnik['user']
+            if not user:
+                continue
+            czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            PushManager._fire_and_forget(
+                user_id=user.id,
+                title='Wysyłka połączona w paczkę zbiorczą',
+                body=('Twoje zamówienia pojadą w jednej paczce na Twój adres'
+                      if czy_adresat else
+                      f'Twoje zamówienia pojadą w jednej paczce na adres: {adresat}'),
+                url=url,
+                tag=f'consolidation-{sr.id}',
+                notification_type='shipping_updates',
+            )
+
     # ========================================
     # ORDER CONFIRMATION
     # ========================================
