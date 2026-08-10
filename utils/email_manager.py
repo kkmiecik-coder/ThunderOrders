@@ -914,6 +914,11 @@ class EmailManager:
         """
         Wysyła powiadomienie o zmianie statusu zlecenia wysyłki.
 
+        Dla paczki zbiorczej (is_consolidation) rozgałęzia do _status_change_consolidated:
+        bez tego mail poszedłby tylko do usera zlecenia zbiorczego (lidera) z listą
+        WSZYSTKICH zamówień wszystkich uczestników — ten sam wyciek co w
+        notify_shipment_sent, tylko przy zwykłej zmianie statusu (np. spakowane).
+
         Args:
             shipping_request: obiekt ShippingRequest
             old_status_slug: poprzedni status (slug)
@@ -922,15 +927,7 @@ class EmailManager:
             current_app.logger.info("Email notification 'notify_shipping_status_change' is disabled, skipping")
             return
 
-        from utils.email_sender import send_shipping_status_change_email
         from modules.orders.models import ShippingRequestStatus
-
-        user = shipping_request.user
-        if not user or not user.email:
-            current_app.logger.warning(
-                f"Cannot send shipping status email for {shipping_request.request_number}: no user email"
-            )
-            return
 
         # Get status display names
         old_status_obj = ShippingRequestStatus.query.filter_by(slug=old_status_slug).first()
@@ -947,6 +944,20 @@ class EmailManager:
             'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'
         }
         courier_name = courier_names.get(shipping_request.courier, shipping_request.courier) if shipping_request.courier else None
+
+        if shipping_request.is_consolidation:
+            EmailManager._status_change_consolidated(
+                shipping_request, old_status_name, new_status_name, new_status_color, courier_name)
+            return
+
+        from utils.email_sender import send_shipping_status_change_email
+
+        user = shipping_request.user
+        if not user or not user.email:
+            current_app.logger.warning(
+                f"Cannot send shipping status email for {shipping_request.request_number}: no user email"
+            )
+            return
 
         try:
             send_shipping_status_change_email(
@@ -968,6 +979,59 @@ class EmailManager:
             current_app.logger.error(
                 f"Failed to send shipping status change email for {shipping_request.request_number}: {e}"
             )
+
+    @staticmethod
+    def _status_change_consolidated(sr, old_status_name, new_status_name, new_status_color, courier_name):
+        """Zmiana statusu paczki zbiorczej: jeden mail na uczestnika, z jego zamówieniami.
+
+        Ten sam powód co w _shipment_sent_consolidated — wspólny mail ujawniłby
+        adresatowi numery zamówień pozostałych uczestników. Batch, nie pętla po
+        send_email() — patrz komentarz w _shipment_sent_consolidated.
+        """
+        from flask import url_for
+        from utils.email_sender import prepare_shipping_status_change_email, send_email_batch
+
+        uczestnicy = []
+        for u in sr.consolidation_participants:
+            user = u['user']
+            if not user or not user.email:
+                current_app.logger.warning(
+                    f'Uczestnik paczki {sr.request_number} bez adresu e-mail — pomijam')
+                continue
+            uczestnicy.append(u)
+
+        if not uczestnicy:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników z adresem e-mail przy zmianie statusu')
+            return
+
+        # Poza aktywnym requestem (np. wywołanie spoza kontekstu żądania) url_for
+        # się wywali brakiem SERVER_NAME — degradujemy do braku linku zamiast
+        # tracić powiadomienia wszystkich uczestników.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+
+        wiadomosci = []
+        for uczestnik in uczestnicy:
+            user = uczestnik['user']
+            wiadomosci.append(prepare_shipping_status_change_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=uczestnik['source_request'].request_number,
+                old_status_name=old_status_name,
+                new_status_name=new_status_name,
+                new_status_color=new_status_color,
+                orders=uczestnik['orders'],
+                tracking_number=sr.tracking_number,
+                courier_name=courier_name,
+                shipping_requests_url=requests_url,
+            ))
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o zmianie statusu paczki zbiorczej {sr.request_number}')
 
     @staticmethod
     def notify_shipment_sent(shipping_request, *, tracking_number=None, courier=None,
@@ -997,6 +1061,14 @@ class EmailManager:
             return
 
         from utils.email_sender import send_shipment_sent_email
+
+        if shipping_request.is_consolidation:
+            # Paczka zbiorcza: shipping_request.orders to WSZYSTKIE zamówienia
+            # wszystkich uczestników (junction rows zjechały tu przy konsolidacji) —
+            # jeden mail do sr.user (lidera) ujawniłby mu cudze numery zamówień.
+            EmailManager._shipment_sent_consolidated(
+                shipping_request, tracking_number, courier, courier_name, tracking_url)
+            return
 
         orders = list(shipping_request.orders)
         if not orders:
@@ -1041,6 +1113,69 @@ class EmailManager:
             current_app.logger.error(
                 f"Failed to send shipment email for {shipping_request.request_number}: {e}"
             )
+
+    @staticmethod
+    def _shipment_sent_consolidated(sr, tracking_number, courier, courier_name, tracking_url):
+        """Paczka zbiorcza: jeden mail na uczestnika, każdy ze swoją listą zamówień.
+
+        Wspólny mail ujawniłby adresatowi numery zamówień pozostałych osób. Bez
+        fallbacku na e-mail z zamówienia (jak w gałęzi niekonsolidowanej) — dla
+        paczki zbiorczej wysłałby liczbę zamówień WSZYSTKICH uczestników obcej
+        osobie, gdyby konto właściciela zostało usunięte.
+        """
+        from flask import url_for
+        from utils.email_sender import prepare_shipment_sent_email, send_email_batch
+        from modules.orders.utils import get_tracking_url
+
+        if not tracking_url and tracking_number and courier:
+            tracking_url = get_tracking_url(courier, tracking_number)
+
+        uczestnicy = []
+        for u in sr.consolidation_participants:
+            user = u['user']
+            if not user or not user.email:
+                # Konto usunięte: fallback na adres z zamówienia wysłałby listę
+                # zamówień wszystkich uczestników obcej osobie.
+                current_app.logger.warning(
+                    f'Uczestnik paczki {sr.request_number} bez adresu e-mail — pomijam')
+                continue
+            uczestnicy.append(u)
+
+        if not uczestnicy:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników z adresem e-mail, nic nie wysyłam')
+            return
+
+        # URL-e liczymy tu, w kontekście wołającego — wątek batcha go nie ma. Poza
+        # aktywnym requestem url_for się wywali brakiem SERVER_NAME — degradujemy
+        # do braku linku zamiast tracić powiadomienia wszystkich uczestników.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+        adresat = sr.short_addressee_name
+
+        wiadomosci = []
+        for uczestnik in uczestnicy:
+            user = uczestnik['user']
+            czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            wiadomosci.append(prepare_shipment_sent_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=uczestnik['source_request'].request_number,
+                order_numbers=[o.order_number for o in uczestnik['orders']],
+                tracking_number=tracking_number or None,
+                courier_name=courier_name,
+                tracking_url=tracking_url,
+                shipping_requests_url=requests_url,
+                consolidation_note=None if czy_adresat else (
+                    f'Twoje zamówienia jadą w paczce zbiorczej wysłanej na adres: {adresat}.'
+                ),
+            ))
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o paczce zbiorczej {sr.request_number}')
 
     # ========================================
     # COST NOTIFICATION EMAILS

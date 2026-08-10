@@ -749,11 +749,33 @@ class PushManager:
     @staticmethod
     def notify_shipping_status_change(shipping_request, new_status_name):
         """Push notification for shipping request status change."""
+        from flask import url_for
+
+        if shipping_request.is_consolidation:
+            # Paczka zbiorcza: powiadamiamy KAŻDEGO uczestnika, nie tylko usera
+            # zlecenia zbiorczego (lidera) — inaczej reszta nie dowie się o zmianie.
+            try:
+                url = url_for('client.shipping_requests_list', _external=True)
+            except RuntimeError:
+                url = '/'
+            for uczestnik in shipping_request.consolidation_participants:
+                user = uczestnik['user']
+                if not user:
+                    continue
+                PushManager._fire_and_forget(
+                    user_id=user.id,
+                    title=f'Wysyłka: {uczestnik["source_request"].request_number}',
+                    body=f'Nowy status: {new_status_name}',
+                    url=url,
+                    tag=f'shipping-{shipping_request.id}',
+                    notification_type='shipping_updates'
+                )
+            return
+
         user = shipping_request.user
         if not user:
             return
 
-        from flask import url_for
         PushManager._fire_and_forget(
             user_id=user.id,
             title=f'Wysyłka: {shipping_request.request_number}',
@@ -770,6 +792,35 @@ class PushManager:
         Bez tego klient z trzema zamówieniami w jednym kartonie dostawał trzy
         powiadomienia o tej samej przesyłce.
         """
+        from flask import url_for
+
+        if shipping_request.is_consolidation:
+            # Paczka zbiorcza: shipping_request.user to tylko lider — bez tej
+            # gałęzi reszta uczestników nie dowiedziałaby się, że ich zamówienia
+            # jadą (zlecenia źródłowe są puste, notify_shipment_sent(zrodlo, ...)
+            # zwróciłoby się na braku zamówień, patrz orders_count niżej).
+            try:
+                url = url_for('client.shipping_requests_list', _external=True)
+            except RuntimeError:
+                url = '/'
+            for uczestnik in shipping_request.consolidation_participants:
+                user = uczestnik['user']
+                if not user:
+                    continue
+                label = _orders_label(len(uczestnik['orders']))
+                body = f'{label} w paczce zbiorczej'
+                if tracking_number:
+                    body += f' · {tracking_number}'
+                PushManager._fire_and_forget(
+                    user_id=user.id,
+                    title='Twoja paczka jest w drodze',
+                    body=body,
+                    url=url,
+                    tag=f'shipment-{shipping_request.id}',
+                    notification_type='shipping_updates',
+                )
+            return
+
         user = shipping_request.user
         if not user:
             return
@@ -779,8 +830,6 @@ class PushManager:
             # Puste zlecenie (bez żadnych zamówień) nie ma czego zapowiadać —
             # push „0 zamówień" tylko wprowadzałby klienta w błąd.
             return
-
-        from flask import url_for
 
         label = _orders_label(orders_count)
         if tracking_number:

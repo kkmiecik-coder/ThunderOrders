@@ -532,10 +532,16 @@ def test_ship_without_prior_tracking_still_notifies_once(
 
 
 # ---------- Finalna recenzja: znalezisko 4 — puste zlecenie nie wysyła nic ----------
+#
+# Ta cisza obowiązuje TYLKO zwykłe (nieskonsolidowane) zlecenie — dla paczki
+# zbiorczej i dla zlecenia źródłowego (is_consolidation / is_consolidated_source)
+# obowiązuje inna ścieżka: iteracja po uczestnikach z ich WŁASNYMI zamówieniami,
+# patrz tests/test_shipping_consolidation_notifications.py.
 
 def test_email_skipped_when_no_orders(app, db, make_user, captured_email):
-    """Zlecenie bez żadnych zamówień nie ma o czym powiadamiać — pusta paczka
-    nie wysyła maila, nawet gdy ma już numer przesyłki i użytkownika."""
+    """Zwykłe (nie: paczka zbiorcza, nie: zlecenie źródłowe) zlecenie bez żadnych
+    zamówień nie ma o czym powiadamiać — pusta paczka nie wysyła maila, nawet
+    gdy ma już numer przesyłki i użytkownika."""
     from modules.orders.models import ShippingRequest
     from utils.email_manager import EmailManager
 
@@ -545,6 +551,7 @@ def test_email_skipped_when_no_orders(app, db, make_user, captured_email):
                          tracking_number='PUSTA1', courier='dpd')
     db.session.add(sr)
     db.session.commit()
+    assert not sr.is_consolidation and not sr.is_consolidated_source
 
     with app.test_request_context():
         EmailManager.notify_shipment_sent(
@@ -554,7 +561,8 @@ def test_email_skipped_when_no_orders(app, db, make_user, captured_email):
 
 
 def test_push_skipped_when_no_orders(app, db, make_user, monkeypatch):
-    """Zlecenie bez żadnych zamówień nie wysyła pusha „0 zamówień"."""
+    """Zwykłe (nie: paczka zbiorcza, nie: zlecenie źródłowe) zlecenie bez żadnych
+    zamówień nie wysyła pusha „0 zamówień"."""
     from modules.orders.models import ShippingRequest
     from utils.push_manager import PushManager
 
@@ -564,6 +572,7 @@ def test_push_skipped_when_no_orders(app, db, make_user, monkeypatch):
                          tracking_number='PUSTA2', courier='dpd')
     db.session.add(sr)
     db.session.commit()
+    assert not sr.is_consolidation and not sr.is_consolidated_source
 
     calls = []
     monkeypatch.setattr(PushManager, '_fire_and_forget',

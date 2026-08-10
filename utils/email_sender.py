@@ -970,6 +970,42 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
     )
 
 
+def prepare_shipping_status_change_email(user_email, user_name, request_number,
+                                          old_status_name, new_status_name, new_status_color,
+                                          orders, tracking_number=None, courier_name=None,
+                                          shipping_requests_url=None):
+    """Wersja send_shipping_status_change_email do wysyłki wsadowej (BEZ wysyłania).
+
+    Potrzebna dla paczki zbiorczej: zmiana statusu zbiorczego zjeżdża na wszystkie
+    zlecenia źródłowe naraz, więc trzeba powiadomić kilku uczestników jednym
+    połączeniem SMTP zamiast pętlą po send_email() (patrz prepare_shipment_sent_email).
+
+    Returns:
+        Message lub None w przypadku błędu
+    """
+    return prepare_email(
+        to=user_email,
+        subject=f'Zmiana statusu zlecenia {request_number} - {new_status_name}',
+        template='shipping_status_change',
+        user_name=user_name,
+        request_number=request_number,
+        old_status_name=old_status_name,
+        new_status_name=new_status_name,
+        new_status_color=new_status_color,
+        orders=orders,
+        tracking_number=tracking_number,
+        courier_name=courier_name,
+        shipping_requests_url=shipping_requests_url
+    )
+
+
+def _shipment_sent_subject(request_number, tracking_number=None):
+    """Temat maila o wysłanej paczce — wspólny dla wysyłki pojedynczej i batchowej."""
+    if tracking_number:
+        return f'Numer przesyłki do Twojej paczki - {request_number} - ThunderOrders'
+    return f'Twoja paczka została wysłana - {request_number} - ThunderOrders'
+
+
 def send_shipment_sent_email(user_email, user_name, request_number, order_numbers,
                              tracking_number=None, courier_name=None, tracking_url=None,
                              shipping_requests_url=None):
@@ -991,14 +1027,9 @@ def send_shipment_sent_email(user_email, user_name, request_number, order_number
         tracking_url (str): URL do śledzenia przesyłki (opcjonalny)
         shipping_requests_url (str): URL do listy zleceń wysyłki klienta
     """
-    if tracking_number:
-        subject = f'Numer przesyłki do Twojej paczki - {request_number} - ThunderOrders'
-    else:
-        subject = f'Twoja paczka została wysłana - {request_number} - ThunderOrders'
-
     return send_email(
         to=user_email,
-        subject=subject,
+        subject=_shipment_sent_subject(request_number, tracking_number),
         template='shipment_sent',
         user_name=user_name,
         request_number=request_number,
@@ -1007,6 +1038,34 @@ def send_shipment_sent_email(user_email, user_name, request_number, order_number
         courier_name=courier_name,
         tracking_url=tracking_url,
         shipping_requests_url=shipping_requests_url
+    )
+
+
+def prepare_shipment_sent_email(user_email, user_name, request_number, order_numbers,
+                                tracking_number=None, courier_name=None, tracking_url=None,
+                                shipping_requests_url=None, consolidation_note=None):
+    """Wersja send_shipment_sent_email do wysyłki wsadowej (BEZ wysyłania).
+
+    Pętla po uczestnikach paczki zbiorczej na send_email() otworzyłaby osobne
+    połączenie SMTP na każdy mail — Hostinger limituje uwierzytelnienia per IP.
+    consolidation_note trafia do uczestnika, który NIE jest adresatem paczki —
+    informuje, że jego zamówienia jadą na adres kogoś innego.
+
+    Returns:
+        Message lub None w przypadku błędu
+    """
+    return prepare_email(
+        to=user_email,
+        subject=_shipment_sent_subject(request_number, tracking_number),
+        template='shipment_sent',
+        user_name=user_name,
+        request_number=request_number,
+        order_numbers=order_numbers,
+        tracking_number=tracking_number,
+        courier_name=courier_name,
+        tracking_url=tracking_url,
+        shipping_requests_url=shipping_requests_url,
+        consolidation_note=consolidation_note,
     )
 
 
