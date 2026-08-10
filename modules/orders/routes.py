@@ -12,8 +12,9 @@ from flask import render_template, request, redirect, url_for, flash, jsonify, a
 from flask_login import login_required, current_user
 from sqlalchemy import or_, and_, func
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
+from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 from modules.orders import orders_bp
 from modules.orders.models import (
@@ -31,7 +32,7 @@ from modules.orders.forms import (
 )
 from modules.orders.utils import (
     generate_order_number, detect_courier, get_tracking_url,
-    calculate_order_total, get_order_summary
+    calculate_order_total, get_order_summary, zaloguj_blad_z_identyfikatorem
 )
 from modules.orders.wms_utils import COURIER_NAMES
 from extensions import db
@@ -3807,6 +3808,16 @@ def admin_get_shipping_request(shipping_request_id):
         'pickup_postal_code': sr.pickup_postal_code,
         'pickup_city': sr.pickup_city,
         'orders': orders_data,
+        # Modal nazywa przycisk destrukcyjny wg tego, co ten przycisk NAPRAWDĘ robi:
+        # na paczce zbiorczej DELETE rozwiązuje konsolidację (zamówienia wracają do
+        # właścicieli), na zwykłym zleceniu kasuje zlecenie.
+        'is_consolidation': sr.is_consolidation,
+        'is_consolidated_source': sr.is_consolidated_source,
+        # To samo zdanie co na karcie WMS („Czeka na wycenę: Jagoda R."). Admin
+        # wypełniający kwoty w modalu widzi listę zamówień bez podziału na ludzi —
+        # bez tego nie wie, czyje pola zostawia puste. None na zwykłym zleceniu
+        # i na paczce, w której wszyscy są już rozliczeni.
+        'consolidation_block_note': sr.consolidation_block_note,
         'payment_deadline': sr.payment_deadline.isoformat() if sr.payment_deadline else None,
         'created_at': sr.created_at.isoformat() if sr.created_at else None
     })
@@ -3849,16 +3860,80 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
             current_app.logger.error(f'Status sync email error for {order.order_number}: {e}')
 
 
+class BladZapisuZlecenia(Exception):
+    """Odmowa zapisu zlecenia wysyłki z powodem nadającym się do pokazania adminowi.
+
+    Zamiast gołego 500 (albo cichego pominięcia pozycji) endpoint przerywa zapis
+    i oddaje konkretny komunikat: czego nie zapisano, którego zamówienia dotyczy
+    i dlaczego. Właściciel produktu prosił wprost o taki poziom szczegółu.
+    """
+
+    def __init__(self, message, status_code=400):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+def _odmowa_zapisu(sr, powod, order=None, status_code=400):
+    """Buduje komunikat odmowy w jednej konwencji dla całego zapisu zlecenia.
+
+    Wzorzec: „Nie zapisano zlecenia WYS/000050 — zamówienie EX/00001046: <powód>".
+    Numer zlecenia jest w komunikacie zawsze, bo modal zapisuje N zleceń w pętli
+    i bez numeru admin nie wie, które z nich odpadło.
+    """
+    if order is not None:
+        return BladZapisuZlecenia(
+            f'Nie zapisano zlecenia {sr.request_number} — '
+            f'zamówienie {order.order_number}: {powod}', status_code)
+    return BladZapisuZlecenia(
+        f'Nie zapisano zlecenia {sr.request_number} — {powod}', status_code)
+
+
 @orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
 def admin_update_shipping_request(shipping_request_id):
-    """Update shipping request."""
+    """Zapis zlecenia wysyłki z modalu wyceny — cienka warstwa nad `_zapisz_zlecenie_wysylki`.
+
+    Sam zapis siedzi w osobnej funkcji tylko po to, żeby dało się opakować go
+    w try/except: wcześniej endpoint nie miał żadnego, więc każdy błąd bazy leciał
+    jako puste 500 i front nie miał czego pokazać — admin widział „nic się nie stało".
+    """
     from modules.orders.models import ShippingRequest
 
     sr = ShippingRequest.query.get_or_404(shipping_request_id)
-    data = request.get_json() or {}
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({
+            'success': False,
+            'error': f'Nie zapisano zlecenia {sr.request_number} — '
+                     f'treść żądania nie jest poprawnym JSON-em.',
+        }), 400
 
+    try:
+        return _zapisz_zlecenie_wysylki(sr, data)
+    except BladZapisuZlecenia as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': e.message}), e.status_code
+    except HTTPException:
+        raise   # abort()/404 z głębi ma zostać tym, czym jest
+    except Exception:
+        db.session.rollback()
+        # Identyfikator błędu wędruje i do loga (obok tracebacka), i do admina —
+        # dzięki temu zgłoszenie „nie zapisało się" da się skorelować z konkretnym
+        # wpisem w logu zamiast zgadywać. Tracebacka do przeglądarki nie wypuszczamy.
+        blad_id = zaloguj_blad_z_identyfikatorem(
+            f'Nieoczekiwany błąd zapisu zlecenia {sr.request_number} '
+            f'(id={sr.id}, user={getattr(current_user, "email", "?")})')
+        return jsonify({
+            'success': False,
+            'error': f'Nie zapisano zlecenia {sr.request_number} — nieoczekiwany błąd serwera. '
+                     f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
+        }), 500
+
+
+def _zapisz_zlecenie_wysylki(sr, data):
+    """Właściwy zapis zlecenia wysyłki (pola, koszty, statusy, powiadomienia)."""
     old_tracking = sr.tracking_number
     old_status = sr.status
 
@@ -3870,7 +3945,9 @@ def admin_update_shipping_request(shipping_request_id):
             try:
                 sr.payment_deadline = datetime.fromisoformat(deadline_str)
             except (ValueError, TypeError):
-                return jsonify({'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
+                raise _odmowa_zapisu(
+                    sr, f'nieczytelny termin płatności („{deadline_str}") — '
+                        f'oczekiwano formatu RRRR-MM-DDTGG:MM')
         else:
             sr.payment_deadline = None
 
@@ -3899,27 +3976,55 @@ def admin_update_shipping_request(shipping_request_id):
     # Update order shipping costs
     orders_with_new_cost = []
     if 'order_costs' in data:
-        for cost_data in data['order_costs']:
+        pozycje = data['order_costs']
+        if not isinstance(pozycje, list):
+            raise _odmowa_zapisu(sr, 'pole „order_costs" musi być listą kosztów zamówień')
+
+        for cost_data in pozycje:
+            if not isinstance(cost_data, dict):
+                raise _odmowa_zapisu(
+                    sr, f'pozycja kosztu ma nieoczekiwaną postać ({type(cost_data).__name__}) '
+                        f'— oczekiwano obiektu z polami order_id i shipping_cost')
+
             order_id = cost_data.get('order_id')
-            shipping_cost = cost_data.get('shipping_cost', 0)
+            # Wcześniej brak/nieznane order_id znaczyło ciche pominięcie pozycji: admin
+            # widział „zapisano", a kwota nie wchodziła do bazy.
+            if order_id in (None, ''):
+                raise _odmowa_zapisu(sr, 'jedna z pozycji kosztów nie wskazuje zamówienia '
+                                         '(brak order_id)')
 
-            # Find the order and update its shipping cost
             order = db.session.get(Order, order_id)
-            if order:
-                # Po konsolidacji to jedyne miejsce, gdzie admin mógłby ustawić kwotę E4
-                # zamówieniu obcego klienta — modal renderuje tylko zamówienia tego zlecenia,
-                # ale endpoint przyjmował dowolne ID.
-                if order.id not in {ro.order_id for ro in sr.request_orders}:
-                    db.session.rollback()
-                    return jsonify({
-                        'error': f'Zamówienie {order.order_number} nie należy do zlecenia '
-                                 f'{sr.request_number}',
-                    }), 400
+            if not order:
+                raise _odmowa_zapisu(sr, f'nie znaleziono zamówienia o identyfikatorze {order_id}')
 
-                old_cost = float(order.shipping_cost or 0)
-                order.shipping_cost = shipping_cost if shipping_cost > 0 else None
-                if shipping_cost and float(shipping_cost) > 0 and float(shipping_cost) != old_cost:
-                    orders_with_new_cost.append((order, float(shipping_cost)))
+            # Po konsolidacji to jedyne miejsce, gdzie admin mógłby ustawić kwotę E4
+            # zamówieniu obcego klienta — modal renderuje tylko zamówienia tego zlecenia,
+            # ale endpoint przyjmował dowolne ID.
+            if order.id not in {ro.order_id for ro in sr.request_orders}:
+                raise _odmowa_zapisu(sr, 'nie należy do tego zlecenia wysyłki', order=order)
+
+            surowy_koszt = cost_data.get('shipping_cost', 0)
+            if surowy_koszt in (None, ''):
+                surowy_koszt = 0   # puste pole w modalu = brak kosztu = 0 zł
+            try:
+                nowy_koszt = Decimal(str(surowy_koszt)).quantize(Decimal('0.01'))
+            except (InvalidOperation, ValueError, TypeError):
+                raise _odmowa_zapisu(
+                    sr, f'kwota wysyłki „{surowy_koszt}" nie jest liczbą', order=order)
+            if nowy_koszt < 0:
+                raise _odmowa_zapisu(
+                    sr, f'kwota wysyłki nie może być ujemna (podano {nowy_koszt} zł)', order=order)
+
+            old_cost = float(order.shipping_cost or 0)
+            # Kolumna `orders.shipping_cost` jest NOT NULL, a cały moduł traktuje
+            # ZERO jako „brak kosztu" (`(o.shipping_cost or 0) > 0` w consolidation.py,
+            # routes.py i email_managerze) — semantyki „NULL = niewycenione" nigdzie nie ma.
+            # Wpisanie None wywalało zapis na IntegrityError 1048 i admin dostawał gołe
+            # 500: konsolidacja po raz pierwszy stawia w jednym modalu zlecenie wycenione
+            # obok niewycenionego, którego pola renderują się puste i wracają jako 0.
+            order.shipping_cost = nowy_koszt
+            if nowy_koszt > 0 and float(nowy_koszt) != old_cost:
+                orders_with_new_cost.append((order, float(nowy_koszt)))
 
     # Sync total_shipping_cost on SR from order costs
     if 'order_costs' in data:
@@ -4089,6 +4194,16 @@ def admin_delete_shipping_request(shipping_request_id):
         except ConsolidationError as e:
             db.session.rollback()
             return jsonify({'success': False, 'message': e.message}), e.status_code
+        except Exception:
+            db.session.rollback()
+            blad_id = zaloguj_blad_z_identyfikatorem(
+                f'Nieoczekiwany błąd rozwiązywania paczki {request_number} przy kasowaniu '
+                f'(id={shipping_request_id})')
+            return jsonify({
+                'success': False,
+                'message': f'Nie rozwiązano paczki {request_number} — nieoczekiwany błąd '
+                           f'serwera. Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
+            }), 500
         log_activity(
             user=current_user, action='shipping_request_consolidation_dissolved',
             entity_type='shipping_request',
@@ -4113,15 +4228,27 @@ def admin_delete_shipping_request(shipping_request_id):
             'message': f'Zlecenie {request_number} jest powiązane z aktywną sesją WMS i nie może zostać usunięte.'
         }), 400
 
-    # Remove old WMS junction records (from completed/cancelled sessions)
-    WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
+    # Kasowanie dotyka trzech tabel naraz (junction WMS, powiązania zamówień, samo
+    # zlecenie) — bez try/except każdy błąd FK leciał do admina jako puste 500.
+    try:
+        # Remove old WMS junction records (from completed/cancelled sessions)
+        WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
 
-    # Remove all order associations (orders go back to pool)
-    ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
+        # Remove all order associations (orders go back to pool)
+        ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
 
-    # Delete the shipping request
-    db.session.delete(sr)
-    db.session.commit()
+        # Delete the shipping request
+        db.session.delete(sr)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        blad_id = zaloguj_blad_z_identyfikatorem(
+            f'Nieoczekiwany błąd usuwania zlecenia {request_number} (id={shipping_request_id})')
+        return jsonify({
+            'success': False,
+            'message': f'Nie usunięto zlecenia {request_number} — nieoczekiwany błąd serwera. '
+                       f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
+        }), 500
 
     # Activity log
     import json
@@ -4344,10 +4471,17 @@ def admin_consolidate_shipping_requests():
     except ConsolidationError as e:
         db.session.rollback()
         return jsonify({'error': e.message}), e.status_code
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        current_app.logger.error(f'Błąd konsolidacji zleceń {ids}: {e}')
-        return jsonify({'error': 'Nie udało się utworzyć paczki zbiorczej'}), 500
+        blad_id = zaloguj_blad_z_identyfikatorem(
+            f'Nieoczekiwany błąd konsolidacji zleceń {ids} '
+            f'(target={target_id}, lead={lead_id})')
+        czynnosc = ('dopiąć zleceń do paczki zbiorczej' if target_id
+                    else 'utworzyć paczki zbiorczej')
+        return jsonify({
+            'error': f'Nie udało się {czynnosc} — nieoczekiwany błąd serwera. '
+                     f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
+        }), 500
 
     _powiadom_o_konsolidacji(zbiorcze)
 
@@ -4392,6 +4526,16 @@ def admin_consolidation_change_lead(shipping_request_id):
     except ConsolidationError as e:
         db.session.rollback()
         return jsonify({'error': e.message}), e.status_code
+    except Exception:
+        db.session.rollback()
+        blad_id = zaloguj_blad_z_identyfikatorem(
+            f'Nieoczekiwany błąd zmiany zlecenia wiodącego paczki {target.request_number} '
+            f'(lead_request_id={lead_request_id})')
+        return jsonify({
+            'error': f'Nie zmieniono adresata paczki {target.request_number} — '
+                     f'nieoczekiwany błąd serwera. Identyfikator błędu: {blad_id} — '
+                     f'podaj go przy zgłoszeniu.',
+        }), 500
 
     log_activity(
         user=current_user, action='shipping_request_consolidation_lead_changed',
@@ -4434,6 +4578,14 @@ def admin_consolidation_detach(shipping_request_id):
     except ConsolidationError as e:
         db.session.rollback()
         return jsonify({'error': e.message}), e.status_code
+    except Exception:
+        db.session.rollback()
+        blad_id = zaloguj_blad_z_identyfikatorem(
+            f'Nieoczekiwany błąd wypięcia zlecenia {source_id} z paczki {numer}')
+        return jsonify({
+            'error': f'Nie wypięto zlecenia z paczki {numer} — nieoczekiwany błąd serwera. '
+                     f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
+        }), 500
 
     log_activity(
         user=current_user, action='shipping_request_consolidation_detached',
@@ -4468,6 +4620,14 @@ def admin_consolidation_dissolve(shipping_request_id):
     except ConsolidationError as e:
         db.session.rollback()
         return jsonify({'error': e.message}), e.status_code
+    except Exception:
+        db.session.rollback()
+        blad_id = zaloguj_blad_z_identyfikatorem(
+            f'Nieoczekiwany błąd rozwiązywania paczki zbiorczej {numer} (id={target.id})')
+        return jsonify({
+            'error': f'Nie rozwiązano paczki {numer} — nieoczekiwany błąd serwera. '
+                     f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
+        }), 500
 
     log_activity(
         user=current_user, action='shipping_request_consolidation_dissolved',

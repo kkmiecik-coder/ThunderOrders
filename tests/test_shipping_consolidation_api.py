@@ -815,3 +815,276 @@ def test_panel_pakowania_zna_adresata_i_wycene(db, make_user, make_order):
     oczekiwany = f'{sr_a.user.first_name} {sr_a.user.last_name}'
     assert payload['addressee_name'] == oczekiwany
     assert payload['total_shipping_cost'] == 42.98
+
+
+def _paczka_z_wycena_mieszana(db, make_user, make_order):
+    """Paczka zbiorcza: zlecenie WYCENIONE + zlecenie NIEWYCENIONE.
+
+    Dokładnie ten układ wywalał produkcję — dopiero konsolidacja stawia w jednym
+    modalu zamówienia z kosztem i bez kosztu, więc część pól wyceny renderuje się
+    pusta i wraca w payloadzie jako 0.
+    """
+    from decimal import Decimal
+    from modules.orders.consolidation import utworz_konsolidacje
+    _seed_sr_statuses(db)
+    sr_a, (order_a,) = _sr(db, make_user(), make_order, status='czeka_na_wycene')
+    sr_b, (order_b,) = _sr(db, make_user(), make_order, status='czeka_na_wycene')
+    order_a.shipping_cost = Decimal('21.49')   # wycenione wcześniej
+    order_b.shipping_cost = Decimal('0.00')    # jeszcze nie wycenione → pole puste w modalu
+    db.session.commit()
+
+    zbiorcze = utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+    return zbiorcze, order_a, order_b
+
+
+def test_zapis_wyceny_z_pustym_polem_kosztu_zapisuje_zero(db, client, login, make_user, make_order):
+    """Regres 500 z produkcji: pusta kwota w modalu wyceny paczki zbiorczej.
+
+    `order.shipping_cost = koszt if koszt > 0 else None` wpisywało NULL do kolumny
+    NOT NULL — pymysql wywalał IntegrityError 1048, a admin dostawał gołe 500 bez
+    komunikatu. Decyzja właściciela produktu: pusta kwota = 0 zł, zapis ma przejść.
+    """
+    from decimal import Decimal
+    from modules.orders.models import Order
+    zbiorcze, order_a, order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [
+            {'order_id': order_a.id, 'shipping_cost': 30.0},   # admin dopisał kwotę
+            {'order_id': order_b.id, 'shipping_cost': 0},      # pole zostawione puste
+        ],
+        'parcel_size': 'A',
+    })
+
+    assert r.status_code == 200, r.get_data(as_text=True)
+    assert r.get_json()['success'] is True
+    db.session.expire_all()
+    assert db.session.get(Order, order_a.id).shipping_cost == Decimal('30.00')
+    # Zero, nie NULL — „brak kosztu" w tym module zawsze znaczyło 0 (patrz
+    # `(o.shipping_cost or 0) > 0` w consolidation.py i email_managerze).
+    assert db.session.get(Order, order_b.id).shipping_cost == Decimal('0.00')
+
+
+def test_zapis_wyceny_zerowanie_wczesniejszej_kwoty(db, client, login, make_user, make_order):
+    """Wyczyszczenie wcześniej wpisanej kwoty też ma przejść, a nie kończyć się 500."""
+    from decimal import Decimal
+    from modules.orders.models import Order
+    zbiorcze, order_a, order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [
+            {'order_id': order_a.id, 'shipping_cost': 0},   # skasowana kwota 21,49
+            {'order_id': order_b.id, 'shipping_cost': 0},
+        ],
+    })
+
+    assert r.status_code == 200, r.get_data(as_text=True)
+    db.session.expire_all()
+    assert db.session.get(Order, order_a.id).shipping_cost == Decimal('0.00')
+
+
+def test_zapis_odmawia_zamowienia_spoza_zlecenia_i_mowi_dlaczego(db, client, login, make_user, make_order):
+    """Komunikat ma nazwać zlecenie, zamówienie i powód — nie samo „Błąd zapisu"."""
+    zbiorcze, _order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    obce = make_order(make_user())
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': obce.id, 'shipping_cost': 10}],
+    })
+
+    assert r.status_code == 400
+    blad = r.get_json()['error']
+    assert blad == (f'Nie zapisano zlecenia {zbiorcze.request_number} — '
+                    f'zamówienie {obce.order_number}: nie należy do tego zlecenia wysyłki')
+
+
+def test_zapis_odmawia_kwoty_ktora_nie_jest_liczba(db, client, login, make_user, make_order):
+    """Wcześniej `shipping_cost > 0` na tekście wywalało TypeError → gołe 500."""
+    zbiorcze, order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': order_a.id, 'shipping_cost': 'dwadzieścia'}],
+    })
+
+    assert r.status_code == 400
+    blad = r.get_json()['error']
+    assert zbiorcze.request_number in blad
+    assert order_a.order_number in blad
+    assert 'nie jest liczbą' in blad
+
+
+def test_zapis_odmawia_kwoty_ujemnej(db, client, login, make_user, make_order):
+    from decimal import Decimal
+    from modules.orders.models import Order
+    zbiorcze, order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': order_a.id, 'shipping_cost': -5}],
+    })
+
+    assert r.status_code == 400
+    assert 'ujemna' in r.get_json()['error']
+    db.session.expire_all()
+    assert db.session.get(Order, order_a.id).shipping_cost == Decimal('21.49')   # bez zmian
+
+
+def test_zapis_odmawia_nieczytelnego_terminu_platnosci(db, client, login, make_user, make_order):
+    zbiorcze, _order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}',
+                   json={'payment_deadline': 'jutro'})
+
+    assert r.status_code == 400
+    blad = r.get_json()['error']
+    assert zbiorcze.request_number in blad
+    assert 'termin płatności' in blad
+
+
+def test_nieoczekiwany_blad_zapisu_daje_identyfikator_do_logu(
+        db, client, login, make_user, make_order, monkeypatch, caplog):
+    """Awaria nieprzewidziana ma dać komunikat z numerem zlecenia i identyfikatorem
+    błędu — tym samym, który poszedł do logu obok tracebacka. Bez tego zgłoszenie
+    „nie zapisało się" trzeba było szukać w logach po godzinie."""
+    import re
+    zbiorcze, order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    login(_admin(make_user))
+
+    def wybuchnij(_sr):
+        raise RuntimeError('symulacja awarii bazy')
+
+    monkeypatch.setattr('modules.orders.consolidation.propaguj_na_zrodla', wybuchnij)
+
+    with caplog.at_level('ERROR'):
+        r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+            'order_costs': [{'order_id': order_a.id, 'shipping_cost': 12}],
+        })
+
+    assert r.status_code == 500
+    blad = r.get_json()['error']
+    assert zbiorcze.request_number in blad
+    assert 'Identyfikator błędu' in blad
+    assert 'Traceback' not in blad and 'RuntimeError' not in blad   # bez wnętrzności serwera
+
+    identyfikator = re.search(r'Identyfikator błędu: (\w+)', blad).group(1)
+    assert identyfikator in caplog.text          # ten sam ciąg w logu…
+    assert 'symulacja awarii bazy' in caplog.text  # …obok tracebacka
+
+
+def test_get_zlecenia_mowi_czy_to_paczka_zbiorcza(db, client, login, make_user, make_order):
+    """Modal nazywa przycisk destrukcyjny wg tej flagi („Rozwiąż paczkę" vs „Usuń zlecenie")."""
+    zbiorcze, _order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    zrodlo = zbiorcze.consolidated_sources[0]
+    login(_admin(make_user))
+
+    dane = client.get(f'/admin/orders/shipping-requests/{zbiorcze.id}').get_json()
+    assert dane['is_consolidation'] is True
+    assert dane['is_consolidated_source'] is False
+
+    dane_zrodla = client.get(f'/admin/orders/shipping-requests/{zrodlo.id}').get_json()
+    assert dane_zrodla['is_consolidation'] is False
+    assert dane_zrodla['is_consolidated_source'] is True
+
+
+# ---------- Stan rozliczeń uczestników na karcie i w modalu ----------
+
+def test_karta_pokazuje_status_kazdego_uczestnika(db, client, login, make_user, make_order):
+    """Pigułka na nagłówku karty niesie status NAJMNIEJ zaawansowany ze scalanych, więc
+    przy mieszanych rozliczeniach mówiła „Czeka na wycenę" nad zleceniem, które było
+    już opłacone. Nagłówek grupy uczestnika dokłada status JEGO zlecenia."""
+    from test_shipping_consolidation import _ustaw_statusy
+    from modules.orders.models import ShippingRequestStatus
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-group-status' in tresc
+    # Kropka bierze kolor ZLECENIA UCZESTNIKA — zielony opłaconego musi być na karcie
+    # obok bursztynu paczki, inaczej renderowalibyśmy status zbiorczego dwa razy.
+    kolory = {s.slug: s.badge_color for s in ShippingRequestStatus.query.all()}
+    assert f'background-color: {kolory["oplacone"]};' in tresc
+    assert f'background-color: {kolory["czeka_na_wycene"]};' in tresc
+
+
+def test_karta_mowi_co_blokuje_paczke(db, client, login, make_user, make_order):
+    from test_shipping_consolidation import _ustaw_statusy
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_oplacenie'})
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-block-note' in tresc
+    assert f'Czeka na opłacenie: {sr_b.short_addressee_name}' in tresc
+
+
+def test_karta_paczki_rozliczonej_bez_zdania(db, client, login, make_user, make_order):
+    """Wszyscy uczestnicy opłaceni — nie ma czego tłumaczyć, zdanie znika."""
+    _seed_sr_statuses(db)
+    _konsolidacja(db, make_user, make_order)   # oba źródła 'oplacone'
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-group-status' in tresc          # statusy uczestników zostają…
+    assert 'sr-block-note' not in tresc        # …ale bez ostrzeżenia bez treści
+
+
+def test_zwykle_zlecenie_renderuje_sie_bez_zmian(db, client, login, make_user, make_order):
+    """Karta zlecenia jednego klienta nie dostaje ani statusów uczestników, ani zdania
+    o blokadzie — cała gałąź jest pod `sr.is_consolidation`."""
+    _seed_sr_statuses(db)
+    _sr(db, make_user(first_name='Anna', last_name='Kowalska'), make_order,
+        status='czeka_na_wycene')
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'sr-order-group' not in tresc
+    assert 'sr-group-status' not in tresc
+    assert 'sr-block-note' not in tresc
+
+
+def test_get_zlecenia_oddaje_powod_blokady_dla_modalu(db, client, login, make_user, make_order):
+    """Modal wyceny renderuje płaską listę numerów zamówień, bez podziału na ludzi —
+    bez tego pola admin nie wie, czyje pole kosztu zostawia puste."""
+    from test_shipping_consolidation import _ustaw_statusy
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+    login(_admin(make_user))
+
+    dane = client.get(f'/admin/orders/shipping-requests/{zbiorcze.id}').get_json()
+    assert dane['consolidation_block_note'] == f'Czeka na wycenę: {sr_b.short_addressee_name}'
+
+    # Zwykłe zlecenie: pole obecne, ale puste — modal nie musi zgadywać, czy je pominąć.
+    sr_c, _o = _sr(db, make_user(), make_order, status='czeka_na_wycene')
+    zwykle = client.get(f'/admin/orders/shipping-requests/{sr_c.id}').get_json()
+    assert zwykle['consolidation_block_note'] is None
+
+
+def test_zdanie_nie_chowa_sie_razem_z_zamowieniami(db, client, login, make_user, make_order):
+    """Pułapka karty: limit „3 widoczne" liczy się łącznie przez wszystkie grupy, a
+    `toggleExtraOrders` chowa WSZYSTKO z klasą `sr-order-extra` wewnątrz
+    `.sr-orders-compact`. Zdanie o blokadzie dotyczy całej paczki, więc nie może tej
+    klasy dostać ani wylądować wewnątrz grupy uczestnika."""
+    import re
+    from test_shipping_consolidation import _ustaw_statusy
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=3)
+    _ustaw_statusy(db, zbiorcze, {sr_a: 'oplacone', sr_b: 'czeka_na_wycene'})
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert 'Pokaż więcej (3)' in tresc          # 6 zamówień, 3 widoczne
+    zdanie = re.search(r'<div class="sr-block-note">', tresc)
+    assert zdanie, 'zdanie renderuje się z gołą klasą, bez sr-order-extra'
+    # …i za przyciskiem rozwijania, czyli poza grupami uczestników.
+    assert tresc.index('Pokaż więcej (3)') < zdanie.start()

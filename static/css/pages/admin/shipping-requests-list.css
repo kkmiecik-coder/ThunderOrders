@@ -113,6 +113,9 @@
 .sr-card-header-left {
     display: flex;
     align-items: center;
+    /* Odstęp między checkboxem a blokiem numer + badge, który stoi teraz po tej stronie. */
+    gap: 12px;
+    min-width: 0;
 }
 
 .sr-card-header-right {
@@ -433,6 +436,9 @@
 .sr-order-group-head {
     display: flex;
     align-items: center;
+    /* flex-wrap dopiero od statusu uczestnika: nagłówek niesie teraz cztery elementy
+       i w wąskiej kolumnie siatki kart wypychał znacznik „adresat" poza grupę. */
+    flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 5px;
     font-size: 12px;
@@ -440,6 +446,46 @@
 
 .sr-order-group-name {
     font-weight: 600;
+}
+
+/* Status zlecenia uczestnika — celowo cichszy od pigułki statusu na nagłówku karty:
+   karta jest gęsta, a tych etykiet jest tyle, ilu uczestników. Barwę statusu niesie
+   kropka, tekst zostaje w kolorze drugorzędnym (czytelnym w obu motywach). */
+.sr-group-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #6b6b76;
+}
+
+.sr-group-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Zdanie „co blokuje paczkę" — pod grupami uczestników, na całą szerokość karty */
+.sr-block-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: #fff8ec;
+    border: 1px solid #f7e2bf;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #8a5a12;
+}
+
+.sr-block-note svg {
+    flex-shrink: 0;
+    margin-top: 1px;
 }
 
 .sr-avatar-sm {
@@ -748,6 +794,18 @@
     color: #f093fb;
 }
 
+[data-theme="dark"] .sr-group-status {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Bursztyn zostaje (to ostrzeżenie, nie akcent marki), ale rozjaśniony i na
+   półprzezroczystym tle — pełne #fff8ec świeciłoby dziurą w ciemnej karcie. */
+[data-theme="dark"] .sr-block-note {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #fbbf5a;
+}
+
 [data-theme="dark"] .sr-card-body {
     background: transparent;
 }
@@ -927,6 +985,17 @@
     .sr-consolidated-badge {
         font-size: 9px;
         padding: 2px 7px;
+    }
+
+    /* Na telefonie nagłówek grupy zawija się prawie zawsze — margin-left: auto na
+       znaczniku „adresat" wypychałby go wtedy w samotny wiersz po prawej. */
+    .sr-lead-mark {
+        margin-left: 0;
+    }
+
+    .sr-block-note {
+        font-size: 11.5px;
+        padding: 8px 10px;
     }
 
     .sr-card-body {

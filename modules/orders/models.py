@@ -1628,6 +1628,50 @@ class ShippingRequest(db.Model):
         ))
         return wynik
 
+    # Etykiety etapów rozliczenia, na których paczka zbiorcza stoi i czeka na ludzi.
+    # Dalsze statusy (opłacone, spakowane, wysłane…) nie blokują niczego po stronie
+    # klientów, więc nie mają tu wpisu — brak klucza = brak zdania.
+    _ETAPY_BLOKUJACE = {
+        'czeka_na_wycene': 'Czeka na wycenę',
+        'czeka_na_oplacenie': 'Czeka na opłacenie',
+    }
+
+    @property
+    def consolidation_block_note(self):
+        """Jedno zdanie: co wstrzymuje paczkę zbiorczą i na kogo czekamy.
+
+        Paczka dostaje status NAJMNIEJ zaawansowany ze scalanych zleceń, więc karta
+        krzyczała „Czeka na wycenę” nawet wtedy, gdy trzy osoby z czterech już
+        zapłaciły — i nie mówiła, która osoba jest tą czwartą. Admin musiał otwierać
+        modal i porównywać kwoty przy zamówieniach, żeby to ustalić.
+
+        Zwraca np. „Czeka na wycenę: Jagoda R., Amelia K.” albo None, gdy paczka jest
+        opłacona (albo dalej) — wtedy nie ma czego tłumaczyć. Property, nie sklejanie
+        w Jinja, bo to samo zdanie renderuje karta WMS i modal wyceny (przez JSON
+        endpointu) — a nazwiska skracamy jednym, wspólnym `short_addressee_name`.
+        """
+        if not self.is_consolidation:
+            return None
+        etykieta = self._ETAPY_BLOKUJACE.get(self.status)
+        if not etykieta:
+            return None
+
+        nazwy = []
+        for uczestnik in self.consolidation_participants:
+            zrodlo = uczestnik['source_request']
+            # Blokują wyłącznie ci, którzy stoją na tym samym etapie co cała paczka —
+            # reszta jest już dalej i wymienianie jej byłoby wprowadzaniem w błąd.
+            if zrodlo.status != self.status:
+                continue
+            # Konto bywa usunięte albo bez imienia (`short_addressee_name` oddaje wtedy
+            # None) — numer zlecenia jest gorszą, ale wciąż działającą wskazówką dla
+            # admina, lepszą niż „None” albo milczące pominięcie uczestnika.
+            nazwy.append(zrodlo.short_addressee_name or zrodlo.request_number)
+
+        if not nazwy:
+            return None
+        return f"{etykieta}: {', '.join(nazwy)}"
+
     @property
     def orders_count(self):
         """Returns number of orders in this shipping request"""
