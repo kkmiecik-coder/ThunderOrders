@@ -3808,6 +3808,11 @@ def admin_get_shipping_request(shipping_request_id):
         'pickup_postal_code': sr.pickup_postal_code,
         'pickup_city': sr.pickup_city,
         'orders': orders_data,
+        # Modal nazywa przycisk destrukcyjny wg tego, co ten przycisk NAPRAWDĘ robi:
+        # na paczce zbiorczej DELETE rozwiązuje konsolidację (zamówienia wracają do
+        # właścicieli), na zwykłym zleceniu kasuje zlecenie.
+        'is_consolidation': sr.is_consolidation,
+        'is_consolidated_source': sr.is_consolidated_source,
         'payment_deadline': sr.payment_deadline.isoformat() if sr.payment_deadline else None,
         'created_at': sr.created_at.isoformat() if sr.created_at else None
     })

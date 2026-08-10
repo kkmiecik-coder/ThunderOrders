@@ -84,6 +84,11 @@
         return (sr && sr.request_number) || `#${id}`;
     }
 
+    /** Czy to paczka zbiorcza (wiele klientów w jednym kartonie). */
+    function isConsolidation(id) {
+        const sr = state.data.get(id);
+        return !!(sr && sr.is_consolidation);
+    }
 
     function totalCost(id) {
         const edits = state.edits.get(id);
@@ -219,6 +224,13 @@
         bulkBar.hidden = !many;
         list.hidden = !many;
         cancelBtn.hidden = many;
+
+        // Nazwa przycisku ma opisywać to, co on faktycznie robi. DELETE na paczce
+        // zbiorczej NIE anuluje niczego — rozwiązuje konsolidację i oddaje zamówienia
+        // właścicielom; na zwykłym zleceniu kasuje zlecenie.
+        cancelBtn.textContent = isConsolidation(state.activeId)
+            ? 'Rozwiąż paczkę'
+            : 'Usuń zlecenie';
 
         // W trybie wysyłki termin płatności nigdzie nie jest wysyłany — samo pole
         // tylko myli, więc znika z paska "Ustaw we wszystkich" (nie sam input,
@@ -806,13 +818,22 @@
         const sr = state.data.get(state.activeId);
         if (!sr) return;
 
-        const confirmed = confirm(
-            `Czy na pewno anulować zlecenie ${sr.request_number}?\n\n` +
-            'Wszystkie zamówienia zostaną odłączone od tego zlecenia i wrócą do puli dostępnych zamówień klienta.'
-        );
-        if (!confirmed) return;
+        // Pytanie musi opisywać skutek, a nie „anulowanie", którego tu nie ma:
+        // paczka zbiorcza zostaje rozwiązana (zlecenia klientów żyją dalej),
+        // zwykłe zlecenie znika, a jego zamówienia wracają do puli.
+        const paczka = !!sr.is_consolidation;
+        const pytanie = paczka
+            ? `Rozwiązać paczkę zbiorczą ${sr.request_number}?\n\n`
+              + 'Zamówienia wrócą do zleceń swoich właścicieli, a sama paczka zniknie. '
+              + 'Zleceń klientów to nie anuluje.'
+            : `Usunąć zlecenie ${sr.request_number}?\n\n`
+              + 'Wszystkie zamówienia zostaną odłączone od tego zlecenia i wrócą do puli '
+              + 'dostępnych zamówień klienta.';
+        if (!confirm(pytanie)) return;
 
-        const czynnosc = `Nie anulowano zlecenia ${sr.request_number}`;
+        const czynnosc = paczka
+            ? `Nie rozwiązano paczki ${sr.request_number}`
+            : `Nie usunięto zlecenia ${sr.request_number}`;
         try {
             const resp = await fetch(`/admin/orders/shipping-requests/${sr.id}`, {
                 method: 'DELETE',
@@ -836,7 +857,7 @@
                 notify(escapeHtml(powod), 'error');
             }
         } catch (error) {
-            console.error('Błąd anulowania zlecenia:', error);
+            console.error('Błąd usuwania zlecenia:', error);
             notify(`${czynnosc} — brak połączenia z serwerem`, 'error');
         }
     }

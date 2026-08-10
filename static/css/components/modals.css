@@ -4533,6 +4533,24 @@
 .sr-modal-footer-actions { display: flex; gap: 8px; margin-left: auto; }
 /* .btn ma display: inline-flex/inline-block — bije regułę UA [hidden] { display: none } */
 .sr-modal-footer-actions .btn[hidden] { display: none; }
+.sr-modal-footer-danger[hidden] { display: none; }
+
+/* Akcja destrukcyjna („Rozwiąż paczkę" / „Usuń zlecenie") trzyma się lewej krawędzi
+   stopki, a margin-right: auto odpycha od niej całą grupę „Zamknij / Zapisz" — mylne
+   kliknięcie wymaga przejechania przez pół stopki. Wygaszony wariant czerwieni, żeby
+   przycisk nie konkurował wzrokowo z „Zapisz". */
+.modal-footer .sr-modal-footer-danger {
+    margin-right: auto;
+    background: #ffffff;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+
+.modal-footer .sr-modal-footer-danger:hover {
+    background: #fef2f2;
+    border-color: #dc2626;
+    color: #b91c1c;
+}
 .sr-modal-progress { font-size: 13px; color: #666666; }
 
 .sr-modal .input-error {
@@ -4541,6 +4559,20 @@
 }
 
 /* Dark mode */
+[data-theme="dark"] .modal-footer .sr-modal-footer-danger {
+    background: rgba(255, 255, 255, 0.05);
+    color: #f5576c;
+    border: 1px solid rgba(245, 87, 108, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .modal-footer .sr-modal-footer-danger:hover {
+    background: rgba(245, 87, 108, 0.15);
+    border-color: rgba(245, 87, 108, 0.5);
+    color: #ffffff;
+}
+
 [data-theme="dark"] .sr-list-item {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(240, 147, 251, 0.15);
@@ -4698,6 +4730,14 @@
     .sr-modal-footer { flex-direction: column; align-items: stretch; }
     .sr-modal-footer-actions { margin-left: 0; flex-wrap: wrap; }
     .sr-modal-footer-actions .btn { flex: 1; min-height: 44px; }
+    /* W kolumnie „odsunięcie w lewo" nie istnieje — akcja destrukcyjna schodzi
+       na sam dół, za widoczny odstęp od „Zamknij / Zapisz". */
+    .modal-footer .sr-modal-footer-danger {
+        order: 3;
+        margin-right: 0;
+        margin-top: 16px;
+        min-height: 44px;
+    }
 
     #editShippingRequestModal .modal-content { max-height: 95vh; }
 

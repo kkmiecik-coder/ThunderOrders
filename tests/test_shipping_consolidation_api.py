@@ -976,3 +976,18 @@ def test_nieoczekiwany_blad_zapisu_daje_identyfikator_do_logu(
     identyfikator = re.search(r'Identyfikator błędu: (\w+)', blad).group(1)
     assert identyfikator in caplog.text          # ten sam ciąg w logu…
     assert 'symulacja awarii bazy' in caplog.text  # …obok tracebacka
+
+
+def test_get_zlecenia_mowi_czy_to_paczka_zbiorcza(db, client, login, make_user, make_order):
+    """Modal nazywa przycisk destrukcyjny wg tej flagi („Rozwiąż paczkę" vs „Usuń zlecenie")."""
+    zbiorcze, _order_a, _order_b = _paczka_z_wycena_mieszana(db, make_user, make_order)
+    zrodlo = zbiorcze.consolidated_sources[0]
+    login(_admin(make_user))
+
+    dane = client.get(f'/admin/orders/shipping-requests/{zbiorcze.id}').get_json()
+    assert dane['is_consolidation'] is True
+    assert dane['is_consolidated_source'] is False
+
+    dane_zrodla = client.get(f'/admin/orders/shipping-requests/{zrodlo.id}').get_json()
+    assert dane_zrodla['is_consolidation'] is False
+    assert dane_zrodla['is_consolidated_source'] is True

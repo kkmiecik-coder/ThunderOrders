@@ -44,9 +44,13 @@
         </div>
 
         <div class="modal-footer sr-modal-footer">
+            <!-- Akcja destrukcyjna stoi sama przy lewej krawędzi, poza grupą
+                 „Zamknij / Zapisz" — żeby nie dało się jej trafić przez pomyłkę.
+                 Etykietę ustawia JS: „Rozwiąż paczkę" dla paczki zbiorczej,
+                 „Usuń zlecenie" dla zwykłego zlecenia. -->
+            <button type="button" class="btn btn-danger sr-modal-footer-danger" id="srCancelRequestBtn" hidden>Usuń zlecenie</button>
             <span class="sr-modal-progress" id="srModalProgress"></span>
             <div class="sr-modal-footer-actions">
-                <button type="button" class="btn btn-danger" id="srCancelRequestBtn" hidden>Anuluj zlecenie</button>
                 <button type="button" class="btn btn-secondary" id="srModalCloseBtn">Zamknij</button>
                 <button type="button" class="btn btn-primary" id="srModalSaveBtn">Zapisz wszystkie</button>
             </div>
