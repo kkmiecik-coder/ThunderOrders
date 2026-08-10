@@ -107,6 +107,7 @@
                             {% endif %}
                             {% endif %}
 
+                            {% if shipping_requests_url %}
                             <!-- Panel link -->
                             <p style="margin: 30px 0 10px 0; font-size: 14px; color: #616161;">
                                 Szczegóły wysyłki znajdziesz w panelu klienta:
@@ -116,6 +117,7 @@
                                     {{ shipping_requests_url }}
                                 </a>
                             </p>
+                            {% endif %}
 
                             <p style="margin: 30px 0 0 0; font-size: 16px; color: #212121; font-weight: 600;">
                                 Dziękujemy!

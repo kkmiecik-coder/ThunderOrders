@@ -935,6 +935,11 @@ def send_shipping_request_created_email(user_email, user_name, request_number,
     )
 
 
+def _shipping_status_change_subject(request_number, new_status_name):
+    """Temat maila o zmianie statusu — wspólny dla wysyłki pojedynczej i batchowej."""
+    return f'Zmiana statusu zlecenia {request_number} - {new_status_name}'
+
+
 def send_shipping_status_change_email(user_email, user_name, request_number,
                                        old_status_name, new_status_name, new_status_color,
                                        orders, tracking_number=None, courier_name=None,
@@ -956,7 +961,7 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
     """
     return send_email(
         to=user_email,
-        subject=f'Zmiana statusu zlecenia {request_number} - {new_status_name}',
+        subject=_shipping_status_change_subject(request_number, new_status_name),
         template='shipping_status_change',
         user_name=user_name,
         request_number=request_number,
@@ -985,7 +990,7 @@ def prepare_shipping_status_change_email(user_email, user_name, request_number,
     """
     return prepare_email(
         to=user_email,
-        subject=f'Zmiana statusu zlecenia {request_number} - {new_status_name}',
+        subject=_shipping_status_change_subject(request_number, new_status_name),
         template='shipping_status_change',
         user_name=user_name,
         request_number=request_number,
