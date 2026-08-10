@@ -628,8 +628,13 @@ def statistics_shipping():
     nie_paczka_zbiorcza = ~ShippingRequest.id.in_(zbiorcze_ids)
 
     total_requests = ShippingRequest.query.filter(nie_paczka_zbiorcza).count()
+    # "Oczekujących" = wszystko PRZED wysyłką, czyli oba statusy przedpłatne
+    # (czeka na wycenę i czeka na opłacenie). 'wycenione' nie istnieje w
+    # shipping_request_statuses — to był literówkowy slug, który nigdy nic
+    # nie liczył. Właściwa para jest już użyta w UNPAID_SR_STATUSES
+    # (modules/orders/wms_utils.py).
     pending_requests = ShippingRequest.query.filter(
-        ShippingRequest.status.in_(['czeka_na_wycene', 'wycenione']),
+        ShippingRequest.status.in_(['czeka_na_wycene', 'czeka_na_oplacenie']),
         nie_paczka_zbiorcza,
     ).count()
     # Suma kosztów idzie z ZAMÓWIEŃ, nie z `ShippingRequest.total_shipping_cost`.

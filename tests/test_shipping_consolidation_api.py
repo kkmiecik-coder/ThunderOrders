@@ -655,6 +655,32 @@ def test_statystyki_wysylki_licza_zlecenia_klientow(db, client, login, make_user
     assert kpi['Oczekujących'] == 2
 
 
+def test_statystyki_oczekujacych_liczy_oba_statusy_przedplatne(
+        db, client, login, make_user, make_order):
+    """KPI „Oczekujących" ma znaczyć wszystko PRZED wysyłką — regres slugu
+    'wycenione' (nigdy nie istniał w shipping_request_statuses) gubił zlecenia,
+    które są już wycenione, ale jeszcze nieopłacone. Właściwa para statusów
+    przedpłatnych to czeka_na_wycene i czeka_na_oplacenie (tak samo liczy je
+    UNPAID_SR_STATUSES w modules/orders/wms_utils.py). Zlecenia opłacone,
+    spakowane i wysłane mają wysyłkę już za sobą (albo w toku) i nie są
+    „oczekujące"."""
+    _seed_sr_statuses(db)
+    a, b, c, d, e = (make_user() for _ in range(5))
+    _sr(db, a, make_order, status='czeka_na_wycene')
+    _sr(db, b, make_order, status='czeka_na_oplacenie')
+    _sr(db, c, make_order, status='oplacone')
+    _sr(db, d, make_order, status='spakowane')
+    _sr(db, e, make_order, status='wyslane')
+    login(_admin(make_user))
+
+    dane = client.get('/admin/statistics/api/shipping').get_json()
+    kpi = {k['label']: k['raw'] for k in dane['kpis']}
+    # Łącznie zleceń liczy wszystkie zlecenia klientów niezależnie od statusu.
+    assert kpi['Łącznie zleceń wysyłki'] == 5
+    # Oczekujących — tylko te dwa statusy przed wysyłką.
+    assert kpi['Oczekujących'] == 2
+
+
 def test_statystyki_koszt_wysylki_nie_zmienia_sie_po_konsolidacji(
         db, client, login, make_user, make_order):
     """Sedno regresu: zlecenia wycenione PRZED scaleniem trzymają kwoty na sobie, a
