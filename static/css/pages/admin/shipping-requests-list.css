@@ -20,50 +20,6 @@
     min-width: 280px;
 }
 
-/* ============================================
-   BULK TOOLBAR
-   Style samego paska są w wms-dashboard.css — to jedyna strona, która
-   ładuje ten arkusz. Tutaj zostaje wyłącznie tooltip scalania.
-   ============================================ */
-
-.bulk-merge-tooltip {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(30, 30, 35, 0.95);
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
-    z-index: 1002;
-    pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.bulk-merge-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: rgba(30, 30, 35, 0.95);
-}
-
-[data-theme="dark"] .bulk-merge-tooltip {
-    background: rgba(45, 45, 55, 0.98);
-    border: 1px solid rgba(240, 147, 251, 0.2);
-}
-
-[data-theme="dark"] .bulk-merge-tooltip::after {
-    border-top-color: rgba(45, 45, 55, 0.98);
-}
-
 /* WMS Button - Card Footer */
 .btn.btn-wms {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

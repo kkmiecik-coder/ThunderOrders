@@ -8,8 +8,6 @@
 
 // Store selected shipping request IDs
 let selectedRequests = new Set();
-// Store client IDs for selected requests (key: requestId, value: clientId)
-let selectedRequestClients = new Map();
 // Status zleceń zaznaczonych przez "zaznacz na wszystkich stronach" — te zlecenia
 // nie mają karty w DOM (są poza bieżącą stroną), więc akcje zbiorcze czytające
 // status z karty potrzebują tego zapasowego źródła (patrz bulkMarkShipped).
@@ -24,7 +22,6 @@ const SR_SELECTION_STORAGE_KEY = 'wmsShippingSelection';
 function persistSelection() {
     sessionStorage.setItem(SR_SELECTION_STORAGE_KEY, JSON.stringify({
         ids: Array.from(selectedRequests),
-        clients: Array.from(selectedRequestClients.entries()),
         statuses: Array.from(selectedRequestStatuses.entries()),
     }));
 }
@@ -36,7 +33,6 @@ function restoreSelection() {
     try {
         const data = JSON.parse(raw);
         selectedRequests = new Set(data.ids || []);
-        selectedRequestClients = new Map(data.clients || []);
         selectedRequestStatuses = new Map(data.statuses || []);
     } catch (error) {
         sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
@@ -68,36 +64,19 @@ function toggleCardSelection(card, event) {
 function handleCheckboxChange(checkbox) {
     const card = checkbox.closest('.sr-card');
     const requestId = checkbox.dataset.id;
-    const clientId = card.dataset.clientId || '';
 
     if (checkbox.checked) {
         selectedRequests.add(requestId);
-        selectedRequestClients.set(requestId, clientId);
         selectedRequestStatuses.set(requestId, card.dataset.status || '');
         card.classList.add('selected');
     } else {
         selectedRequests.delete(requestId);
-        selectedRequestClients.delete(requestId);
         selectedRequestStatuses.delete(requestId);
         card.classList.remove('selected');
     }
 
     persistSelection();
     updateBulkToolbar();
-}
-
-/**
- * Check if all selected requests belong to the same client
- * @returns {boolean} True if all requests are from the same client
- */
-function allSelectedFromSameClient() {
-    if (selectedRequestClients.size <= 1) return true;
-
-    const clientIds = Array.from(selectedRequestClients.values());
-    const firstClientId = clientIds[0];
-
-    // All must have the same non-empty client ID
-    return firstClientId !== '' && clientIds.every(id => id === firstClientId);
 }
 
 // Wspólny komponent paska akcji masowych (static/js/components/bulk-toolbar.js).
@@ -116,8 +95,8 @@ function getBulkPasek() {
  */
 function updateBulkToolbar() {
     const pasek = getBulkPasek();
-    const mergeBtn = document.getElementById('btnBulkMerge');
-    const mergeTooltip = document.getElementById('bulkMergeTooltip');
+    const consolidateBtn = document.getElementById('btnBulkConsolidate');
+    const consolidateTooltip = document.getElementById('bulkConsolidateTooltip');
     const markShippedBtn = document.getElementById('btnBulkMarkShipped');
 
     if (!pasek) return;
@@ -125,27 +104,18 @@ function updateBulkToolbar() {
     const count = selectedRequests.size;
 
     // Pasek i tak chowa się przy zerze zaznaczonych, ale pozycja menu ma być
-    // wyłączona tak samo jak "Scal zlecenia" — spójnie, na wypadek gdyby menu
+    // wyłączona tak samo jak "Konsoliduj wysyłki" — spójnie, na wypadek gdyby menu
     // zostało otwarte w trakcie zmiany zaznaczenia.
     if (markShippedBtn) {
         markShippedBtn.disabled = count === 0;
     }
 
-    // Update merge button state and tooltip
-    if (mergeBtn) {
-        const sameClient = allSelectedFromSameClient();
-        const canMerge = count >= 2 && sameClient;
-        mergeBtn.disabled = !canMerge;
-
-        // Powód blokady widoczny w menu pod etykietą pozycji
-        if (mergeTooltip) {
-            if (count < 2) {
-                mergeTooltip.textContent = 'Zaznacz co najmniej 2 zlecenia';
-            } else if (!sameClient) {
-                mergeTooltip.textContent = 'Zlecenia od różnych klientów';
-            } else {
-                mergeTooltip.textContent = '';
-            }
+    // Konsolidacja z definicji łączy zlecenia różnych klientów, więc jedynym
+    // warunkiem blokady jest liczba zaznaczonych (min. 2) — bez sprawdzania klienta.
+    if (consolidateBtn) {
+        consolidateBtn.disabled = count < 2;
+        if (consolidateTooltip) {
+            consolidateTooltip.textContent = count < 2 ? 'Zaznacz co najmniej 2 zlecenia' : '';
         }
     }
 
@@ -159,7 +129,6 @@ function updateBulkToolbar() {
  */
 function clearSelection() {
     selectedRequests.clear();
-    selectedRequestClients.clear();
     selectedRequestStatuses.clear();
     sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
 
@@ -233,12 +202,10 @@ async function selectAllPages() {
         }
 
         selectedRequests.clear();
-        selectedRequestClients.clear();
         selectedRequestStatuses.clear();
         data.requests.forEach(row => {
             const id = String(row.id);
             selectedRequests.add(id);
-            selectedRequestClients.set(id, row.client_id ? String(row.client_id) : '');
             selectedRequestStatuses.set(id, row.status || '');
         });
 
@@ -366,50 +333,6 @@ async function bulkDeleteRequests() {
     } catch (error) {
         console.error('Error deleting requests:', error);
         window.showToast('Nie udało się usunąć zleceń', 'error');
-    }
-}
-
-/**
- * Bulk merge requests
- */
-async function bulkMergeRequests() {
-    const ids = getSelectedRequestIds();
-    if (ids.length < 2) {
-        alert('Wybierz co najmniej 2 zlecenia do scalenia');
-        return;
-    }
-
-    if (!allSelectedFromSameClient()) {
-        alert('Zaznaczone zlecenia pochodzą od różnych klientów. Scalanie możliwe tylko dla zleceń tego samego klienta.');
-        return;
-    }
-
-    if (!confirm(`Czy na pewno scalić ${ids.length} zaznaczonych zleceń w jedno?\n\nWszystkie zamówienia z wybranych zleceń zostaną połączone w jedno zlecenie.`)) {
-        return;
-    }
-
-    try {
-        const response = await fetch('/admin/orders/shipping-requests/bulk-merge', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
-            body: JSON.stringify({
-                ids: ids.map(id => parseInt(id))
-            })
-        });
-
-        if (response.ok) {
-            sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
-            window.location.reload();
-        } else {
-            const data = await response.json();
-            alert(data.error || 'Błąd podczas scalania zleceń');
-        }
-    } catch (error) {
-        console.error('Error merging requests:', error);
-        alert('Błąd podczas scalania zleceń');
     }
 }
 
@@ -1114,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const ids = getSelectedRequestIds();
                 if (ids.length) window.openShippingRequestsModal(ids);
             },
-            'merge': bulkMergeRequests,
+            'consolidate': () => openConsolidationModal(getSelectedRequestIds().map(Number)),
             'mark-shipped': bulkMarkShipped,
             'wms': bulkGoToWMS,
             'export-inpost': exportSelectedToInpost,
