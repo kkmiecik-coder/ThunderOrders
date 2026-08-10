@@ -738,3 +738,20 @@ def test_nie_laczymy_dwoch_paczek_zbiorczych(db, client, login, make_user, make_
     assert 'paczką zbiorczą' in blad
     db.session.expire_all()
     assert paczka_2.consolidated_into_id is None
+
+
+def test_karta_wms_pokazuje_wycene_paczki_zbiorczej(db, client, login, make_user, make_order):
+    """Karta zlecenia w WMS renderowała surową kolumnę `total_shipping_cost`, której
+    konsolidacja nie ustawia — nad zamówieniami wycenionymi na 21,49 + 21,49 admin
+    czytał „Brak wyceny", choć modal wysyłki w tej samej chwili liczył 42,98."""
+    from decimal import Decimal
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order)
+    for o in zbiorcze.display_orders:
+        o.shipping_cost = Decimal('21.49')
+    db.session.commit()
+    login(_admin(make_user))
+
+    tresc = client.get('/admin/orders/wms').get_data(as_text=True)
+    assert '42.98 PLN' in tresc
+    assert 'Brak wyceny' not in tresc

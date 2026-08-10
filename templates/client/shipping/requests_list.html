@@ -110,8 +110,8 @@
                 <div class="card-row card-row-split">
                     <div class="card-col">
                         <span class="row-label">Koszt</span>
-                        {% if req.calculated_shipping_cost %}
-                        <span class="cost-value">{{ "%.2f"|format(req.calculated_shipping_cost) }} PLN</span>
+                        {% if req.display_shipping_cost %}
+                        <span class="cost-value">{{ "%.2f"|format(req.display_shipping_cost) }} PLN</span>
                         {% else %}
                         <span class="cost-pending">Oczekuje</span>
                         {% endif %}

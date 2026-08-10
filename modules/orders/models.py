@@ -1782,6 +1782,24 @@ class ShippingRequest(db.Model):
         return total if total > 0 else None
 
     @property
+    def display_shipping_cost(self):
+        """Kwota wysyłki do POKAZANIA: suma z zamówień, a w ostateczności zapisana kolumna.
+
+        `total_shipping_cost` to snapshot zapisywany tylko przy edycji konkretnego
+        zlecenia. Konsolidacja go nie przenosi (paczka zbiorcza ma NULL, a źródła
+        trzymają swoje stare kwoty), więc karta w WMS pokazywała „Brak wyceny” nad
+        zamówieniami wycenionymi na 42,98 zł. `calculated_shipping_cost` liczy z
+        zamówień na bieżąco i jest odporne na scalanie — dlatego idzie pierwsze.
+
+        Kolumna zostaje jako źródło zapasowe, bo panel wysyłki w WMS potrafi zapisać
+        kwotę łączną bez rozbicia jej na zamówienia (`mark_as_shipped`) — wtedy suma z
+        zamówień jest pusta, choć wycena istnieje.
+
+        To wyłącznie warstwa ODCZYTU — nic tu nie zmienia sposobu zapisu kolumny.
+        """
+        return self.calculated_shipping_cost or self.total_shipping_cost
+
+    @property
     def tracking_url(self):
         """Returns tracking URL based on courier"""
         if not self.tracking_number or not self.courier:

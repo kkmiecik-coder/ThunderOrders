@@ -154,7 +154,7 @@ def shipping_requests_list_json():
                 'address_type': req.address_type,
                 'short_address': req.short_address,
                 'full_address': req.full_address,
-                'total_shipping_cost': float(req.calculated_shipping_cost) if req.calculated_shipping_cost else None,
+                'total_shipping_cost': float(req.display_shipping_cost) if req.display_shipping_cost else None,
                 'status': req.status,
                 'status_display_name': req.status_display_name,
                 'status_badge_color': req.status_badge_color,

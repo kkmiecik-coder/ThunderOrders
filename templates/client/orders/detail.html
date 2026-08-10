@@ -510,8 +510,8 @@
                                 <div class="sr-info-row">
                                     <span class="sr-info-label">Koszt wysyłki:</span>
                                     <span class="sr-info-value">
-                                        {% if sr.calculated_shipping_cost %}
-                                            <strong>{{ "%.2f"|format(sr.calculated_shipping_cost) }} PLN</strong>
+                                        {% if sr.display_shipping_cost %}
+                                            <strong>{{ "%.2f"|format(sr.display_shipping_cost) }} PLN</strong>
                                         {% else %}
                                             <span class="text-muted">Oczekuje na wycenę</span>
                                         {% endif %}

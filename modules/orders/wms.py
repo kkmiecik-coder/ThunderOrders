@@ -200,7 +200,9 @@ def _build_session_data(session):
                 'courier': sr.courier,
                 'tracking_number': sr.tracking_number,
                 'parcel_size': sr.parcel_size,
-                'total_shipping_cost': float(sr.total_shipping_cost) if sr.total_shipping_cost else None,
+                # Wycena przez właściwość modelu, nie surową kolumnę — przy paczce
+                # zbiorczej `total_shipping_cost` zostaje puste.
+                'total_shipping_cost': float(sr.display_shipping_cost) if sr.display_shipping_cost else None,
                 'orders_count': sr.orders_count,
             }
 

@@ -688,7 +688,10 @@ def statistics_shipping():
         recent_rows.append([
             r.request_number,
             r.status_display_name,
-            _format_currency(r.total_shipping_cost) if r.total_shipping_cost else '-',
+            # display_shipping_cost — kolumna `total_shipping_cost` jest pusta na paczkach
+            # zbiorczych, więc tabela pokazywała „-" przy zleceniach realnie wycenionych
+            # (i rozjeżdżała się z KPI wyżej, które liczy z zamówień).
+            _format_currency(r.display_shipping_cost) if r.display_shipping_cost else '-',
             r.orders_count,
             r.created_at.strftime('%d.%m.%Y') if r.created_at else '-'
         ])

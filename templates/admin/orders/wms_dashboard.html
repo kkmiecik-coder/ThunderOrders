@@ -372,7 +372,9 @@
                             <div class="sr-meta">
                                 <span class="sr-meta-item">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                                    {% if sr.total_shipping_cost %}<strong>{{ "%.2f"|format(sr.total_shipping_cost) }} PLN</strong>{% else %}<span class="text-muted">Brak wyceny</span>{% endif %}
+                                    {# display_shipping_cost, nie total_shipping_cost: paczka zbiorcza nie dostaje
+                                       zapisanej kolumny, więc karta krzyczała „Brak wyceny" nad wycenionymi zamówieniami. #}
+                                    {% if sr.display_shipping_cost %}<strong>{{ "%.2f"|format(sr.display_shipping_cost) }} PLN</strong>{% else %}<span class="text-muted">Brak wyceny</span>{% endif %}
                                 </span>
                                 {% if sr.tracking_number %}
                                 <span class="sr-meta-item">

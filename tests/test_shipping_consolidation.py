@@ -794,6 +794,44 @@ def test_anulowanie_przelicza_koszt_zbiorczego(db, make_user, make_order):
     assert zbiorcze.calculated_shipping_cost == Decimal('40.00')
 
 
+def test_display_shipping_cost_pokazuje_wycene_paczki_zbiorczej(db, make_user, make_order):
+    """Karta w WMS renderowała kolumnę `total_shipping_cost`, której konsolidacja nie
+    ustawia — paczka ze statusem „Opłacone" i zamówieniami po 21,49 pokazywała „Brak
+    wyceny", podczas gdy modal wysyłki w tej samej chwili liczył 42,98."""
+    from decimal import Decimal
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    for zrodlo in (sr_a, sr_b):
+        for o in zrodlo.display_orders:
+            o.shipping_cost = Decimal('21.49')
+    db.session.commit()
+
+    assert zbiorcze.total_shipping_cost is None  # konsolidacja jej nie ustawia
+    assert zbiorcze.display_shipping_cost == Decimal('42.98')
+    # Każdy uczestnik widzi swoją część, nie sumę całego kartonu.
+    assert sr_b.display_shipping_cost == Decimal('21.49')
+
+
+def test_display_shipping_cost_wraca_do_kolumny_bez_kosztow_na_zamowieniach(db, make_user, make_order):
+    """Panel wysyłki w WMS potrafi zapisać kwotę łączną bez rozbicia na zamówienia
+    (`mark_as_shipped`) — wtedy suma z zamówień jest pusta, ale wycena istnieje i ma
+    być widoczna. Dlatego kolumna zostaje jako źródło zapasowe, a nie znika."""
+    from decimal import Decimal
+    _seed_sr_statuses(db)
+    sr, _o = _sr(db, make_user(), make_order)
+    assert sr.display_shipping_cost is None
+
+    sr.total_shipping_cost = Decimal('19.99')
+    db.session.commit()
+    assert sr.display_shipping_cost == Decimal('19.99')
+
+    # Gdy zamówienia dostaną koszty, one są źródłem prawdy — snapshot ustępuje.
+    for o in sr.display_orders:
+        o.shipping_cost = Decimal('24.50')
+    db.session.commit()
+    assert sr.display_shipping_cost == Decimal('24.50')
+
+
 def test_anulowanie_przelicza_status_zbiorczego_gdy_zostaja_uczestnicy(db, make_user, make_order):
     """Regres z code review: odepnij_anulowane_zamowienie przeliczała status paczki
     tylko przy pełnym rozwiązaniu (rozwiaz_konsolidacje). Gdy po ewikcji zostają

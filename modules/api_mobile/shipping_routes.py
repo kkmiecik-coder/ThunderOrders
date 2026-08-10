@@ -116,7 +116,7 @@ def _serialize_request(req):
         'status_display_name': req.status_display_name, 'status_badge_color': req.status_badge_color,
         'address_type': req.address_type, 'short_address': req.short_address,
         'full_address': req.full_address,
-        'total_shipping_cost': to_grosze(req.calculated_shipping_cost),
+        'total_shipping_cost': to_grosze(req.display_shipping_cost),
         'tracking_number': req.tracking_number, 'tracking_url': req.tracking_url,
         'can_cancel': req.can_cancel, 'orders_count': req.orders_count,
         'is_consolidated': zbiorcza is not None,
