@@ -634,3 +634,48 @@ def test_anulowanie_jedynego_zamowienia_ostatniego_uczestnika_rozwiazuje_zbiorcz
     assert db.session.get(ShippingRequest, zbiorcze_id) is None
     assert sr_a.consolidated_into_id is None
     assert sr_b.consolidated_into_id is None
+
+
+def test_anulowanie_nie_rusza_spakowanej_paczki(db, make_user, make_order):
+    """Paczka spakowana odpowiada temu, co fizycznie leży w kartonie — anulowanie
+    zamówienia jednego z uczestników PO spakowaniu nie może go z niej wyjąć."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
+    zbiorcze.status = 'spakowane'
+    db.session.commit()
+    zamowienie = sr_b.display_orders[0]
+
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert len(zbiorcze.request_orders) == 4
+    assert zamowienie.id in {o.id for o in zbiorcze.display_orders}
+    assert sr_b.consolidated_into_id == zbiorcze.id
+
+
+def test_anulowanie_przelicza_koszt_zbiorczego(db, make_user, make_order):
+    """calculated_shipping_cost jest własnością liczoną na bieżąco z display_orders —
+    po wypięciu anulowanego zamówienia przestaje wliczać jego koszt, bez potrzeby
+    ręcznego przeliczania. total_shipping_cost (zapisany snapshot z ostatniej wyceny
+    admina) świadomie zostaje nietknięty — tak samo jak w wypnij_zlecenie/
+    rozwiaz_konsolidacje, które też go nie aktualizują; odświeży go dopiero kolejna
+    wycena."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
+    for o in sr_a.display_orders:
+        o.shipping_cost = 10
+    for o in sr_b.display_orders:
+        o.shipping_cost = 20
+    db.session.commit()
+    from decimal import Decimal
+    assert zbiorcze.calculated_shipping_cost == Decimal('60.00')
+
+    zamowienie = sr_b.display_orders[0]
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert zbiorcze.calculated_shipping_cost == Decimal('40.00')
