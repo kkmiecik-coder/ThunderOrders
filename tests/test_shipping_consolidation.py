@@ -679,3 +679,88 @@ def test_anulowanie_przelicza_koszt_zbiorczego(db, make_user, make_order):
     db.session.expire_all()
 
     assert zbiorcze.calculated_shipping_cost == Decimal('40.00')
+
+
+def test_anulowanie_przelicza_status_zbiorczego_gdy_zostaja_uczestnicy(db, make_user, make_order):
+    """Regres z code review: odepnij_anulowane_zamowienie przeliczała status paczki
+    tylko przy pełnym rozwiązaniu (rozwiaz_konsolidacje). Gdy po ewikcji zostają
+    >=2 uczestnicy, zbiorcze.status zostawał nietknięty — mimo że ewikowany
+    uczestnik mógł trzymać go na mniej zaawansowanym etapie (np. nieopłacony),
+    podczas gdy reszta już zapłaciła. sr.status == 'oplacone' to bramka „do
+    spakowania" w WMS, więc bez przeliczenia paczka niesłusznie znika z listy do
+    pakowania mimo kompletu opłaconych realnych uczestników."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b, sr_c) = _konsolidacja(db, make_user, make_order, ile=3, orders_count=1)
+    sr_a.status = 'oplacone'
+    sr_b.status = 'oplacone'
+    sr_c.status = 'czeka_na_oplacenie'
+    zbiorcze.status = 'czeka_na_oplacenie'
+    db.session.commit()
+    zamowienie = sr_c.display_orders[0]
+
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert sr_c.consolidated_into_id is None
+    assert zbiorcze.status == 'oplacone'
+
+
+def test_anulowanie_nie_jest_blokowana_przez_sesje_wms(db, make_user, make_order):
+    """Regres z code review: gdy paczka schodzi do jednego realnego uczestnika,
+    funkcja wołała publiczne rozwiaz_konsolidacje — a to sprawdza
+    _sprawdz_edytowalnosc, w tym otwartą sesję WMS na paczce. Anulowanie
+    zamówienia NIGDY nie powinno zostać zablokowane stanem paczki: to nie jest
+    edycja składu przez admina, tylko wymuszona konsekwencja anulowania. Bez
+    poprawki funkcja rzucałaby ConsolidationError — a wywołujące ją
+    admin_update_status nie ma try/except, więc cała operacja kończyłaby się
+    500 i zamówienie NIE zostawałoby anulowane."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze_id = zbiorcze.id
+
+    admin = make_user(role='admin')
+    from modules.orders.wms_models import WmsSession, WmsSessionShippingRequest
+    sesja = WmsSession(session_token='tok-anulowanie', user_id=admin.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionShippingRequest(session_id=sesja.id, shipping_request_id=zbiorcze.id))
+    db.session.commit()
+
+    zamowienie = sr_b.display_orders[0]
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    from modules.orders.models import ShippingRequest
+    odepnij_anulowane_zamowienie(zamowienie)  # NIE powinno rzucić ConsolidationError
+    db.session.commit()
+    db.session.expire_all()
+
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None
+    assert sr_a.consolidated_into_id is None
+    assert sr_b.consolidated_into_id is None
+
+
+def test_anulowanie_ewikcja_wiodacego_wymienia_lidera(db, make_user, make_order):
+    """Regres z code review: gdy ewikowany uczestnik był wiodący
+    (lead_source_request_id), odepnij_anulowane_zamowienie zostawiała ten
+    wskaźnik osieroconym — consolidation_participants (mail/push o scaleniu) nie
+    znajdowałby dopasowania, a pozostali uczestnicy dostaliby komunikat, że
+    paczka jedzie na adres kogoś, kto już nie jest w paczce, mimo że fizyczny
+    adres się nie zmienił."""
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order, ile=3, orders_count=1)
+    sr_a, sr_b, sr_c = zrodla
+    assert zbiorcze.lead_source_request_id == sr_a.id
+    sr_b.shipping_city = 'Gdańsk'
+    db.session.commit()
+    zamowienie = sr_a.display_orders[0]
+
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert sr_a.consolidated_into_id is None
+    assert zbiorcze.lead_source_request_id == sr_b.id
+    assert zbiorcze.shipping_city == 'Gdańsk'
+    assert zbiorcze.user_id == sr_b.user_id

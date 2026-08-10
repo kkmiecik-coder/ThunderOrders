@@ -191,9 +191,13 @@ def _uczestnicy_z_bazy(target):
     return ShippingRequest.query.filter_by(consolidated_into_id=target.id).all()
 
 
-def zmien_wiodace(target, lead_request_id):
-    """Przełącza zlecenie wiodące — przepisuje adres, adresata i właściciela paczki."""
-    _sprawdz_edytowalnosc(target)
+def _zmien_wiodace_bez_walidacji(target, lead_request_id):
+    """Rdzeń zmiany wiodącego, bez _sprawdz_edytowalnosc.
+
+    Wydzielone, żeby dało się przełączyć wiodące jako KONSEKWENCJĘ ewikcji
+    (odepnij_anulowane_zamowienie), która nigdy nie może zostać zablokowana
+    stanem paczki — patrz komentarz przy _rozwiaz_konsolidacje_bez_walidacji.
+    """
     lead = next((s for s in _uczestnicy_z_bazy(target) if s.id == lead_request_id), None)
     if lead is None:
         raise ConsolidationError(
@@ -202,6 +206,12 @@ def zmien_wiodace(target, lead_request_id):
         )
     _kopiuj_adres(target, lead)
     target.lead_source_request_id = lead.id
+
+
+def zmien_wiodace(target, lead_request_id):
+    """Przełącza zlecenie wiodące — przepisuje adres, adresata i właściciela paczki."""
+    _sprawdz_edytowalnosc(target)
+    _zmien_wiodace_bez_walidacji(target, lead_request_id)
 
 
 def dopnij_do_konsolidacji(target, request_ids):
@@ -255,9 +265,18 @@ def _oddaj_zamowienia(target, zrodlo):
     zrodlo.consolidated_into_id = None
 
 
-def rozwiaz_konsolidacje(target):
-    """Rozmontowuje paczkę: zamówienia wracają do źródeł, zlecenie zbiorcze znika."""
-    _sprawdz_edytowalnosc(target)
+def _rozwiaz_konsolidacje_bez_walidacji(target):
+    """Rdzeń rozwiązania paczki, bez _sprawdz_edytowalnosc.
+
+    Wydzielone dla odepnij_anulowane_zamowienie: gdy anulowanie ostatniego
+    zamówienia uczestnika sprowadza paczkę do jednego realnego uczestnika, samo
+    anulowanie NIE MOŻE zostać zablokowane stanem paczki (np. otwartą sesją WMS)
+    — to nie jest edycja składu przez admina, tylko wymuszona konsekwencja
+    anulowania zamówienia. Bramka „spakowane" jest już sprawdzona wyżej w
+    odepnij_anulowane_zamowienie (funkcja wraca wcześniej, zanim tu dotrze), więc
+    pominięcie reszty _sprawdz_edytowalnosc (w praktyce: kontroli sesji WMS) jest
+    tu bezpieczne i celowe.
+    """
     # Zapytanie do bazy (_uczestnicy_z_bazy), nie target.consolidated_sources — patrz
     # docstring helpera. Istotne zwłaszcza tu, bo tę funkcję woła też wypnij_zlecenie
     # w tej samej transakcji, po tym jak inni uczestnicy mogli już zostać odpięci.
@@ -269,6 +288,12 @@ def rozwiaz_konsolidacje(target):
     # Kolekcja jest już pusta, więc delete-orphan nie ma czego zabrać.
     db.session.delete(target)
     return zrodla
+
+
+def rozwiaz_konsolidacje(target):
+    """Rozmontowuje paczkę: zamówienia wracają do źródeł, zlecenie zbiorcze znika."""
+    _sprawdz_edytowalnosc(target)
+    return _rozwiaz_konsolidacje_bez_walidacji(target)
 
 
 # Statusy opisujące jedną fizyczną paczkę — te zjeżdżają na zlecenia źródłowe.
@@ -327,6 +352,43 @@ def przelicz_status_zbiorczego(source):
     zbiorcze.status = status_najmniej_zaawansowany(_uczestnicy_z_bazy(zbiorcze))
 
 
+def _po_odpieciu_zrodla(target, source_id, *, bez_walidacji=False):
+    """Wspólny krok po tym, jak jakieś źródło (`source_id`) straciło w paczce
+    `target` ostatni wiersz junction — czyli po tym, jak wywołujący już ustawił
+    `zrodlo.consolidated_into_id = None`.
+
+    Decyduje: rozwiązać całą paczkę (zostaje <=1 realny uczestnik), czy tylko
+    przeliczyć jej status i — jeśli ewikowany był wiodący — wymienić lidera.
+    Współdzielone przez `wypnij_zlecenie` (jawna akcja admina) i
+    `odepnij_anulowane_zamowienie` (automatyczna konsekwencja anulowania) —
+    rozjazd między nimi był źródłem trzech osobnych defektów wykrytych w code
+    review Task 13: brak przeliczenia statusu, brak wymiany lidera i (w
+    wypnij_zlecenie to nieistotne, bo tam walidacja jest pożądana) niepotrzebna
+    blokada stanem paczki.
+
+    `bez_walidacji=True` pomija _sprawdz_edytowalnosc przy rozwiązywaniu/zmianie
+    lidera (przez warianty `_bez_walidacji`) — dla wywołującego, który już sam
+    zdecydował, że stan paczki (poza „spakowane", sprawdzanym osobno) nie może
+    zablokować operacji. `wypnij_zlecenie` samo już zwalidowało edytowalność na
+    wejściu, więc dla niego oba warianty dają identyczny wynik.
+    """
+    pozostale = _uczestnicy_z_bazy(target)
+    if len(pozostale) <= 1:
+        if bez_walidacji:
+            _rozwiaz_konsolidacje_bez_walidacji(target)
+        else:
+            rozwiaz_konsolidacje(target)
+        return True
+
+    if target.lead_source_request_id == source_id:
+        if bez_walidacji:
+            _zmien_wiodace_bez_walidacji(target, pozostale[0].id)
+        else:
+            zmien_wiodace(target, pozostale[0].id)
+    target.status = status_najmniej_zaawansowany(pozostale)
+    return False
+
+
 def odepnij_anulowane_zamowienie(order):
     """Wyjmuje anulowane zamówienie z paczki zbiorczej.
 
@@ -358,9 +420,10 @@ def odepnij_anulowane_zamowienie(order):
     # w odróżnieniu od surowego delete() od razu aktualizuje TĘ SAMĄ listę w pamięci
     # sesji. Gdyby wywołujący (np. kod czytający wcześniej display_orders) zdążył już
     # załadować i zcache'ować `zbiorcze.request_orders`, surowy delete() zostawiłby w
-    # niej widmowy wpis — a `_oddaj_zamowienia` niżej (przez rozwiaz_konsolidacje)
-    # iteruje dokładnie tę kolekcję i próbowałaby skasować już nieistniejący wiersz
-    # drugi raz (SAWarning: „0 matched" — nieszkodliwe tu, ale sygnał rozjazdu stanu).
+    # niej widmowy wpis — a `_oddaj_zamowienia` niżej (przez _po_odpieciu_zrodla →
+    # _rozwiaz_konsolidacje_bez_walidacji) iteruje dokładnie tę kolekcję i próbowałaby
+    # skasować już nieistniejący wiersz drugi raz (SAWarning: „0 matched" —
+    # nieszkodliwe tu, ale sygnał rozjazdu stanu).
     zbiorcze.request_orders.remove(ro)
     db.session.flush()
 
@@ -383,13 +446,18 @@ def odepnij_anulowane_zamowienie(order):
     if zrodlo:
         zrodlo.consolidated_into_id = None
     db.session.flush()
-    # _uczestnicy_z_bazy (zapytanie), NIE zbiorcze.consolidated_sources — powyższy
-    # `zbiorcze.is_consolidation` (parę linijek wyżej) już załadował i zcache'ował tę
-    # kolekcję w pamięci sesji; surowa mutacja zrodlo.consolidated_into_id jej nie
-    # odświeża, więc czytana teraz pokazywałaby wciąż-nieaktualne członkostwo i przy
-    # dokładnie jednym pozostałym uczestniku NIE rozwiązałaby paczki.
-    if len(_uczestnicy_z_bazy(zbiorcze)) <= 1:
-        rozwiaz_konsolidacje(zbiorcze)
+    # _po_odpieciu_zrodla czyta uczestników przez _uczestnicy_z_bazy (zapytanie), NIE
+    # zbiorcze.consolidated_sources — powyższy `zbiorcze.is_consolidation` (kilka
+    # linijek wyżej) już załadował i zcache'ował tę kolekcję w pamięci sesji; surowa
+    # mutacja zrodlo.consolidated_into_id jej nie odświeża.
+    #
+    # bez_walidacji=True: anulowanie zamówienia NIE MOŻE zostać zablokowane stanem
+    # paczki (np. otwartą sesją WMS) — to nie edycja składu przez admina, tylko
+    # wymuszona konsekwencja anulowania. Bramka „spakowane" jest już sprawdzona wyżej
+    # (funkcja wraca wcześniej), więc pominięcie reszty _sprawdz_edytowalnosc tutaj
+    # jest bezpieczne. Bez tego admin_update_status (bez try/except wokół tego
+    # wywołania) kończyłby się 500-tką, a zamówienie NIE zostawałoby anulowane.
+    _po_odpieciu_zrodla(zbiorcze, source_id, bez_walidacji=True)
 
 
 def wypnij_zlecenie(target, source_id):
@@ -415,12 +483,8 @@ def wypnij_zlecenie(target, source_id):
     _oddaj_zamowienia(target, zrodlo)
     db.session.flush()
 
-    pozostale = _uczestnicy_z_bazy(target)
-    if len(pozostale) <= 1:
-        rozwiaz_konsolidacje(target)
-        return True
-
-    if target.lead_source_request_id == source_id:
-        zmien_wiodace(target, pozostale[0].id)
-    target.status = status_najmniej_zaawansowany(pozostale)
-    return False
+    # bez_walidacji=False (domyślne): to jawna akcja admina, edytowalność już
+    # sprawdzona wyżej w tej funkcji — rozwiaz_konsolidacje/zmien_wiodace
+    # sprawdzą ją ponownie (nieszkodliwie redundantnie, bo stan się nie zmienił
+    # w międzyczasie w sposób, który mógłby to unieważnić).
+    return _po_odpieciu_zrodla(target, source_id)
