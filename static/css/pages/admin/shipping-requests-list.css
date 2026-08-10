@@ -113,6 +113,9 @@
 .sr-card-header-left {
     display: flex;
     align-items: center;
+    /* Odstęp między checkboxem a blokiem numer + badge, który stoi teraz po tej stronie. */
+    gap: 12px;
+    min-width: 0;
 }
 
 .sr-card-header-right {

@@ -194,17 +194,20 @@
                                     <input type="checkbox" class="sr-checkbox" data-id="{{ sr.id }}" onchange="handleCheckboxChange(this)">
                                     <span class="sr-checkbox-custom"></span>
                                 </label>
-                            </div>
-                            <div class="sr-card-header-right">
+                                {# Numer i badge stoją przy checkboxie: identyfikacja zlecenia czyta się
+                                   od lewej razem z zaznaczeniem, status zostaje samotnie po prawej. #}
                                 <div class="sr-card-title-col">
                                     <span class="sr-card-number">{{ sr.request_number }}</span>
                                     {% if sr.is_consolidation %}
+                                    {% set zrodel = sr.consolidated_sources|length %}
                                     <span class="sr-consolidated-badge">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-                                        Zbiorcza · {{ sr.consolidated_sources|length }} zlecenia
+                                        Zbiorcza · {{ zrodel }} {% if zrodel == 1 %}zlecenie{% elif zrodel % 10 in [2, 3, 4] and zrodel % 100 not in [12, 13, 14] %}zlecenia{% else %}zleceń{% endif %}
                                     </span>
                                     {% endif %}
                                 </div>
+                            </div>
+                            <div class="sr-card-header-right">
                                 <span class="sr-card-status" style="background-color: {{ sr.status_badge_color }};">
                                     {{ sr.status_display_name }}
                                 </span>
