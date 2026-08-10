@@ -586,11 +586,13 @@ def admin_update_status(order_id):
         order.status = new_status
         order.updated_at = datetime.now()
 
-        if new_status == 'anulowane':
-            # Anulowane zamówienie nigdy nie spełni bramek gotowości paczki
-            # zbiorczej ("all spakowane" / komplet E4) — wypinamy je od razu,
-            # żeby nie zablokowało wysyłki pozostałym uczestnikom.
-            from modules.orders.consolidation import odepnij_anulowane_zamowienie
+        from modules.orders.consolidation import (
+            STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)
+        if new_status in STATUSY_WYPINAJACE_Z_PACZKI:
+            # Anulowane zamówienie (i skierowane do zwrotu) nigdy nie spełni
+            # bramek gotowości paczki zbiorczej ("all spakowane" / komplet E4) —
+            # wypinamy je od razu, żeby nie zablokowało wysyłki pozostałym
+            # uczestnikom.
             odepnij_anulowane_zamowienie(order)
 
         db.session.commit()
@@ -1253,11 +1255,13 @@ def bulk_status_change():
                     order.updated_at = datetime.now()
                     updated_count += 1
 
-                    if new_status == 'anulowane':
+                    from modules.orders.consolidation import (
+                        STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)
+                    if new_status in STATUSY_WYPINAJACE_Z_PACZKI:
                         # Patrz komentarz w admin_update_status — to samo dotyczy
-                        # akcji masowej: anulowane zamówienie wypina się z paczki
-                        # zbiorczej, żeby nie blokować wysyłki innym uczestnikom.
-                        from modules.orders.consolidation import odepnij_anulowane_zamowienie
+                        # akcji masowej: zamówienie anulowane albo do zwrotu wypina
+                        # się z paczki zbiorczej, żeby nie blokować wysyłki innym
+                        # uczestnikom.
                         odepnij_anulowane_zamowienie(order)
 
                     # Activity log
@@ -2653,9 +2657,11 @@ def migrate_status(status_id):
         # Zapisz ID zamówień PRZED masowym .update() — ten bypassuje ORM
         # (synchronize_session=False), więc żadne pojedyncze zamówienie nie
         # przejdzie przez zwykłą ścieżkę zmiany statusu. Jeśli status zastępczy
-        # to 'anulowane', musimy je dociągnąć i wypiąć z paczek zbiorczych ręcznie.
+        # nie dojdzie już do wysyłki ('anulowane'/'do_zwrotu'), musimy zamówienia
+        # dociągnąć i wypiąć z paczek zbiorczych ręcznie.
+        from modules.orders.consolidation import STATUSY_WYPINAJACE_Z_PACZKI
         anulowane_ids = []
-        if new_status_slug == 'anulowane':
+        if new_status_slug in STATUSY_WYPINAJACE_Z_PACZKI:
             anulowane_ids = [
                 oid for (oid,) in db.session.query(Order.id).filter_by(status=status.slug).all()
             ]

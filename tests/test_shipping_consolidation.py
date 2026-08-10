@@ -879,3 +879,65 @@ def test_anulowanie_ewikcja_wiodacego_wymienia_lidera(db, make_user, make_order)
     assert zbiorcze.lead_source_request_id == sr_b.id
     assert zbiorcze.shipping_city == 'Gdańsk'
     assert zbiorcze.user_id == sr_b.user_id
+
+
+# ---------- Zamówienie do zwrotu (finalna recenzja, pkt 7) ----------
+#
+# Gałąź 'do_zwrotu' nie wypinała zamówienia z paczki, z uzasadnieniem „paczka
+# i tak nie ruszy do wysyłki". To było prawdą dla zlecenia JEDNEGO klienta. Po
+# konsolidacji bramki gotowości obejmują zamówienia wszystkich uczestników, więc
+# jeden zwrot u jednej osoby zamrażał paczkę pozostałym.
+
+def test_zamowienie_do_zwrotu_wypina_sie_z_paczki(db, make_user, make_order):
+    from decimal import Decimal
+    from modules.offers.models import OfferPage
+    from modules.orders.models import PaymentConfirmation
+    from utils.offer_closure import cancel_offer_orders
+
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
+    admin = make_user(role='admin')
+    strona = OfferPage(name='Zbiórka', token='tok-do-zwrotu', created_by=admin.id,
+                       is_fully_closed=True, status='ended')
+    db.session.add(strona)
+    db.session.commit()
+
+    zamowienie = sr_b.display_orders[0]
+    zamowienie.offer_page_id = strona.id
+    # Wpłata decyduje o 'do_zwrotu' zamiast 'anulowane' (order_has_payment).
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie.id, payment_stage='product',
+        amount=Decimal('100.00'), status='approved'))
+    db.session.commit()
+
+    wynik = cancel_offer_orders(strona.id, [zamowienie.id], 'Wyprzedane', admin.id, notify=False)
+    db.session.expire_all()
+
+    assert wynik['to_refund'] == 1
+    assert zamowienie.status == 'do_zwrotu'
+    # Zamówienie wypada z paczki, reszta (3 pozostałe) zostaje — bramki gotowości
+    # przestają na nie czekać.
+    assert zamowienie.id not in {o.id for o in zbiorcze.display_orders}
+    assert len(zbiorcze.request_orders) == 3
+    assert sr_b.consolidated_into_id == zbiorcze.id
+
+
+def test_admin_ustawiajac_do_zwrotu_tez_wypina_z_paczki(db, client, login, make_user, make_order):
+    """Ta sama luka po stronie ręcznej zmiany statusu w panelu — inaczej admin
+    wpisujący 'do zwrotu' jednemu klientowi zamraża paczkę pozostałym."""
+    from modules.orders.models import OrderStatus
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
+    db.session.add(OrderStatus(slug='do_zwrotu', name='Do zwrotu', is_active=True))
+    db.session.commit()
+
+    zamowienie = sr_b.display_orders[0]
+    login(make_user(role='admin', email='admin-zwrot@example.com', profile_completed=True))
+
+    r = client.post(f'/admin/orders/{zamowienie.id}/status', data={'status': 'do_zwrotu'})
+    assert r.status_code == 200
+    db.session.expire_all()
+
+    assert zamowienie.status == 'do_zwrotu'
+    assert zamowienie.id not in {o.id for o in zbiorcze.display_orders}
+    assert len(zbiorcze.request_orders) == 3

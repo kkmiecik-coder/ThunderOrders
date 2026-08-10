@@ -472,17 +472,27 @@ def _po_odpieciu_zrodla(target, source_id, *, bez_walidacji=False):
     return False
 
 
+# Statusy zamówienia, które NIGDY nie spełnią bramek gotowości paczki
+# (`all(o.status == 'spakowane')` przy pakowaniu, komplet zatwierdzonych E4 przy
+# opłaceniu). 'do_zwrotu' było tu początkowo pominięte z uzasadnieniem „paczka i
+# tak nie ruszy do wysyłki" — prawdziwym dla zlecenia JEDNEGO klienta. Po
+# konsolidacji bramki obejmują zamówienia wszystkich uczestników, więc jeden
+# zwrot u jednej osoby zamraża paczkę pozostałym. To ten sam problem strukturalny,
+# przez który wypinamy 'anulowane'.
+STATUSY_WYPINAJACE_Z_PACZKI = ('anulowane', 'do_zwrotu')
+
+
 def odepnij_anulowane_zamowienie(order):
-    """Wyjmuje anulowane zamówienie z paczki zbiorczej.
+    """Wyjmuje z paczki zbiorczej zamówienie, które nie dojdzie już do wysyłki.
 
     Bramki gotowości wymagają KOMPLETU zamówień: `all(o.status == 'spakowane')`
-    przy pakowaniu i zatwierdzonego E4 dla każdego przy opłaceniu. Anulowane
-    zamówienie nigdy ich nie spełni, więc jedno anulowanie zablokowałoby wysyłkę
-    wszystkim uczestnikom paczki.
+    przy pakowaniu i zatwierdzonego E4 dla każdego przy opłaceniu. Zamówienie
+    anulowane albo skierowane do zwrotu nigdy ich nie spełni, więc jedno takie
+    zamówienie zablokowałoby wysyłkę wszystkim uczestnikom paczki.
 
     Funkcja NIE sprawdza sama order.status — ufa wywołującemu, że woła ją
-    dokładnie wtedy, gdy status faktycznie zmienia się na 'anulowane' (patrz
-    wywołania w routes.py / offer_closure.py).
+    dokładnie wtedy, gdy status faktycznie zmienia się na jeden ze
+    STATUSY_WYPINAJACE_Z_PACZKI (patrz wywołania w routes.py / offer_closure.py).
     """
     from modules.orders.models import ShippingRequestOrder
 
