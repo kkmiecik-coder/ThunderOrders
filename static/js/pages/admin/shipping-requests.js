@@ -787,20 +787,42 @@ function escapeHtml(text) {
 //            endpointem /consolidation/lead — NIE generycznym /consolidate, bo ten drugi
 //            próbowałby dopiąć uczestników, którzy już należą do tej paczki, a backend
 //            (waliduj_do_konsolidacji) odrzuca dopinanie już dopiętych jako błąd.
-let consolidationState = { requests: [], leadId: null, targetId: null, mode: 'create' };
+let consolidationState = {
+    requests: [], leadId: null, targetId: null, mode: 'create',
+    targetHasTracking: false, originalLeadId: null,
+};
+
+const CONSOLIDATION_HINT_LEAD =
+    'Wybierz zlecenie wiodące — jego adres, adresat i kontakt trafią na paczkę.';
 
 /** Pobiera dane zaznaczonych zleceń i otwiera modal w trybie tworzenia. */
 async function openConsolidationModal(ids) {
     const dane = await fetchConsolidationPreview(ids);
     if (!dane) return;
+    // Bez tego `dane.requests[0].id` rzuca TypeError, gdy zaznaczenie wskazuje na
+    // rekordy skasowane w międzyczasie (sessionStorage przeżywa reload) — modal po
+    // prostu się nie otwierał, bez żadnego komunikatu.
+    if (!dane.requests || !dane.requests.length) {
+        window.showToast('Nie znaleziono zaznaczonych zleceń — odśwież listę.', 'error');
+        return;
+    }
 
     // Zaznaczona paczka zbiorcza oznacza dopięcie do niej, nie tworzenie nowej.
     const zbiorcze = dane.requests.find(r => r.is_consolidation);
     consolidationState = {
         requests: dane.requests,
-        leadId: zbiorcze ? null : dane.requests[0].id,
+        // W trybie dopięcia adresat NIE podlega wyborowi: dopinamy do gotowej paczki,
+        // która ma już swojego wiodącego, a POST /consolidate z target_id żadnego
+        // lead_request_id nie przyjmuje. Wskazujemy więc na samą paczkę, żeby
+        // podsumowanie pokazało jej FAKTYCZNEGO adresata zamiast „—", a wiersze nie
+        // udawały wybieralnych (wcześniej klik podświetlał wiersz i przeliczał
+        // podsumowanie, po czym backend po cichu ignorował wybór). Adresata zmienia
+        // się w trybie „Zarządzaj paczką", dedykowanym endpointem /consolidation/lead.
+        leadId: zbiorcze ? zbiorcze.id : dane.requests[0].id,
         targetId: zbiorcze ? zbiorcze.id : null,
         mode: zbiorcze ? 'attach' : 'create',
+        targetHasTracking: zbiorcze ? !!zbiorcze.has_tracking : false,
+        originalLeadId: zbiorcze ? zbiorcze.id : null,
     };
 
     document.getElementById('consolidationModalTitle').textContent =
@@ -808,6 +830,10 @@ async function openConsolidationModal(ids) {
     document.getElementById('consolidationSubmitBtn').textContent =
         zbiorcze ? 'Dopnij do paczki' : 'Scal w paczkę zbiorczą';
     document.getElementById('consolidationDissolveBtn').style.display = 'none';
+    document.getElementById('consolidationHint').textContent = zbiorcze
+        ? `Zlecenia zostaną dopięte do paczki ${zbiorcze.request_number}. Adresat paczki ` +
+          'nie zmienia się — zmienisz go przyciskiem „Zarządzaj paczką".'
+        : CONSOLIDATION_HINT_LEAD;
 
     renderConsolidation(dane.blocked);
     document.getElementById('consolidationModal').classList.add('active');
@@ -830,15 +856,58 @@ async function fetchConsolidationPreview(ids) {
     }
 }
 
+/**
+ * Miękkie ostrzeżenia modalu — informują, NIE blokują przycisku (twarde blokady
+ * idą osobno, listą `blocked` z preview). Oba wymienione wprost w specyfikacji.
+ */
+function consolidationNotices() {
+    const uwagi = [];
+    const wiersze = consolidationState.requests;
+    const scalanie = consolidationState.mode !== 'manage';
+
+    if (scalanie && wiersze.length > 1) {
+        // Paczka dostaje status najmniej zaawansowany ze scalanych — admin ma
+        // wiedzieć, że opłacone zlecenie „cofnie się" w widoku paczki.
+        const statusy = new Set(wiersze.map(r => r.status));
+        if (statusy.size > 1) {
+            const naj = wiersze.reduce((a, r) =>
+                (r.status_sort_order || 0) < (a.status_sort_order || 0) ? r : a, wiersze[0]);
+            uwagi.push(`Scalane zlecenia mają różne statusy — paczka dostanie status ` +
+                       `„${naj.status_name}", najmniej zaawansowany ze scalanych.`);
+        }
+        // Numer przesyłki bywa wpisywany przed spakowaniem; etykieta u kuriera
+        // zostaje z adresem sprzed scalenia.
+        const zTrackingiem = wiersze.filter(r => r.has_tracking).map(r => r.request_number);
+        if (zTrackingiem.length) {
+            uwagi.push(`Zlecenia ${zTrackingiem.join(', ')} mają już numer przesyłki — ` +
+                       `etykieta u kuriera zostanie z poprzednim adresem.`);
+        }
+    }
+
+    if (consolidationState.mode === 'manage' && consolidationState.targetHasTracking &&
+        consolidationState.leadId !== consolidationState.originalLeadId) {
+        uwagi.push('Paczka ma już numer przesyłki — zmiana adresata przepisze adres ' +
+                   'w systemie, ale etykieta u kuriera zostanie stara.');
+    }
+
+    return uwagi;
+}
+
 function renderConsolidation(blokady) {
     const lista = document.getElementById('consolidationList');
     lista.innerHTML = '';
+    // W trybie dopięcia wiersze są tylko listą dopinanych zleceń, nie wyborem
+    // adresata — klasa wyłącza podpowiedzi interaktywności (kursor, hover).
+    lista.classList.toggle('consolidation-list--readonly',
+                           consolidationState.mode === 'attach');
 
     consolidationState.requests
         .filter(r => !r.is_consolidation)
         .forEach(r => {
             const row = document.createElement('div');
-            row.className = 'consolidation-row' + (r.id === consolidationState.leadId ? ' is-lead' : '');
+            const wybrany = consolidationState.mode !== 'attach' &&
+                            r.id === consolidationState.leadId;
+            row.className = 'consolidation-row' + (wybrany ? ' is-lead' : '');
             row.dataset.id = r.id;
             row.innerHTML = `
                 <div class="consolidation-row-main">
@@ -870,6 +939,9 @@ function renderConsolidation(blokady) {
             detachFromConsolidation(parseInt(detach.dataset.detach, 10));
             return;
         }
+        // W trybie dopięcia wiersz nie ustawia adresata (backend go nie przyjmuje),
+        // więc klik nie może udawać wyboru — patrz komentarz przy consolidationState.
+        if (consolidationState.mode === 'attach') return;
         const row = e.target.closest('.consolidation-row');
         if (!row) return;
         consolidationState.leadId = parseInt(row.dataset.id, 10);
@@ -877,6 +949,11 @@ function renderConsolidation(blokady) {
     };
 
     renderConsolidationSummary();
+
+    const uwagi = consolidationNotices();
+    const notices = document.getElementById('consolidationNotices');
+    notices.innerHTML = uwagi.map(t => `<p>${escapeHtml(t)}</p>`).join('');
+    notices.style.display = uwagi.length ? '' : 'none';
 
     const box = document.getElementById('consolidationWarnings');
     const submit = document.getElementById('consolidationSubmitBtn');
@@ -956,6 +1033,12 @@ async function submitConsolidation() {
 async function openConsolidationManageModal(consolidationId) {
     const dane = await fetchConsolidationPreview([consolidationId]);
     if (!dane) return;
+    // Ten sam guard co w openConsolidationModal: paczka mogła zniknąć (rozwiązana
+    // w innej karcie), a `dane.requests[0]` rzuciłby wtedy TypeError.
+    if (!dane.requests || !dane.requests.length) {
+        window.showToast('Nie znaleziono tej paczki — odśwież listę.', 'error');
+        return;
+    }
     const zbiorcze = dane.requests[0];
 
     const sources = await fetchConsolidationPreview(zbiorcze.source_ids);
@@ -966,10 +1049,14 @@ async function openConsolidationManageModal(consolidationId) {
         leadId: zbiorcze.lead_source_request_id,
         targetId: consolidationId,
         mode: 'manage',
+        // Do ostrzeżenia o nieaktualnej etykiecie u kuriera przy zmianie adresata.
+        targetHasTracking: !!zbiorcze.has_tracking,
+        originalLeadId: zbiorcze.lead_source_request_id,
     };
     document.getElementById('consolidationModalTitle').textContent =
         `Paczka ${zbiorcze.request_number}`;
     document.getElementById('consolidationSubmitBtn').textContent = 'Zapisz adresata';
+    document.getElementById('consolidationHint').textContent = CONSOLIDATION_HINT_LEAD;
     document.getElementById('consolidationDissolveBtn').style.display = '';
     // `sources.blocked` tu zawsze zgłasza "już należy do paczki" dla każdego uczestnika —
     // preview nie odróżnia „już w TEJ paczce" od „w innej" (patrz routes.py). Walidację

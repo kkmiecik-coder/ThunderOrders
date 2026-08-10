@@ -4269,6 +4269,9 @@ def admin_consolidation_preview():
             'address_type': sr.address_type,
             'status': sr.status,
             'status_name': sr.status_display_name,
+            # Modal liczy z tego „najmniej zaawansowany status" do ostrzeżenia —
+            # tą samą miarą (sort_order), którą backend liczy status paczki.
+            'status_sort_order': sr.status_rel.sort_order if sr.status_rel else 0,
             'orders_count': len(sr.display_orders),
             'is_consolidation': sr.is_consolidation,
             'has_tracking': bool(sr.tracking_number),

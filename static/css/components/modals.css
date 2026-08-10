@@ -4943,6 +4943,26 @@
   line-height: 1.5;
 }
 
+/* Miękkie ostrzeżenia — informują, nie blokują przycisku, więc czytelnie
+   spokojniejsze wizualnie niż .consolidation-warnings (twarde blokady). */
+.consolidation-notices {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border-left: 3px solid #667eea;
+  background: #eef1fd;
+  color: #33406b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.consolidation-notices p { margin: 0 0 6px; }
+.consolidation-notices p:last-child { margin-bottom: 0; }
+
+/* Tryb „dopnij do paczki": wiersze nie są wyborem adresata, więc nie udają
+   klikalnych. */
+.consolidation-list--readonly .consolidation-row { cursor: default; }
+
 [data-theme="dark"] .consolidation-hint { color: rgba(255, 255, 255, 0.6); }
 
 [data-theme="dark"] .consolidation-row {
@@ -4972,4 +4992,10 @@
 [data-theme="dark"] .consolidation-warnings {
   background: rgba(240, 147, 251, 0.1);
   color: #f5c88a;
+}
+
+[data-theme="dark"] .consolidation-notices {
+  border-left-color: #f093fb;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
 }
