@@ -107,6 +107,24 @@ def test_konsolidacja_dopina_do_istniejacej_paczki(db, client, login, make_user,
     assert sr_c.consolidated_into_id == zbiorcze.id
 
 
+def test_preview_z_istniejaca_paczka_w_zestawie_nie_blokuje(db, client, login, make_user, make_order):
+    """Modal (Task 14) w trybie dopięcia wysyła do preview zaznaczenie, które zawiera
+    ISTNIEJĄCĄ paczkę zbiorczą + nowego kandydata. Bez target= w waliduj_do_konsolidacji
+    taki zestaw był zawsze fałszywie odrzucany jako „łączenie paczek ze sobą", mimo że to
+    poprawny scenariusz dopięcia (patrz openConsolidationModal w shipping-requests.js)."""
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order, ile=2)
+    c = make_user()
+    sr_c, _ = _sr(db, c, make_order)
+    login(_admin(make_user))
+
+    r = client.get(
+        f'/admin/orders/shipping-requests/consolidation-preview?ids={zbiorcze.id},{sr_c.id}')
+    assert r.status_code == 200
+    dane = r.get_json()
+    assert dane['blocked'] == []
+
+
 def test_preview_same_nieparsowalne_ids(db, client, login, make_user):
     login(_admin(make_user))
     r = client.get('/admin/orders/shipping-requests/consolidation-preview?ids=abc,def')
@@ -279,3 +297,4 @@ def test_eksport_inpost_ostrzega_o_pominietych_zrodlach(db, client, login, make_
     for zr in zrodla:
         assert zr.request_number in ostrzezenia
     assert zbiorcze.request_number in ostrzezenia
+

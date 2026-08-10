@@ -4166,9 +4166,14 @@ def admin_consolidation_preview():
             'lead_source_request_id': sr.lead_source_request_id,
         })
 
+    # Zaznaczenie do modalu (Task 14) może zawierać już istniejącą paczkę zbiorczą —
+    # to scenariusz dopięcia, nie łączenia dwóch paczek. Bez target= waliduj_do_konsolidacji
+    # nie odróżnia „ten wpis TO cel" od „to inna paczka" i zawsze odrzuca taki zestaw.
+    target_w_zestawie = next((sr for sr in requests_list if sr.is_consolidation), None)
+
     blokady = []
     try:
-        waliduj_do_konsolidacji(requests_list)
+        waliduj_do_konsolidacji(requests_list, target=target_w_zestawie)
     except ConsolidationError as e:
         blokady.append(e.message)
 

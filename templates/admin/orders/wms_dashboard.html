@@ -844,6 +844,31 @@
         </div>
     </div>
 </div>
+<!-- Konsolidacja wysyłek — scalanie zaznaczonych zleceń w paczkę zbiorczą i zarządzanie gotową paczką -->
+<div id="consolidationModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 640px;">
+        <div class="modal-header">
+            <h3 id="consolidationModalTitle">Konsolidacja wysyłek</h3>
+            <button type="button" class="modal-close" onclick="closeConsolidationModal();" aria-label="Zamknij">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="consolidation-hint" id="consolidationHint">
+                Wybierz zlecenie wiodące — jego adres, adresat i kontakt trafią na paczkę.
+            </p>
+            <div id="consolidationList" class="consolidation-list"></div>
+            <div class="consolidation-summary">
+                <h4>Paczka po scaleniu</h4>
+                <dl id="consolidationSummary"></dl>
+            </div>
+            <div id="consolidationWarnings" class="consolidation-warnings" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeConsolidationModal();">Anuluj</button>
+            <button type="button" class="btn btn-danger" id="consolidationDissolveBtn" style="display: none;" onclick="dissolveConsolidation();">Rozwiąż paczkę</button>
+            <button type="button" class="btn btn-primary" id="consolidationSubmitBtn" onclick="submitConsolidation();">Scal w paczkę zbiorczą</button>
+        </div>
+    </div>
+</div>
 {% include 'admin/orders/_shipping_request_modal.html' %}
 {% endif %}
 

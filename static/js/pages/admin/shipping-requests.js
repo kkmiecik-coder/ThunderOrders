@@ -837,6 +837,260 @@ function getCSRFToken() {
            document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 }
 
+/**
+ * Escape HTML to prevent XSS (wstawianie tekstu do innerHTML)
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================================
+// KONSOLIDACJA WYSYŁEK
+// ============================================
+
+// `mode` rozróżnia trzy warianty modalu, bo mają różną semantykę zapisu:
+// 'create' — nowa paczka z zaznaczonych samodzielnych zleceń (POST /consolidate z lead_request_id),
+// 'attach' — zaznaczenie zawierało istniejącą paczkę: dopięcie nowych zleceń do niej
+//            (POST /consolidate z target_id),
+// 'manage' — modal otwarty z gotowej paczki: zmiana wiodącego idzie osobnym, dedykowanym
+//            endpointem /consolidation/lead — NIE generycznym /consolidate, bo ten drugi
+//            próbowałby dopiąć uczestników, którzy już należą do tej paczki, a backend
+//            (waliduj_do_konsolidacji) odrzuca dopinanie już dopiętych jako błąd.
+let consolidationState = { requests: [], leadId: null, targetId: null, mode: 'create' };
+
+/** Pobiera dane zaznaczonych zleceń i otwiera modal w trybie tworzenia. */
+async function openConsolidationModal(ids) {
+    const dane = await fetchConsolidationPreview(ids);
+    if (!dane) return;
+
+    // Zaznaczona paczka zbiorcza oznacza dopięcie do niej, nie tworzenie nowej.
+    const zbiorcze = dane.requests.find(r => r.is_consolidation);
+    consolidationState = {
+        requests: dane.requests,
+        leadId: zbiorcze ? null : dane.requests[0].id,
+        targetId: zbiorcze ? zbiorcze.id : null,
+        mode: zbiorcze ? 'attach' : 'create',
+    };
+
+    document.getElementById('consolidationModalTitle').textContent =
+        zbiorcze ? `Dopnij do paczki ${zbiorcze.request_number}` : 'Konsolidacja wysyłek';
+    document.getElementById('consolidationSubmitBtn').textContent =
+        zbiorcze ? 'Dopnij do paczki' : 'Scal w paczkę zbiorczą';
+    document.getElementById('consolidationDissolveBtn').style.display = 'none';
+
+    renderConsolidation(dane.blocked);
+    document.getElementById('consolidationModal').classList.add('active');
+}
+
+async function fetchConsolidationPreview(ids) {
+    try {
+        const r = await fetch(
+            `/admin/orders/shipping-requests/consolidation-preview?ids=${ids.join(',')}`);
+        if (!r.ok) {
+            const e = await r.json();
+            window.showToast(e.error || 'Nie udało się pobrać danych zleceń', 'error');
+            return null;
+        }
+        return await r.json();
+    } catch (error) {
+        console.error('Consolidation preview error:', error);
+        window.showToast('Nie udało się pobrać danych zleceń', 'error');
+        return null;
+    }
+}
+
+function renderConsolidation(blokady) {
+    const lista = document.getElementById('consolidationList');
+    lista.innerHTML = '';
+
+    consolidationState.requests
+        .filter(r => !r.is_consolidation)
+        .forEach(r => {
+            const row = document.createElement('div');
+            row.className = 'consolidation-row' + (r.id === consolidationState.leadId ? ' is-lead' : '');
+            row.dataset.id = r.id;
+            row.innerHTML = `
+                <div class="consolidation-row-main">
+                    <strong>${escapeHtml(r.request_number)}</strong>
+                    · ${escapeHtml(r.client_name)}
+                    <div class="consolidation-row-meta">
+                        ${escapeHtml(r.full_address)} · ${r.orders_count} zam. · ${escapeHtml(r.status_name)}
+                    </div>
+                </div>`;
+            // "Wypnij" ma sens tylko dla uczestników JUŻ przypiętych do paczki (tryb
+            // zarządzania) — w trybie dopięcia wiersze to dopiero kandydaci do dopięcia,
+            // detach na nich zawsze skończyłby się błędem 404 z backendu.
+            if (consolidationState.mode === 'manage') {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'consolidation-detach';
+                btn.textContent = 'Wypnij';
+                btn.dataset.detach = r.id;
+                row.appendChild(btn);
+            }
+            lista.appendChild(row);
+        });
+
+    // Event delegation — escapeHtml nie escapuje apostrofów, więc żadnych inline onclick
+    // z danymi klienta. Klik w wiersz ustawia wiodące, klik w „Wypnij" wypina.
+    lista.onclick = (e) => {
+        const detach = e.target.closest('[data-detach]');
+        if (detach) {
+            detachFromConsolidation(parseInt(detach.dataset.detach, 10));
+            return;
+        }
+        const row = e.target.closest('.consolidation-row');
+        if (!row) return;
+        consolidationState.leadId = parseInt(row.dataset.id, 10);
+        renderConsolidation(blokady);
+    };
+
+    renderConsolidationSummary();
+
+    const box = document.getElementById('consolidationWarnings');
+    const submit = document.getElementById('consolidationSubmitBtn');
+    if (blokady && blokady.length) {
+        box.textContent = blokady.join(' ');
+        box.style.display = '';
+        submit.disabled = true;
+    } else {
+        box.style.display = 'none';
+        submit.disabled = false;
+    }
+}
+
+function renderConsolidationSummary() {
+    const lead = consolidationState.requests.find(r => r.id === consolidationState.leadId);
+    // Bez filtra is_consolidation: w trybie dopięcia requests zawiera też samą paczkę
+    // docelową (wyłączoną tylko z listy wierszy do wyboru) — jej zamówienia muszą wejść
+    // do sumy, inaczej podsumowanie liczyłoby tylko nowo dopinanych, nie całej paczki.
+    const suma = consolidationState.requests
+        .reduce((acc, r) => acc + r.orders_count, 0);
+    const dl = document.getElementById('consolidationSummary');
+    dl.innerHTML = `
+        <dt>Adresat</dt><dd>${lead ? escapeHtml(lead.client_name) : '—'}</dd>
+        <dt>Adres</dt><dd>${lead ? escapeHtml(lead.full_address) : '—'}</dd>
+        <dt>Kontakt</dt><dd>${lead && lead.client_email ? escapeHtml(lead.client_email) : '—'}</dd>
+        <dt>Zawartość</dt><dd>${suma} zamówień</dd>`;
+}
+
+function closeConsolidationModal() {
+    document.getElementById('consolidationModal').classList.remove('active');
+}
+
+async function submitConsolidation() {
+    try {
+        if (consolidationState.mode === 'manage') {
+            // Tryb zarządzania zmienia tylko zlecenie wiodące — dedykowany endpoint,
+            // patrz komentarz przy definicji consolidationState.mode.
+            const r = await fetch(
+                `/admin/orders/shipping-requests/${consolidationState.targetId}/consolidation/lead`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                    body: JSON.stringify({ lead_request_id: consolidationState.leadId }),
+                });
+            const dane = await r.json();
+            if (!r.ok) {
+                window.showToast(dane.error || 'Nie udało się zapisać adresata', 'error');
+                return;
+            }
+            window.location.reload();
+            return;
+        }
+
+        const ids = consolidationState.requests.map(r => r.id);
+        const body = consolidationState.targetId
+            ? { ids, target_id: consolidationState.targetId }
+            : { ids, lead_request_id: consolidationState.leadId };
+
+        const r = await fetch('/admin/orders/shipping-requests/consolidate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+            body: JSON.stringify(body),
+        });
+        const dane = await r.json();
+        if (!r.ok) {
+            window.showToast(dane.error || 'Nie udało się scalić zleceń', 'error');
+            return;
+        }
+        sessionStorage.removeItem(SR_SELECTION_STORAGE_KEY);
+        window.location.reload();
+    } catch (error) {
+        console.error('Consolidation submit error:', error);
+        window.showToast('Nie udało się zapisać zmian', 'error');
+    }
+}
+
+/** Modal w trybie zarządzania gotową paczką — z karty zbiorczej. */
+async function openConsolidationManageModal(consolidationId) {
+    const dane = await fetchConsolidationPreview([consolidationId]);
+    if (!dane) return;
+    const zbiorcze = dane.requests[0];
+
+    const sources = await fetchConsolidationPreview(zbiorcze.source_ids);
+    if (!sources) return;
+
+    consolidationState = {
+        requests: sources.requests,
+        leadId: zbiorcze.lead_source_request_id,
+        targetId: consolidationId,
+        mode: 'manage',
+    };
+    document.getElementById('consolidationModalTitle').textContent =
+        `Paczka ${zbiorcze.request_number}`;
+    document.getElementById('consolidationSubmitBtn').textContent = 'Zapisz adresata';
+    document.getElementById('consolidationDissolveBtn').style.display = '';
+    // `sources.blocked` tu zawsze zgłasza "już należy do paczki" dla każdego uczestnika —
+    // preview nie odróżnia „już w TEJ paczce" od „w innej" (patrz routes.py). Walidację
+    // faktycznej zmiany i tak robi docelowy endpoint /consolidation/lead przy zapisie.
+    renderConsolidation([]);
+    document.getElementById('consolidationModal').classList.add('active');
+}
+
+async function detachFromConsolidation(sourceId) {
+    if (!confirm('Wypiąć to zlecenie z paczki zbiorczej?')) return;
+    try {
+        const r = await fetch(
+            `/admin/orders/shipping-requests/${consolidationState.targetId}/consolidation/detach`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                body: JSON.stringify({ source_id: sourceId }),
+            });
+        const dane = await r.json();
+        if (!r.ok) {
+            window.showToast(dane.error || 'Nie udało się wypiąć zlecenia', 'error');
+            return;
+        }
+        window.location.reload();
+    } catch (error) {
+        console.error('Consolidation detach error:', error);
+        window.showToast('Nie udało się wypiąć zlecenia', 'error');
+    }
+}
+
+async function dissolveConsolidation() {
+    if (!confirm('Rozwiązać paczkę zbiorczą? Zlecenia wrócą do samodzielnej wysyłki.')) return;
+    try {
+        const r = await fetch(
+            `/admin/orders/shipping-requests/${consolidationState.targetId}/consolidation/dissolve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+                body: JSON.stringify({}),
+            });
+        const dane = await r.json();
+        if (!r.ok) {
+            window.showToast(dane.error || 'Nie udało się rozwiązać paczki', 'error');
+            return;
+        }
+        window.location.reload();
+    } catch (error) {
+        console.error('Consolidation dissolve error:', error);
+        window.showToast('Nie udało się rozwiązać paczki', 'error');
+    }
+}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
     // ============================================
