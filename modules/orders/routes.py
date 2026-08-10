@@ -3897,6 +3897,16 @@ def admin_update_shipping_request(shipping_request_id):
             # Find the order and update its shipping cost
             order = db.session.get(Order, order_id)
             if order:
+                # Po konsolidacji to jedyne miejsce, gdzie admin mógłby ustawić kwotę E4
+                # zamówieniu obcego klienta — modal renderuje tylko zamówienia tego zlecenia,
+                # ale endpoint przyjmował dowolne ID.
+                if order.id not in {ro.order_id for ro in sr.request_orders}:
+                    db.session.rollback()
+                    return jsonify({
+                        'error': f'Zamówienie {order.order_number} nie należy do zlecenia '
+                                 f'{sr.request_number}',
+                    }), 400
+
                 old_cost = float(order.shipping_cost or 0)
                 order.shipping_cost = shipping_cost if shipping_cost > 0 else None
                 if shipping_cost and float(shipping_cost) > 0 and float(shipping_cost) != old_cost:
@@ -4028,6 +4038,33 @@ def admin_delete_shipping_request(shipping_request_id):
     sr = ShippingRequest.query.get_or_404(shipping_request_id)
     request_number = sr.request_number
 
+    # Zlecenie źródłowe nie ma własnych zamówień i jest tylko widokiem dla klienta —
+    # skasowanie go zostawiłoby paczkę z uczestnikiem, którego nie ma.
+    if sr.is_consolidated_source:
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} jedzie w paczce zbiorczej '
+                       f'{sr.consolidated_into.request_number} — najpierw wypnij je z paczki.',
+        }), 409
+
+    # Kasowanie paczki zbiorczej: zamówienia muszą wrócić do właścicieli, inaczej
+    # cascade='all, delete-orphan' zabierze powiązania zamówień obcych klientów.
+    if sr.is_consolidation:
+        from modules.orders.consolidation import rozwiaz_konsolidacje, ConsolidationError
+        try:
+            rozwiaz_konsolidacje(sr)
+            db.session.commit()
+        except ConsolidationError as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': e.message}), e.status_code
+        log_activity(
+            user=current_user, action='shipping_request_consolidation_dissolved',
+            entity_type='shipping_request',
+            new_value={'consolidation_number': sr.request_number, 'reason': 'delete'},
+        )
+        return jsonify({'success': True,
+                        'message': 'Paczka zbiorcza rozwiązana, zlecenia wróciły do klientów'})
+
     # Check if shipping request is linked to an active WMS session
     from modules.orders.wms_models import WmsSessionShippingRequest, WmsSession
     active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
@@ -4080,6 +4117,7 @@ def admin_bulk_cancel_shipping_requests():
         return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
 
     from modules.orders.wms_models import WmsSessionShippingRequest, WmsSession
+    from modules.orders.consolidation import rozwiaz_konsolidacje, ConsolidationError
 
     deleted_numbers = []
     skipped_numbers = []
@@ -4087,6 +4125,21 @@ def admin_bulk_cancel_shipping_requests():
     for sr_id in ids:
         sr = db.session.get(ShippingRequest, sr_id)
         if sr:
+            # Zlecenie źródłowe nie ma własnych zamówień (jadą w paczce zbiorczej) —
+            # tak samo jak w admin_delete_shipping_request, pomijamy je zamiast kasować.
+            if sr.is_consolidated_source:
+                skipped_numbers.append(sr.request_number)
+                continue
+            # Paczka zbiorcza: zamówienia muszą wrócić do właścicieli przed skasowaniem,
+            # inaczej cascade='all, delete-orphan' zabrałaby powiązania obcych klientów.
+            if sr.is_consolidation:
+                try:
+                    rozwiaz_konsolidacje(sr)
+                except ConsolidationError:
+                    skipped_numbers.append(sr.request_number)
+                    continue
+                deleted_numbers.append(sr.request_number)
+                continue
             active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
                 WmsSessionShippingRequest.shipping_request_id == sr.id,
                 WmsSession.status.in_(['active', 'paused'])
@@ -4117,7 +4170,9 @@ def admin_bulk_cancel_shipping_requests():
 
     message = f'Usunięto {len(deleted_numbers)} zleceń'
     if skipped_numbers:
-        message += f'. Pominięto {len(skipped_numbers)} zleceń powiązanych z sesją WMS ({", ".join(skipped_numbers)})'
+        # Powód pominięcia bywa różny (sesja WMS, zlecenie źródłowe w paczce zbiorczej) —
+        # nazwy zleceń w treści wystarczą adminowi do sprawdzenia szczegółów.
+        message += f'. Pominięto {len(skipped_numbers)} zleceń ({", ".join(skipped_numbers)})'
 
     return jsonify({
         'success': True,

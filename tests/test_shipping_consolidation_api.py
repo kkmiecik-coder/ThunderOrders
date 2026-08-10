@@ -284,6 +284,52 @@ def test_eksport_inpost_nie_dubluje_etykiet(db, client, login, make_user, make_o
         assert zr.request_number not in csv_text
 
 
+def test_kasowanie_paczki_odpina_zrodla(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.delete(f'/admin/orders/shipping-requests/{zbiorcze.id}')
+    assert r.status_code == 200
+    db.session.expire_all()
+
+    from modules.orders.models import ShippingRequest
+    for zr in zrodla:
+        odswiezone = db.session.get(ShippingRequest, zr.id)
+        assert odswiezone is not None
+        assert odswiezone.consolidated_into_id is None
+        # Zamówienia wróciły do właściciela, a nie zniknęły razem z paczką.
+        assert len(odswiezone.request_orders) == 1
+
+
+def test_nie_da_sie_skasowac_zrodlowego(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
+    login(_admin(make_user))
+
+    r = client.delete(f'/admin/orders/shipping-requests/{zrodla[0].id}')
+    assert r.status_code == 409
+    assert 'zbiorcz' in r.get_json()['message'].lower()
+
+
+def test_koszt_tylko_dla_zamowien_z_tego_zlecenia(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, orders_a = _sr(db, a, make_order)
+    sr_b, orders_b = _sr(db, b, make_order)
+    login(_admin(make_user))
+
+    r = client.put(f'/admin/orders/shipping-requests/{sr_a.id}', json={
+        'order_costs': [{'order_id': orders_b[0].id, 'shipping_cost': 99}],
+    })
+    assert r.status_code == 400
+    db.session.expire_all()
+    # Order.shipping_cost ma default=0.00 (nullable=False) — świeże zamówienie z
+    # make_order nigdy nie jest None. Test brief-u zakładał None; realna asercja
+    # to „nie 99", czyli że endpoint nie zapisał cudzego kosztu.
+    assert orders_b[0].shipping_cost == 0
+
+
 def test_eksport_inpost_ostrzega_o_pominietych_zrodlach(db, client, login, make_user, make_order):
     """Zaznaczone źródła znikają z zapytania (filtr consolidated_into_id), więc bez
     jawnego ostrzeżenia admin nie wiedziałby, czemu zaznaczył więcej pozycji, niż

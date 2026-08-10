@@ -1025,6 +1025,19 @@ class PushManager:
             notification_type='shipping_updates'
         )
 
+    @staticmethod
+    def notify_packing_photo_for_request(sr):
+        """Zdjęcie spakowanej paczki — po jednym pushu na uczestnika (patrz
+        EmailManager.notify_packing_photo_for_request — ten sam powód i wzorzec)."""
+        if not sr.is_consolidation:
+            if sr.orders:
+                PushManager.notify_packing_photo(sr.orders[0])
+            return
+
+        for uczestnik in sr.consolidation_participants:
+            if uczestnik['orders']:
+                PushManager.notify_packing_photo(uczestnik['orders'][0])
+
     # ========================================
     # PAYMENT REMINDER
     # ========================================

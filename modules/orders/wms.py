@@ -1477,13 +1477,24 @@ def wms_send_packing_email():
 
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
-        EmailManager.notify_packing_photo(order)
-        PushManager.notify_packing_photo(order)
 
-        return jsonify({
-            'success': True,
-            'message': f'Email ze zdjęciem paczki wysłany do {order.customer_email}',
-        })
+        # Per zlecenie, nie per zamówienie: przy paczce zbiorczej karton jest
+        # wspólny, więc zdjęcie należy się KAŻDEMU uczestnikowi, nie tylko
+        # właścicielowi zamówienia, które admin wybrał w UI.
+        sr = order.shipping_request
+        if sr:
+            EmailManager.notify_packing_photo_for_request(sr)
+            PushManager.notify_packing_photo_for_request(sr)
+        else:
+            EmailManager.notify_packing_photo(order)
+            PushManager.notify_packing_photo(order)
+
+        message = (
+            'Email ze zdjęciem paczki wysłany do wszystkich uczestników paczki zbiorczej'
+            if sr and sr.is_consolidation else
+            f'Email ze zdjęciem paczki wysłany do {order.customer_email}'
+        )
+        return jsonify({'success': True, 'message': message})
 
     except Exception as e:
         current_app.logger.error(f'WMS send packing email error: {e}')

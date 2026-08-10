@@ -179,3 +179,23 @@ def test_powiadomienie_o_scaleniu_idzie_do_wszystkich(db, przechwycone, monkeypa
     assert zbiorcze.short_addressee_name in mail_b['recipient_name']
     assert zbiorcze.shipping_name not in mail_b['recipient_name']
     assert 'Testowska' not in mail_b['recipient_name']
+
+
+# ---------- Zdjęcie paczki (Task 17) ----------
+#
+# Mail ze zdjęciem leciał dotąd z pojedynczego zamówienia (group[0] w
+# wms_packing.py) — przy paczce zbiorczej trafiał do właściciela przypadkowego
+# zamówienia z grupy, a reszta uczestników nie dostawała nic.
+
+def test_zdjecie_paczki_idzie_do_wszystkich_uczestnikow(db, przechwycone, monkeypatch,
+                                                        make_user, make_order):
+    maile = []
+    monkeypatch.setattr('utils.email_manager.EmailManager.notify_packing_photo',
+                        staticmethod(lambda order: maile.append(order.user_id)))
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+
+    from utils.email_manager import EmailManager
+    EmailManager.notify_packing_photo_for_request(zbiorcze)
+
+    assert set(maile) == {sr_a.user_id, sr_b.user_id}

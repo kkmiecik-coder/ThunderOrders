@@ -419,6 +419,27 @@ class EmailManager:
             )
 
     @staticmethod
+    def notify_packing_photo_for_request(sr):
+        """Zdjęcie spakowanej paczki — po jednym mailu na uczestnika.
+
+        Dotychczas mail leciał z pojedynczego zamówienia, więc przy paczce zbiorczej
+        dostawał go właściciel przypadkowego zamówienia z grupy, a reszta nic.
+        Karton jest wspólny, więc zdjęcie należy się każdemu.
+        """
+        if not sr.is_consolidation:
+            # Jeden karton = jeden mail, niezależnie od liczby zamówień w zleceniu —
+            # osobny mail na każde zamówienie dublowałby wiadomość temu samemu
+            # klientowi (regres z briefu: `for order in sr.orders` łamał
+            # test_pack_group_packs_all_orders_once, który wymaga dokładnie 1 maila).
+            if sr.orders:
+                EmailManager.notify_packing_photo(sr.orders[0])
+            return
+
+        for uczestnik in sr.consolidation_participants:
+            if uczestnik['orders']:
+                EmailManager.notify_packing_photo(uczestnik['orders'][0])
+
+    @staticmethod
     def notify_status_change(order, old_status, new_status):
         """
         Wysyła powiadomienie o zmianie statusu zamówienia.
