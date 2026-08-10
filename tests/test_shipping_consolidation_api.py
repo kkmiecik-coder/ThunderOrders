@@ -615,3 +615,36 @@ def test_wycena_paczki_podnosi_tylko_wycenionego_uczestnika(
     assert sr_b.status == 'czeka_na_wycene'
     assert zbiorcze.status == 'czeka_na_wycene'
 
+
+# ---------- Liczniki admina (finalna recenzja, pkt 2) ----------
+#
+# Paczka zbiorcza i jej zlecenia źródłowe współistnieją w tabeli, więc każdy
+# COUNT po ShippingRequest bez filtra `consolidated_into_id IS NULL` liczy jedną
+# fizyczną paczkę tyle razy, ilu ma uczestników (+1).
+
+def test_kafelki_dashboardu_licza_paczke_raz(db, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    for sr in (zbiorcze, sr_a, sr_b):
+        sr.status = 'czeka_na_wycene'
+    db.session.commit()
+
+    from modules.admin.routes import get_shipping_alert_counts
+    liczniki = get_shipping_alert_counts()
+    assert liczniki['to_quote'] == 1
+    assert liczniki['total'] == 1
+
+
+def test_statystyki_wysylki_licza_paczke_raz(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    for sr in (zbiorcze, sr_a, sr_b):
+        sr.status = 'czeka_na_wycene'
+    db.session.commit()
+    login(_admin(make_user))
+
+    dane = client.get('/admin/statistics/api/shipping').get_json()
+    kpi = {k['label']: k['raw'] for k in dane['kpis']}
+    assert kpi['Łącznie zleceń wysyłki'] == 1
+    assert kpi['Oczekujących'] == 1
+

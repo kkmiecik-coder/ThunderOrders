@@ -616,14 +616,21 @@ def statistics_exclusive():
 @role_required('admin', 'mod')
 def statistics_shipping():
     """Dane dla zakładki Wysyłka."""
-    # KPI
-    total_requests = ShippingRequest.query.count()
+    # KPI — bez zleceń źródłowych paczek zbiorczych: jedna fizyczna paczka to
+    # jedna wysyłka, a zlecenie źródłowe współistnieje z nią w tabeli, więc bez
+    # filtra paczka z dwoma źródłami liczyłaby się trzykrotnie.
+    total_requests = ShippingRequest.query.filter(
+        ShippingRequest.consolidated_into_id.is_(None)).count()
     pending_requests = ShippingRequest.query.filter(
-        ShippingRequest.status.in_(['czeka_na_wycene', 'wycenione'])
+        ShippingRequest.status.in_(['czeka_na_wycene', 'wycenione']),
+        ShippingRequest.consolidated_into_id.is_(None),
     ).count()
+    # Ten sam filtr: koszty wszystkich zamówień paczki zbiorczej są zsumowane na
+    # niej samej, więc doliczanie zleceń źródłowych dokładałoby ich stare, sprzed
+    # konsolidacji, kwoty drugi raz.
     total_shipping_cost = db.session.query(
         func.coalesce(func.sum(ShippingRequest.total_shipping_cost), 0)
-    ).scalar() or Decimal('0')
+    ).filter(ShippingRequest.consolidated_into_id.is_(None)).scalar() or Decimal('0')
 
     # Wykres kołowy: metody dostawy (z zamówień)
     delivery_counts = db.session.query(

@@ -27,12 +27,18 @@ def get_shipping_alert_counts():
       - to_pay:   'czeka_na_oplacenie' → Czeka na opłacenie
       - to_pack:  'oplacone'           → Do spakowania
     Statusy 'spakowane' i dalsze NIE są liczone.
+
+    Zlecenia źródłowe paczek zbiorczych (consolidated_into_id ustawione) są
+    pomijane: fizycznie istnieje jedna paczka i jedna pozycja na liście WMS, więc
+    bez tego filtra paczka z dwoma źródłami dawałaby na kafelku 3 zamiast 1.
+    Ten sam warunek co w `build_shipping_requests_query` i `sr_total_count`.
     """
     rows = dict(
         db.session.query(ShippingRequest.status, func.count(ShippingRequest.id))
         .filter(ShippingRequest.status.in_(
             ['czeka_na_wycene', 'czeka_na_oplacenie', 'oplacone']
         ))
+        .filter(ShippingRequest.consolidated_into_id.is_(None))
         .group_by(ShippingRequest.status)
         .all()
     )
