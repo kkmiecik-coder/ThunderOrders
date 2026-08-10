@@ -755,3 +755,37 @@ def test_karta_wms_pokazuje_wycene_paczki_zbiorczej(db, client, login, make_user
     tresc = client.get('/admin/orders/wms').get_data(as_text=True)
     assert '42.98 PLN' in tresc
     assert 'Brak wyceny' not in tresc
+
+
+def test_panel_pakowania_zna_adresata_i_wycene(db, make_user, make_order):
+    """Nagłówek panelu pakowania pokazywał „WYS/000049 — — 2 zam." — magazynier nie
+    widział, do kogo pakuje karton. Payload sesji dawał tylko `shipping_name` (puste
+    przy paczkomacie) i surową kolumnę kosztu (pustą na paczce zbiorczej)."""
+    from decimal import Decimal
+    from modules.orders.wms_models import WmsSession, WmsSessionOrder
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, _sr_b) = _konsolidacja(db, make_user, make_order)
+    # Paczkomat: adres w polach pickup_*, rubryka z nazwiskiem pusta.
+    zbiorcze.address_type = 'pickup_point'
+    zbiorcze.shipping_name = None
+    zbiorcze.pickup_courier = 'InPost'
+    zbiorcze.pickup_point_id = 'KRA01M'
+    for o in zbiorcze.display_orders:
+        o.shipping_cost = Decimal('21.49')
+    magazynier = _admin(make_user)
+    db.session.commit()
+
+    sesja = WmsSession(session_token='tok-pakowanie', user_id=magazynier.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    for i, o in enumerate(zbiorcze.display_orders):
+        db.session.add(WmsSessionOrder(session_id=sesja.id, order_id=o.id, sort_order=i))
+    db.session.commit()
+
+    from modules.orders.wms import _build_session_data
+    dane = _build_session_data(sesja)
+    payload = dane['orders'][0]['shipping_request']
+
+    oczekiwany = f'{sr_a.user.first_name} {sr_a.user.last_name}'
+    assert payload['addressee_name'] == oczekiwany
+    assert payload['total_shipping_cost'] == 42.98

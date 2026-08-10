@@ -200,9 +200,11 @@ def _build_session_data(session):
                 'courier': sr.courier,
                 'tracking_number': sr.tracking_number,
                 'parcel_size': sr.parcel_size,
-                # Wycena przez właściwość modelu, nie surową kolumnę — przy paczce
-                # zbiorczej `total_shipping_cost` zostaje puste.
+                # Wycena i adresat przez właściwości modelu, nie surowe kolumny: przy
+                # paczce zbiorczej `total_shipping_cost` jest puste, a `shipping_name`
+                # jest puste przy każdej dostawie do paczkomatu (dominujący scenariusz).
                 'total_shipping_cost': float(sr.display_shipping_cost) if sr.display_shipping_cost else None,
+                'addressee_name': sr.addressee_name,
                 'orders_count': sr.orders_count,
             }
 

@@ -3794,6 +3794,9 @@ def admin_get_shipping_request(shipping_request_id):
         'client_notes': sr.client_notes,
         'address_type': sr.address_type,
         'shipping_name': sr.shipping_name,
+        # Nazwa adresata odporna na typ dostawy — przy paczkomacie `shipping_name`
+        # jest puste i modal pokazywał na liście miasto punktu zamiast człowieka.
+        'addressee_name': sr.addressee_name,
         'shipping_address': sr.shipping_address,
         'shipping_postal_code': sr.shipping_postal_code,
         'shipping_city': sr.shipping_city,
