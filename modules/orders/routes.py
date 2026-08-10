@@ -3925,7 +3925,18 @@ def admin_update_shipping_request(shipping_request_id):
 
     # Auto-status: czeka_na_wycene → czeka_na_oplacenie after pricing
     auto_status_changed = False
-    if sr.status == 'czeka_na_wycene' and orders_with_new_cost:
+    if orders_with_new_cost and sr.is_consolidation:
+        # Paczka zbiorcza nie ma własnego statusu finansowego — jej status to
+        # minimum ze statusów uczestników. Podniesienie samej paczki zostawiłoby
+        # źródła na „czeka na wycenę", a _sprawdz_oplacenie_konsolidacji podnosi
+        # uczestnika na „opłacone" tylko z „czeka na opłacenie" — paczka nigdy nie
+        # osiągała „opłacone" i WMS odrzucał wysyłkę (UNPAID_SR_STATUSES).
+        from modules.orders.consolidation import przeprowadz_uczestnikow_na_oplacenie
+        status_paczki_przed = sr.status
+        if przeprowadz_uczestnikow_na_oplacenie(sr):
+            auto_status_changed = sr.status != status_paczki_przed
+            db.session.commit()
+    elif sr.status == 'czeka_na_wycene' and orders_with_new_cost:
         has_any_cost = any(
             (ro.order.shipping_cost or 0) > 0
             for ro in sr.request_orders if ro.order

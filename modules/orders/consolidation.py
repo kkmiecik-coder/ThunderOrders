@@ -376,6 +376,45 @@ def przelicz_status_zbiorczego(source):
     zbiorcze.status = status_najmniej_zaawansowany(_uczestnicy_z_bazy(zbiorcze))
 
 
+def przeprowadz_uczestnikow_na_oplacenie(zbiorcze):
+    """Po wycenie paczki zbiorczej przenosi uczestników na „czeka na opłacenie".
+
+    Dlaczego to musi dotknąć zleceń ŹRÓDŁOWYCH, a nie tylko paczki: finanse
+    liczymy per uczestnik, więc `propaguj_na_zrodla` świadomie nie zjeżdża ze
+    statusem finansowym w dół, a `_sprawdz_oplacenie_konsolidacji` podnosi
+    uczestnika na „opłacone" WYŁĄCZNIE z „czeka na opłacenie". Bez tego kroku
+    źródła zostawały na „czeka na wycenę", warunku nikt nigdy nie spełniał,
+    status paczki (minimum ze źródeł) nigdy nie dochodził do „opłacone" i
+    `ship_shipping_request` odrzucał wysyłkę przez UNPAID_SR_STATUSES — czyli
+    wycenionej paczki nie dało się wysłać w ogóle. Dodatkowo klient widział u
+    siebie „Czeka na wycenę" mimo maila o opłaceniu paczki.
+
+    Zwraca listę zleceń źródłowych, którym faktycznie zmienił się status.
+    """
+    if not zbiorcze.is_consolidation:
+        return []
+
+    zmienione = []
+    for uczestnik in zbiorcze.consolidation_participants:
+        zrodlo = uczestnik['source_request']
+        if zrodlo.status != 'czeka_na_wycene':
+            continue
+        # `any`, nie `all` — parytet z pojedynczym zleceniem
+        # (admin_update_shipping_request używa dokładnie tego warunku): klient ma
+        # zobaczyć „czeka na opłacenie", gdy jest już cokolwiek do zapłacenia,
+        # a nie dopiero po wycenie ostatniej pozycji.
+        if any((o.shipping_cost or 0) > 0 for o in uczestnik['orders']):
+            zrodlo.status = 'czeka_na_oplacenie'
+            zmienione.append(zrodlo)
+
+    if zmienione:
+        # Status paczki jest pochodną statusów uczestników — przeliczamy go tym
+        # samym helperem, którego używa ścieżka płatnicza, żeby nie było dwóch
+        # źródeł prawdy o „najmniej zaawansowanym".
+        przelicz_status_zbiorczego(zmienione[0])
+    return zmienione
+
+
 def _po_odpieciu_zrodla(target, source_id, *, bez_walidacji=False):
     """Wspólny krok po tym, jak jakieś źródło (`source_id`) straciło w paczce
     `target` ostatni wiersz junction — czyli po tym, jak wywołujący już ustawił

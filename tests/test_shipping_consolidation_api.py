@@ -495,3 +495,123 @@ def test_eksport_inpost_ostrzega_o_pominietych_zrodlach(db, client, login, make_
         assert zr.request_number in ostrzezenia
     assert zbiorcze.request_number in ostrzezenia
 
+
+
+@pytest.fixture
+def bez_powiadomien(monkeypatch, bez_powiadomien_o_koszcie):
+    """Pełny przepływ dotyka też maili o statusie i o wysyłce. Każdy z nich startuje
+    wątek tła, a testowe SQLite trzyma jedno wspólne połączenie in-memory — wątek
+    zostawiony po teście potrafi wywrócić dane NASTĘPNEGO (obserwowane: koszty
+    zamówień wracające do 0.00). Ta sama technika co `bez_powiadomien_o_koszcie`."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    for nazwa in ('notify_shipping_status_change', 'notify_shipment_sent',
+                  'notify_status_change'):
+        monkeypatch.setattr(EmailManager, nazwa, staticmethod(lambda *a, **kw: None))
+        monkeypatch.setattr(PushManager, nazwa, staticmethod(lambda *a, **kw: None))
+    monkeypatch.setattr(PushManager, '_fire_and_forget', staticmethod(lambda **kw: None))
+
+
+def test_pelny_przeplyw_konsolidacja_wycena_zaplata_wysylka(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Scenariusz wprost ze specyfikacji, od stanu powstającego naturalnie.
+
+    Regres z finalnej recenzji: auto-przejście po wycenie ustawiało
+    'czeka_na_oplacenie' WYŁĄCZNIE na edytowanym zleceniu, czyli na paczce
+    zbiorczej. `propaguj_na_zrodla` świadomie nie zjeżdża ze statusem finansowym
+    w dół, a `_sprawdz_oplacenie_konsolidacji` podnosi uczestnika na 'oplacone'
+    tylko z 'czeka_na_oplacenie' — warunku, którego nikt nigdy nie spełniał.
+    Paczka wisiała na 'czeka_na_oplacenie' i `ship_shipping_request` odrzucał ją
+    przez UNPAID_SR_STATUSES, a klient widział u siebie „Czeka na wycenę".
+
+    Dlatego ten test NIE ustawia statusów ręcznie na żadnym etapie — każdy stan
+    ma powstać z poprzedniego kroku.
+    """
+    from decimal import Decimal
+    from test_wms_ship_and_reopen import _seed_statuses
+    from modules.orders.models import PaymentConfirmation, ShippingRequest
+
+    _seed_sr_statuses(db)
+    _seed_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, orders_a = _sr(db, a, make_order, status='czeka_na_wycene')
+    sr_b, orders_b = _sr(db, b, make_order, status='czeka_na_wycene')
+    login(_admin(make_user))
+
+    # 1. Admin konsoliduje dwa zlecenia różnych klientów.
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, sr_b.id], 'lead_request_id': sr_a.id,
+    })
+    assert r.status_code == 200
+    db.session.expire_all()
+    zbiorcze = db.session.get(ShippingRequest, sr_a.consolidated_into_id)
+    assert zbiorcze.status == 'czeka_na_wycene'
+
+    # 2. Admin wpisuje koszty w modalu „Dodaj koszty" — na PACZCE, bo tylko ona
+    #    jest widoczna na liście WMS.
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': o.id, 'shipping_cost': 15.0}
+                        for o in (orders_a[0], orders_b[0])],
+    })
+    assert r.status_code == 200
+    db.session.expire_all()
+
+    # Sedno poprawki: uczestnicy schodzą z „czeka na wycenę". To także jest to,
+    # co klient widzi u siebie w panelu — zgodne ze statusem paczki.
+    assert sr_a.status == 'czeka_na_oplacenie'
+    assert sr_b.status == 'czeka_na_oplacenie'
+    assert zbiorcze.status == 'czeka_na_oplacenie'
+
+    # 3. Obaj klienci płacą E4, admin zatwierdza potwierdzenia.
+    from modules.admin.payment_confirmations import _check_sr_auto_oplacone
+    for zamowienie in (orders_a[0], orders_b[0]):
+        db.session.add(PaymentConfirmation(
+            order_id=zamowienie.id, payment_stage='domestic_shipping',
+            status='approved', amount=Decimal('15.00')))
+    db.session.commit()
+    for zamowienie in (orders_a[0], orders_b[0]):
+        _check_sr_auto_oplacone(zamowienie)
+    db.session.expire_all()
+
+    assert sr_a.status == 'oplacone'
+    assert sr_b.status == 'oplacone'
+    assert zbiorcze.status == 'oplacone'
+
+    # 4. Wysyłka przechodzi — wcześniej leciał ShippingRequestUnpaid.
+    from modules.orders.wms_utils import ship_shipping_request
+    ship_shipping_request(zbiorcze, courier='inpost', tracking_number='622555666')
+    db.session.expire_all()
+
+    assert zbiorcze.status == 'wyslane'
+    assert sr_a.status == 'wyslane'
+    assert sr_b.status == 'wyslane'
+    assert sr_b.tracking_number == '622555666'
+
+
+def test_wycena_paczki_podnosi_tylko_wycenionego_uczestnika(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Wycena części zamówień nie może przepchnąć nieopłaconego uczestnika dalej —
+    paczka zostaje na „czeka na wycenę", bo jej status to minimum ze źródeł."""
+    _seed_sr_statuses(db)
+    a, b = make_user(), make_user()
+    sr_a, orders_a = _sr(db, a, make_order, status='czeka_na_wycene')
+    sr_b, _orders_b = _sr(db, b, make_order, status='czeka_na_wycene')
+    login(_admin(make_user))
+
+    client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, sr_b.id], 'lead_request_id': sr_a.id,
+    })
+    db.session.expire_all()
+    from modules.orders.models import ShippingRequest
+    zbiorcze = db.session.get(ShippingRequest, sr_a.consolidated_into_id)
+
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': orders_a[0].id, 'shipping_cost': 12.0}],
+    })
+    assert r.status_code == 200
+    db.session.expire_all()
+
+    assert sr_a.status == 'czeka_na_oplacenie'
+    assert sr_b.status == 'czeka_na_wycene'
+    assert zbiorcze.status == 'czeka_na_wycene'
+
