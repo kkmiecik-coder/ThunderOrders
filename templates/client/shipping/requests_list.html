@@ -99,9 +99,9 @@
                             {% endif %}
                         </span>
                     </div>
-                    {% if req.is_consolidated_source and req.consolidated_into and req.consolidated_into.shipping_name %}
+                    {% if req.is_consolidated_source and req.consolidated_into and req.consolidated_into.short_addressee_name %}
                     <p class="req-consolidated-note">
-                        Paczka jedzie na adres: {{ req.consolidated_into.shipping_name }}
+                        Paczka jedzie na adres: {{ req.consolidated_into.short_addressee_name }}
                     </p>
                     {% endif %}
                 </div>

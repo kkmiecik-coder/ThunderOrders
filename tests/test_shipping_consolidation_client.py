@@ -117,3 +117,22 @@ def test_karta_zamowienia_nie_pokazuje_cudzego_adresu(db, client, login, make_us
     assert 'Adresat Wiodacy' not in tresc
     assert sr_a.display_orders[0].order_number not in tresc
     assert sr_b.request_number in tresc
+
+
+def test_uczestnik_widzi_skrocone_nazwisko_adresata_nie_pelne(db, client, login, make_user, make_order):
+    """Notatka „paczka jedzie na adres” pod kartą zlecenia źródłowego ma pokazywać
+    uczestnikowi niewiodącemu tylko imię i pierwszą literę nazwiska adresata (spec:
+    sekcja „Panel klienta") — nie pełne dane osobowe wiodącego."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.shipping_name = 'Karolina Burza'
+    from modules.orders.consolidation import zmien_wiodace
+    zmien_wiodace(zbiorcze, sr_a.id)
+    sr_b.user.profile_completed = True
+    db.session.commit()
+    login(sr_b.user)
+
+    tresc = client.get('/client/shipping/requests').get_data(as_text=True)
+
+    assert 'Karolina B.' in tresc
+    assert 'Burza' not in tresc

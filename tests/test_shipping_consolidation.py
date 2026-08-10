@@ -546,3 +546,31 @@ def test_oplacenie_przez_jednego_uczestnika_podnosi_tylko_jego_zlecenie(db, make
     assert sr_a.status == 'oplacone'
     assert sr_b.status == 'czeka_na_oplacenie'
     assert zbiorcze.status == 'czeka_na_oplacenie'
+
+
+def test_short_addressee_name_przypadki_brzegowe(db, make_user, make_order):
+    """`short_addressee_name` skraca adresata do 'Imię P.' — uczestnicy paczki zbiorczej
+    niebędący adresatem mają tego użyć zamiast pełnego shipping_name (spec: panel klienta).
+    Sprawdza też przypadki brzegowe: brak nazwiska, brak imienia i nazwiska, pusty ciąg."""
+    _seed_sr_statuses(db)
+    sr, _o = _sr(db, make_user(), make_order)
+
+    sr.shipping_name = 'Karolina Burza'
+    assert sr.short_addressee_name == 'Karolina B.'
+
+    sr.shipping_name = 'karolina burza'
+    assert sr.short_addressee_name == 'karolina B.'
+
+    sr.shipping_name = 'Karolina Maria Burza'
+    assert sr.short_addressee_name == 'Karolina B.'
+
+    # Brak nazwiska — samo imię, bez sklejania kropki znikąd.
+    sr.shipping_name = 'Karolina'
+    assert sr.short_addressee_name == 'Karolina'
+
+    # Brak adresata w ogóle (np. zlecenie typu paczkomat bez wypełnionego shipping_name).
+    sr.shipping_name = None
+    assert sr.short_addressee_name is None
+
+    sr.shipping_name = '   '
+    assert sr.short_addressee_name is None

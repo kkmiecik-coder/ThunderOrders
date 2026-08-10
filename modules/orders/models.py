@@ -835,7 +835,31 @@ class Order(db.Model):
 
     @property
     def shipping_icon_state(self):
-        """Zwraca dict z css_class i tooltip dla ikony statusu wysyłki/kuriera."""
+        """Zwraca dict z css_class i tooltip dla ikony statusu wysyłki/kuriera — widok admina/WMS.
+
+        Celowo na surowym `shipping_request` (fizyczna paczka), NIE `client_shipping_request`.
+        Pracownik magazynu szuka paczki po numerze z tego tooltipa (WMS, eksport InPost) —
+        po konsolidacji zlecenie źródłowe ma inny numer niż paczka zbiorcza, więc podanie mu
+        numeru źródłowego skończy się nieodnalezioną przesyłką. Odpowiednik dla panelu klienta:
+        `client_shipping_icon_state` niżej — te dwie właściwości MUSZĄ pozostać rozdzielone,
+        bo każda strona (WMS vs klient) potrzebuje innego zlecenia jako źródła prawdy.
+        """
+        return self._build_shipping_icon_state(self.shipping_request)
+
+    @property
+    def client_shipping_icon_state(self):
+        """Jak `shipping_icon_state`, ale dla paneli klienta (listy zamówień w panelu web).
+
+        Czyta `client_shipping_request` — klient ma zobaczyć numer i status WŁASNEGO
+        zlecenia, nie paczki zbiorczej z zamówieniami i danymi innej osoby. Nie współdzielić
+        z `shipping_icon_state`: patrz komentarz tam, dlaczego rozdzielenie jest celowe.
+        """
+        return self._build_shipping_icon_state(self.client_shipping_request)
+
+    def _build_shipping_icon_state(self, sr):
+        """Wspólna logika ikony statusu wysyłki, parametryzowana zleceniem — żeby
+        `shipping_icon_state` i `client_shipping_icon_state` nie duplikowały kodu, mając
+        jednocześnie każda swoje własne, odpowiednie źródło zlecenia."""
         if self.has_tracking:
             shipment = self.first_shipment
             courier_name = shipment.courier_display_name if shipment else 'Nieznany'
@@ -844,8 +868,7 @@ class Order(db.Model):
                 'css_class': 'active',
                 'tooltip': f"Wys\u0142ane\nTracking: {tracking}\nKurier: {courier_name}"
             }
-        if self.is_in_shipping_request:
-            sr = self.client_shipping_request
+        if sr:
             return {
                 'css_class': 'warning',
                 'tooltip': f"Zlecenie {sr.request_number}\nStatus: {sr.status_display_name}"
@@ -1660,6 +1683,24 @@ class ShippingRequest(db.Model):
             if self.shipping_city:
                 return f"{self.shipping_city}, {self.shipping_postal_code or ''}"
             return self.shipping_address or '-'
+
+    @property
+    def short_addressee_name(self):
+        """Imię i pierwsza litera nazwiska adresata, np. „Karolina B.”.
+
+        Do pokazania uczestnikom paczki zbiorczej, którzy NIE są adresatem — spec
+        (sekcja „Panel klienta”) wymaga, żeby wiedzieli dokąd jedzie ich paczka, ale bez
+        ujawniania pełnego nazwiska obcej osoby. Property na modelu, nie sklejanie w
+        Jinja, bo ta sama skrócona forma trafi też do maili o scaleniu/wysyłce.
+        """
+        name = (self.shipping_name or '').strip()
+        if not name:
+            return None
+        parts = name.split()
+        if len(parts) == 1:
+            return parts[0]
+        first, last = parts[0], parts[-1]
+        return f"{first} {last[0].upper()}." if last else first
 
     @property
     def full_address(self):
