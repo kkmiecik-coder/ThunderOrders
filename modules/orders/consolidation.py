@@ -274,9 +274,17 @@ def _rozwiaz_konsolidacje_bez_walidacji(target):
     — to nie jest edycja składu przez admina, tylko wymuszona konsekwencja
     anulowania zamówienia. Bramka „spakowane" jest już sprawdzona wyżej w
     odepnij_anulowane_zamowienie (funkcja wraca wcześniej, zanim tu dotrze), więc
-    pominięcie reszty _sprawdz_edytowalnosc (w praktyce: kontroli sesji WMS) jest
-    tu bezpieczne i celowe.
+    pominięcie reszty _sprawdz_edytowalnosc (w praktyce: kontroli aktywnej/
+    wstrzymanej sesji WMS) jest tu bezpieczne i celowe.
+
+    To JEDYNE miejsce w module, które robi db.session.delete(target) — używa go
+    zarówno ta ścieżka (przez _po_odpieciu_zrodla, bez_walidacji=True), jak i
+    publiczne rozwiaz_konsolidacje (przez _sprawdz_edytowalnosc, więc: jawne
+    „Rozwiąż paczkę" z Task 7 i wypnij_zlecenie przy zejściu do 1 uczestnika).
+    Poprawka poniżej obowiązuje więc obie ścieżki naraz.
     """
+    from modules.orders.wms_models import WmsSessionShippingRequest
+
     # Zapytanie do bazy (_uczestnicy_z_bazy), nie target.consolidated_sources — patrz
     # docstring helpera. Istotne zwłaszcza tu, bo tę funkcję woła też wypnij_zlecenie
     # w tej samej transakcji, po tym jak inni uczestnicy mogli już zostać odpięci.
@@ -285,6 +293,22 @@ def _rozwiaz_konsolidacje_bez_walidacji(target):
         _oddaj_zamowienia(target, zrodlo)
     target.lead_source_request_id = None
     db.session.flush()
+
+    # Regres z rundy 4 code review: wms_complete_session/wms_cancel_session zmieniają
+    # WYŁĄCZNIE session.status — nigdy nie kasują wierszy WmsSessionShippingRequest.
+    # FK shipping_request_id → shipping_requests.id nie ma ondelete (domyślne
+    # RESTRICT), więc delete(target) z wciąż wiszącym wierszem po ZAKOŃCZONEJ sesji
+    # uderzyłby w FK na MariaDB — SQLite w testach tego nie egzekwuje, więc bez tego
+    # sprzątania błąd byłby niewidoczny w pakiecie testów, a realny na produkcji.
+    # Bezpieczne bezwarunkowo: do tego miejsca dochodzimy tylko wtedy, gdy nie ma już
+    # aktywnej/wstrzymanej sesji (sprawdzone wcześniej — _sprawdz_edytowalnosc dla
+    # wywołującego z walidacją, _sesja_wms_blokujaca wewnątrz _po_odpieciu_zrodla dla
+    # wywołującego bez walidacji), więc ewentualne pozostałe wiersze są zawsze z
+    # sesji zakończonych/anulowanych. Dokładnie ten sam wzorzec, co
+    # admin_delete_shipping_request i admin_bulk_cancel_shipping_requests
+    # (routes.py) — „usuń stare junction z zakończonych sesji przed delete".
+    WmsSessionShippingRequest.query.filter_by(shipping_request_id=target.id).delete()
+
     # Kolekcja jest już pusta, więc delete-orphan nie ma czego zabrać.
     db.session.delete(target)
     return zrodla

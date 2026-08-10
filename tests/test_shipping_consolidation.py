@@ -763,7 +763,20 @@ def test_anulowanie_po_zamknieciu_sesji_wms_pozwala_dokonczyc_rozwiazanie(db, ma
     """Dopełnienie poprzedniego testu: gdy sesja WMS, która wcześniej blokowała
     pełne rozwiązanie paczki, jest już zamknięta (nieaktywna), zwykła, jawna
     ścieżka administracyjna (wypnij_zlecenie) w końcu dokańcza to, czego
-    odepnij_anulowane_zamowienie musiała odłożyć."""
+    odepnij_anulowane_zamowienie musiała odłożyć.
+
+    Regres z rundy 4 code review: `_sesja_wms_blokujaca` filtruje po statusie
+    active/paused, więc sesja 'completed'/'cancelled' NIE blokuje już
+    `_sprawdz_edytowalnosc` — ale wiersz `WmsSessionShippingRequest` z tej sesji
+    nigdy nie ginie (`wms_complete_session`/`wms_cancel_session` zmieniają tylko
+    `session.status`, nie kasują junction). FK `shipping_request_id →
+    shipping_requests.id` nie ma `ondelete` (domyślne RESTRICT), więc
+    `db.session.delete(target)` bez uprzedniego sprzątania tego wiersza
+    uderzyłby w FK na MariaDB. SQLite w testach FK nie egzekwuje — więc samo
+    `assert rozwiazana is True` / brak wyjątku (jak w poprzedniej wersji tego
+    testu) przechodziłoby również dla zepsutego kodu. Test musi więc sprawdzać
+    STAN, nie brak wyjątku: że po skasowaniu paczki nie zostaje ani jeden
+    wiersz `WmsSessionShippingRequest` wskazujący na jej (już nieistniejące) id."""
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
     zbiorcze_id = zbiorcze.id
@@ -782,7 +795,9 @@ def test_anulowanie_po_zamknieciu_sesji_wms_pozwala_dokonczyc_rozwiazanie(db, ma
     odepnij_anulowane_zamowienie(zamowienie)
     db.session.commit()
 
-    # Sesja się kończy — magazynier dokańcza pracę.
+    # Sesja się kończy — magazynier dokańcza pracę. Wiersz WmsSessionShippingRequest
+    # NIE znika przy zamknięciu sesji (wms_complete_session tego nie robi) — zostaje
+    # jako „stary" junction, dokładnie jak w realnym scenariuszu z rundy 4.
     sesja.status = 'completed'
     db.session.commit()
 
@@ -795,6 +810,49 @@ def test_anulowanie_po_zamknieciu_sesji_wms_pozwala_dokonczyc_rozwiazanie(db, ma
     assert rozwiazana is True
     assert db.session.get(ShippingRequest, zbiorcze_id) is None
     assert sr_a.consolidated_into_id is None
+    # Kluczowa asercja rundy 4: żaden wiersz WmsSessionShippingRequest nie
+    # wskazuje już na skasowaną paczkę — inaczej na MariaDB delete(target) by
+    # się nie udał (FK RESTRICT), a tu byśmy tego nie zobaczyli.
+    assert WmsSessionShippingRequest.query.filter_by(
+        shipping_request_id=zbiorcze_id
+    ).count() == 0
+
+
+def test_rozwiazanie_jawne_sprzata_zakonczona_sesje_wms(db, make_user, make_order):
+    """Ta sama pułapka co wyżej, ale na WPROST jawnej ścieżce administracyjnej
+    (rozwiaz_konsolidacje — wołane też przez endpoint „Rozwiąż paczkę" z Task 7),
+    nie przez ewikcję z anulowania. `rozwiaz_konsolidacje` i
+    `odepnij_anulowane_zamowienie` współdzielą dokładnie tę samą linię
+    `db.session.delete(target)` (przez `_rozwiaz_konsolidacje_bez_walidacji`),
+    więc ten sam fix musi obsłużyć obie ścieżki jedną poprawką."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze_id = zbiorcze.id
+
+    admin = make_user(role='admin')
+    from modules.orders.wms_models import WmsSession, WmsSessionShippingRequest
+    sesja = WmsSession(session_token='tok-rozwiazanie', user_id=admin.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionShippingRequest(session_id=sesja.id, shipping_request_id=zbiorcze.id))
+    db.session.commit()
+
+    # Sesja kończy się PRZED jawnym rozwiązaniem paczki — _sprawdz_edytowalnosc
+    # przepuści (sesja nie jest już active/paused), ale junction zostaje.
+    sesja.status = 'completed'
+    db.session.commit()
+
+    from modules.orders.consolidation import rozwiaz_konsolidacje
+    from modules.orders.models import ShippingRequest
+    zrodla = rozwiaz_konsolidacje(zbiorcze)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert len(zrodla) == 2
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None
+    assert WmsSessionShippingRequest.query.filter_by(
+        shipping_request_id=zbiorcze_id
+    ).count() == 0
 
 
 def test_anulowanie_ewikcja_wiodacego_wymienia_lidera(db, make_user, make_order):
