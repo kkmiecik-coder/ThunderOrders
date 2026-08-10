@@ -187,13 +187,29 @@ def test_powiadomienie_o_scaleniu_idzie_do_wszystkich(db, przechwycone, monkeypa
 # wms_packing.py) — przy paczce zbiorczej trafiał do właściciela przypadkowego
 # zamówienia z grupy, a reszta uczestników nie dostawała nic.
 
-def test_zdjecie_paczki_idzie_do_wszystkich_uczestnikow(db, przechwycone, monkeypatch,
-                                                        make_user, make_order):
-    maile = []
-    monkeypatch.setattr('utils.email_manager.EmailManager.notify_packing_photo',
-                        staticmethod(lambda order: maile.append(order.user_id)))
+@pytest.fixture
+def zdjecia(monkeypatch):
+    """Przechwytuje mail ze zdjęciem paczki — bez wysyłki i bez pliku na dysku."""
+    import utils.email_sender as es
+    dane = {'maile': [], 'batch_calls': []}
+    monkeypatch.setattr(es, 'prepare_packing_photo_email',
+                        lambda **kw: dane['maile'].append(kw) or None)
+    monkeypatch.setattr(es, 'send_email_batch',
+                        lambda messages: dane['batch_calls'].append(len(messages)))
+    return dane
+
+
+def _ze_zdjeciem(db, zbiorcze):
+    """Bramka `notify_packing_photo` wymaga zdjęcia na zamówieniu."""
+    for ro in zbiorcze.request_orders:
+        ro.order.packing_photo = 'uploads/packing/test.jpg'
+    db.session.commit()
+
+
+def test_zdjecie_paczki_idzie_do_wszystkich_uczestnikow(db, zdjecia, make_user, make_order):
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ze_zdjeciem(db, zbiorcze)
 
     from utils.email_manager import EmailManager
     EmailManager.notify_packing_photo_for_request(zbiorcze)
@@ -201,5 +217,30 @@ def test_zdjecie_paczki_idzie_do_wszystkich_uczestnikow(db, przechwycone, monkey
     # `set(...)` samo z siebie dowodzi tylko „co najmniej raz" — długość listy
     # obok zbioru dowodzi, że nikt nie dostał zdjęcia dwa razy (code review
     # rundy 1, task 17).
-    assert len(maile) == 2
-    assert set(maile) == {sr_a.user_id, sr_b.user_id}
+    assert len(zdjecia['maile']) == 2
+    assert {m['user_email'] for m in zdjecia['maile']} == {sr_a.user.email, sr_b.user.email}
+    # Jedno połączenie SMTP na całą paczkę, nie N osobnych wątków.
+    assert zdjecia['batch_calls'] == [2]
+
+
+def test_zdjecie_paczki_uprzedza_o_wspolnym_kartonie(db, zdjecia, make_user, make_order):
+    """Zdjęcie kartonu zbiorczego pokazuje produkty obcych osób i może zawierać
+    etykietę z pełnym adresem adresata — mail musi to uprzedzać, a adresata
+    nazywać wyłącznie skróconą formą (spec, sekcja „Zdjęcie paczki")."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    _ze_zdjeciem(db, zbiorcze)
+
+    from utils.email_manager import EmailManager
+    EmailManager.notify_packing_photo_for_request(zbiorcze)
+
+    po_adresie = {m['user_email']: m for m in zdjecia['maile']}
+    mail_a = po_adresie[sr_a.user.email]   # adresat (sr_a jest wiodące)
+    mail_b = po_adresie[sr_b.user.email]   # uczestnik niebędący adresatem
+
+    assert mail_a['consolidation_note']
+    assert 'zbiorcza' in mail_a['consolidation_note']
+    assert mail_b['consolidation_note']
+    assert zbiorcze.short_addressee_name in mail_b['consolidation_note']
+    # Pełne nazwisko adresata nie może wyciec do obcej osoby.
+    assert zbiorcze.shipping_name not in mail_b['consolidation_note']

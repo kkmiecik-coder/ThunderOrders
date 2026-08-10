@@ -25,9 +25,23 @@
                             <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
                                 Cześć <strong>{{ user_name }}</strong>!
                             </p>
-                            <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121;">
+                            <p style="margin: 0 0 {% if consolidation_note %}20px{% else %}30px{% endif %} 0; font-size: 16px; color: #212121;">
                                 Zamówienie <strong>{{ order_number }}</strong> zostało właśnie spakowane i przygotowane do wysyłki.
                             </p>
+                            {% if consolidation_note %}
+                            <!-- Paczka zbiorcza: zdjęcie pokazuje karton z produktami kilku osób
+                                 i może zawierać etykietę z adresem adresata — uprzedzamy o tym
+                                 ZANIM klient zobaczy zdjęcie. -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0;">
+                                <tr>
+                                    <td style="background-color: #fdf4ff; border-left: 4px solid #f093fb; border-radius: 4px; padding: 14px 16px;">
+                                        <p style="margin: 0; font-size: 15px; color: #212121;">
+                                            {{ consolidation_note }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
                             <!-- Packing photo -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
                                 <tr>

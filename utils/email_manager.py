@@ -377,12 +377,13 @@ class EmailManager:
             )
 
     @staticmethod
-    def notify_packing_photo(order):
+    def notify_packing_photo(order, consolidation_note=None):
         """
         Wysyła email ze zdjęciem spakowanej paczki do klienta.
 
         Args:
             order: obiekt Order (musi mieć ustawione packing_photo)
+            consolidation_note (str): zdanie o wspólnym kartonie (paczka zbiorcza)
         """
         if not EmailManager.is_email_enabled('notify_packing_photo'):
             current_app.logger.info("Email notification 'notify_packing_photo' is disabled, skipping")
@@ -409,6 +410,7 @@ class EmailManager:
                 user_name=order.customer_name,
                 order_number=order.order_number,
                 photo_path=order.packing_photo,
+                consolidation_note=consolidation_note,
             )
             current_app.logger.info(
                 f"Packing photo email sent for {order.order_number} to {email}"
@@ -450,12 +452,69 @@ class EmailManager:
                 EmailManager.notify_packing_photo(kandydaci[0])
             return
 
+        EmailManager._zdjecie_paczki_zbiorczej(sr, packed_ids)
+
+    @staticmethod
+    def _zdjecie_paczki_zbiorczej(sr, packed_ids):
+        """Zdjęcie paczki zbiorczej — mail per uczestnik, jedno połączenie SMTP.
+
+        Batch zamiast pętli po `notify_packing_photo`: paczkę zbiorczą z definicji
+        dzieli kilka osób, a Hostinger limituje uwierzytelnienia SMTP per IP.
+
+        Każdy uczestnik dostaje zdanie o wspólnym kartonie. Bez tego zdjęcie
+        etykiety z pełnym imieniem, nazwiskiem i adresem adresata szło do obcych
+        osób bez słowa komentarza — przy jednoczesnym skracaniu tego samego
+        nazwiska do „Karolina B." wszędzie indziej. Adresata nazywamy więc
+        wyłącznie przez `short_addressee_name`.
+        """
+        from utils.email_sender import prepare_packing_photo_email, send_email_batch
+
+        if not EmailManager.is_email_enabled('notify_packing_photo'):
+            current_app.logger.info(
+                "Email notification 'notify_packing_photo' is disabled, skipping")
+            return
+
+        adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
+        wiadomosci = []
         for uczestnik in sr.consolidation_participants:
             zamowienia = uczestnik['orders']
             if packed_ids is not None:
                 zamowienia = [o for o in zamowienia if o.id in packed_ids]
-            if zamowienia:
-                EmailManager.notify_packing_photo(zamowienia[0])
+            if not zamowienia:
+                continue
+
+            order = zamowienia[0]
+            if not order.customer_email or not order.packing_photo:
+                current_app.logger.warning(
+                    f'Zdjęcie paczki {sr.request_number}: pomijam {order.order_number} '
+                    f'(brak adresu e-mail albo zdjęcia)')
+                continue
+
+            czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            notatka = (
+                'To paczka zbiorcza — w kartonie są też zamówienia innych osób, '
+                'które odbierzesz razem ze swoimi.'
+            ) if czy_adresat else (
+                f'To paczka zbiorcza — w kartonie są zamówienia kilku osób, a na zdjęciu '
+                f'może być widoczna etykieta z danymi odbiorcy ({adresat}), do którego '
+                f'jedzie przesyłka.'
+            )
+            wiadomosci.append(prepare_packing_photo_email(
+                user_email=order.customer_email,
+                user_name=order.customer_name,
+                order_number=order.order_number,
+                photo_path=order.packing_photo,
+                consolidation_note=notatka,
+            ))
+
+        if not wiadomosci:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników do powiadomienia o zdjęciu')
+            return
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili ze zdjęciem paczki zbiorczej {sr.request_number}')
 
     @staticmethod
     def notify_status_change(order, old_status, new_status):

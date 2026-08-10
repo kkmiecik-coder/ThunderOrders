@@ -1213,15 +1213,20 @@ def send_account_deactivated_email(user_email, user_name, reason=''):
     )
 
 
-def send_packing_photo_email(user_email, user_name, order_number, photo_path):
-    """
-    Wysyła email ze zdjęciem spakowanej paczki do klienta.
+def prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
+                                consolidation_note=None):
+    """Buduje Message ze zdjęciem paczki (BEZ wysyłania) — do batch sendingu.
 
-    Args:
-        user_email (str): Email klienta
-        user_name (str): Imię klienta
-        order_number (str): Numer zamówienia
-        photo_path (str): Ścieżka do zdjęcia paczki (relatywna od static/)
+    Nie korzysta z `prepare_email`, bo ten dokłada wyłącznie logo, a tutaj
+    potrzebny jest drugi inline attachment (samo zdjęcie kartonu).
+
+    `consolidation_note`: zdanie uprzedzające, że karton jest wspólny. Zdjęcie
+    paczki zbiorczej pokazuje produkty wszystkich uczestników i może zawierać
+    etykietę z pełnym adresem adresata — uczestnik musi wiedzieć o tym, ZANIM
+    zobaczy zdjęcie (spec, sekcja „Zdjęcie paczki").
+
+    Returns:
+        Message lub None w przypadku błędu
     """
     app = current_app._get_current_object()
 
@@ -1236,6 +1241,7 @@ def send_packing_photo_email(user_email, user_name, order_number, photo_path):
             'emails/packing_photo.html',
             user_name=user_name,
             order_number=order_number,
+            consolidation_note=consolidation_note,
         )
 
         msg.body = f"Sprawdź email w kliencie obsługującym HTML."
@@ -1265,18 +1271,42 @@ def send_packing_photo_email(user_email, user_name, order_number, photo_path):
                 headers=[('Content-ID', '<packing_photo@thunderorders>')],
             )
 
-        logger.info(f"[EMAIL] Queuing packing photo email to={user_email}, order={order_number}")
-        Thread(
-            target=send_async_email,
-            args=(app, msg),
-            name=f"email-packing-{user_email}"
-        ).start()
-
-        return True
+        return msg
 
     except Exception as e:
-        logger.error(f"[EMAIL] Packing photo email FAILED to={user_email}, error={type(e).__name__}: {e}")
+        logger.error(f"[EMAIL] Packing photo prepare FAILED to={user_email}, "
+                     f"error={type(e).__name__}: {e}")
+        return None
+
+
+def send_packing_photo_email(user_email, user_name, order_number, photo_path,
+                             consolidation_note=None):
+    """
+    Wysyła email ze zdjęciem spakowanej paczki do klienta.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        photo_path (str): Ścieżka do zdjęcia paczki (relatywna od static/)
+        consolidation_note (str): zdanie o wspólnym kartonie (paczka zbiorcza)
+    """
+    app = current_app._get_current_object()
+
+    msg = prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
+                                      consolidation_note=consolidation_note)
+    if msg is None:
+        logger.error(f"[EMAIL] Packing photo email FAILED to={user_email}: brak wiadomości")
         return False
+
+    logger.info(f"[EMAIL] Queuing packing photo email to={user_email}, order={order_number}")
+    Thread(
+        target=send_async_email,
+        args=(app, msg),
+        name=f"email-packing-{user_email}"
+    ).start()
+
+    return True
 
 
 def send_achievement_granted_email(user_email, user_name, achievement_name,

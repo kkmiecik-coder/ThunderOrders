@@ -239,15 +239,20 @@ def test_pack_group_czesciowa_konsolidacja_zdjecie_tylko_do_spakowanego(
     db.session.commit()
 
     sent = []
-    monkeypatch.setattr(EmailManager, 'notify_packing_photo',
-                        staticmethod(lambda order: sent.append(order.user_id)))
+    import utils.email_sender as es
+    # Paczka zbiorcza rozsyła zdjęcie batchem (jedno połączenie SMTP na wszystkich
+    # uczestników), więc przechwytujemy na poziomie prepare_* — `notify_packing_photo`
+    # obsługuje już tylko zlecenia NIEbędące paczką zbiorczą.
+    monkeypatch.setattr(es, 'prepare_packing_photo_email',
+                        lambda **kw: sent.append(kw['user_email']) or None)
+    monkeypatch.setattr(es, 'send_email_batch', lambda messages: None)
     monkeypatch.setattr(PushManager, 'notify_packing_photo',
                         staticmethod(lambda order: None))
 
     pack_shipping_request_group(session, zbiorcze, send_email=True, user_id=admin.id)
     db.session.commit()
 
-    assert sent == [sr_a.user_id]
+    assert sent == [sr_a.user.email]
     db.session.refresh(order_a)
     assert order_a.status == 'spakowane'
     db.session.refresh(order_b)
