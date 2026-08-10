@@ -165,10 +165,33 @@
     gap: 12px;
 }
 
+.sr-card-title-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
 .sr-card-number {
     font-weight: 700;
     font-size: 15px;
     letter-spacing: 0.3px;
+}
+
+/* Badge "Zbiorcza" — paczka konsolidująca zlecenia kilku klientów.
+   Półprzezroczysta biel czyta się na gradiencie nagłówka karty (light mode);
+   dark mode ma płaskie tło, więc dostaje osobny wariant kolorystyczny niżej. */
+.sr-consolidated-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.22);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
 }
 
 .sr-card-status {
@@ -438,6 +461,43 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+}
+
+/* Grupa zamówień jednego uczestnika paczki zbiorczej (karta konsolidacji) */
+.sr-order-group {
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: #f7f7fb;
+}
+
+.sr-order-group + .sr-order-group {
+    margin-top: 6px;
+}
+
+.sr-order-group-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.sr-order-group-name {
+    font-weight: 600;
+}
+
+.sr-avatar-sm {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
+}
+
+.sr-lead-mark {
+    margin-left: auto;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #667eea;
 }
 
 .sr-order-compact {
@@ -717,6 +777,21 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* Nagłówek karty w dark mode jest płaski (bez gradientu) — półprzezroczysta
+   biel z light mode by tu zniknęła, więc badge dostaje własne barwy akcentu. */
+[data-theme="dark"] .sr-consolidated-badge {
+    background: rgba(240, 147, 251, 0.18);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-order-group {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .sr-lead-mark {
+    color: #f093fb;
+}
+
 [data-theme="dark"] .sr-card-body {
     background: transparent;
 }
@@ -891,6 +966,11 @@
     .sr-card-status {
         font-size: 10px;
         padding: 3px 8px;
+    }
+
+    .sr-consolidated-badge {
+        font-size: 9px;
+        padding: 2px 7px;
     }
 
     .sr-card-body {

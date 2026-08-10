@@ -196,7 +196,15 @@
                                 </label>
                             </div>
                             <div class="sr-card-header-right">
-                                <span class="sr-card-number">{{ sr.request_number }}</span>
+                                <div class="sr-card-title-col">
+                                    <span class="sr-card-number">{{ sr.request_number }}</span>
+                                    {% if sr.is_consolidation %}
+                                    <span class="sr-consolidated-badge">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                        Zbiorcza · {{ sr.consolidated_sources|length }} zlecenia
+                                    </span>
+                                    {% endif %}
+                                </div>
                                 <span class="sr-card-status" style="background-color: {{ sr.status_badge_color }};">
                                     {{ sr.status_display_name }}
                                 </span>
@@ -283,6 +291,48 @@
                             <hr class="sr-divider">
 
                             <div class="sr-orders-compact">
+                                {% if sr.is_consolidation %}
+                                {# Paczka zbiorcza: zamówienia grupowane po uczestniku (kliencie źródłowym).
+                                   Limit "3 widoczne" liczy się łącznie przez wszystkie grupy, nie per grupa —
+                                   stąd wspólny licznik namespace zamiast loop.index z zagnieżdżonej pętli. #}
+                                {% set ns = namespace(i=0) %}
+                                {% for uczestnik in sr.consolidation_participants %}
+                                {% set grupa_od = ns.i %}
+                                <div class="sr-order-group{% if grupa_od >= 3 %} sr-order-extra{% endif %}"{% if grupa_od >= 3 %} style="display: none;"{% endif %}>
+                                    <div class="sr-order-group-head">
+                                        <span class="sr-client-avatar sr-avatar-sm">{{ ((uczestnik.user.first_name or '')[:1] ~ (uczestnik.user.last_name or '')[:1]) | upper if uczestnik.user else '?' }}</span>
+                                        <span class="sr-order-group-name">{{ uczestnik.user.first_name or '' }} {{ uczestnik.user.last_name or '' }}</span>
+                                        <span class="sr-order-count">· {{ uczestnik.source_request.request_number }}</span>
+                                        {% if uczestnik.source_request.id == sr.lead_source_request_id %}
+                                        <span class="sr-lead-mark">adresat</span>
+                                        {% endif %}
+                                    </div>
+                                    {% for order in uczestnik.orders %}
+                                    {% set ns.i = ns.i + 1 %}
+                                    {% set n = order.items|length %}
+                                    <div class="sr-order-compact{% if ns.i > 3 and grupa_od < 3 %} sr-order-extra{% endif %}"{% if ns.i > 3 and grupa_od < 3 %} style="display: none;"{% endif %}>
+                                        <svg class="sr-order-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
+                                        <span class="sr-order-count">· {{ n }} {% if n == 1 %}produkt{% elif n % 10 in [2, 3, 4] and n % 100 not in [12, 13, 14] %}produkty{% else %}produktów{% endif %}</span>
+                                        {% if n > 0 %}
+                                        <button type="button" class="sr-order-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">Pokaż</button>
+                                        <div class="order-products-hidden" style="display: none;">
+                                            {% for item in order.items %}
+                                            <div class="order-product-item">
+                                                <span class="product-qty">{{ item.quantity }}x</span>
+                                                <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endfor %}
+                                {% if ns.i > 3 %}
+                                <button type="button" class="sr-orders-toggle" data-expanded="false" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ ns.i - 3 }})</button>
+                                {% endif %}
+                                {% else %}
                                 {% for order in sr.orders %}
                                 {% set n = order.items|length %}
                                 <div class="sr-order-compact{% if loop.index > 3 %} sr-order-extra{% endif %}"{% if loop.index > 3 %} style="display: none;"{% endif %}>
@@ -304,6 +354,7 @@
                                 {% endfor %}
                                 {% if sr.orders|length > 3 %}
                                 <button type="button" class="sr-orders-toggle" data-expanded="false" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ sr.orders|length - 3 }})</button>
+                                {% endif %}
                                 {% endif %}
                             </div>
 
@@ -333,6 +384,12 @@
                                 </svg>
                                 Dodaj koszty
                             </button>
+                            {% if sr.is_consolidation %}
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); openConsolidationManageModal({{ sr.id }});">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                                Zarządzaj paczką
+                            </button>
+                            {% endif %}
                             {% if sr.status == 'spakowane' %}
                             <button type="button" class="btn btn-sm btn-success" onclick="event.stopPropagation(); openShipModal([{{ sr.id }}]);" title="Oznacz jako wysłane">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

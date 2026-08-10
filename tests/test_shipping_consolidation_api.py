@@ -197,6 +197,12 @@ def test_detach_odrzuca_nieparsowalny_source_id(db, client, login, make_user, ma
 
 
 def test_lista_wms_pokazuje_paczke_zamiast_zrodel(db, client, login, make_user, make_order):
+    """Źródło nie dostaje własnej karty na liście — jest tylko wchłonięte w kartę
+    paczki zbiorczej. Od Task 15 karta paczki grupuje zamówienia po uczestniku i
+    podpisuje każdą grupę numerem jej źródłowego zlecenia (żeby dało się je
+    rozróżnić przy zarządzaniu paczką) — więc numer źródła w treści strony jest
+    tu oczekiwany, o ile pojawia się tylko jako etykieta grupy, nie jako osobna
+    karta z tym numerem w nagłówku."""
     _seed_sr_statuses(db)
     zbiorcze, zrodla = _konsolidacja(db, make_user, make_order)
     login(_admin(make_user))
@@ -204,7 +210,7 @@ def test_lista_wms_pokazuje_paczke_zamiast_zrodel(db, client, login, make_user, 
     r = client.get('/admin/orders/wms')
     tresc = r.get_data(as_text=True)
     assert zbiorcze.request_number in tresc
-    assert zrodla[0].request_number not in tresc
+    assert f'data-request-id="{zrodla[0].id}"' not in tresc
 
 
 def test_filtr_scalone_pokazuje_zrodla(db, client, login, make_user, make_order):
