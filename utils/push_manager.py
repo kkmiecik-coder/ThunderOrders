@@ -749,11 +749,33 @@ class PushManager:
     @staticmethod
     def notify_shipping_status_change(shipping_request, new_status_name):
         """Push notification for shipping request status change."""
+        from flask import url_for
+
+        if shipping_request.is_consolidation:
+            # Paczka zbiorcza: powiadamiamy KAŻDEGO uczestnika, nie tylko usera
+            # zlecenia zbiorczego (lidera) — inaczej reszta nie dowie się o zmianie.
+            try:
+                url = url_for('client.shipping_requests_list', _external=True)
+            except RuntimeError:
+                url = '/'
+            for uczestnik in shipping_request.consolidation_participants:
+                user = uczestnik['user']
+                if not user:
+                    continue
+                PushManager._fire_and_forget(
+                    user_id=user.id,
+                    title=f'Wysyłka: {uczestnik["source_request"].request_number}',
+                    body=f'Nowy status: {new_status_name}',
+                    url=url,
+                    tag=f'shipping-{shipping_request.id}',
+                    notification_type='shipping_updates'
+                )
+            return
+
         user = shipping_request.user
         if not user:
             return
 
-        from flask import url_for
         PushManager._fire_and_forget(
             user_id=user.id,
             title=f'Wysyłka: {shipping_request.request_number}',
@@ -770,6 +792,35 @@ class PushManager:
         Bez tego klient z trzema zamówieniami w jednym kartonie dostawał trzy
         powiadomienia o tej samej przesyłce.
         """
+        from flask import url_for
+
+        if shipping_request.is_consolidation:
+            # Paczka zbiorcza: shipping_request.user to tylko lider — bez tej
+            # gałęzi reszta uczestników nie dowiedziałaby się, że ich zamówienia
+            # jadą (zlecenia źródłowe są puste, notify_shipment_sent(zrodlo, ...)
+            # zwróciłoby się na braku zamówień, patrz orders_count niżej).
+            try:
+                url = url_for('client.shipping_requests_list', _external=True)
+            except RuntimeError:
+                url = '/'
+            for uczestnik in shipping_request.consolidation_participants:
+                user = uczestnik['user']
+                if not user:
+                    continue
+                label = _orders_label(len(uczestnik['orders']))
+                body = f'{label} w paczce zbiorczej'
+                if tracking_number:
+                    body += f' · {tracking_number}'
+                PushManager._fire_and_forget(
+                    user_id=user.id,
+                    title='Twoja paczka jest w drodze',
+                    body=body,
+                    url=url,
+                    tag=f'shipment-{shipping_request.id}',
+                    notification_type='shipping_updates',
+                )
+            return
+
         user = shipping_request.user
         if not user:
             return
@@ -779,8 +830,6 @@ class PushManager:
             # Puste zlecenie (bez żadnych zamówień) nie ma czego zapowiadać —
             # push „0 zamówień" tylko wprowadzałby klienta w błąd.
             return
-
-        from flask import url_for
 
         label = _orders_label(orders_count)
         if tracking_number:
@@ -796,6 +845,36 @@ class PushManager:
             tag=f'shipment-sent-{shipping_request.id}',
             notification_type='shipping_updates'
         )
+
+    @staticmethod
+    def notify_shipment_consolidated(sr):
+        """Push o połączeniu wysyłek — po jednym na uczestnika paczki."""
+        from flask import url_for
+        if not sr.is_consolidation:
+            return
+
+        # Poza aktywnym requestem url_for wywali RuntimeError brakiem SERVER_NAME —
+        # degradujemy do '/' zamiast tracić powiadomienia wszystkich uczestników.
+        try:
+            url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
+        adresat = sr.short_addressee_name or 'innej osoby'
+        for uczestnik in sr.consolidation_participants:
+            user = uczestnik['user']
+            if not user:
+                continue
+            czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            PushManager._fire_and_forget(
+                user_id=user.id,
+                title='Wysyłka połączona w paczkę zbiorczą',
+                body=('Twoje zamówienia pojadą w jednej paczce na Twój adres'
+                      if czy_adresat else
+                      f'Twoje zamówienia pojadą w jednej paczce na adres: {adresat}'),
+                url=url,
+                tag=f'consolidation-{sr.id}',
+                notification_type='shipping_updates',
+            )
 
     # ========================================
     # ORDER CONFIRMATION
@@ -945,6 +1024,28 @@ class PushManager:
             tag=f'packing-{order.id}',
             notification_type='shipping_updates'
         )
+
+    @staticmethod
+    def notify_packing_photo_for_request(sr, packed_orders=None):
+        """Zdjęcie spakowanej paczki — po jednym pushu na uczestnika (patrz
+        EmailManager.notify_packing_photo_for_request — ten sam powód, wzorzec
+        i znaczenie `packed_orders` przy częściowym pakowaniu paczki zbiorczej)."""
+        packed_ids = {o.id for o in packed_orders} if packed_orders is not None else None
+
+        if not sr.is_consolidation:
+            kandydaci = sr.orders
+            if packed_ids is not None:
+                kandydaci = [o for o in kandydaci if o.id in packed_ids]
+            if kandydaci:
+                PushManager.notify_packing_photo(kandydaci[0])
+            return
+
+        for uczestnik in sr.consolidation_participants:
+            zamowienia = uczestnik['orders']
+            if packed_ids is not None:
+                zamowienia = [o for o in zamowienia if o.id in packed_ids]
+            if zamowienia:
+                PushManager.notify_packing_photo(zamowienia[0])
 
     # ========================================
     # PAYMENT REMINDER

@@ -121,10 +121,16 @@ def test_web_address_set_default_and_delete_parity(client, db, make_user, login)
 # ============================================================================
 
 def _seed_status(db, slug='czeka_na_wycene', is_initial=True):
+    """Słownik statusów zleceń sieje conftest (jak migracja na produkcji), więc tutaj
+    wystarczy wymusić flagę is_initial — to o nią chodzi w testach anulowania."""
     from modules.orders.models import ShippingRequestStatus
-    s = ShippingRequestStatus(slug=slug, name='Czeka na wycenę', is_active=True,
-                              is_initial=is_initial, sort_order=0)
-    db.session.add(s); db.session.commit()
+    s = ShippingRequestStatus.query.filter_by(slug=slug).first()
+    if s is None:
+        s = ShippingRequestStatus(slug=slug, name='Czeka na wycenę', sort_order=0)
+        db.session.add(s)
+    s.is_active = True
+    s.is_initial = is_initial
+    db.session.commit()
     return s
 
 

@@ -20,50 +20,6 @@
     min-width: 280px;
 }
 
-/* ============================================
-   BULK TOOLBAR
-   Style samego paska są w wms-dashboard.css — to jedyna strona, która
-   ładuje ten arkusz. Tutaj zostaje wyłącznie tooltip scalania.
-   ============================================ */
-
-.bulk-merge-tooltip {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(30, 30, 35, 0.95);
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
-    z-index: 1002;
-    pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.bulk-merge-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: rgba(30, 30, 35, 0.95);
-}
-
-[data-theme="dark"] .bulk-merge-tooltip {
-    background: rgba(45, 45, 55, 0.98);
-    border: 1px solid rgba(240, 147, 251, 0.2);
-}
-
-[data-theme="dark"] .bulk-merge-tooltip::after {
-    border-top-color: rgba(45, 45, 55, 0.98);
-}
-
 /* WMS Button - Card Footer */
 .btn.btn-wms {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -165,10 +121,33 @@
     gap: 12px;
 }
 
+.sr-card-title-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
 .sr-card-number {
     font-weight: 700;
     font-size: 15px;
     letter-spacing: 0.3px;
+}
+
+/* Badge "Zbiorcza" — paczka konsolidująca zlecenia kilku klientów.
+   Półprzezroczysta biel czyta się na gradiencie nagłówka karty (light mode);
+   dark mode ma płaskie tło, więc dostaje osobny wariant kolorystyczny niżej. */
+.sr-consolidated-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.22);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
 }
 
 .sr-card-status {
@@ -438,6 +417,43 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+}
+
+/* Grupa zamówień jednego uczestnika paczki zbiorczej (karta konsolidacji) */
+.sr-order-group {
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: #f7f7fb;
+}
+
+.sr-order-group + .sr-order-group {
+    margin-top: 6px;
+}
+
+.sr-order-group-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.sr-order-group-name {
+    font-weight: 600;
+}
+
+.sr-avatar-sm {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
+}
+
+.sr-lead-mark {
+    margin-left: auto;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #667eea;
 }
 
 .sr-order-compact {
@@ -717,6 +733,21 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* Nagłówek karty w dark mode jest płaski (bez gradientu) — półprzezroczysta
+   biel z light mode by tu zniknęła, więc badge dostaje własne barwy akcentu. */
+[data-theme="dark"] .sr-consolidated-badge {
+    background: rgba(240, 147, 251, 0.18);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-order-group {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .sr-lead-mark {
+    color: #f093fb;
+}
+
 [data-theme="dark"] .sr-card-body {
     background: transparent;
 }
@@ -891,6 +922,11 @@
     .sr-card-status {
         font-size: 10px;
         padding: 3px 8px;
+    }
+
+    .sr-consolidated-badge {
+        font-size: 9px;
+        padding: 2px 7px;
     }
 
     .sr-card-body {

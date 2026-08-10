@@ -253,8 +253,10 @@
             if (!sr) return '';
             const edits = state.edits.get(id);
             const ready = isReady(id);
-            // GET zwraca tylko dane adresowe — nie ma obiektu użytkownika.
-            const client = sr.shipping_name || sr.pickup_city || '';
+            // addressee_name domyka to, czego GET nie ma: obiektu użytkownika nie
+            // zwraca, a `shipping_name` jest puste przy paczkomacie — lista pokazywała
+            // wtedy miasto punktu odbioru w miejscu, gdzie admin szuka nazwiska.
+            const client = sr.addressee_name || sr.pickup_city || '';
             const parcel = edits.parcelSize ? PARCEL_LABELS[edits.parcelSize] : 'brak gabarytu';
             const cost = totalCost(id);
             const saveResult = state.saveResults.get(id);
@@ -377,7 +379,7 @@
             <header class="sr-detail-head">
                 <span class="sr-detail-number">${escapeHtml(sr.request_number)}</span>
                 <span class="sr-detail-status badge">${escapeHtml(sr.status_display_name || sr.status)}</span>
-                ${sr.shipping_name ? `<span class="sr-detail-client">${escapeHtml(sr.shipping_name)}</span>` : ''}
+                ${sr.addressee_name ? `<span class="sr-detail-client">${escapeHtml(sr.addressee_name)}</span>` : ''}
             </header>
 
             <section class="sr-facts">

@@ -4,6 +4,10 @@ from decimal import Decimal
 import pytest
 
 from modules.orders.models import get_local_now
+@pytest.fixture(autouse=True)
+def _strona_sprzedazy(strona_sprzedazy):
+    """Zamówienia w tym pliku powstają z `offer_page_id=1`, a to kolumna FK — strona
+    o tym id musi realnie istnieć (fixture `strona_sprzedazy` w conftest)."""
 
 
 def _confirm(db, order, stage, status='approved', amount=Decimal('10.00')):

@@ -34,6 +34,11 @@
                 <span class="status-badge" style="background-color: {{ req.status_badge_color }};">
                     {{ req.status_display_name }}
                 </span>
+                {% if req.is_consolidated_source %}
+                <span class="req-consolidated-badge" title="Twoje zamówienia jadą w jednej paczce z zamówieniami innej osoby">
+                    Wysyłka zbiorcza
+                </span>
+                {% endif %}
             </div>
 
             <!-- Card Body -->
@@ -42,7 +47,7 @@
                 <div class="card-row card-row-orders">
                     <span class="row-label">Zamówienia</span>
                     <div class="card-orders-list">
-                        {% for order in req.orders %}
+                        {% for order in req.display_orders %}
                         <div class="card-order-block">
                             <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-badge">
                                 {{ order.order_number }}
@@ -94,14 +99,19 @@
                             {% endif %}
                         </span>
                     </div>
+                    {% if req.is_consolidated_source and req.consolidated_into and req.consolidated_into.short_addressee_name %}
+                    <p class="req-consolidated-note">
+                        Paczka jedzie na adres: {{ req.consolidated_into.short_addressee_name }}
+                    </p>
+                    {% endif %}
                 </div>
 
                 <!-- Cost & Tracking Row -->
                 <div class="card-row card-row-split">
                     <div class="card-col">
                         <span class="row-label">Koszt</span>
-                        {% if req.calculated_shipping_cost %}
-                        <span class="cost-value">{{ "%.2f"|format(req.calculated_shipping_cost) }} PLN</span>
+                        {% if req.display_shipping_cost %}
+                        <span class="cost-value">{{ "%.2f"|format(req.display_shipping_cost) }} PLN</span>
                         {% else %}
                         <span class="cost-pending">Oczekuje</span>
                         {% endif %}
@@ -158,7 +168,7 @@
                         Anuluj
                     </button>
                     {% if not req.can_cancel %}
-                    <div class="cancel-tooltip">Zlecenie w trakcie realizacji - nie można anulować</div>
+                    <div class="cancel-tooltip">{% if req.is_consolidated_source %}Zlecenie jedzie w paczce zbiorczej — skontaktuj się z obsługą{% else %}Zlecenie w trakcie realizacji - nie można anulować{% endif %}</div>
                     {% endif %}
                 </div>
             </div>

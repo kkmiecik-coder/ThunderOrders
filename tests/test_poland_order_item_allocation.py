@@ -5,6 +5,14 @@ docs/superpowers/plans/2026-08-06-terminy-e2-e3-poland-order-link.md).
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _strona_sprzedazy(strona_sprzedazy):
+    """Zamówienia w tym pliku powstają z `offer_page_id=1`, a to kolumna FK — strona
+    o tym id musi realnie istnieć (fixture `strona_sprzedazy` w conftest)."""
+
 
 def test_poland_order_item_order_roundtrip(db, make_user, make_product, make_order):
     from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, PolandOrderItemOrder

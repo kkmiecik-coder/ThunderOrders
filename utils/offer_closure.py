@@ -1559,6 +1559,15 @@ def cancel_offer_orders(page_id, order_ids, reason, admin_user_id, notify=True):
         order.status = new_status
         order.updated_at = datetime.now()
 
+        from modules.orders.consolidation import (
+            STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)
+        if new_status in STATUSY_WYPINAJACE_Z_PACZKI:
+            # Także 'do_zwrotu': wcześniejsze uzasadnienie („paczka i tak nie
+            # ruszy do wysyłki") było prawdziwe dla zlecenia jednego klienta.
+            # Po konsolidacji bramki gotowości obejmują zamówienia wszystkich
+            # uczestników, więc jeden zwrot zamroziłby paczkę pozostałym.
+            odepnij_anulowane_zamowienie(order)
+
         db.session.add(OrderComment(
             order_id=order.id,
             user_id=admin_user_id,

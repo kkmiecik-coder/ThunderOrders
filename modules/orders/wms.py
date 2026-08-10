@@ -200,7 +200,11 @@ def _build_session_data(session):
                 'courier': sr.courier,
                 'tracking_number': sr.tracking_number,
                 'parcel_size': sr.parcel_size,
-                'total_shipping_cost': float(sr.total_shipping_cost) if sr.total_shipping_cost else None,
+                # Wycena i adresat przez właściwości modelu, nie surowe kolumny: przy
+                # paczce zbiorczej `total_shipping_cost` jest puste, a `shipping_name`
+                # jest puste przy każdej dostawie do paczkomatu (dominujący scenariusz).
+                'total_shipping_cost': float(sr.display_shipping_cost) if sr.display_shipping_cost else None,
+                'addressee_name': sr.addressee_name,
                 'orders_count': sr.orders_count,
             }
 
@@ -242,7 +246,8 @@ def _build_session_data(session):
 # ====================
 
 
-def build_shipping_requests_query(status_filter=None, order_type_filter=None, search=None):
+def build_shipping_requests_query(status_filter=None, order_type_filter=None, search=None,
+                                   consolidation_filter=None):
     """Zlecenia wysyłki po filtrach z listy — wspólne dla widoku i zaznaczania.
 
     Zaznaczanie „na wszystkich stronach" musi objąć dokładnie te zlecenia,
@@ -250,16 +255,42 @@ def build_shipping_requests_query(status_filter=None, order_type_filter=None, se
     """
     from modules.auth.models import User
     from sqlalchemy import or_, func
+    from sqlalchemy.orm import selectinload
 
     query = ShippingRequest.query
+
+    if consolidation_filter == 'sources':
+        # Podgląd zleceń oddanych do paczek zbiorczych — normalnie ukrytych.
+        query = query.filter(ShippingRequest.consolidated_into_id.isnot(None))
+    else:
+        # Domyślnie admin widzi jedną paczkę zamiast N pozycji tej samej przesyłki.
+        query = query.filter(ShippingRequest.consolidated_into_id.is_(None))
+
+    # Karta zbiorcza pokazuje uczestników i ich zamówienia — bez tego mamy N+1
+    # na źródłach/userach (can_cancel, consolidation_participants) i na
+    # zamówieniach (orders_count, calculated_shipping_cost, karta listy).
+    query = query.options(
+        selectinload(ShippingRequest.consolidated_sources).selectinload(ShippingRequest.user),
+        selectinload(ShippingRequest.request_orders).selectinload(ShippingRequestOrder.order),
+    )
 
     if status_filter:
         query = query.filter(ShippingRequest.status == status_filter)
 
     if order_type_filter:
+        # Zlecenie źródłowe straciło własne wiersze junction — przeniosły się do
+        # paczki zbiorczej ze śladem source_request_id (patrz consolidation.py).
+        # W widoku źródeł (`consolidation=sources`) filtr typu musi więc czytać
+        # TEN ślad, bo shipping_request_id źródła nigdy nie ma już wierszy —
+        # inaczej żadne źródło nie przeszłoby filtra, mimo że realnie ma
+        # zamówienia danego typu.
+        id_column = (
+            ShippingRequestOrder.source_request_id if consolidation_filter == 'sources'
+            else ShippingRequestOrder.shipping_request_id
+        )
         query = query.filter(
             ShippingRequest.id.in_(
-                db.session.query(ShippingRequestOrder.shipping_request_id)
+                db.session.query(id_column)
                 .join(Order, ShippingRequestOrder.order_id == Order.id)
                 .filter(Order.order_type == order_type_filter)
                 .subquery()
@@ -295,6 +326,7 @@ def shipping_requests_filtered_ids():
         request.args.get('status', ''),
         request.args.get('order_type', ''),
         request.args.get('search', ''),
+        request.args.get('consolidation', ''),
     )
 
     rows = query.with_entities(
@@ -372,17 +404,21 @@ def wms_dashboard():
     sr_status_filter = request.args.get('status', '')
     order_type_filter = request.args.get('order_type', '')
     sr_search = request.args.get('search', '')
+    sr_consolidation_filter = request.args.get('consolidation', '')
     sr_page = request.args.get('page', 1, type=int)
     sr_per_page = resolve_per_page('wms_shipping', default=20)
 
-    sr_query = build_shipping_requests_query(sr_status_filter, order_type_filter, sr_search)
+    sr_query = build_shipping_requests_query(
+        sr_status_filter, order_type_filter, sr_search, sr_consolidation_filter)
     sr_pagination = paginate_with_choice(sr_query, sr_page, sr_per_page)
     shipping_requests = sr_pagination.items
 
     sr_statuses = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).all()
 
-    # SR count for badge
-    sr_total_count = ShippingRequest.query.count()
+    # SR count for badge — bez zleceń źródłowych, żeby liczba na zakładce zgadzała
+    # się z tym, co admin faktycznie widzi na liście domyślnej.
+    sr_total_count = ShippingRequest.query.filter(
+        ShippingRequest.consolidated_into_id.is_(None)).count()
 
     return render_template(
         'admin/orders/wms_dashboard.html',
@@ -405,6 +441,7 @@ def wms_dashboard():
         sr_status_filter=sr_status_filter,
         order_type_filter=order_type_filter,
         sr_search=sr_search,
+        sr_consolidation_filter=sr_consolidation_filter,
         sr_total_count=sr_total_count,
         sr_per_page=sr_per_page,
     )
@@ -864,6 +901,11 @@ def wms_ship_sr(session_id):
 
 def _wms_lock_blocking_session(sr):
     """Id otwartej sesji WMS blokującej którekolwiek zamówienie zlecenia, albo None."""
+    # Źródłowe nie ma własnych zamówień, więc pętla po sr.orders nie wykryłaby
+    # blokady. Sesję trzyma paczka zbiorcza — pytamy o nią.
+    if sr.is_consolidated_source and sr.consolidated_into:
+        sr = sr.consolidated_into
+
     lock_cutoff = get_local_now() - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
     for order in sr.orders:
         if order.wms_locked_at and order.wms_locked_at > lock_cutoff:
@@ -881,6 +923,13 @@ def admin_ship_shipping_request(sr_id):
     """
     sr = ShippingRequest.query.get_or_404(sr_id)
     data = request.get_json(silent=True) or {}
+
+    if sr.is_consolidated_source:
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} jedzie w paczce zbiorczej '
+                       f'{sr.consolidated_into.request_number} — wyślij tamtą paczkę.',
+        }), 409
 
     if sr.status not in ('spakowane', 'wyslane'):
         return jsonify({
@@ -1432,13 +1481,24 @@ def wms_send_packing_email():
 
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
-        EmailManager.notify_packing_photo(order)
-        PushManager.notify_packing_photo(order)
 
-        return jsonify({
-            'success': True,
-            'message': f'Email ze zdjęciem paczki wysłany do {order.customer_email}',
-        })
+        # Per zlecenie, nie per zamówienie: przy paczce zbiorczej karton jest
+        # wspólny, więc zdjęcie należy się KAŻDEMU uczestnikowi, nie tylko
+        # właścicielowi zamówienia, które admin wybrał w UI.
+        sr = order.shipping_request
+        if sr:
+            EmailManager.notify_packing_photo_for_request(sr)
+            PushManager.notify_packing_photo_for_request(sr)
+        else:
+            EmailManager.notify_packing_photo(order)
+            PushManager.notify_packing_photo(order)
+
+        message = (
+            'Email ze zdjęciem paczki wysłany do wszystkich uczestników paczki zbiorczej'
+            if sr and sr.is_consolidation else
+            f'Email ze zdjęciem paczki wysłany do {order.customer_email}'
+        )
+        return jsonify({'success': True, 'message': message})
 
     except Exception as e:
         current_app.logger.error(f'WMS send packing email error: {e}')

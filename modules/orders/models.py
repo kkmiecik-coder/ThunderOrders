@@ -691,19 +691,34 @@ class Order(db.Model):
         return None
 
     @property
+    def client_shipping_request(self):
+        """Zlecenie wysyłki, które należy POKAZAĆ właścicielowi tego zamówienia.
+
+        shipping_request zwraca zlecenie, w którym zamówienie fizycznie leży — po
+        konsolidacji jest to paczka zbiorcza z adresem i zamówieniami innej osoby.
+        Każdy widok klienta musi używać tej właściwości, inaczej pokaże cudze dane.
+        """
+        if not self.shipping_request_orders:
+            return None
+        ro = self.shipping_request_orders[0]
+        if ro.source_request_id:
+            from modules.orders.models import ShippingRequest
+            return db.session.get(ShippingRequest, ro.source_request_id)
+        return ro.shipping_request
+
+    @property
     def is_in_shipping_request(self):
         """Returns True if this order is assigned to a shipping request."""
         return self.shipping_request is not None
 
     @property
     def shipping_request_other_orders(self):
-        """
-        Returns list of other orders in the same shipping request (excluding this one).
-        """
-        sr = self.shipping_request
+        """Inne zamówienia klienta z tego samego zlecenia — WYŁĄCZNIE jego własne.
+        Dla paczki zbiorczej surowe request_orders zwróciłyby zamówienia obcych osób."""
+        sr = self.client_shipping_request
         if not sr:
             return []
-        return [ro.order for ro in sr.request_orders if ro.order and ro.order.id != self.id]
+        return [o for o in sr.display_orders if o.id != self.id]
 
     # === WŁAŚCIWOŚCI IKON (lista zamówień admin) ===
 
@@ -820,7 +835,31 @@ class Order(db.Model):
 
     @property
     def shipping_icon_state(self):
-        """Zwraca dict z css_class i tooltip dla ikony statusu wysyłki/kuriera."""
+        """Zwraca dict z css_class i tooltip dla ikony statusu wysyłki/kuriera — widok admina/WMS.
+
+        Celowo na surowym `shipping_request` (fizyczna paczka), NIE `client_shipping_request`.
+        Pracownik magazynu szuka paczki po numerze z tego tooltipa (WMS, eksport InPost) —
+        po konsolidacji zlecenie źródłowe ma inny numer niż paczka zbiorcza, więc podanie mu
+        numeru źródłowego skończy się nieodnalezioną przesyłką. Odpowiednik dla panelu klienta:
+        `client_shipping_icon_state` niżej — te dwie właściwości MUSZĄ pozostać rozdzielone,
+        bo każda strona (WMS vs klient) potrzebuje innego zlecenia jako źródła prawdy.
+        """
+        return self._build_shipping_icon_state(self.shipping_request)
+
+    @property
+    def client_shipping_icon_state(self):
+        """Jak `shipping_icon_state`, ale dla paneli klienta (listy zamówień w panelu web).
+
+        Czyta `client_shipping_request` — klient ma zobaczyć numer i status WŁASNEGO
+        zlecenia, nie paczki zbiorczej z zamówieniami i danymi innej osoby. Nie współdzielić
+        z `shipping_icon_state`: patrz komentarz tam, dlaczego rozdzielenie jest celowe.
+        """
+        return self._build_shipping_icon_state(self.client_shipping_request)
+
+    def _build_shipping_icon_state(self, sr):
+        """Wspólna logika ikony statusu wysyłki, parametryzowana zleceniem — żeby
+        `shipping_icon_state` i `client_shipping_icon_state` nie duplikowały kodu, mając
+        jednocześnie każda swoje własne, odpowiednie źródło zlecenia."""
         if self.has_tracking:
             shipment = self.first_shipment
             courier_name = shipment.courier_display_name if shipment else 'Nieznany'
@@ -829,8 +868,7 @@ class Order(db.Model):
                 'css_class': 'active',
                 'tooltip': f"Wys\u0142ane\nTracking: {tracking}\nKurier: {courier_name}"
             }
-        if self.is_in_shipping_request:
-            sr = self.shipping_request
+        if sr:
             return {
                 'css_class': 'warning',
                 'tooltip': f"Zlecenie {sr.request_number}\nStatus: {sr.status_display_name}"
@@ -1498,12 +1536,35 @@ class ShippingRequest(db.Model):
     # Termin płatności za wysyłkę PL (E4)
     payment_deadline = db.Column(db.DateTime, nullable=True)
 
+    # Konsolidacja — paczka zbiorcza łącząca zlecenia kilku klientów (task 869eckz7u).
+    # Na zleceniu ŹRÓDŁOWYM: wskazuje paczkę zbiorczą, w której jadą jego zamówienia.
+    consolidated_into_id = db.Column(
+        db.Integer, db.ForeignKey('shipping_requests.id', ondelete='SET NULL'), nullable=True
+    )
+    # Na zleceniu ZBIORCZYM: które ze źródeł jest wiodące (adres, adresat, kontakt).
+    lead_source_request_id = db.Column(
+        db.Integer, db.ForeignKey('shipping_requests.id', ondelete='SET NULL'), nullable=True
+    )
+
+    consolidated_into = db.relationship(
+        'ShippingRequest', remote_side=[id], foreign_keys=[consolidated_into_id],
+        backref=db.backref('consolidated_sources', lazy='select'),
+    )
+    lead_source = db.relationship(
+        'ShippingRequest', remote_side=[id], foreign_keys=[lead_source_request_id],
+    )
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
-    request_orders = db.relationship('ShippingRequestOrder', back_populates='shipping_request', cascade='all, delete-orphan')
+    # foreign_keys jawnie wskazuje shipping_request_id — bez tego SQLAlchemy nie wie,
+    # której z dwóch kolumn FK (ta czy source_request_id) użyć do złączenia.
+    request_orders = db.relationship(
+        'ShippingRequestOrder', back_populates='shipping_request', cascade='all, delete-orphan',
+        foreign_keys='ShippingRequestOrder.shipping_request_id',
+    )
 
     def __repr__(self):
         return f'<ShippingRequest {self.request_number}>'
@@ -1514,9 +1575,63 @@ class ShippingRequest(db.Model):
         return [ro.order for ro in self.request_orders if ro.order]
 
     @property
+    def is_consolidation(self):
+        """Paczka zbiorcza: ma podpięte zlecenia źródłowe. Jedyne źródło prawdy —
+        nie ma osobnej flagi w bazie, żeby stan nie mógł się rozjechać z relacją."""
+        return bool(self.consolidated_sources)
+
+    @property
+    def is_consolidated_source(self):
+        """Zlecenie oddane do paczki zbiorczej — nie jest już samodzielną paczką."""
+        return self.consolidated_into_id is not None
+
+    @property
+    def display_orders(self):
+        """Zamówienia, które należą do TEGO zlecenia z punktu widzenia jego właściciela.
+
+        Po konsolidacji wiersze junction wiszą przy zleceniu zbiorczym, więc źródłowe
+        musi odnaleźć swoje zamówienia po source_request_id. Wszystko, co pokazujemy
+        klientowi, idzie tędy — self.orders dałoby mu zamówienia obcych osób.
+        """
+        if self.consolidated_into_id and self.consolidated_into:
+            return [
+                ro.order for ro in self.consolidated_into.request_orders
+                if ro.source_request_id == self.id and ro.order
+            ]
+        return self.orders
+
+    @property
+    def consolidation_participants(self):
+        """Uczestnicy paczki zbiorczej, pogrupowani po właścicielu.
+
+        Kolejność: zlecenie wiodące pierwsze, reszta wg numeru zlecenia. Z tego
+        korzystają karta w WMS, modal, maile i pushe — jedno miejsce grupowania.
+        """
+        if not self.is_consolidation:
+            return []
+        po_zrodle = {}
+        for ro in self.request_orders:
+            if not ro.order or not ro.source_request_id:
+                continue
+            po_zrodle.setdefault(ro.source_request_id, []).append(ro.order)
+
+        wynik = []
+        for source in self.consolidated_sources:
+            wynik.append({
+                'user': source.user,
+                'source_request': source,
+                'orders': po_zrodle.get(source.id, []),
+            })
+        wynik.sort(key=lambda u: (
+            u['source_request'].id != self.lead_source_request_id,
+            u['source_request'].request_number or '',
+        ))
+        return wynik
+
+    @property
     def orders_count(self):
         """Returns number of orders in this shipping request"""
-        return len(self.request_orders)
+        return len(self.display_orders)
 
     @property
     def status_badge_color(self):
@@ -1541,6 +1656,11 @@ class ShippingRequest(db.Model):
         - No shipping cost has been set (no admin quote)
         - No tracking number has been added
         """
+        # Paczka zbiorcza to ustalenie między kilkoma osobami i magazynem — rozmontować
+        # ją może wyłącznie admin, niezależnie od statusu, kosztu i numeru przesyłki.
+        if self.is_consolidated_source or self.is_consolidation:
+            return False
+
         if not self.status_rel or not self.status_rel.is_initial:
             return False
 
@@ -1563,6 +1683,64 @@ class ShippingRequest(db.Model):
             if self.shipping_city:
                 return f"{self.shipping_city}, {self.shipping_postal_code or ''}"
             return self.shipping_address or '-'
+
+    @property
+    def addressee_name(self):
+        """Pełne imię i nazwisko adresata — do widoków admina, magazynu i etykiet.
+
+        `shipping_name` wypełnia się WYŁĄCZNIE przy dostawie na adres domowy. Przy
+        paczkomacie adres siedzi w polach `pickup_*`, a rubryka z nazwiskiem zostaje
+        pusta — w tym sklepie to zdecydowana większość zleceń. Adresatem jest wtedy po
+        prostu właściciel zlecenia, więc pytamy najpierw adres, potem konto.
+
+        Konto bywa usunięte (`user_id` jest nullable) albo bez wypełnionego profilu —
+        wtedy None, żeby wołający pokazał swój zastępnik zamiast „None”. Świadomie NIE
+        sięgamy po `User.full_name`: ono degraduje do adresu e-mail, a e-mail w miejscu
+        nazwiska adresata wygląda jak błąd danych.
+        """
+        z_adresu = (self.shipping_name or '').strip()
+        if z_adresu:
+            return z_adresu
+        if not self.user:
+            return None
+        z_konta = ' '.join(czesc for czesc in (
+            (self.user.first_name or '').strip(),
+            (self.user.last_name or '').strip(),
+        ) if czesc)
+        return z_konta or None
+
+    @property
+    def short_addressee_name(self):
+        """Imię i pierwsza litera nazwiska adresata, np. „Karolina B.”.
+
+        Do pokazania uczestnikom paczki zbiorczej, którzy NIE są adresatem — spec
+        (sekcja „Panel klienta”) wymaga, żeby wiedzieli dokąd jedzie ich paczka, ale bez
+        ujawniania pełnego nazwiska obcej osoby. Property na modelu, nie sklejanie w
+        Jinja, bo ta sama skrócona forma trafi też do maili o scaleniu/wysyłce.
+
+        Źródło nazwy jak w `addressee_name` (adres → konto): przy paczkomacie
+        `shipping_name` jest puste, więc wcześniej cała funkcja mówiła uczestnikowi, że
+        paczka jedzie „do innej osoby”, nie mówiąc do której — czyli nie mówiła nic.
+        """
+        z_adresu = (self.shipping_name or '').strip()
+        if z_adresu:
+            # Jedno pole tekstowe: nie odróżnimy imienia od nazwiska, więc bierzemy
+            # pierwszy i ostatni człon — pojedynczy człon zostaje bez zmian.
+            czlony = z_adresu.split()
+            if len(czlony) == 1:
+                return czlony[0]
+            return f"{czlony[0]} {czlony[-1][0].upper()}."
+
+        if not self.user:
+            return None
+        imie = (self.user.first_name or '').strip()
+        nazwisko = (self.user.last_name or '').strip()
+        # Bez imienia nie ma formy „Imię N.”, a samo nazwisko obcej osoby ujawnia
+        # więcej, niż pozwala kontrakt — oddajemy None, żeby wołający użył swojego
+        # zastępnika („osoby odbierającej paczkę”).
+        if not imie:
+            return None
+        return f"{imie} {nazwisko[0].upper()}." if nazwisko else imie
 
     @property
     def full_address(self):
@@ -1598,10 +1776,28 @@ class ShippingRequest(db.Model):
         """
         from decimal import Decimal
         total = Decimal('0.00')
-        for ro in self.request_orders:
-            if ro.order and ro.order.shipping_cost:
-                total += Decimal(str(ro.order.shipping_cost))
+        for order in self.display_orders:
+            if order.shipping_cost:
+                total += Decimal(str(order.shipping_cost))
         return total if total > 0 else None
+
+    @property
+    def display_shipping_cost(self):
+        """Kwota wysyłki do POKAZANIA: suma z zamówień, a w ostateczności zapisana kolumna.
+
+        `total_shipping_cost` to snapshot zapisywany tylko przy edycji konkretnego
+        zlecenia. Konsolidacja go nie przenosi (paczka zbiorcza ma NULL, a źródła
+        trzymają swoje stare kwoty), więc karta w WMS pokazywała „Brak wyceny” nad
+        zamówieniami wycenionymi na 42,98 zł. `calculated_shipping_cost` liczy z
+        zamówień na bieżąco i jest odporne na scalanie — dlatego idzie pierwsze.
+
+        Kolumna zostaje jako źródło zapasowe, bo panel wysyłki w WMS potrafi zapisać
+        kwotę łączną bez rozbicia jej na zamówienia (`mark_as_shipped`) — wtedy suma z
+        zamówień jest pusta, choć wycena istnieje.
+
+        To wyłącznie warstwa ODCZYTU — nic tu nie zmienia sposobu zapisu kolumny.
+        """
+        return self.calculated_shipping_cost or self.total_shipping_cost
 
     @property
     def tracking_url(self):
@@ -1637,10 +1833,20 @@ class ShippingRequestOrder(db.Model):
     shipping_request_id = db.Column(db.Integer, db.ForeignKey('shipping_requests.id'), nullable=False)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     shipping_cost = db.Column(db.Numeric(10, 2), nullable=True)  # Shipping cost for this order
+
+    # Z którego zlecenia przyszło zamówienie. NULL = leży tu od początku.
+    # Bez tego wypięcie i rozwiązanie konsolidacji nie wie, dokąd zwrócić zamówienie.
+    source_request_id = db.Column(
+        db.Integer, db.ForeignKey('shipping_requests.id', ondelete='SET NULL'), nullable=True
+    )
+
     created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
-    shipping_request = db.relationship('ShippingRequest', back_populates='request_orders')
+    # foreign_keys jawnie wskazuje shipping_request_id (patrz komentarz przy request_orders wyżej).
+    shipping_request = db.relationship(
+        'ShippingRequest', back_populates='request_orders', foreign_keys=[shipping_request_id],
+    )
     order = db.relationship('Order', back_populates='shipping_request_orders')
 
     def __repr__(self):

@@ -1,6 +1,7 @@
 """WMS: pakowanie zlecenia wysyłki jako jednej paczki."""
 
 import pytest
+from test_shipping_consolidation import _seed_sr_statuses  # noqa: E402
 
 
 # ---------- pomocnicze ----------
@@ -173,6 +174,89 @@ def test_pack_group_partial_session_leaves_sr_unpacked(app, db, make_user, make_
     assert sr.status != 'spakowane'
     db.session.refresh(mat)
     assert mat.quantity_in_stock == 6
+
+
+def _konsolidacja_z_pozycjami(db, make_user, make_order, make_product):
+    """Paczka zbiorcza dwóch klientów, każdy z jednym w pełni zebranym zamówieniem.
+
+    Odrębne od `_konsolidacja` w test_shipping_consolidation.py — tamta buduje
+    zlecenia przez `_sr()`, które NIE dodaje pozycji zamówienia, więc
+    `pack_shipping_request_group` odrzuciłoby taką grupę jako niezebraną."""
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    from modules.orders.consolidation import utworz_konsolidacje
+
+    def _sr_z_zamowieniem(user):
+        o = _order_with_item(db, user, make_order, make_product, weight=1.0, dims=(10, 10, 10))
+        sr = ShippingRequest(
+            request_number=ShippingRequest.generate_request_number(),
+            user_id=user.id, status='oplacone', address_type='home',
+            shipping_name=f'{user.first_name} {user.last_name}',
+            shipping_address='ul. Kwiatowa 12', shipping_postal_code='30-001',
+            shipping_city='Kraków',
+        )
+        db.session.add(sr)
+        db.session.flush()
+        db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=o.id))
+        db.session.commit()
+        return sr, o
+
+    a, b = make_user(), make_user()
+    sr_a, order_a = _sr_z_zamowieniem(a)
+    sr_b, order_b = _sr_z_zamowieniem(b)
+    zbiorcze = utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+    db.session.commit()
+    return zbiorcze, (sr_a, order_a), (sr_b, order_b)
+
+
+def test_pack_group_czesciowa_konsolidacja_zdjecie_tylko_do_spakowanego(
+        app, db, make_user, make_order, make_product, monkeypatch):
+    """Regres z code review (rundy 1, task 17): paczka zbiorcza pakowana
+    częściowo — w TEJ sesji WMS jest tylko zamówienie uczestnika A, uczestnik B
+    czeka na inną sesję (ten sam scenariusz co
+    test_pack_group_partial_session_leaves_sr_unpacked, tylko z konsolidacją).
+    Zdjęcie ma iść WYŁĄCZNIE do A — B nie ma jeszcze niczego fizycznie w
+    kartonie, więc dostanie mylące „Twoja paczka spakowana", gdyby powiadomienie
+    leciało do całego zlecenia zamiast do spakowanej właśnie grupy."""
+    from modules.orders.wms_packing import pack_shipping_request_group
+    from modules.orders.wms_models import WmsSession, WmsSessionOrder
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    _seed_statuses(db)
+    _seed_sr_statuses(db)
+    admin = make_user(role='admin')
+    zbiorcze, (sr_a, order_a), (sr_b, order_b) = _konsolidacja_z_pozycjami(
+        db, make_user, make_order, make_product)
+
+    order_a.packing_photo = 'uploads/packing_photos/x.jpg'
+    db.session.commit()
+
+    session = WmsSession(session_token='tok-partial-consol', user_id=admin.id, status='active')
+    db.session.add(session)
+    db.session.commit()
+    # Tylko zamówienie A trafia do TEJ sesji — B zostaje poza pakowaniem.
+    db.session.add(WmsSessionOrder(session_id=session.id, order_id=order_a.id))
+    db.session.commit()
+
+    sent = []
+    import utils.email_sender as es
+    # Paczka zbiorcza rozsyła zdjęcie batchem (jedno połączenie SMTP na wszystkich
+    # uczestników), więc przechwytujemy na poziomie prepare_* — `notify_packing_photo`
+    # obsługuje już tylko zlecenia NIEbędące paczką zbiorczą.
+    monkeypatch.setattr(es, 'prepare_packing_photo_email',
+                        lambda **kw: sent.append(kw['user_email']) or None)
+    monkeypatch.setattr(es, 'send_email_batch', lambda messages: None)
+    monkeypatch.setattr(PushManager, 'notify_packing_photo',
+                        staticmethod(lambda order: None))
+
+    pack_shipping_request_group(session, zbiorcze, send_email=True, user_id=admin.id)
+    db.session.commit()
+
+    assert sent == [sr_a.user.email]
+    db.session.refresh(order_a)
+    assert order_a.status == 'spakowane'
+    db.session.refresh(order_b)
+    assert order_b.status != 'spakowane'
 
 
 def test_pack_group_rejects_unpicked_order(app, db, make_user, make_order, make_product,

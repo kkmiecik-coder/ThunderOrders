@@ -585,6 +585,16 @@ def admin_update_status(order_id):
     if old_status != new_status:
         order.status = new_status
         order.updated_at = datetime.now()
+
+        from modules.orders.consolidation import (
+            STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)
+        if new_status in STATUSY_WYPINAJACE_Z_PACZKI:
+            # Anulowane zamówienie (i skierowane do zwrotu) nigdy nie spełni
+            # bramek gotowości paczki zbiorczej ("all spakowane" / komplet E4) —
+            # wypinamy je od razu, żeby nie zablokowało wysyłki pozostałym
+            # uczestnikom.
+            odepnij_anulowane_zamowienie(order)
+
         db.session.commit()
 
         # Auto-add to collection when delivered
@@ -1245,6 +1255,15 @@ def bulk_status_change():
                     order.updated_at = datetime.now()
                     updated_count += 1
 
+                    from modules.orders.consolidation import (
+                        STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)
+                    if new_status in STATUSY_WYPINAJACE_Z_PACZKI:
+                        # Patrz komentarz w admin_update_status — to samo dotyczy
+                        # akcji masowej: zamówienie anulowane albo do zwrotu wypina
+                        # się z paczki zbiorczej, żeby nie blokować wysyłki innym
+                        # uczestnikom.
+                        odepnij_anulowane_zamowienie(order)
+
                     # Activity log
                     log_activity(
                         user=current_user,
@@ -1867,12 +1886,13 @@ def client_detail(order_id):
             except (ValueError, TypeError):
                 pass
 
-    # Shipping city for client marker — only from shipping request
+    # Shipping city for client marker — client_shipping_request, nie shipping_request:
+    # po konsolidacji surowe shipping_request wskazuje paczkę zbiorczą z miastem obcej osoby.
     tracking_shipping_city = ''
     tracking_has_shipping = False
-    if order.shipping_request:
+    if order.client_shipping_request:
         tracking_has_shipping = True
-        tracking_shipping_city = order.shipping_request.shipping_city or ''
+        tracking_shipping_city = order.client_shipping_request.shipping_city or ''
 
     return render_template(
         'client/orders/detail.html',
@@ -2634,11 +2654,30 @@ def migrate_status(status_id):
                 'message': 'Wybrany status zastępczy nie istnieje'
             }), 400
 
+        # Zapisz ID zamówień PRZED masowym .update() — ten bypassuje ORM
+        # (synchronize_session=False), więc żadne pojedyncze zamówienie nie
+        # przejdzie przez zwykłą ścieżkę zmiany statusu. Jeśli status zastępczy
+        # nie dojdzie już do wysyłki ('anulowane'/'do_zwrotu'), musimy zamówienia
+        # dociągnąć i wypiąć z paczek zbiorczych ręcznie.
+        from modules.orders.consolidation import STATUSY_WYPINAJACE_Z_PACZKI
+        anulowane_ids = []
+        if new_status_slug in STATUSY_WYPINAJACE_Z_PACZKI:
+            anulowane_ids = [
+                oid for (oid,) in db.session.query(Order.id).filter_by(status=status.slug).all()
+            ]
+
         # Migrate all orders to new status
         orders_updated = Order.query.filter_by(status=status.slug).update(
             {'status': new_status_slug},
             synchronize_session=False
         )
+
+        if anulowane_ids:
+            from modules.orders.consolidation import odepnij_anulowane_zamowienie
+            for oid in anulowane_ids:
+                zamowienie = db.session.get(Order, oid)
+                if zamowienie:
+                    odepnij_anulowane_zamowienie(zamowienie)
 
         # Delete old status
         db.session.delete(status)
@@ -3755,6 +3794,9 @@ def admin_get_shipping_request(shipping_request_id):
         'client_notes': sr.client_notes,
         'address_type': sr.address_type,
         'shipping_name': sr.shipping_name,
+        # Nazwa adresata odporna na typ dostawy — przy paczkomacie `shipping_name`
+        # jest puste i modal pokazywał na liście miasto punktu zamiast człowieka.
+        'addressee_name': sr.addressee_name,
         'shipping_address': sr.shipping_address,
         'shipping_postal_code': sr.shipping_postal_code,
         'shipping_city': sr.shipping_city,
@@ -3864,6 +3906,16 @@ def admin_update_shipping_request(shipping_request_id):
             # Find the order and update its shipping cost
             order = db.session.get(Order, order_id)
             if order:
+                # Po konsolidacji to jedyne miejsce, gdzie admin mógłby ustawić kwotę E4
+                # zamówieniu obcego klienta — modal renderuje tylko zamówienia tego zlecenia,
+                # ale endpoint przyjmował dowolne ID.
+                if order.id not in {ro.order_id for ro in sr.request_orders}:
+                    db.session.rollback()
+                    return jsonify({
+                        'error': f'Zamówienie {order.order_number} nie należy do zlecenia '
+                                 f'{sr.request_number}',
+                    }), 400
+
                 old_cost = float(order.shipping_cost or 0)
                 order.shipping_cost = shipping_cost if shipping_cost > 0 else None
                 if shipping_cost and float(shipping_cost) > 0 and float(shipping_cost) != old_cost:
@@ -3873,11 +3925,27 @@ def admin_update_shipping_request(shipping_request_id):
     if 'order_costs' in data:
         sr.total_shipping_cost = sr.calculated_shipping_cost
 
+    # Zmiana statusu/kuriera/trackingu na paczce zbiorczej zjeżdża na zlecenia
+    # źródłowe — przed commitem, bo helper nie commituje sam.
+    from modules.orders.consolidation import propaguj_na_zrodla
+    propaguj_na_zrodla(sr)
+
     db.session.commit()
 
     # Auto-status: czeka_na_wycene → czeka_na_oplacenie after pricing
     auto_status_changed = False
-    if sr.status == 'czeka_na_wycene' and orders_with_new_cost:
+    if orders_with_new_cost and sr.is_consolidation:
+        # Paczka zbiorcza nie ma własnego statusu finansowego — jej status to
+        # minimum ze statusów uczestników. Podniesienie samej paczki zostawiłoby
+        # źródła na „czeka na wycenę", a _sprawdz_oplacenie_konsolidacji podnosi
+        # uczestnika na „opłacone" tylko z „czeka na opłacenie" — paczka nigdy nie
+        # osiągała „opłacone" i WMS odrzucał wysyłkę (UNPAID_SR_STATUSES).
+        from modules.orders.consolidation import przeprowadz_uczestnikow_na_oplacenie
+        status_paczki_przed = sr.status
+        if przeprowadz_uczestnikow_na_oplacenie(sr):
+            auto_status_changed = sr.status != status_paczki_przed
+            db.session.commit()
+    elif sr.status == 'czeka_na_wycene' and orders_with_new_cost:
         has_any_cost = any(
             (ro.order.shipping_cost or 0) > 0
             for ro in sr.request_orders if ro.order
@@ -3886,6 +3954,10 @@ def admin_update_shipping_request(shipping_request_id):
             old_status = sr.status
             sr.status = 'czeka_na_oplacenie'
             auto_status_changed = True
+            # Status finansowy, nie logistyczny — propaguj_na_zrodla świadomie NIE
+            # zjedzie z nim w dół (finanse zostają indywidualne), ale wołamy ją tu
+            # konsekwentnie z resztą miejsc zapisu, na wypadek zmiany trackingu/kuriera.
+            propaguj_na_zrodla(sr)
             db.session.commit()
 
     # Sync order statuses based on SR status change
@@ -3986,6 +4058,49 @@ def admin_delete_shipping_request(shipping_request_id):
     sr = ShippingRequest.query.get_or_404(shipping_request_id)
     request_number = sr.request_number
 
+    # Zlecenie źródłowe nie ma własnych zamówień i jest tylko widokiem dla klienta —
+    # skasowanie go zostawiłoby paczkę z uczestnikiem, którego nie ma.
+    if sr.is_consolidated_source:
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} jedzie w paczce zbiorczej '
+                       f'{sr.consolidated_into.request_number} — najpierw wypnij je z paczki.',
+        }), 409
+
+    # Kasowanie paczki zbiorczej: zamówienia muszą wrócić do właścicieli, inaczej
+    # cascade='all, delete-orphan' zabierze powiązania zamówień obcych klientów.
+    if sr.is_consolidation:
+        from modules.orders.consolidation import (
+            rozwiaz_konsolidacje, ConsolidationError, STATUSY_BEZ_EDYCJI)
+        # Pre-check tylko po to, żeby dać komunikat pasujący do KASOWANIA — sam
+        # rozwiaz_konsolidacje() i tak zablokowałby spakowaną paczkę, ale jego
+        # komunikat ("nie można zmieniać jej składu") mówi o edycji składu, nie o
+        # usuwaniu, i myliłby admina próbującego skasować spakowaną paczkę
+        # (code review rundy 1).
+        if sr.status in STATUSY_BEZ_EDYCJI:
+            return jsonify({
+                'success': False,
+                'message': f'Paczka {sr.request_number} jest już spakowana — '
+                           f'nie można jej skasować w tym stanie.',
+            }), 409
+        try:
+            zrodla = rozwiaz_konsolidacje(sr)
+            db.session.commit()
+        except ConsolidationError as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': e.message}), e.status_code
+        log_activity(
+            user=current_user, action='shipping_request_consolidation_dissolved',
+            entity_type='shipping_request',
+            new_value={
+                'consolidation_number': sr.request_number,
+                'restored_numbers': [z.request_number for z in zrodla],
+                'reason': 'delete',
+            },
+        )
+        return jsonify({'success': True,
+                        'message': 'Paczka zbiorcza rozwiązana, zlecenia wróciły do klientów'})
+
     # Check if shipping request is linked to an active WMS session
     from modules.orders.wms_models import WmsSessionShippingRequest, WmsSession
     active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
@@ -4038,27 +4153,65 @@ def admin_bulk_cancel_shipping_requests():
         return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
 
     from modules.orders.wms_models import WmsSessionShippingRequest, WmsSession
+    from modules.orders.consolidation import rozwiaz_konsolidacje, ConsolidationError
 
     deleted_numbers = []
-    skipped_numbers = []
+    skipped = []  # lista (numer_zlecenia, powod) — do czytelnego komunikatu dla admina
 
+    # Zaznaczenie w UI przeżywa przełączenie filtra „consolidation=sources"
+    # (trzymane w sessionStorage), więc admin może w jednym żądaniu zaznaczyć
+    # zarówno paczkę zbiorczą, jak i jedno z jej źródeł. Dlatego PIERWSZY PRZEBIEG
+    # rozwiązuje WSZYSTKIE zaznaczone paczki zbiorcze, zanim tkniemy cokolwiek
+    # innego — inaczej wynik zależałby od kolejności ID w `ids`: źródło
+    # przetworzone PRZED swoją paczką miałoby jeszcze consolidated_into_id
+    # ustawione i trafiłoby do pominiętych, mimo że po rozwiązaniu paczki (kilka
+    # linijek dalej w tej samej pętli) staje się zwykłym, skasowalnym zleceniem —
+    # a to właśnie ono, nie coś innego, admin też zaznaczył do usunięcia
+    # (code review rundy 1, task 17).
+    pozostale = []
     for sr_id in ids:
         sr = db.session.get(ShippingRequest, sr_id)
-        if sr:
-            active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
-                WmsSessionShippingRequest.shipping_request_id == sr.id,
-                WmsSession.status.in_(['active', 'paused'])
-            ).first()
-            if active_wms:
-                skipped_numbers.append(sr.request_number)
-                continue
-            # Remove old WMS junction records (from completed/cancelled sessions)
-            WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
-            deleted_numbers.append(sr.request_number)
-            # Remove all order associations (orders go back to pool)
-            ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
-            # Delete the shipping request
-            db.session.delete(sr)
+        if not sr:
+            continue
+        if sr.is_consolidation:
+            try:
+                rozwiaz_konsolidacje(sr)
+            except ConsolidationError as e:
+                skipped.append((sr.request_number, e.message))
+            else:
+                deleted_numbers.append(sr.request_number)
+                # Nic więcej do zrobienia z samymi źródłami tutaj — jeśli któreś
+                # z nich jest też w `ids`, drugi przebieg znajdzie je już jako
+                # zwykłe, niekonsolidowane zlecenie: rozwiaz_konsolidacje mutuje
+                # te same obiekty ShippingRequest w tej samej sesji SQLAlchemy
+                # (identity map), więc ich is_consolidated_source jest teraz False.
+        else:
+            pozostale.append(sr)
+
+    for sr in pozostale:
+        # Źródło, którego paczka NIE była (albo była, ale nie dała się rozwiązać)
+        # w tym zaznaczeniu — nadal nie ma własnych zamówień, nie kasujemy.
+        if sr.is_consolidated_source:
+            skipped.append((
+                sr.request_number,
+                f'jedzie w paczce zbiorczej {sr.consolidated_into.request_number} — '
+                f'najpierw wypnij je z paczki',
+            ))
+            continue
+        active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
+            WmsSessionShippingRequest.shipping_request_id == sr.id,
+            WmsSession.status.in_(['active', 'paused'])
+        ).first()
+        if active_wms:
+            skipped.append((sr.request_number, 'powiązane z aktywną sesją WMS'))
+            continue
+        # Remove old WMS junction records (from completed/cancelled sessions)
+        WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
+        deleted_numbers.append(sr.request_number)
+        # Remove all order associations (orders go back to pool)
+        ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
+        # Delete the shipping request
+        db.session.delete(sr)
 
     db.session.commit()
 
@@ -4074,77 +4227,256 @@ def admin_bulk_cancel_shipping_requests():
     )
 
     message = f'Usunięto {len(deleted_numbers)} zleceń'
-    if skipped_numbers:
-        message += f'. Pominięto {len(skipped_numbers)} zleceń powiązanych z sesją WMS ({", ".join(skipped_numbers)})'
+    if skipped:
+        # Powód przy każdej pozycji — inaczej admin nie dowie się z interfejsu,
+        # dlaczego coś przepadło (code review rundy 1, task 17).
+        opisy = '; '.join(f'{numer} ({powod})' for numer, powod in skipped)
+        message += f'. Pominięto {len(skipped)} zleceń: {opisy}'
 
     return jsonify({
         'success': True,
         'message': message,
-        'skipped_count': len(skipped_numbers)
+        'skipped_count': len(skipped)
     })
 
 
-@orders_bp.route('/admin/orders/shipping-requests/bulk-merge', methods=['POST'])
+@orders_bp.route('/admin/orders/shipping-requests/consolidation-preview')
 @login_required
 @role_required('admin', 'mod')
-def admin_bulk_merge_shipping_requests():
+def admin_consolidation_preview():
+    """Dane do modalu konsolidacji — pełne adresy i powody blokady.
+
+    Modal nie może karmić się danymi z kart: karty nie mają kompletu adresów,
+    a stan mógł się zmienić od załadowania strony.
     """
-    Merge multiple shipping requests into one.
-    Uses the oldest request (lowest ID) as the target.
-    All orders from other requests are moved to the target.
-    Other requests are deleted.
-    """
-    data = request.get_json()
-    ids = data.get('ids', [])
+    from modules.orders.consolidation import waliduj_do_konsolidacji, ConsolidationError
 
-    if len(ids) < 2:
-        return jsonify({'error': 'Wybierz co najmniej 2 zlecenia do scalenia'}), 400
+    surowe = request.args.get('ids', '')
+    ids = [int(x) for x in surowe.split(',') if x.strip().isdigit()]
+    if not ids:
+        return jsonify({'error': 'Nie wskazano zleceń'}), 400
 
-    # Get all shipping requests and sort by ID (oldest first)
-    shipping_requests = ShippingRequest.query.filter(ShippingRequest.id.in_(ids)).order_by(ShippingRequest.id.asc()).all()
+    requests_list = ShippingRequest.query.filter(ShippingRequest.id.in_(ids)).all()
 
-    if len(shipping_requests) < 2:
-        return jsonify({'error': 'Nie znaleziono wybranych zleceń'}), 404
-
-    # Verify all requests belong to the same user
-    user_ids = set(sr.user_id for sr in shipping_requests)
-    if len(user_ids) > 1:
-        return jsonify({'error': 'Zaznaczone zlecenia pochodzą od różnych klientów'}), 400
-
-    # Target is the oldest request (first in sorted list)
-    target_request = shipping_requests[0]
-    requests_to_delete = shipping_requests[1:]
-    merged_numbers = [sr.request_number for sr in requests_to_delete]
-
-    # Move all orders from other requests to the target
-    for sr in requests_to_delete:
-        # Update all ShippingRequestOrder associations
-        ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).update({
-            'shipping_request_id': target_request.id
+    pozycje = []
+    for sr in requests_list:
+        pozycje.append({
+            'id': sr.id,
+            'request_number': sr.request_number,
+            # User.full_name jest null-safe i ma fallback na e-mail — ręczne sklejanie
+            # first_name/last_name dawało pusty string dla klientów bez podanego imienia.
+            'client_name': sr.user.full_name if sr.user else 'Brak klienta',
+            'client_email': sr.user.email if sr.user else None,
+            'client_phone': sr.user.phone if sr.user else None,
+            'full_address': sr.full_address,
+            'address_type': sr.address_type,
+            'status': sr.status,
+            'status_name': sr.status_display_name,
+            # Modal liczy z tego „najmniej zaawansowany status" do ostrzeżenia —
+            # tą samą miarą (sort_order), którą backend liczy status paczki.
+            'status_sort_order': sr.status_rel.sort_order if sr.status_rel else 0,
+            'orders_count': len(sr.display_orders),
+            'is_consolidation': sr.is_consolidation,
+            'has_tracking': bool(sr.tracking_number),
+            # Potrzebne modalowi w trybie zarządzania gotową paczką (Task 14).
+            'source_ids': [s.id for s in sr.consolidated_sources],
+            'lead_source_request_id': sr.lead_source_request_id,
         })
 
-    # Delete the now-empty requests
-    for sr in requests_to_delete:
-        db.session.delete(sr)
+    # Zaznaczenie do modalu (Task 14) może zawierać już istniejącą paczkę zbiorczą —
+    # to scenariusz dopięcia, nie łączenia dwóch paczek. Bez target= waliduj_do_konsolidacji
+    # nie odróżnia „ten wpis TO cel" od „to inna paczka" i zawsze odrzuca taki zestaw.
+    target_w_zestawie = next((sr for sr in requests_list if sr.is_consolidation), None)
 
-    db.session.commit()
+    blokady = []
+    try:
+        waliduj_do_konsolidacji(requests_list, target=target_w_zestawie)
+    except ConsolidationError as e:
+        blokady.append(e.message)
 
-    # Activity log
+    return jsonify({'success': True, 'requests': pozycje, 'blocked': blokady})
+
+
+def _powiadom_o_konsolidacji(zbiorcze):
+    """Powiadomienia dla uczestników paczki. Pełna implementacja w utils/email_manager.py."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    try:
+        EmailManager.notify_shipment_consolidated(zbiorcze)
+        PushManager.notify_shipment_consolidated(zbiorcze)
+    except Exception as e:
+        current_app.logger.error(
+            f'Błąd powiadomienia o konsolidacji {zbiorcze.request_number}: {e}')
+
+
+@orders_bp.route('/admin/orders/shipping-requests/consolidate', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidate_shipping_requests():
+    """Tworzy paczkę zbiorczą albo dopina zlecenia do istniejącej."""
+    from modules.orders.consolidation import (
+        utworz_konsolidacje, dopnij_do_konsolidacji, ConsolidationError)
+
+    data = request.get_json() or {}
+    # Payload buduje modal (Task 14) na podstawie zaznaczenia kart — złośliwy albo
+    # uszkodzony JSON nie może dać gołego 500 bez treści (nieobsłużony ValueError
+    # z int()), tylko czytelny komunikat z kodem 400, zgodnie z resztą modułu
+    # (patrz np. export_orders, admin_add_custom_product).
+    try:
+        ids = [int(x) for x in data.get('ids', [])]
+        target_id = int(data['target_id']) if data.get('target_id') else None
+        lead_id = int(data['lead_request_id']) if data.get('lead_request_id') else None
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Nieprawidłowy format identyfikatorów zleceń — oczekiwano liczb całkowitych'}), 400
+
+    try:
+        if target_id:
+            target = db.session.get(ShippingRequest, target_id)
+            if not target:
+                return jsonify({'error': 'Nie znaleziono paczki zbiorczej'}), 404
+            dopnij_do_konsolidacji(target, [i for i in ids if i != target.id])
+            zbiorcze = target
+        else:
+            if not lead_id:
+                return jsonify({'error': 'Wskaż zlecenie wiodące'}), 400
+            zbiorcze = utworz_konsolidacje(ids, lead_id)
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Błąd konsolidacji zleceń {ids}: {e}')
+        return jsonify({'error': 'Nie udało się utworzyć paczki zbiorczej'}), 500
+
+    _powiadom_o_konsolidacji(zbiorcze)
+
     log_activity(
-        user=current_user,
-        action='shipping_requests_merged',
-        entity_type='shipping_request',
-        entity_id=target_request.id,
-        new_value=json.dumps({
-            'target_request_number': target_request.request_number,
-            'merged_request_numbers': merged_numbers,
-            'count': len(merged_numbers) + 1
-        })
+        user=current_user, action='shipping_requests_consolidated',
+        entity_type='shipping_request', entity_id=zbiorcze.id,
+        new_value={
+            'consolidation_number': zbiorcze.request_number,
+            'source_numbers': [s.request_number for s in zbiorcze.consolidated_sources],
+            'lead_request_id': zbiorcze.lead_source_request_id,
+        },
     )
-
     return jsonify({
         'success': True,
-        'message': f'Scalono {len(shipping_requests)} zleceń w {target_request.request_number}'
+        'message': f'Utworzono paczkę zbiorczą {zbiorcze.request_number} '
+                   f'z {len(zbiorcze.consolidated_sources)} zleceń',
+        'consolidation_id': zbiorcze.id,
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>/consolidation/lead',
+                 methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidation_change_lead(shipping_request_id):
+    """Przełącza zlecenie wiodące — zmienia adres i adresata paczki."""
+    from modules.orders.consolidation import zmien_wiodace, ConsolidationError
+
+    target = db.session.get(ShippingRequest, shipping_request_id)
+    if not target:
+        return jsonify({'error': 'Nie znaleziono zlecenia'}), 404
+
+    data = request.get_json() or {}
+    try:
+        lead_request_id = int(data.get('lead_request_id', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Nieprawidłowy identyfikator zlecenia wiodącego — oczekiwano liczby całkowitej'}), 400
+
+    try:
+        zmien_wiodace(target, lead_request_id)
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+
+    log_activity(
+        user=current_user, action='shipping_request_consolidation_lead_changed',
+        entity_type='shipping_request', entity_id=target.id,
+        new_value={'lead_request_id': target.lead_source_request_id},
+    )
+    # addressee_name, nie shipping_name — przy paczkomacie to drugie jest puste
+    # i komunikat brzmiał „jest teraz None”.
+    adresat = target.addressee_name
+    return jsonify({
+        'success': True,
+        'message': (f'Adresatem paczki {target.request_number} jest teraz {adresat}'
+                    if adresat else
+                    f'Zmieniono zlecenie wiodące paczki {target.request_number}'),
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>/consolidation/detach',
+                 methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidation_detach(shipping_request_id):
+    """Wypina jedno zlecenie z paczki. Przy jednym uczestniku paczka znika."""
+    from modules.orders.consolidation import wypnij_zlecenie, ConsolidationError
+
+    target = db.session.get(ShippingRequest, shipping_request_id)
+    if not target:
+        return jsonify({'error': 'Nie znaleziono zlecenia'}), 404
+
+    data = request.get_json() or {}
+    numer = target.request_number
+    try:
+        source_id = int(data.get('source_id', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Nieprawidłowy identyfikator zlecenia do wypięcia — oczekiwano liczby całkowitej'}), 400
+
+    try:
+        rozwiazana = wypnij_zlecenie(target, source_id)
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+
+    log_activity(
+        user=current_user, action='shipping_request_consolidation_detached',
+        entity_type='shipping_request',
+        new_value={'consolidation_number': numer, 'source_id': source_id,
+                   'dissolved': rozwiazana},
+    )
+    return jsonify({
+        'success': True, 'dissolved': rozwiazana,
+        'message': ('Paczka została rozwiązana — został tylko jeden uczestnik'
+                    if rozwiazana else 'Zlecenie wypięte z paczki'),
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>/consolidation/dissolve',
+                 methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_consolidation_dissolve(shipping_request_id):
+    """Rozmontowuje paczkę zbiorczą — wszystkie zamówienia wracają do swoich zleceń."""
+    from modules.orders.consolidation import rozwiaz_konsolidacje, ConsolidationError
+
+    target = db.session.get(ShippingRequest, shipping_request_id)
+    if not target:
+        return jsonify({'error': 'Nie znaleziono zlecenia'}), 404
+
+    numer = target.request_number
+    try:
+        zrodla = rozwiaz_konsolidacje(target)
+        numery = [s.request_number for s in zrodla]
+        db.session.commit()
+    except ConsolidationError as e:
+        db.session.rollback()
+        return jsonify({'error': e.message}), e.status_code
+
+    log_activity(
+        user=current_user, action='shipping_request_consolidation_dissolved',
+        entity_type='shipping_request',
+        new_value={'consolidation_number': numer, 'restored_numbers': numery},
+    )
+    return jsonify({
+        'success': True,
+        'message': f'Paczka {numer} rozwiązana — zlecenia wróciły do samodzielnej wysyłki',
     })
 
 
@@ -4168,6 +4500,8 @@ def admin_bulk_status_shipping_requests():
     if not status_obj:
         return jsonify({'error': 'Nieprawidłowy status'}), 400
 
+    from modules.orders.consolidation import propaguj_na_zrodla
+
     updated_count = 0
     changed_requests = []  # (ShippingRequest, old_status) for email notifications
     for sr_id in ids:
@@ -4178,6 +4512,9 @@ def admin_bulk_status_shipping_requests():
                 changed_requests.append((sr, old_status))
             sr.status = new_status
             updated_count += 1
+            # Zmiana zbiorcza może objąć paczkę konsolidacyjną — jej źródła muszą
+            # dostać ten sam stan, zanim padnie wspólny commit poniżej.
+            propaguj_na_zrodla(sr)
 
     db.session.commit()
 
@@ -4237,13 +4574,35 @@ def admin_export_shipping_requests_inpost():
         return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
 
     shipping_requests = ShippingRequest.query.filter(
-        ShippingRequest.id.in_(ids)
+        ShippingRequest.id.in_(ids),
+        # Zlecenie źródłowe ma własny adres i gabaryt, więc trafiłoby do pliku
+        # jako druga przesyłka na tę samą paczkę — realny koszt u kuriera.
+        ShippingRequest.consolidated_into_id.is_(None),
     ).order_by(ShippingRequest.request_number).all()
 
     if not shipping_requests:
         return jsonify({'error': 'Nie znaleziono zaznaczonych zleceń'}), 404
 
     csv_text, warnings = build_inpost_csv(shipping_requests)
+
+    # Zlecenia źródłowe odpadły w zapytaniu wyżej po consolidated_into_id — bez
+    # tego admin nie wiedziałby, dlaczego zaznaczył np. 5 pozycji, a plik ma 3
+    # wiersze. Etykieta i tak jedzie z paczką zbiorczą, więc to nie błąd, tylko
+    # informacja.
+    found_ids = {sr.id for sr in shipping_requests}
+    excluded_ids = set(ids) - found_ids
+    if excluded_ids:
+        excluded_sources = ShippingRequest.query.filter(
+            ShippingRequest.id.in_(excluded_ids),
+            ShippingRequest.consolidated_into_id.isnot(None),
+        ).order_by(ShippingRequest.request_number).all()
+        for sr in excluded_sources:
+            paczka = sr.consolidated_into.request_number if sr.consolidated_into else '?'
+            warnings.append(
+                f'{sr.request_number} — jedzie w paczce zbiorczej {paczka}, '
+                f'pominięto (etykieta jest już w pliku dla tej paczki)'
+            )
+
     exported = count_exported_rows(csv_text)
     from modules.orders.models import get_local_now
     filename = f'inpost_{get_local_now().strftime("%Y-%m-%d_%H%M")}.csv'
@@ -4255,7 +4614,9 @@ def admin_export_shipping_requests_inpost():
         new_value=json.dumps({
             'ids': ids,
             'exported': exported,
-            'skipped': len(shipping_requests) - exported,
+            # Liczone od WSZYSTKICH zaznaczonych ID, nie tylko tych, które przeszły
+            # filtr źródeł — inaczej log nie mówi prawdy o realnej liczbie pominiętych.
+            'skipped': len(ids) - exported,
         })
     )
 

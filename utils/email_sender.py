@@ -935,6 +935,11 @@ def send_shipping_request_created_email(user_email, user_name, request_number,
     )
 
 
+def _shipping_status_change_subject(request_number, new_status_name):
+    """Temat maila o zmianie statusu — wspólny dla wysyłki pojedynczej i batchowej."""
+    return f'Zmiana statusu zlecenia {request_number} - {new_status_name}'
+
+
 def send_shipping_status_change_email(user_email, user_name, request_number,
                                        old_status_name, new_status_name, new_status_color,
                                        orders, tracking_number=None, courier_name=None,
@@ -956,7 +961,7 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
     """
     return send_email(
         to=user_email,
-        subject=f'Zmiana statusu zlecenia {request_number} - {new_status_name}',
+        subject=_shipping_status_change_subject(request_number, new_status_name),
         template='shipping_status_change',
         user_name=user_name,
         request_number=request_number,
@@ -968,6 +973,42 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
         courier_name=courier_name,
         shipping_requests_url=shipping_requests_url
     )
+
+
+def prepare_shipping_status_change_email(user_email, user_name, request_number,
+                                          old_status_name, new_status_name, new_status_color,
+                                          orders, tracking_number=None, courier_name=None,
+                                          shipping_requests_url=None):
+    """Wersja send_shipping_status_change_email do wysyłki wsadowej (BEZ wysyłania).
+
+    Potrzebna dla paczki zbiorczej: zmiana statusu zbiorczego zjeżdża na wszystkie
+    zlecenia źródłowe naraz, więc trzeba powiadomić kilku uczestników jednym
+    połączeniem SMTP zamiast pętlą po send_email() (patrz prepare_shipment_sent_email).
+
+    Returns:
+        Message lub None w przypadku błędu
+    """
+    return prepare_email(
+        to=user_email,
+        subject=_shipping_status_change_subject(request_number, new_status_name),
+        template='shipping_status_change',
+        user_name=user_name,
+        request_number=request_number,
+        old_status_name=old_status_name,
+        new_status_name=new_status_name,
+        new_status_color=new_status_color,
+        orders=orders,
+        tracking_number=tracking_number,
+        courier_name=courier_name,
+        shipping_requests_url=shipping_requests_url
+    )
+
+
+def _shipment_sent_subject(request_number, tracking_number=None):
+    """Temat maila o wysłanej paczce — wspólny dla wysyłki pojedynczej i batchowej."""
+    if tracking_number:
+        return f'Numer przesyłki do Twojej paczki - {request_number} - ThunderOrders'
+    return f'Twoja paczka została wysłana - {request_number} - ThunderOrders'
 
 
 def send_shipment_sent_email(user_email, user_name, request_number, order_numbers,
@@ -991,14 +1032,9 @@ def send_shipment_sent_email(user_email, user_name, request_number, order_number
         tracking_url (str): URL do śledzenia przesyłki (opcjonalny)
         shipping_requests_url (str): URL do listy zleceń wysyłki klienta
     """
-    if tracking_number:
-        subject = f'Numer przesyłki do Twojej paczki - {request_number} - ThunderOrders'
-    else:
-        subject = f'Twoja paczka została wysłana - {request_number} - ThunderOrders'
-
     return send_email(
         to=user_email,
-        subject=subject,
+        subject=_shipment_sent_subject(request_number, tracking_number),
         template='shipment_sent',
         user_name=user_name,
         request_number=request_number,
@@ -1007,6 +1043,56 @@ def send_shipment_sent_email(user_email, user_name, request_number, order_number
         courier_name=courier_name,
         tracking_url=tracking_url,
         shipping_requests_url=shipping_requests_url
+    )
+
+
+def prepare_shipment_sent_email(user_email, user_name, request_number, order_numbers,
+                                tracking_number=None, courier_name=None, tracking_url=None,
+                                shipping_requests_url=None, consolidation_note=None):
+    """Wersja send_shipment_sent_email do wysyłki wsadowej (BEZ wysyłania).
+
+    Pętla po uczestnikach paczki zbiorczej na send_email() otworzyłaby osobne
+    połączenie SMTP na każdy mail — Hostinger limituje uwierzytelnienia per IP.
+    consolidation_note trafia do uczestnika, który NIE jest adresatem paczki —
+    informuje, że jego zamówienia jadą na adres kogoś innego.
+
+    Returns:
+        Message lub None w przypadku błędu
+    """
+    return prepare_email(
+        to=user_email,
+        subject=_shipment_sent_subject(request_number, tracking_number),
+        template='shipment_sent',
+        user_name=user_name,
+        request_number=request_number,
+        order_numbers=order_numbers,
+        tracking_number=tracking_number,
+        courier_name=courier_name,
+        tracking_url=tracking_url,
+        shipping_requests_url=shipping_requests_url,
+        consolidation_note=consolidation_note,
+    )
+
+
+def prepare_shipment_consolidated_email(user_email, user_name, request_number, order_numbers,
+                                        recipient_name, is_recipient,
+                                        shipping_requests_url=None):
+    """Mail o połączeniu wysyłki w paczkę zbiorczą — wersja wsadowa (jedno połączenie SMTP).
+
+    Wysyłany raz, w chwili utworzenia paczki — inaczej uczestnik dowiaduje się
+    o zmianie dopiero z maila o wysyłce, gdzie nagle pojawia się cudzy adres.
+    Tylko wersja batchowa: to powiadomienie zawsze idzie do >=2 uczestników naraz.
+    """
+    return prepare_email(
+        to=user_email,
+        subject=f'Twoja wysyłka {request_number} została połączona w paczkę zbiorczą',
+        template='shipment_consolidated',
+        user_name=user_name,
+        request_number=request_number,
+        order_numbers=order_numbers,
+        recipient_name=recipient_name,
+        is_recipient=is_recipient,
+        shipping_requests_url=shipping_requests_url,
     )
 
 
@@ -1127,15 +1213,20 @@ def send_account_deactivated_email(user_email, user_name, reason=''):
     )
 
 
-def send_packing_photo_email(user_email, user_name, order_number, photo_path):
-    """
-    Wysyła email ze zdjęciem spakowanej paczki do klienta.
+def prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
+                                consolidation_note=None):
+    """Buduje Message ze zdjęciem paczki (BEZ wysyłania) — do batch sendingu.
 
-    Args:
-        user_email (str): Email klienta
-        user_name (str): Imię klienta
-        order_number (str): Numer zamówienia
-        photo_path (str): Ścieżka do zdjęcia paczki (relatywna od static/)
+    Nie korzysta z `prepare_email`, bo ten dokłada wyłącznie logo, a tutaj
+    potrzebny jest drugi inline attachment (samo zdjęcie kartonu).
+
+    `consolidation_note`: zdanie uprzedzające, że karton jest wspólny. Zdjęcie
+    paczki zbiorczej pokazuje produkty wszystkich uczestników i może zawierać
+    etykietę z pełnym adresem adresata — uczestnik musi wiedzieć o tym, ZANIM
+    zobaczy zdjęcie (spec, sekcja „Zdjęcie paczki").
+
+    Returns:
+        Message lub None w przypadku błędu
     """
     app = current_app._get_current_object()
 
@@ -1150,6 +1241,7 @@ def send_packing_photo_email(user_email, user_name, order_number, photo_path):
             'emails/packing_photo.html',
             user_name=user_name,
             order_number=order_number,
+            consolidation_note=consolidation_note,
         )
 
         msg.body = f"Sprawdź email w kliencie obsługującym HTML."
@@ -1179,18 +1271,42 @@ def send_packing_photo_email(user_email, user_name, order_number, photo_path):
                 headers=[('Content-ID', '<packing_photo@thunderorders>')],
             )
 
-        logger.info(f"[EMAIL] Queuing packing photo email to={user_email}, order={order_number}")
-        Thread(
-            target=send_async_email,
-            args=(app, msg),
-            name=f"email-packing-{user_email}"
-        ).start()
-
-        return True
+        return msg
 
     except Exception as e:
-        logger.error(f"[EMAIL] Packing photo email FAILED to={user_email}, error={type(e).__name__}: {e}")
+        logger.error(f"[EMAIL] Packing photo prepare FAILED to={user_email}, "
+                     f"error={type(e).__name__}: {e}")
+        return None
+
+
+def send_packing_photo_email(user_email, user_name, order_number, photo_path,
+                             consolidation_note=None):
+    """
+    Wysyła email ze zdjęciem spakowanej paczki do klienta.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        photo_path (str): Ścieżka do zdjęcia paczki (relatywna od static/)
+        consolidation_note (str): zdanie o wspólnym kartonie (paczka zbiorcza)
+    """
+    app = current_app._get_current_object()
+
+    msg = prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
+                                      consolidation_note=consolidation_note)
+    if msg is None:
+        logger.error(f"[EMAIL] Packing photo email FAILED to={user_email}: brak wiadomości")
         return False
+
+    logger.info(f"[EMAIL] Queuing packing photo email to={user_email}, order={order_number}")
+    Thread(
+        target=send_async_email,
+        args=(app, msg),
+        name=f"email-packing-{user_email}"
+    ).start()
+
+    return True
 
 
 def send_achievement_granted_email(user_email, user_name, achievement_name,

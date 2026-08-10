@@ -47,7 +47,13 @@ def update_sr_after_packing(order):
     from modules.auth.models import Settings
 
     sr = order.shipping_request
-    if not sr:
+    # Zlecenie oddane do paczki zbiorczej nie ma własnych zamówień — all([]) uznałby
+    # je za spakowane bez niczego fizycznego. Jego stan przychodzi z propagacji.
+    # Obrona w głąb: `sr` powyżej pochodzi z wiersza junction zamówienia, a ten po
+    # konsolidacji zawsze wskazuje paczkę zbiorczą (nigdy puste źródło) — dzisiejsze
+    # wywołania nie potrafią tu dostarczyć is_consolidated_source=True. Guard zostaje
+    # na wypadek przyszłego wywołującego, który poda `sr` inną drogą.
+    if not sr or sr.is_consolidated_source:
         return None
 
     all_packed = all(o.status == 'spakowane' for o in sr.orders)
@@ -56,6 +62,10 @@ def update_sr_after_packing(order):
     if all_packed and sr.status != 'spakowane':
         sr.status = 'spakowane'
         sr_status_changed = True
+        # Paczka zbiorcza spakowana — status i tracking zjeżdżają na źródłowe,
+        # żeby ich klienci widzieli, że fizyczna przesyłka jest gotowa.
+        from modules.orders.consolidation import propaguj_na_zrodla
+        propaguj_na_zrodla(sr)
 
     # Auto-add 'spakowane' to allowed shipping statuses (one-time)
     setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
@@ -202,8 +212,14 @@ def pack_shipping_request_group(session, shipping_request, packaging_material_id
         try:
             from utils.email_manager import EmailManager
             from utils.push_manager import PushManager
-            EmailManager.notify_packing_photo(group[0])
-            PushManager.notify_packing_photo(group[0])
+            # Per zlecenie, nie per zamówienie: przy paczce zbiorczej ma dostać
+            # to KAŻDY uczestnik, nie tylko właściciel group[0]. `packed_orders=group`
+            # ogranicza to do uczestników fizycznie spakowanych W TEJ sesji — przy
+            # częściowym pakowaniu paczki zbiorczej (jeden uczestnik teraz, drugi
+            # później) reszta NIE dostaje mylącego „Twoja paczka spakowana"
+            # (code review rundy 1, task 17).
+            EmailManager.notify_packing_photo_for_request(shipping_request, packed_orders=group)
+            PushManager.notify_packing_photo_for_request(shipping_request, packed_orders=group)
         except Exception as email_err:
             current_app.logger.error(f'WMS packing email error: {email_err}')
 

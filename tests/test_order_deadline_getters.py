@@ -1,5 +1,13 @@
 from datetime import datetime
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _strona_sprzedazy(strona_sprzedazy):
+    """Zamówienia w tym pliku powstają z `offer_page_id=1`, a to kolumna FK — strona
+    o tym id musi realnie istnieć (fixture `strona_sprzedazy` w conftest)."""
+
 
 def test_get_product_deadline_from_offer_page(db, make_user, make_order):
     from modules.offers.models import OfferPage

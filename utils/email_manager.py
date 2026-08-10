@@ -34,6 +34,7 @@ REJESTR EMAILI:
         - notify_shipping_request_created(shipping_request, user) -> potwierdzenie zlecenia wysyłki
         - notify_shipping_status_change(shipping_request, old_status_slug) -> zmiana statusu zlecenia wysyłki
         - notify_shipment_sent(shipping_request, ...) -> jeden mail o wysłanej paczce
+        - notify_shipment_consolidated(shipping_request) -> mail o połączeniu wysyłek w paczkę zbiorczą
 
     ADMIN:
         - notify_admin_payment_uploaded(order, stage_names) -> nowe potwierdzenie płatności
@@ -376,12 +377,13 @@ class EmailManager:
             )
 
     @staticmethod
-    def notify_packing_photo(order):
+    def notify_packing_photo(order, consolidation_note=None):
         """
         Wysyła email ze zdjęciem spakowanej paczki do klienta.
 
         Args:
             order: obiekt Order (musi mieć ustawione packing_photo)
+            consolidation_note (str): zdanie o wspólnym kartonie (paczka zbiorcza)
         """
         if not EmailManager.is_email_enabled('notify_packing_photo'):
             current_app.logger.info("Email notification 'notify_packing_photo' is disabled, skipping")
@@ -408,6 +410,7 @@ class EmailManager:
                 user_name=order.customer_name,
                 order_number=order.order_number,
                 photo_path=order.packing_photo,
+                consolidation_note=consolidation_note,
             )
             current_app.logger.info(
                 f"Packing photo email sent for {order.order_number} to {email}"
@@ -416,6 +419,102 @@ class EmailManager:
             current_app.logger.error(
                 f"Failed to send packing photo email for {order.order_number}: {e}"
             )
+
+    @staticmethod
+    def notify_packing_photo_for_request(sr, packed_orders=None):
+        """Zdjęcie spakowanej paczki — po jednym mailu na uczestnika.
+
+        Dotychczas mail leciał z pojedynczego zamówienia, więc przy paczce zbiorczej
+        dostawał go właściciel przypadkowego zamówienia z grupy, a reszta nic.
+        Karton jest wspólny, więc zdjęcie należy się każdemu.
+
+        `packed_orders`: opcjonalna lista zamówień, które FIZYCZNIE trafiły do tego
+        kartonu w TEJ sesji WMS (patrz `pack_shipping_request_group` w
+        wms_packing.py). Paczka zbiorcza bywa pakowana częściowo — jeden uczestnik
+        w tej sesji, drugi jeszcze czeka na swoją — więc bez tego filtra
+        uczestnik, którego towaru fizycznie jeszcze nie ma w kartonie, dostałby
+        mylące „Twoja paczka spakowana" (code review rundy 1, task 17; scenariusz
+        analogiczny do test_pack_group_partial_session_leaves_sr_unpacked). Gdy
+        nie podane (domyślne wywołanie, np. ręczny resend z panelu), zachowanie
+        jest jak dotąd — powiadamiamy WSZYSTKICH uczestników zlecenia.
+        """
+        packed_ids = {o.id for o in packed_orders} if packed_orders is not None else None
+
+        if not sr.is_consolidation:
+            # Jeden karton = jeden mail, niezależnie od liczby zamówień w zleceniu —
+            # osobny mail na każde zamówienie dublowałby wiadomość temu samemu
+            # klientowi (regres z briefu: `for order in sr.orders` łamał
+            # test_pack_group_packs_all_orders_once, który wymaga dokładnie 1 maila).
+            kandydaci = sr.orders
+            if packed_ids is not None:
+                kandydaci = [o for o in kandydaci if o.id in packed_ids]
+            if kandydaci:
+                EmailManager.notify_packing_photo(kandydaci[0])
+            return
+
+        EmailManager._zdjecie_paczki_zbiorczej(sr, packed_ids)
+
+    @staticmethod
+    def _zdjecie_paczki_zbiorczej(sr, packed_ids):
+        """Zdjęcie paczki zbiorczej — mail per uczestnik, jedno połączenie SMTP.
+
+        Batch zamiast pętli po `notify_packing_photo`: paczkę zbiorczą z definicji
+        dzieli kilka osób, a Hostinger limituje uwierzytelnienia SMTP per IP.
+
+        Każdy uczestnik dostaje zdanie o wspólnym kartonie. Bez tego zdjęcie
+        etykiety z pełnym imieniem, nazwiskiem i adresem adresata szło do obcych
+        osób bez słowa komentarza — przy jednoczesnym skracaniu tego samego
+        nazwiska do „Karolina B." wszędzie indziej. Adresata nazywamy więc
+        wyłącznie przez `short_addressee_name`.
+        """
+        from utils.email_sender import prepare_packing_photo_email, send_email_batch
+
+        if not EmailManager.is_email_enabled('notify_packing_photo'):
+            current_app.logger.info(
+                "Email notification 'notify_packing_photo' is disabled, skipping")
+            return
+
+        adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
+        wiadomosci = []
+        for uczestnik in sr.consolidation_participants:
+            zamowienia = uczestnik['orders']
+            if packed_ids is not None:
+                zamowienia = [o for o in zamowienia if o.id in packed_ids]
+            if not zamowienia:
+                continue
+
+            order = zamowienia[0]
+            if not order.customer_email or not order.packing_photo:
+                current_app.logger.warning(
+                    f'Zdjęcie paczki {sr.request_number}: pomijam {order.order_number} '
+                    f'(brak adresu e-mail albo zdjęcia)')
+                continue
+
+            czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            notatka = (
+                'To paczka zbiorcza — w kartonie są też zamówienia innych osób, '
+                'które odbierzesz razem ze swoimi.'
+            ) if czy_adresat else (
+                f'To paczka zbiorcza — w kartonie są zamówienia kilku osób, a na zdjęciu '
+                f'może być widoczna etykieta z danymi odbiorcy ({adresat}), do którego '
+                f'jedzie przesyłka.'
+            )
+            wiadomosci.append(prepare_packing_photo_email(
+                user_email=order.customer_email,
+                user_name=order.customer_name,
+                order_number=order.order_number,
+                photo_path=order.packing_photo,
+                consolidation_note=notatka,
+            ))
+
+        if not wiadomosci:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników do powiadomienia o zdjęciu')
+            return
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili ze zdjęciem paczki zbiorczej {sr.request_number}')
 
     @staticmethod
     def notify_status_change(order, old_status, new_status):
@@ -914,6 +1013,11 @@ class EmailManager:
         """
         Wysyła powiadomienie o zmianie statusu zlecenia wysyłki.
 
+        Dla paczki zbiorczej (is_consolidation) rozgałęzia do _status_change_consolidated:
+        bez tego mail poszedłby tylko do usera zlecenia zbiorczego (lidera) z listą
+        WSZYSTKICH zamówień wszystkich uczestników — ten sam wyciek co w
+        notify_shipment_sent, tylko przy zwykłej zmianie statusu (np. spakowane).
+
         Args:
             shipping_request: obiekt ShippingRequest
             old_status_slug: poprzedni status (slug)
@@ -922,15 +1026,7 @@ class EmailManager:
             current_app.logger.info("Email notification 'notify_shipping_status_change' is disabled, skipping")
             return
 
-        from utils.email_sender import send_shipping_status_change_email
         from modules.orders.models import ShippingRequestStatus
-
-        user = shipping_request.user
-        if not user or not user.email:
-            current_app.logger.warning(
-                f"Cannot send shipping status email for {shipping_request.request_number}: no user email"
-            )
-            return
 
         # Get status display names
         old_status_obj = ShippingRequestStatus.query.filter_by(slug=old_status_slug).first()
@@ -947,6 +1043,20 @@ class EmailManager:
             'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'
         }
         courier_name = courier_names.get(shipping_request.courier, shipping_request.courier) if shipping_request.courier else None
+
+        if shipping_request.is_consolidation:
+            EmailManager._status_change_consolidated(
+                shipping_request, old_status_name, new_status_name, new_status_color, courier_name)
+            return
+
+        from utils.email_sender import send_shipping_status_change_email
+
+        user = shipping_request.user
+        if not user or not user.email:
+            current_app.logger.warning(
+                f"Cannot send shipping status email for {shipping_request.request_number}: no user email"
+            )
+            return
 
         try:
             send_shipping_status_change_email(
@@ -968,6 +1078,59 @@ class EmailManager:
             current_app.logger.error(
                 f"Failed to send shipping status change email for {shipping_request.request_number}: {e}"
             )
+
+    @staticmethod
+    def _status_change_consolidated(sr, old_status_name, new_status_name, new_status_color, courier_name):
+        """Zmiana statusu paczki zbiorczej: jeden mail na uczestnika, z jego zamówieniami.
+
+        Ten sam powód co w _shipment_sent_consolidated — wspólny mail ujawniłby
+        adresatowi numery zamówień pozostałych uczestników. Batch, nie pętla po
+        send_email() — patrz komentarz w _shipment_sent_consolidated.
+        """
+        from flask import url_for
+        from utils.email_sender import prepare_shipping_status_change_email, send_email_batch
+
+        uczestnicy = []
+        for u in sr.consolidation_participants:
+            user = u['user']
+            if not user or not user.email:
+                current_app.logger.warning(
+                    f'Uczestnik paczki {sr.request_number} bez adresu e-mail — pomijam')
+                continue
+            uczestnicy.append(u)
+
+        if not uczestnicy:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników z adresem e-mail przy zmianie statusu')
+            return
+
+        # Poza aktywnym requestem (np. wywołanie spoza kontekstu żądania) url_for
+        # się wywali brakiem SERVER_NAME — degradujemy do braku linku zamiast
+        # tracić powiadomienia wszystkich uczestników.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+
+        wiadomosci = []
+        for uczestnik in uczestnicy:
+            user = uczestnik['user']
+            wiadomosci.append(prepare_shipping_status_change_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=uczestnik['source_request'].request_number,
+                old_status_name=old_status_name,
+                new_status_name=new_status_name,
+                new_status_color=new_status_color,
+                orders=uczestnik['orders'],
+                tracking_number=sr.tracking_number,
+                courier_name=courier_name,
+                shipping_requests_url=requests_url,
+            ))
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o zmianie statusu paczki zbiorczej {sr.request_number}')
 
     @staticmethod
     def notify_shipment_sent(shipping_request, *, tracking_number=None, courier=None,
@@ -997,6 +1160,14 @@ class EmailManager:
             return
 
         from utils.email_sender import send_shipment_sent_email
+
+        if shipping_request.is_consolidation:
+            # Paczka zbiorcza: shipping_request.orders to WSZYSTKIE zamówienia
+            # wszystkich uczestników (junction rows zjechały tu przy konsolidacji) —
+            # jeden mail do sr.user (lidera) ujawniłby mu cudze numery zamówień.
+            EmailManager._shipment_sent_consolidated(
+                shipping_request, tracking_number, courier, courier_name, tracking_url)
+            return
 
         orders = list(shipping_request.orders)
         if not orders:
@@ -1041,6 +1212,123 @@ class EmailManager:
             current_app.logger.error(
                 f"Failed to send shipment email for {shipping_request.request_number}: {e}"
             )
+
+    @staticmethod
+    def _shipment_sent_consolidated(sr, tracking_number, courier, courier_name, tracking_url):
+        """Paczka zbiorcza: jeden mail na uczestnika, każdy ze swoją listą zamówień.
+
+        Wspólny mail ujawniłby adresatowi numery zamówień pozostałych osób. Bez
+        fallbacku na e-mail z zamówienia (jak w gałęzi niekonsolidowanej) — dla
+        paczki zbiorczej wysłałby liczbę zamówień WSZYSTKICH uczestników obcej
+        osobie, gdyby konto właściciela zostało usunięte.
+        """
+        from flask import url_for
+        from utils.email_sender import prepare_shipment_sent_email, send_email_batch
+        from modules.orders.utils import get_tracking_url
+
+        if not tracking_url and tracking_number and courier:
+            tracking_url = get_tracking_url(courier, tracking_number)
+
+        uczestnicy = []
+        for u in sr.consolidation_participants:
+            user = u['user']
+            if not user or not user.email:
+                # Konto usunięte: fallback na adres z zamówienia wysłałby listę
+                # zamówień wszystkich uczestników obcej osobie.
+                current_app.logger.warning(
+                    f'Uczestnik paczki {sr.request_number} bez adresu e-mail — pomijam')
+                continue
+            uczestnicy.append(u)
+
+        if not uczestnicy:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników z adresem e-mail, nic nie wysyłam')
+            return
+
+        # URL-e liczymy tu, w kontekście wołającego — wątek batcha go nie ma. Poza
+        # aktywnym requestem url_for się wywali brakiem SERVER_NAME — degradujemy
+        # do braku linku zamiast tracić powiadomienia wszystkich uczestników.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+        adresat = sr.short_addressee_name
+
+        wiadomosci = []
+        for uczestnik in uczestnicy:
+            user = uczestnik['user']
+            czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            wiadomosci.append(prepare_shipment_sent_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=uczestnik['source_request'].request_number,
+                order_numbers=[o.order_number for o in uczestnik['orders']],
+                tracking_number=tracking_number or None,
+                courier_name=courier_name,
+                tracking_url=tracking_url,
+                shipping_requests_url=requests_url,
+                consolidation_note=None if czy_adresat else (
+                    f'Twoje zamówienia jadą w paczce zbiorczej wysłanej na adres: {adresat}.'
+                ),
+            ))
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o paczce zbiorczej {sr.request_number}')
+
+    @staticmethod
+    def notify_shipment_consolidated(sr):
+        """Informuje uczestników, że ich wysyłki pojechały do jednej paczki.
+
+        Bez tego klient dowiaduje się o zmianie dopiero z maila o wysyłce, gdzie
+        nagle pojawia się cudzy adres. Świadomie korzysta z istniejącego klucza
+        przełącznika ('notify_status_change') zamiast dokładać nowy — patrz
+        komentarz w notify_shipment_sent.
+        """
+        if not EmailManager.is_email_enabled('notify_status_change'):
+            current_app.logger.info(
+                "Email notification 'notify_status_change' is disabled, skipping")
+            return
+        if not sr.is_consolidation:
+            return
+
+        from flask import url_for
+        from utils.email_sender import prepare_shipment_consolidated_email, send_email_batch
+
+        # Poza aktywnym requestem (np. wywołanie z serwisu konsolidacji spoza
+        # kontekstu żądania) url_for wywali RuntimeError brakiem SERVER_NAME —
+        # degradujemy do braku linku zamiast tracić powiadomienia wszystkich uczestników.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+        adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
+
+        wiadomosci = []
+        for uczestnik in sr.consolidation_participants:
+            user = uczestnik['user']
+            if not user or not user.email:
+                current_app.logger.warning(
+                    f'Uczestnik paczki {sr.request_number} bez adresu e-mail — pomijam')
+                continue
+            wiadomosci.append(prepare_shipment_consolidated_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=uczestnik['source_request'].request_number,
+                order_numbers=[o.order_number for o in uczestnik['orders']],
+                recipient_name=adresat,
+                is_recipient=uczestnik['source_request'].id == sr.lead_source_request_id,
+                shipping_requests_url=requests_url,
+            ))
+
+        if not wiadomosci:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników z adresem e-mail przy scaleniu')
+            return
+
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o konsolidacji {sr.request_number}')
 
     # ========================================
     # COST NOTIFICATION EMAILS

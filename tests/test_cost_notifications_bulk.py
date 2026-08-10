@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
+@pytest.fixture(autouse=True)
+def _strona_sprzedazy(strona_sprzedazy):
+    """Zamówienia w tym pliku powstają z `offer_page_id=1`, a to kolumna FK — strona
+    o tym id musi realnie istnieć (fixture `strona_sprzedazy` w conftest)."""
 
 
 def _client_order(db, make_user, make_order, product_id, qty=1, price=130, **user_kwargs):

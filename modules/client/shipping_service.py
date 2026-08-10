@@ -214,11 +214,38 @@ def validate_and_create_request(user, order_ids, address_id,
     return True, None, req
 
 
+def list_client_requests(user_id):
+    """Zlecenia wysyłki widoczne dla klienta.
+
+    Paczki zbiorcze są bytem magazynu: mają user_id klienta wiodącego, więc bez
+    tego filtra zobaczyłby w panelu zamówienia obcych osób. Każdy uczestnik widzi
+    swoje zlecenie źródłowe — ono zostaje.
+    """
+    return (
+        ShippingRequest.query
+        .filter_by(user_id=user_id)
+        .filter(~ShippingRequest.consolidated_sources.any())
+        .order_by(ShippingRequest.created_at.desc())
+        .all()
+    )
+
+
 def cancel_request(user_id, request_id):
-    """(ok, err). Cudzy/brak → not_found; nie can_cancel → cannot_cancel. Parytet web l. 493-515."""
+    """(ok, err). Cudzy/brak → not_found; nie can_cancel → cannot_cancel. Parytet web l. 493-515.
+
+    Uwaga: sprawdzenie konsolidacji MUSI iść przed can_cancel — model.can_cancel już
+    zwraca False dla zleceń w paczce zbiorczej, więc gdyby to był drugi warunek,
+    zawsze przegrywałby z generycznym 'cannot_cancel' i klient nie dostałby
+    właściwego powodu odmowy.
+    """
     req = ShippingRequest.query.filter_by(id=request_id, user_id=user_id).first()
     if not req:
         return False, {'code': 'not_found'}
+    # Paczka zbiorcza to ustalenie kilku osób i magazynu — klient nie może się z niej
+    # wypisać sam. Blokada musi być tutaj, bo cancel_request KASUJE rekord, a
+    # request_orders ma cascade='all, delete-orphan'.
+    if req.is_consolidated_source or req.is_consolidation:
+        return False, {'code': 'consolidated'}
     if not req.can_cancel:
         return False, {'code': 'cannot_cancel'}
     db.session.delete(req)

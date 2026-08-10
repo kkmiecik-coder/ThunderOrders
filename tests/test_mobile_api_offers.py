@@ -19,8 +19,22 @@ def _auth(client, db, make_user):
     return {'Authorization': f'Bearer {token}'}, u
 
 
+def _autor_strony(db):
+    """Autor strony sprzedaży. `offer_pages.created_by` to FK NOT NULL do `users` —
+    strona bez istniejącego autora to stan, którego produkcja nie ma (zakłada ją
+    zalogowany admin). Helper nie może zakładać, że test wołał wcześniej `_auth`."""
+    from modules.auth.models import User
+    autor = User.query.filter_by(email='autor-oferty@example.com').first()
+    if autor is None:
+        autor = User(email='autor-oferty@example.com', role='admin',
+                     is_active=True, email_verified=True)
+        db.session.add(autor)
+        db.session.commit()
+    return autor
+
+
 def _make_page(db, status, page_type='exclusive', payment_stages=4):
-    """Tworzy OfferPage z podanym statusem. Wymaga usera id=1 (tworzonego przez _auth)."""
+    """Tworzy OfferPage z podanym statusem."""
     from modules.offers.models import OfferPage
     p = OfferPage(
         name=f'Drop {status}',
@@ -28,7 +42,7 @@ def _make_page(db, status, page_type='exclusive', payment_stages=4):
         status=status,
         page_type=page_type,
         payment_stages=payment_stages,
-        created_by=1,
+        created_by=_autor_strony(db).id,
     )
     db.session.add(p)
     db.session.commit()

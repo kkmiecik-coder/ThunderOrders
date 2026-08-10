@@ -23,12 +23,14 @@ def recipient_name(sr):
 
     Nazwa z adresu wysyłki, bo to ona trafia na etykietę i to jej szuka
     kurier. Przy paczkomatach adres często nie ma nazwy — wtedy sięgamy
-    po dane klienta z konta.
+    po dane klienta z konta; tę kolejność trzyma `addressee_name` i to samo
+    źródło prawdy widzi magazyn w panelu pakowania.
+
+    Ostatnia deska ratunku (`full_name`, które degraduje do e-maila) zostaje
+    bez zmian: e-mail w rubryce adresata jest kiepski, ale pusta rubryka
+    w pliku masowego nadania jest gorsza.
     """
-    from_address = (sr.shipping_name or '').strip()
-    if from_address:
-        return from_address
-    return ((sr.user.full_name if sr.user else '') or '').strip()
+    return (sr.addressee_name or (sr.user.full_name if sr.user else '') or '').strip()
 
 
 def format_phone(raw):

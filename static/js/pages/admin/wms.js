@@ -1020,8 +1020,16 @@
         currentPackingSrId = sr.id;
 
         if (srInfo) {
-            srInfo.textContent = sr.request_number + ' — ' + (sr.shipping_name || '') +
-                ' — ' + group.length + (group.length === 1 ? ' zamówienie' : ' zam.');
+            // addressee_name, nie shipping_name: to drugie jest puste przy każdej
+            // dostawie do paczkomatu, więc magazynier pakujący karton widział
+            // „WYS/000049 —  — 2 zam." i nie wiedział, do kogo paczka jedzie.
+            // Człony sklejamy z filtrowaniem, żeby brak nazwy nie zostawiał
+            // osieroconego myślnika.
+            srInfo.textContent = [
+                sr.request_number,
+                sr.addressee_name || '',
+                group.length + (group.length === 1 ? ' zamówienie' : ' zam.'),
+            ].filter(Boolean).join(' — ');
         }
 
         fetchPackingSuggestions(sr.id);
