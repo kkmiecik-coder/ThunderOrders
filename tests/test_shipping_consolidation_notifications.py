@@ -141,7 +141,13 @@ def test_powiadomienie_o_scaleniu_idzie_do_wszystkich(db, przechwycone, monkeypa
     monkeypatch.setattr(es, 'prepare_shipment_consolidated_email',
                         lambda **kw: maile.append(kw) or None)
     _seed_sr_statuses(db)
-    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order, orders_count=2)
+    # Pełny adres z nazwiskiem pod kontrolą testu — inaczej `_sr()` buduje go z
+    # first_name/last_name usera, które fixture make_user zostawia puste (None None),
+    # a wtedy asercja „pełne nazwisko nie wyciekło” byłaby pusta (sprawdzałaby brak
+    # napisu 'None', nie realny wyciek).
+    zbiorcze.shipping_name = 'Karolina Testowska'
+    db.session.commit()
 
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
@@ -153,3 +159,23 @@ def test_powiadomienie_o_scaleniu_idzie_do_wszystkich(db, przechwycone, monkeypa
     assert any(m['is_recipient'] for m in maile)
     assert any(not m['is_recipient'] for m in maile)
     assert {p['user_id'] for p in przechwycone['push']} == {sr_a.user_id, sr_b.user_id}
+
+    # sr_a jest wiodące (lead_request_id=zrodla[0].id w _konsolidacja) — adresat.
+    po_adresie = {m['user_email']: m for m in maile}
+    mail_a = po_adresie[sr_a.user.email]
+    mail_b = po_adresie[sr_b.user.email]
+    assert mail_a['is_recipient'] is True
+    assert mail_b['is_recipient'] is False
+
+    # Uczestnik widzi WYŁĄCZNIE swoje zamówienia w tej paczce, nigdy cudzych numerów.
+    moje = {o.order_number for o in sr_b.display_orders}
+    cudze = {o.order_number for o in sr_a.display_orders}
+    assert set(mail_b['order_numbers']) == moje
+    assert not (set(mail_b['order_numbers']) & cudze)
+
+    # Nie-adresat dostaje WYŁĄCZNIE skróconą formę nazwiska adresata — asercja na
+    # nieobecność pełnego nazwiska jest tu ważniejsza niż na obecność skrótu, bo to
+    # ona łapie regres do sr.shipping_name (pełne imię i nazwisko obcej osoby).
+    assert zbiorcze.short_addressee_name in mail_b['recipient_name']
+    assert zbiorcze.shipping_name not in mail_b['recipient_name']
+    assert 'Testowska' not in mail_b['recipient_name']
