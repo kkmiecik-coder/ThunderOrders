@@ -708,14 +708,22 @@ def test_anulowanie_przelicza_status_zbiorczego_gdy_zostaja_uczestnicy(db, make_
 
 
 def test_anulowanie_nie_jest_blokowana_przez_sesje_wms(db, make_user, make_order):
-    """Regres z code review: gdy paczka schodzi do jednego realnego uczestnika,
-    funkcja wołała publiczne rozwiaz_konsolidacje — a to sprawdza
-    _sprawdz_edytowalnosc, w tym otwartą sesję WMS na paczce. Anulowanie
-    zamówienia NIGDY nie powinno zostać zablokowane stanem paczki: to nie jest
-    edycja składu przez admina, tylko wymuszona konsekwencja anulowania. Bez
-    poprawki funkcja rzucałaby ConsolidationError — a wywołujące ją
-    admin_update_status nie ma try/except, więc cała operacja kończyłaby się
-    500 i zamówienie NIE zostawałoby anulowane."""
+    """Regres z code review (runda 2 → runda 3): gdy paczka schodzi do jednego
+    realnego uczestnika, funkcja wołała publiczne rozwiaz_konsolidacje — a to
+    sprawdza _sprawdz_edytowalnosc, w tym otwartą sesję WMS na paczce.
+    Anulowanie zamówienia NIGDY nie powinno zostać zablokowane WYJĄTKIEM —
+    ale (regres wykryty w drugiej rundzie recenzji) samo wymuszone
+    `db.session.delete(target)` na paczce, którą wciąż trzyma aktywna sesja
+    WMS (`WmsSessionShippingRequest`, FK bez ondelete=CASCADE), jest RÓWNIE
+    złym pomysłem: na SQLite w testach przechodzi cicho, ale na MariaDB
+    skończyłoby się IntegrityError przy commicie — gorszym, mniej czytelnym
+    błędem niż poprzedni ConsolidationError, a przy okazji wyrywa zlecenie
+    spod pracy magazyniera w trakcie skanowania. Poprawne zachowanie: tak jak
+    `admin_delete_shipping_request`/`admin_bulk_cancel_shipping_requests` przy
+    identycznym konflikcie — NIE kasować paczki, dopóki sesja jest aktywna/
+    wstrzymana; ewikcja samego zamówienia i źródła i tak się udaje (bramki
+    gotowości i tak przestają liczyć anulowane zamówienie), a pełne
+    rozwiązanie paczki poczeka do zamknięcia sesji."""
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
     zbiorcze_id = zbiorcze.id
@@ -730,14 +738,63 @@ def test_anulowanie_nie_jest_blokowana_przez_sesje_wms(db, make_user, make_order
 
     zamowienie = sr_b.display_orders[0]
     from modules.orders.consolidation import odepnij_anulowane_zamowienie
-    from modules.orders.models import ShippingRequest
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
     odepnij_anulowane_zamowienie(zamowienie)  # NIE powinno rzucić ConsolidationError
     db.session.commit()
     db.session.expire_all()
 
+    # Zamówienie faktycznie wypięte — to jest właściwy cel Task 13, niezależnie
+    # od tego, czy cała paczka się rozwiązuje.
+    assert zamowienie.id not in {o.id for o in zbiorcze.display_orders}
+    assert sr_b.consolidated_into_id is None
+
+    # Ale paczka NIE jest kasowana, dopóki trzyma ją aktywna sesja WMS — inaczej
+    # delete(target) uderzyłby w FK z wms_session_shipping_requests.
+    zbiorcze_po = db.session.get(ShippingRequest, zbiorcze_id)
+    assert zbiorcze_po is not None
+    assert sr_a.consolidated_into_id == zbiorcze_id
+    # Junction sesji WMS zostaje nietknięty — nic go nie osierociło.
+    assert WmsSessionShippingRequest.query.filter_by(
+        session_id=sesja.id, shipping_request_id=zbiorcze_id
+    ).count() == 1
+
+
+def test_anulowanie_po_zamknieciu_sesji_wms_pozwala_dokonczyc_rozwiazanie(db, make_user, make_order):
+    """Dopełnienie poprzedniego testu: gdy sesja WMS, która wcześniej blokowała
+    pełne rozwiązanie paczki, jest już zamknięta (nieaktywna), zwykła, jawna
+    ścieżka administracyjna (wypnij_zlecenie) w końcu dokańcza to, czego
+    odepnij_anulowane_zamowienie musiała odłożyć."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze_id = zbiorcze.id
+
+    admin = make_user(role='admin')
+    from modules.orders.wms_models import WmsSession, WmsSessionShippingRequest
+    sesja = WmsSession(session_token='tok-zamknieta', user_id=admin.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionShippingRequest(session_id=sesja.id, shipping_request_id=zbiorcze.id))
+    db.session.commit()
+
+    zamowienie = sr_b.display_orders[0]
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie, wypnij_zlecenie
+    from modules.orders.models import ShippingRequest
+    odepnij_anulowane_zamowienie(zamowienie)
+    db.session.commit()
+
+    # Sesja się kończy — magazynier dokańcza pracę.
+    sesja.status = 'completed'
+    db.session.commit()
+
+    # sr_a jest jedynym uczestnikiem — zwykłe wypnij_zlecenie(zbiorcze, sr_a.id)
+    # teraz przechodzi bez błędu i sprząta resztę.
+    rozwiazana = wypnij_zlecenie(zbiorcze, sr_a.id)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert rozwiazana is True
     assert db.session.get(ShippingRequest, zbiorcze_id) is None
     assert sr_a.consolidated_into_id is None
-    assert sr_b.consolidated_into_id is None
 
 
 def test_anulowanie_ewikcja_wiodacego_wymienia_lidera(db, make_user, make_order):

@@ -371,16 +371,36 @@ def _po_odpieciu_zrodla(target, source_id, *, bez_walidacji=False):
     zdecydował, że stan paczki (poza „spakowane", sprawdzanym osobno) nie może
     zablokować operacji. `wypnij_zlecenie` samo już zwalidowało edytowalność na
     wejściu, więc dla niego oba warianty dają identyczny wynik.
+
+    WYJĄTEK od „nigdy nie blokuj": pełne rozwiązanie (delete(target)) przy
+    bez_walidacji=True i aktywnej/wstrzymanej sesji WMS na paczce jest mimo
+    wszystko ODKŁADANE, nie wymuszane. Regres z drugiej rundy code review:
+    `wms_session_shipping_requests.shipping_request_id` → `shipping_requests.id`
+    nie ma `ondelete=CASCADE` (migracja `45101b9ef1c7_...`) — na SQLite w
+    testach delete(target) „przechodzi" cicho, ale na MariaDB skończyłby się
+    IntegrityError przy commicie (gorszym, mniej czytelnym błędem niż wcześniejszy
+    ConsolidationError), a nawet gdyby FK nie interweniował — wyrwałby zlecenie
+    spod pracy magazyniera aktywnie skanującego tę paczkę. Ten sam kompromis, co
+    w `admin_delete_shipping_request`/`admin_bulk_cancel_shipping_requests`: przy
+    aktywnej/wstrzymanej sesji WMS NIE kasujemy, tylko pomijamy. Samo odpięcie
+    źródła (przed wywołaniem tej funkcji) i tak się udaje niezależnie od sesji —
+    to ono realnie odblokowuje bramki gotowości dla pozostałych uczestników, więc
+    cel Task 13 jest spełniony nawet gdy pełne rozwiązanie paczki poczeka do
+    zamknięcia sesji.
     """
     pozostale = _uczestnicy_z_bazy(target)
-    if len(pozostale) <= 1:
+    rozwiazac = len(pozostale) <= 1
+    if rozwiazac and bez_walidacji and _sesja_wms_blokujaca(target):
+        rozwiazac = False
+
+    if rozwiazac:
         if bez_walidacji:
             _rozwiaz_konsolidacje_bez_walidacji(target)
         else:
             rozwiaz_konsolidacje(target)
         return True
 
-    if target.lead_source_request_id == source_id:
+    if pozostale and target.lead_source_request_id == source_id:
         if bez_walidacji:
             _zmien_wiodace_bez_walidacji(target, pozostale[0].id)
         else:
@@ -451,12 +471,17 @@ def odepnij_anulowane_zamowienie(order):
     # linijek wyżej) już załadował i zcache'ował tę kolekcję w pamięci sesji; surowa
     # mutacja zrodlo.consolidated_into_id jej nie odświeża.
     #
-    # bez_walidacji=True: anulowanie zamówienia NIE MOŻE zostać zablokowane stanem
-    # paczki (np. otwartą sesją WMS) — to nie edycja składu przez admina, tylko
-    # wymuszona konsekwencja anulowania. Bramka „spakowane" jest już sprawdzona wyżej
-    # (funkcja wraca wcześniej), więc pominięcie reszty _sprawdz_edytowalnosc tutaj
-    # jest bezpieczne. Bez tego admin_update_status (bez try/except wokół tego
+    # bez_walidacji=True: anulowanie zamówienia nie może zostać zablokowane
+    # WYJĄTKIEM — to nie edycja składu przez admina, tylko wymuszona konsekwencja
+    # anulowania. Bramka „spakowane" jest już sprawdzona wyżej (funkcja wraca
+    # wcześniej), więc pominięcie reszty _sprawdz_edytowalnosc tutaj jest
+    # bezpieczne. Bez tego admin_update_status (bez try/except wokół tego
     # wywołania) kończyłby się 500-tką, a zamówienie NIE zostawałoby anulowane.
+    # Wyjątek od wyjątku: samo PEŁNE ROZWIĄZANIE paczki (delete jej wiersza) przy
+    # aktywnej sesji WMS i tak jest odkładane, nie wymuszane — patrz obszerny
+    # komentarz w _po_odpieciu_zrodla. To nie osłabia gwarancji „anulowanie się
+    # udaje": junction tego zamówienia już zniknął wyżej, więc bramki gotowości
+    # dla pozostałych i tak przestają liczyć anulowane zamówienie.
     _po_odpieciu_zrodla(zbiorcze, source_id, bez_walidacji=True)
 
 
