@@ -1578,6 +1578,12 @@ class ShippingRequest(db.Model):
         foreign_keys='ShippingRequestOrder.shipping_request_id',
     )
 
+    # Opinia klienta o dostawie (task 869efhwph) — jedna na zlecenie, patrz
+    # modules/orders/review_models.py.
+    review = db.relationship(
+        'DeliveryReview', back_populates='shipping_request',
+        uselist=False, cascade='all, delete-orphan')
+
     def __repr__(self):
         return f'<ShippingRequest {self.request_number}>'
 

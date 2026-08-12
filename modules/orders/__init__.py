@@ -20,5 +20,8 @@ from modules.orders import wms
 # Import WMS models so Flask-Migrate can discover them
 from modules.orders import wms_models
 
+# Import opinie o dostawie so Flask-Migrate can discover them (task 869efhwph)
+from modules.orders import review_models
+
 # Import WMS SocketIO event handlers
 from modules.orders import wms_events
