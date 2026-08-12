@@ -22,6 +22,11 @@ class DeliveryReview(db.Model):
     # wystawienia opinii, niezależnie od okna na jej wystawienie.
     OKNO_EDYCJI_DNI = 3
 
+    # Zgodne z maxlength w formularzu (confirm_delivery.html). Kolumna to Text bez
+    # własnego limitu — to jedyne miejsce, które go egzekwuje, więc musi obowiązywać
+    # też dla API (mobile), które nie przechodzi przez ten formularz.
+    MAX_DLUGOSC_KOMENTARZA = 2000
+
     id = db.Column(db.Integer, primary_key=True)
     # Bez index=True: UNIQUE w MariaDB samo zakłada indeks, więc osobny `index=True`
     # nie dodałby nic poza rozjazdem wobec migracji (tam ta kolumna ma tylko
@@ -57,12 +62,24 @@ class DeliveryReview(db.Model):
         return int(wartosc)
 
     @validates('comment')
-    def _przytnij_komentarz(self, key, wartosc):
-        """Puste pole formularza zapisujemy jako NULL, nie jako pusty łańcuch."""
+    def _sprawdz_komentarz(self, key, wartosc):
+        """Puste pole formularza zapisujemy jako NULL, nie jako pusty łańcuch.
+
+        Wcześniej ucinaliśmy tu komentarz do 2000 znaków po cichu — klient tracił
+        końcówkę tego, co napisał, bez żadnego sygnału, że coś zniknęło. Formularz
+        ma `maxlength`, więc ścieżka UI i tak nigdy nie wyśle więcej; to zabezpieczenie
+        jest realnie dla API (mobile), które omija ten formularz. Ciche obcinanie
+        treści wpisanej przez klienta jest gorsze niż jawny błąd, więc odrzucamy.
+        """
         if wartosc is None:
             return None
         wartosc = wartosc.strip()
-        return wartosc[:2000] or None
+        if not wartosc:
+            return None
+        if len(wartosc) > self.MAX_DLUGOSC_KOMENTARZA:
+            raise ValueError(
+                f'Komentarz może mieć maksymalnie {self.MAX_DLUGOSC_KOMENTARZA} znaków')
+        return wartosc
 
     @property
     def mozna_edytowac(self):

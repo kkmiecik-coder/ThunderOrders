@@ -96,6 +96,12 @@ def zapisz_ocene(sr, dane):
 
     try:
         ocena = int(surowa)
+        # int() samego stringa z ułamkiem ("4.9") już rzuca ValueError, ale JSON
+        # (mobile API i fetch()) przysyła liczby jako float — int(4.9) ucina cicho
+        # do 4 zamiast się wywalić. Odrzucamy taki przypadek jawnie, żeby niecałkowita
+        # ocena nie wjechała do średniej w statystykach pod zafałszowaną wartością.
+        if isinstance(surowa, float) and ocena != surowa:
+            raise ValueError
     except (TypeError, ValueError):
         return None, 'Ocena musi być liczbą od 1 do 5', 400
     if ocena < 1 or ocena > 5:
@@ -118,7 +124,12 @@ def zapisz_ocene(sr, dane):
                       f'{DeliveryReview.OKNO_EDYCJI_DNI} dni od wystawienia'), 409
 
     opinia.rating = ocena
-    opinia.comment = dane.get('comment')
+    try:
+        # Walidacja długości siedzi w modelu (@validates) — tu tylko tłumaczymy
+        # jej ValueError na ten sam kontrakt błędu 400, co reszta tej funkcji.
+        opinia.comment = dane.get('comment')
+    except ValueError as err:
+        return None, str(err), 400
     return opinia, None, 200
 
 
@@ -137,11 +148,17 @@ def confirm_delivery(request_id):
         sr=sr,
         moze_potwierdzic=(do_domkniecia is not None and sr.status == 'wyslane'),
         okno_oceny_otwarte=okno_oceny_otwarte,
-        # Sekcja oceny nie ma prawa pojawić się na zleceniu, którego w ogóle nie da
-        # się ocenić (np. 'anulowane', 'czeka_na_wycene') — decyzję podejmuje widok,
-        # szablon jej nie dubluje. Istniejąca opinia zostaje widoczna, żeby klient
-        # nie stracił z oczu tego, co sam napisał.
-        pokaz_ocene=(sr.status in STATUSY_Z_OCENA and (okno_oceny_otwarte or sr.review)),
+        # Sekcja oceny nie ma prawa pojawić się na zleceniu, na które nigdy nie dało
+        # się wystawić oceny (np. 'czeka_na_wycene' bez recenzji) — o tym mówi
+        # `okno_oceny_otwarte` (samo w sobie zawsze False dla statusów spoza
+        # STATUSY_Z_OCENA). Ale gdy opinia już istnieje, ma zostać widoczna również
+        # po tym, jak status zjechał poza ten zbiór (np. admin ręcznie cofnął
+        # błędnie oznaczone 'dostarczone' z powrotem na 'spakowane') — inaczej
+        # klient traci z oczu to, co sam napisał, wbrew temu, co obiecuje ten
+        # komentarz. Dawny warunek `sr.status in STATUSY_Z_OCENA and (...)` chował
+        # tu istniejącą opinię właśnie w tym przypadku — poprawiamy zachowanie,
+        # nie komentarz, bo intencja komentarza jest słuszna.
+        pokaz_ocene=(okno_oceny_otwarte or sr.review is not None),
         review=sr.review,
         okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
         konfig=pobierz_konfig_dostawy(),

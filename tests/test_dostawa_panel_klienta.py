@@ -213,6 +213,47 @@ def test_ocena_poza_zakresem_odrzucona(app, db, client, login, make_user):
     assert sr.status == 'wyslane'
 
 
+def test_ocena_niecalkowita_odrzucona(app, db, client, login, make_user):
+    """`int(4.9)` cicho ucinało do 4 zamiast odrzucić ocenę — JSON (fetch/mobile API)
+    przysyła rating jako float, więc string-owa ścieżka walidacji (int("4.9") już
+    rzuca ValueError) tego nie łapała."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000493')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena', json={'rating': 4.9})
+
+    assert odp.status_code == 400
+    assert sr.review is None
+
+
+def test_ocena_calkowita_jako_float_akceptowana(app, db, client, login, make_user):
+    """4.0 to nadal poprawna ocena 4 — odrzucamy tylko ułamek, nie sam typ float."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000494')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena', json={'rating': 4.0})
+
+    assert odp.status_code == 200
+    assert sr.review.rating == 4
+
+
+def test_komentarz_za_dlugi_odrzucony_przez_api(app, db, client, login, make_user):
+    """Formularz webowy ma maxlength=2000, ale API (mobile) go omija — dawniej
+    komentarz ponad 2000 znaków był po cichu ucinany zamiast odrzucony jawnym
+    błędem, więc klient tracił końcówkę treści bez żadnego sygnału."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000495')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena',
+                      json={'rating': 5, 'comment': 'a' * 2001})
+
+    assert odp.status_code == 400
+    assert sr.review is None
+
+
 def test_druga_ocena_aktualizuje_pierwsza(app, db, client, login, make_user):
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000440')
@@ -304,6 +345,37 @@ def test_strona_niewyslanej_paczki_nie_pokazuje_gwiazdek(app, db, client, login,
 
     assert 'deliveryReview' not in tresc
     assert 'WYS/000491' in tresc
+
+
+def test_opinia_zostaje_widoczna_po_zmianie_statusu_poza_ocenialne(
+        app, db, client, login, make_user):
+    """Komentarz przy `pokaz_ocene` obiecuje, że istniejąca opinia zostaje widoczna,
+    nawet gdy status zjedzie poza STATUSY_Z_OCENA = ('wyslane', 'dostarczone') — np.
+    admin ręcznie cofnie błędnie oznaczone 'dostarczone' z powrotem na 'spakowane'.
+    ('anulowane' z komentarza w kodzie źródłowym to zresztą status z innej domeny —
+    ShippingRequestStatus go w ogóle nie ma, patrz migracja a1f8b2c3d4e5; 'spakowane'
+    to realny, seedowany status spoza zbioru.) Dawny warunek `sr.status in
+    STATUSY_Z_OCENA and (...)` chował sekcję razem z już wystawioną oceną — łamał
+    obietnicę z komentarza. Poprawiamy zachowanie, nie komentarz: intencja
+    komentarza jest słuszna, kod jej nie realizował."""
+    from modules.orders.models import get_local_now
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000496', status='dostarczone')
+    sr.delivered_at = get_local_now() - timedelta(days=1)
+    db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=user.id,
+                                   rating=5, comment='Super szybko'))
+    db.session.commit()
+
+    sr.status = 'spakowane'
+    db.session.commit()
+    login(user)
+
+    tresc = client.get(f'/client/shipping/requests/{sr.id}/potwierdz').get_data(as_text=True)
+
+    assert 'deliveryReview' in tresc
+    assert 'Super szybko' in tresc
 
 
 def test_ocena_wyslanej_paczki_nadal_dziala(app, db, client, login, make_user):

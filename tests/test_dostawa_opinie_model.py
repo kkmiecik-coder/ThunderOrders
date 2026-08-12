@@ -57,6 +57,35 @@ def test_okno_edycji_trwa_trzy_dni(app, db, make_user):
     assert opinia.mozna_edytowac is False
 
 
+def test_komentarz_za_dlugi_odrzucony(app, db, make_user):
+    """Kolumna comment to Text bez własnego limitu — dawniej `_przytnij_komentarz`
+    cicho ucinała do 2000 znaków, więc klient tracił końcówkę bez żadnego sygnału.
+    Formularz ma maxlength=2000 (zgodne z MAX_DLUGOSC_KOMENTARZA), więc to
+    zabezpieczenie realnie chroni API (mobile), które ten formularz omija."""
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000104')
+
+    with pytest.raises(ValueError):
+        DeliveryReview(shipping_request_id=sr.id, user_id=user.id, rating=4,
+                        comment='a' * 2001)
+
+
+def test_komentarz_dokladnie_na_limicie_akceptowany(app, db, make_user):
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000105')
+
+    opinia = DeliveryReview(shipping_request_id=sr.id, user_id=user.id, rating=4,
+                             comment='a' * 2000)
+    db.session.add(opinia)
+    db.session.commit()
+
+    assert len(opinia.comment) == 2000
+
+
 def test_zlecenie_widzi_swoja_opinie(app, db, make_user):
     from modules.orders.review_models import DeliveryReview
 
