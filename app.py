@@ -538,6 +538,10 @@ def _przetworz_dostawy(dry_run=False):
     Obie fazy pomijają zlecenia źródłowe paczek zbiorczych (consolidated_into_id
     IS NULL) — paczka zbiorcza domyka się jako całość, a propagacja zjeżdża na źródła.
 
+    Obie fazy są też porcjowane tym samym `autocomplete_batch`: pierwszy przebieg po
+    wdrożeniu widzi całą historię naraz (backfill uzupełnia shipped_at w tym samym
+    przebiegu), a batch SMTP z odstępem 2 s między mailami nie ma prawa trwać godzinami.
+
     Returns:
         dict: {'backfill': dict, 'przypomnienia': int, 'domkniete': int}
     """
@@ -582,9 +586,28 @@ def _przetworz_dostawy(dry_run=False):
             .filter(ShippingRequest.user_id.isnot(None))
         )
 
+        if konfig['autocomplete_enabled']:
+            # Zlecenie starsze niż autocomplete_days łapie się już do fazy 2 i za
+            # chwilę zostanie domknięte — przypominanie o nim to szum, a przy
+            # zaległości pierwsi klienci dostawali oba maile w odstępie minut.
+            # Warunek jest zależny od przełącznika automatu: przy WYŁĄCZONYM
+            # domykaniu faza 2 nie ruszy, więc bezwarunkowe pomijanie zostawiłoby
+            # najstarsze paczki zupełnie bez przypomnienia.
+            kandydaci_q = kandydaci_q.filter(
+                ShippingRequest.shipped_at
+                > teraz - timedelta(days=konfig['autocomplete_days']))
+
+        # Ten sam limit porcji co w fazie 2. Bez niego pierwszy przebieg po
+        # wdrożeniu bierze CAŁĄ historię naraz (backfill uzupełnia shipped_at w tym
+        # samym przebiegu): send_email_batch_sync śpi 2 s między mailami, więc przy
+        # ~1800 zaległych zleceniach przebieg trwałby godzinę, znacznik
+        # delivery_reminder_sent_at zapisałby się dopiero po całym batchu (kolejny
+        # cron wysłałby wszystko drugi raz), jedno połączenie SMTP zerwałby po
+        # drodze Hostinger, a w tej samej pętli poleciałoby 1800 pushy.
         kandydaci = (
             kandydaci_q
             .order_by(ShippingRequest.shipped_at.asc())
+            .limit(konfig['autocomplete_batch'])
             .all()
         )
 

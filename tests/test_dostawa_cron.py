@@ -51,6 +51,90 @@ def test_nieudana_wysylka_nie_znaczy_zlecenia(app, db, make_user, monkeypatch):
     assert sr.delivery_reminder_sent_at is None
 
 
+def test_przypomnienia_ida_porcjami(app, db, make_user, monkeypatch):
+    """Recenzja całościowa (C2): faza 1 robiła `.all()` bez limitu, podczas gdy porcja
+    (`autocomplete_batch`) chroniła wyłącznie fazę 2. Backfill uzupełnia shipped_at
+    całej historii w TYM SAMYM przebiegu, więc pierwszy cron po wdrożeniu wysłałby
+    przypomnienie do każdej paczki wysłanej od kwietnia: send_email_batch_sync śpi 2 s
+    między mailami (2N sekund przebiegu), znacznik delivery_reminder_sent_at zapisuje
+    się dopiero po całym batchu (kolejny cron zaczyna od nieoznaczonych i wysyła
+    wszystko drugi raz), jedno połączenie SMTP trzymane kilkadziesiąt minut zerwie
+    Hostinger, a w tej samej pętli leci N wątków pusha."""
+    from modules.auth.models import Settings
+    from app import _przetworz_dostawy
+    from utils.email_manager import EmailManager
+
+    Settings.set_value('delivery_autocomplete_batch', 2, type='integer')
+    Settings.set_value('delivery_autocomplete_enabled', False, type='boolean')
+    db.session.commit()
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message',
+        staticmethod(lambda sr: [object()]))
+    monkeypatch.setattr(
+        'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
+
+    user = make_user()
+    # Pięciu kandydatów, porcja 2 — najstarsze idą pierwsze.
+    zlecenia = [_wyslane(db, user, f'WYS/00056{i}', dni_temu=10 - i) for i in range(5)]
+
+    wynik = _przetworz_dostawy()
+
+    assert wynik['przypomnienia'] == 2
+    assert [z.delivery_reminder_sent_at is not None for z in zlecenia] == [
+        True, True, False, False, False]
+
+
+def test_faza1_pomija_zlecenia_ktore_zaraz_domknie_automat(app, db, make_user, monkeypatch):
+    """Druga część C2: paczka starsza niż autocomplete_days kwalifikuje się już do
+    fazy 2. Przypominanie o niej to szum — bez tego warunku pierwsi klienci dostawali
+    „czy paczka dotarła?" i „zamykamy zlecenie" w odstępie minut."""
+    from app import _przetworz_dostawy
+    from utils.email_manager import EmailManager
+
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message',
+        staticmethod(lambda sr: [object()]))
+    monkeypatch.setattr(
+        'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
+
+    user = make_user()
+    swieze = _wyslane(db, user, 'WYS/000570', dni_temu=5)
+    stare = _wyslane(db, user, 'WYS/000571', dni_temu=40)
+
+    with app.test_request_context():
+        wynik = _przetworz_dostawy()
+
+    assert wynik['przypomnienia'] == 1
+    assert swieze.delivery_reminder_sent_at is not None
+    assert stare.delivery_reminder_sent_at is None
+    assert stare.status == 'dostarczone'
+
+
+def test_faza1_nie_pomija_starych_gdy_automat_wylaczony(app, db, make_user, monkeypatch):
+    """Odwrotna strona poprzedniego warunku: przy WYŁĄCZONYM automacie faza 2 nie
+    ruszy, więc bezwarunkowe pomijanie starych paczek zostawiłoby je zupełnie bez
+    przypomnienia — najstarsze zaległości zniknęłyby po cichu z obu faz."""
+    from modules.auth.models import Settings
+    from app import _przetworz_dostawy
+    from utils.email_manager import EmailManager
+
+    Settings.set_value('delivery_autocomplete_enabled', False, type='boolean')
+    db.session.commit()
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message',
+        staticmethod(lambda sr: [object()]))
+    monkeypatch.setattr(
+        'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
+
+    user = make_user()
+    stare = _wyslane(db, user, 'WYS/000575', dni_temu=40)
+
+    wynik = _przetworz_dostawy()
+
+    assert wynik['przypomnienia'] == 1
+    assert stare.delivery_reminder_sent_at is not None
+
+
 def test_wylaczony_przelacznik_wstrzymuje_faze(app, db, make_user, monkeypatch):
     from modules.auth.models import Settings
     from app import _przetworz_dostawy
@@ -159,13 +243,19 @@ def test_dry_run_nic_nie_zmienia(app, db, make_user, monkeypatch):
         staticmethod(lambda sr: [object()]))
 
     user = make_user()
-    sr = _wyslane(db, user, 'WYS/000540', dni_temu=40)
+    # Dwa zlecenia, bo od naprawy C2 fazy nie zachodzą już na siebie: paczka starsza
+    # niż autocomplete_days idzie WYŁĄCZNIE do domknięcia, świeższa wyłącznie do
+    # przypomnienia. Dry-run ma pokazać obie liczby i nie ruszyć żadnego rekordu.
+    swieze = _wyslane(db, user, 'WYS/000540', dni_temu=5)
+    stare = _wyslane(db, user, 'WYS/000541', dni_temu=40)
 
     wynik = _przetworz_dostawy(dry_run=True)
 
-    assert wynik['przypomnienia'] >= 1
-    assert sr.status == 'wyslane'
-    assert sr.delivery_reminder_sent_at is None
+    assert wynik['przypomnienia'] == 1
+    assert wynik['domkniete'] == 1
+    assert swieze.status == 'wyslane'
+    assert stare.status == 'wyslane'
+    assert swieze.delivery_reminder_sent_at is None
 
 
 def test_dry_run_widzi_zaleglosc_ktora_wymaga_backfillu(app, db, make_user, monkeypatch):
@@ -187,22 +277,27 @@ def test_dry_run_widzi_zaleglosc_ktora_wymaga_backfillu(app, db, make_user, monk
 
     user = make_user()
     # W przeciwieństwie do _wyslane() celowo BEZ shipped_at — to jest dokładnie
-    # kształt danych historycznych, których dotyczy backfill.
-    sr = ShippingRequest(request_number='WYS/000550', user_id=user.id, status='wyslane')
-    db.session.add(sr)
-    db.session.commit()
-    db.session.add(ActivityLog(
-        action='shipping_request_shipped', entity_type='shipping_request',
-        entity_id=sr.id, created_at=get_local_now() - timedelta(days=40)))
-    db.session.commit()
+    # kształt danych historycznych, których dotyczy backfill. Dwa rekordy o różnym
+    # wieku, bo od naprawy C2 przypomnienie i domknięcie dotyczą rozłącznych zakresów.
+    zlecenia = []
+    for numer, dni in (('WYS/000550', 40), ('WYS/000551', 5)):
+        sr = ShippingRequest(request_number=numer, user_id=user.id, status='wyslane')
+        db.session.add(sr)
+        db.session.commit()
+        db.session.add(ActivityLog(
+            action='shipping_request_shipped', entity_type='shipping_request',
+            entity_id=sr.id, created_at=get_local_now() - timedelta(days=dni)))
+        db.session.commit()
+        zlecenia.append(sr)
 
-    assert sr.shipped_at is None  # potwierdzenie stanu wyjściowego przed dry-run
+    # potwierdzenie stanu wyjściowego przed dry-run
+    assert all(sr.shipped_at is None for sr in zlecenia)
 
     wynik = _przetworz_dostawy(dry_run=True)
 
-    assert wynik['backfill']['z_logu'] == 1
+    assert wynik['backfill']['z_logu'] == 2
     assert wynik['przypomnienia'] >= 1
     assert wynik['domkniete'] >= 1
 
-    assert sr.shipped_at is None
-    assert sr.status == 'wyslane'
+    assert all(sr.shipped_at is None for sr in zlecenia)
+    assert all(sr.status == 'wyslane' for sr in zlecenia)
