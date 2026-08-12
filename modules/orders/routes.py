@@ -4878,6 +4878,49 @@ def admin_list_shipping_request_statuses():
 
 
 # ====================
+# ADMIN: OPINIE O DOSTAWIE (task 869efhwph)
+# ====================
+
+@orders_bp.route('/admin/shipping-requests/opinie')
+@login_required
+@role_required('admin', 'mod')
+def admin_delivery_reviews():
+    """Lista opinii klientów o dostawie (task 869efhwph).
+
+    JOIN po ShippingRequest wykorzystujemy też do eager-loadu (contains_eager) —
+    inaczej każdy wiersz tabeli w szablonie (numer zlecenia, sposób domknięcia)
+    doklejałby własne zapytanie i przy dłuższej liście opinii zrobiłby z tego N+1.
+    """
+    from sqlalchemy.orm import contains_eager, joinedload
+
+    from modules.orders.review_models import DeliveryReview
+
+    zapytanie = (
+        DeliveryReview.query
+        .join(ShippingRequest, DeliveryReview.shipping_request_id == ShippingRequest.id)
+        .options(contains_eager(DeliveryReview.shipping_request), joinedload(DeliveryReview.user))
+    )
+
+    ocena = request.args.get('rating', type=int)
+    if ocena in (1, 2, 3, 4, 5):
+        zapytanie = zapytanie.filter(DeliveryReview.rating == ocena)
+
+    tylko_z_komentarzem = request.args.get('with_comment') == '1'
+    if tylko_z_komentarzem:
+        zapytanie = zapytanie.filter(DeliveryReview.comment.isnot(None))
+
+    opinie = zapytanie.order_by(DeliveryReview.created_at.desc()).all()
+
+    return render_template(
+        'admin/orders/delivery_reviews.html',
+        title='Opinie o dostawie',
+        opinie=opinie,
+        wybrana_ocena=ocena,
+        tylko_z_komentarzem=tylko_z_komentarzem,
+    )
+
+
+# ====================
 # ADMIN SHIPPING REQUESTS LIST
 # ====================
 

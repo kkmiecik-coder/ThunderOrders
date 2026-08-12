@@ -1,0 +1,74 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Opinie o dostawie - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/delivery-reviews.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="delivery-reviews">
+    <h1 class="delivery-reviews__title">Opinie o dostawie</h1>
+
+    <form class="delivery-reviews__filters" method="get">
+        <label>
+            <span>Ocena</span>
+            <select name="rating">
+                <option value="">wszystkie</option>
+                {% for i in range(1, 6) %}
+                <option value="{{ i }}" {% if wybrana_ocena == i %}selected{% endif %}>{{ i }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="delivery-reviews__checkbox">
+            <input type="checkbox" name="with_comment" value="1"
+                   {% if tylko_z_komentarzem %}checked{% endif %}>
+            <span>Tylko z komentarzem</span>
+        </label>
+        <button type="submit" class="btn btn-primary">Filtruj</button>
+    </form>
+
+    {% if opinie %}
+    <div class="delivery-reviews__table-wrap">
+        <table class="delivery-reviews__table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Zlecenie</th>
+                    <th>Klient</th>
+                    <th>Ocena</th>
+                    <th>Komentarz</th>
+                    <th>Domknięcie</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for opinia in opinie %}
+                <tr>
+                    <td>{{ opinia.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ opinia.shipping_request.request_number }}</td>
+                    <td>
+                        {% if opinia.user %}
+                            {{ opinia.user.full_name }}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="delivery-reviews__rating">{{ opinia.rating }}/5</td>
+                    <td>{{ opinia.comment or '—' }}</td>
+                    <td>
+                        {% if opinia.shipping_request.delivered_source == 'klient' %}
+                            <span class="delivery-reviews__badge delivery-reviews__badge--klient">potwierdzone przez klienta</span>
+                        {% elif opinia.shipping_request.delivered_source == 'auto' %}
+                            <span class="delivery-reviews__badge delivery-reviews__badge--auto">automat</span>
+                        {% elif opinia.shipping_request.delivered_source == 'admin' %}
+                            <span class="delivery-reviews__badge delivery-reviews__badge--admin">admin</span>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="delivery-reviews__empty">Brak opinii spełniających wybrane kryteria.</p>
+    {% endif %}
+</div>
+{% endblock %}

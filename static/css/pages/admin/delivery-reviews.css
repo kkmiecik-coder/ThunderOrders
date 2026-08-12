@@ -1,0 +1,169 @@
+/* Lista opinii o dostawie w adminie (task 869efhwph) */
+
+.delivery-reviews {
+    padding: 24px;
+}
+
+.delivery-reviews__title {
+    margin: 0 0 16px;
+    color: #333333;
+}
+
+/* ===== Filtry ===== */
+
+.delivery-reviews__filters {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.delivery-reviews__filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+
+.delivery-reviews__filters select {
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #333333;
+    font-size: 0.9rem;
+    /* Min. 44px celu dotykowego na mobile — pole i tak jest w kolumnie na wąskim ekranie. */
+    min-height: 44px;
+}
+
+/* Checkbox razem z etykietą to jeden klikalny cel — 44px na całą etykietę, nie sam input. */
+.delivery-reviews__checkbox {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    cursor: pointer;
+}
+
+.delivery-reviews__checkbox input {
+    width: 20px;
+    height: 20px;
+}
+
+/* Szeroka tabela przewija się we własnym kontenerze, nie całą stroną. */
+.delivery-reviews__table-wrap {
+    overflow-x: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.delivery-reviews__table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #333333;
+}
+
+.delivery-reviews__table th,
+.delivery-reviews__table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+    white-space: nowrap;
+}
+
+.delivery-reviews__table td:nth-child(5) {
+    white-space: normal;
+    min-width: 240px;
+}
+
+.delivery-reviews__table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.delivery-reviews__rating {
+    font-weight: 600;
+}
+
+/* ===== Badge domknięcia — potwierdzenie klienta vs automat ===== */
+
+.delivery-reviews__badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.delivery-reviews__badge--klient {
+    background: rgba(76, 175, 80, 0.15);
+    color: #2e7d32;
+}
+
+.delivery-reviews__badge--auto {
+    background: rgba(158, 158, 158, 0.2);
+    color: #616161;
+}
+
+.delivery-reviews__badge--admin {
+    background: rgba(33, 150, 243, 0.15);
+    color: #1565c0;
+}
+
+.delivery-reviews__empty {
+    color: #6b7280;
+    padding: 20px 0;
+}
+
+/* ===== Dark mode ===== */
+
+[data-theme="dark"] .delivery-reviews__title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .delivery-reviews__filters label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .delivery-reviews__filters select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .delivery-reviews__table-wrap {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .delivery-reviews__table {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .delivery-reviews__table th,
+[data-theme="dark"] .delivery-reviews__table td {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .delivery-reviews__badge--klient {
+    background: rgba(76, 175, 80, 0.2);
+    color: #6fdb75;
+}
+
+[data-theme="dark"] .delivery-reviews__badge--auto {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .delivery-reviews__badge--admin {
+    background: rgba(240, 147, 251, 0.15);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .delivery-reviews__empty {
+    color: rgba(255, 255, 255, 0.6);
+}

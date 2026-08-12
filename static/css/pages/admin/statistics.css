@@ -322,6 +322,53 @@
 }
 
 /* ====================================
+   DOSTAWY I OPINIE (zakładka Wysyłka, task 869efhwph)
+   ==================================== */
+
+/* Kontekst przy "udziale potwierdzeń" — sam procent bez opisu nic nie mówi
+   (patrz buildDeliveryWidget w statistics.js). */
+.stats-delivery-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0 0 var(--space-3);
+}
+
+.stats-rating-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stats-rating-row {
+    display: grid;
+    grid-template-columns: 48px 1fr 32px;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.stats-rating-row-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.stats-rating-row-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stats-rating-row-count {
+    text-align: right;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* ====================================
    TAB EMPTY STATE
    ==================================== */
 
@@ -402,6 +449,22 @@
 }
 
 [data-theme="dark"] .stats-metric-value {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .stats-delivery-hint {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .stats-rating-row {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .stats-rating-row-bar {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .stats-rating-row-count {
     color: #f0f0f0;
 }
 

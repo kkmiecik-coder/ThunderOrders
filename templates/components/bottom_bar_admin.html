@@ -49,6 +49,10 @@
             <img src="{{ url_for('static', filename='img/icons/truck.svg') }}" alt="" class="pwa-sheet-icon">
             <span>WMS / Wysyłka</span>
         </a></li>
+        <li><a href="{{ url_for('orders.admin_delivery_reviews') }}" class="pwa-sheet-item {% if request.endpoint == 'orders.admin_delivery_reviews' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/feedback.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Opinie o dostawie</span>
+        </a></li>
         <li><a href="{{ url_for('admin.payment_confirmations_list') }}" class="pwa-sheet-item {% if request.endpoint == 'admin.payment_confirmations_list' %}active{% endif %}">
             <img src="{{ url_for('static', filename='img/icons/payment.svg') }}" alt="" class="pwa-sheet-icon">
             <span>Potwierdzenia płatności</span>

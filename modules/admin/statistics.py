@@ -11,6 +11,7 @@ from utils.decorators import role_required
 from extensions import db
 from modules.auth.models import User
 from modules.orders.models import Order, OrderItem, OrderShipment, ShippingRequest, ShippingRequestOrder, PaymentConfirmation
+from modules.orders.review_models import DeliveryReview
 from modules.products.models import Product, ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem
 from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, asc, case
@@ -608,6 +609,43 @@ def statistics_exclusive():
 
 
 # ========================================
+# Dostawy i opinie (task 869efhwph)
+# ========================================
+
+def statystyki_dostaw():
+    """Metryki potwierdzeń dostawy i opinii (task 869efhwph).
+
+    Udział potwierdzeń klienta wobec domknięć automatu jest tu miarą najważniejszą:
+    mówi, czy mechanizm angażowania klienta w ogóle działa, czy tylko automat po cichu
+    zamyka wszystko za niego.
+    """
+    rozklad = {i: 0 for i in range(1, 6)}
+    for ocena, ile in (
+        db.session.query(DeliveryReview.rating, func.count(DeliveryReview.id))
+        .group_by(DeliveryReview.rating).all()
+    ):
+        rozklad[int(ocena)] = int(ile)
+
+    liczba_opinii = sum(rozklad.values())
+    srednia = None
+    if liczba_opinii:
+        srednia = sum(ocena * ile for ocena, ile in rozklad.items()) / liczba_opinii
+
+    przez_klienta = ShippingRequest.query.filter_by(delivered_source='klient').count()
+    automatem = ShippingRequest.query.filter_by(delivered_source='auto').count()
+    razem = przez_klienta + automatem
+
+    return {
+        'srednia_ocena': srednia,
+        'liczba_opinii': liczba_opinii,
+        'rozklad': rozklad,
+        'potwierdzone_przez_klienta': przez_klienta,
+        'domkniete_automatem': automatem,
+        'udzial_potwierdzen': round(przez_klienta / razem * 100, 1) if razem else 0.0,
+    }
+
+
+# ========================================
 # API: Wysyłka
 # ========================================
 
@@ -615,7 +653,15 @@ def statistics_exclusive():
 @login_required
 @role_required('admin', 'mod')
 def statistics_shipping():
-    """Dane dla zakładki Wysyłka."""
+    """Dane dla zakładki Wysyłka.
+
+    Ta sama zakładka niesie też metryki potwierdzeń dostawy (`statystyki_dostaw()`,
+    task 869efhwph) — strona statystyk nie renderuje kafelków po stronie serwera
+    (wszystkie zakładki, w tym ta, ładują dane przez AJAX, patrz statistics.js),
+    więc `delivery_stats` nie trafia do render_template, tylko do tego samego JSON-a
+    co reszta zakładki Wysyłka. Miejsce jak najbardziej trafne: to zlecenia wysyłki
+    (ShippingRequest.delivered_source) są tu jednostką liczoną.
+    """
     # Jednostką TEJ zakładki jest ZLECENIE KLIENTA — raportuje, ile wysyłek zamówili
     # klienci i ile ich to kosztowało. Paczka zbiorcza jest bytem magazynowym: powstaje
     # obok zleceń źródłowych, które nadal są tym, co klient widzi w panelu. Dlatego z
@@ -712,6 +758,7 @@ def statistics_shipping():
             'pie_delivery': {'labels': pie_delivery_labels, 'values': pie_delivery_values},
             'pie_couriers': {'labels': pie_courier_labels, 'values': pie_courier_values},
         },
+        'delivery': statystyki_dostaw(),
         'tables': [{
             'title': 'Ostatnie zlecenia wysyłki',
             'headers': ['Nr zlecenia', 'Status', 'Koszt', 'Zamówień', 'Data'],

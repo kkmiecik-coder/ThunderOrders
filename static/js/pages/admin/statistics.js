@@ -390,6 +390,13 @@
 
         html += '</div>';
 
+        // Potwierdzenia dostawy i opinie (task 869efhwph) — osobny widget, bo
+        // udział potwierdzeń klienta to co innego niż KPI wyżej (te liczą zlecenia,
+        // nie sposób ich domknięcia).
+        if (data.delivery) {
+            html += buildDeliveryWidget(data.delivery);
+        }
+
         // Tabela
         if (data.tables && data.tables[0]) {
             html += buildTableWidget(data.tables[0]);
@@ -503,6 +510,59 @@
             '<div class="stats-metric-label">' + escapeHtml(label) + '</div>' +
             '<div class="stats-metric-value">' + escapeHtml(value || '-') + '</div>' +
             '</div>';
+    }
+
+    // Potwierdzenia dostawy i opinie (task 869efhwph). `d` to wynik
+    // statystyki_dostaw() z modules/admin/statistics.py, doklejony do JSON-a
+    // zakładki Wysyłka (patrz komentarz w statistics_shipping()).
+    function buildDeliveryWidget(d) {
+        var sredniaTekst = (d.srednia_ocena === null || d.srednia_ocena === undefined)
+            ? 'brak ocen'
+            : d.srednia_ocena.toFixed(2) + ' / 5';
+
+        var html = '<div class="stats-widget stats-delivery-widget">';
+        html += '<div class="stats-widget-header">';
+        html += '<h3 class="stats-widget-title">Potwierdzenia dostawy i opinie</h3>';
+        html += '<a class="btn btn-secondary" href="/admin/shipping-requests/opinie">Zobacz opinie</a>';
+        html += '</div>';
+
+        html += '<div class="stats-metrics-row">';
+        html += buildMetricCard('Srednia ocena dostaw (' + d.liczba_opinii + ' opinii)', sredniaTekst);
+        html += buildMetricCard('Udzial potwierdzen klienta', d.udzial_potwierdzen.toFixed(1) + '%');
+        html += '</div>';
+
+        // Goły procent nic nie mówi bez mianownika — dopisujemy go wprost, żeby
+        // było jasne, że to NIE jest "% opinii z 5 gwiazdkami", tylko udział
+        // zleceń, które klient sam potwierdził, wobec tych domkniętych automatem.
+        var razem = d.potwierdzone_przez_klienta + d.domkniete_automatem;
+        html += '<p class="stats-delivery-hint">';
+        if (razem > 0) {
+            html += escapeHtml(
+                d.potwierdzone_przez_klienta + ' z ' + razem + ' dostarczonych zleceń klient potwierdził ' +
+                'ręcznie, pozostałe ' + d.domkniete_automatem + ' zamknął automat po upływie terminu na ' +
+                'potwierdzenie. To miara realnego zaangażowania klientów, nie samo "% pozytywnych ocen".'
+            );
+        } else {
+            html += 'Brak jeszcze dostarczonych zleceń — nie ma z czego policzyć udziału.';
+        }
+        html += '</p>';
+
+        if (d.rozklad && d.liczba_opinii > 0) {
+            html += '<div class="stats-rating-breakdown">';
+            [5, 4, 3, 2, 1].forEach(function (gwiazdki) {
+                var ile = d.rozklad[gwiazdki] || 0;
+                var procent = Math.round(ile / d.liczba_opinii * 100);
+                html += '<div class="stats-rating-row">';
+                html += '<span class="stats-rating-row-label">' + gwiazdki + ' ★</span>';
+                html += '<div class="stats-rating-row-bar"><div class="stats-rating-row-fill" style="width:' + procent + '%"></div></div>';
+                html += '<span class="stats-rating-row-count">' + ile + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
     }
 
     function buildRangeDropdown(tabName) {

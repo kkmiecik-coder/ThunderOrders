@@ -47,6 +47,13 @@
                         </a>
                     </li>
                     <li class="sidebar-subitem">
+                        <a href="{{ url_for('orders.admin_delivery_reviews') }}"
+                           class="sidebar-sublink {% if request.endpoint == 'orders.admin_delivery_reviews' %}active{% endif %}"
+                           data-tooltip="Opinie o dostawie">
+                            <span class="sidebar-text">Opinie o dostawie</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
                         <a href="{{ url_for('admin.payment_confirmations_list') }}"
                            class="sidebar-sublink {% if request.endpoint == 'admin.payment_confirmations_list' %}active{% endif %}"
                            data-tooltip="Potwierdzenia płatności">
