@@ -1,0 +1,30 @@
+{% extends "client/base_client.html" %}
+
+{#
+    Szkielet strony potwierdzenia odbioru (task 869efhwph, Task 7).
+
+    Celowo minimalny — pełny widok (formularz oceny gwiazdkowej, komentarz, stany
+    UI dla "już potwierdzone" / "okno oceny zamknięte" / uczestnik paczki zbiorczej)
+    powstaje w Task 8. Ten plik istnieje wyłącznie po to, żeby GET na trasę
+    `client.confirm_delivery` nie kończył się TemplateNotFound, zanim Task 8
+    dostarczy właściwy szablon — kontekst (moze_potwierdzic, okno_oceny_otwarte,
+    review, okno_edycji_dni, konfig) już tu trafia z routingu.
+#}
+
+{% block title %}Potwierdzenie odbioru - ThunderOrders{% endblock %}
+
+{% block content %}
+<div class="confirm-delivery-page client-view">
+    <div class="page-header">
+        <h1>Potwierdzenie odbioru</h1>
+    </div>
+
+    <p>Zlecenie: {{ sr.request_number }}</p>
+
+    {% if moze_potwierdzic %}
+        <p>Możesz potwierdzić odbiór tej paczki.</p>
+    {% else %}
+        <p>Tej paczki nie można teraz potwierdzić z tego miejsca.</p>
+    {% endif %}
+</div>
+{% endblock %}

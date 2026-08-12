@@ -21,6 +21,7 @@ def check_profile_completed():
 from modules.client import models
 from modules.client import routes
 from modules.client import shipping
+from modules.client import delivery
 from modules.client import payment_confirmations
 from modules.client import collection
 from modules.client import payment_upload_sessions
