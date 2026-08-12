@@ -132,6 +132,60 @@ def test_powiadom_false_nic_nie_wysyla(app, db, make_user, make_order, monkeypat
     assert wyslane == []
 
 
+def test_zlecenie_historyczne_bez_delivered_at_nie_domyka_sie_wprost(
+        app, db, make_user, monkeypatch):
+    """Zlecenia sprzed tej funkcjonalności (aplikacja działa od kwietnia) mają
+    status='dostarczone', ale puste delivered_at — Task 1 backfillował wyłącznie
+    shipped_at, nikt nie backfillował delivered_at. Wywołanie bezpośrednie (bez
+    status_juz_ustawiony, czyli tak jak wołają panel klienta/cron/API mobilne)
+    musi taki rekord potraktować jako już dostarczony i nie ruszać go — inaczej
+    dostałby nadpisaną datą „teraz", delivered_source i mailem z podziękowaniem
+    za odbiór sprzed miesięcy."""
+    from utils.email_manager import EmailManager
+    from modules.orders.wms_utils import ZlecenieJuzDostarczone, dostarcz_zlecenie
+
+    wyslane = []
+    monkeypatch.setattr(
+        EmailManager, 'notify_delivery_confirmed',
+        staticmethod(lambda *a, **k: wyslane.append(1)),
+        raising=False)
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000040', status='dostarczone')
+    assert sr.delivered_at is None
+
+    with pytest.raises(ZlecenieJuzDostarczone):
+        dostarcz_zlecenie(sr, source='klient', powiadom=True)
+
+    assert sr.delivered_at is None
+    assert sr.delivered_source is None
+    assert wyslane == []
+
+
+def test_status_juz_ustawiony_domyka_zlecenie_ktore_admin_juz_przestawil(
+        app, db, make_user, make_order):
+    """Ścieżka admina (_sync_order_statuses_from_shipping_request) sama ustawia
+    sr.status='dostarczone' i commituje ZANIM wywoła dostarcz_zlecenie() — z
+    status_juz_ustawiony=True funkcja wie, że to nie jest rekord historyczny,
+    tylko domknięcie w toku, i mimo status=='dostarczone' na wejściu poprawnie
+    ustawia delivered_at/delivered_source oraz kaskaduje zamówienia."""
+    from modules.orders.wms_utils import dostarcz_zlecenie
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000041', status='dostarczone')
+    order = make_order(user, status='wyslane')
+    _podepnij(db, sr, order)
+    assert sr.delivered_at is None
+
+    wynik = dostarcz_zlecenie(
+        sr, source='admin', powiadom=False, status_juz_ustawiony=True)
+
+    assert sr.delivered_at is not None
+    assert sr.delivered_source == 'admin'
+    assert order.status == 'dostarczone'
+    assert [o.id for o in wynik['zmienione_zamowienia']] == [order.id]
+
+
 def test_put_endpoint_domyka_dostawe_mimo_wczesniejszego_ustawienia_statusu(
         client, db, make_user, make_order, make_product, login):
     """Regresja spoza briefu: `_zapisz_zlecenie_wysylki` (routes.py) ustawia

@@ -386,7 +386,7 @@ class ZlecenieZrodloweNieDomykane(Exception):
     """
 
 
-def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True):
+def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True, status_juz_ustawiony=False):
     """Oznacza zlecenie wysyłki jako dostarczone.
 
     Jedyne miejsce, w którym zachodzi to przejście — wołają je panel klienta,
@@ -400,6 +400,14 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True):
         user: kto wykonał akcję (do logu aktywności); None dla automatu
         powiadom (bool): False pomija wysyłkę i oddaje dane wołającemu, który wyśle
             zbiorczo jednym połączeniem SMTP (używa tego cron przy zaległościach)
+        status_juz_ustawiony (bool): True TYLKO dla synchronizacji statusów w adminie
+            (`_sync_order_statuses_from_shipping_request`) — ta jedna ścieżka ustawia
+            sr.status na 'dostarczone' i commituje ZANIM w ogóle wywoła tę funkcję,
+            więc bez tej flagi strażnik widziałby status już zmieniony i nie odróżniłby
+            „to pierwsze domknięcie, tylko wywołujący już zapisał status" od „to
+            zlecenie historyczne, dostarczone kiedyś dawno, bez śladu w delivered_at".
+            Domyślnie False — kolejne wywołujące (panel klienta, cron, API mobilne)
+            NIE ustawiają statusu przed wywołaniem i tej flagi nie podają.
 
     Returns:
         dict: id, request_number, delivered_at, source, zmienione_zamowienia
@@ -417,13 +425,25 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True):
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
 
-    # Strażnik patrzy na delivered_at, nie na sam status: dwa z trzech miejsc,
-    # które wołają tę funkcję (zapis pojedynczego zlecenia i zmiana zbiorcza w
-    # adminie, oba w routes.py) ustawiają sr.status na 'dostarczone' i commitują
-    # WCZEŚNIEJ, zanim w ogóle tu trafią — dla nich sam status jest 'dostarczone'
-    # już na wejściu, mimo że to pierwsze (i jedyne) domknięcie. delivered_at
-    # ustawiamy wyłącznie tutaj, więc to ono jest wiarygodnym sygnałem „już było".
-    if sr.status == 'dostarczone' and sr.delivered_at is not None:
+    # Dwa niezależne sygnały „już dostarczone", bo żaden sam nie wystarczy:
+    # - delivered_at ustawiamy WYŁĄCZNIE w tej funkcji, więc jego obecność zawsze
+    #   znaczy „to wywołanie już tu było" — łapie powtórne wywołanie z dowolnej
+    #   ścieżki.
+    # - Sam sr.status == 'dostarczone' NIE wystarczy jako jedyny warunek: zlecenia
+    #   sprzed tej funkcjonalności (aplikacja żyje od kwietnia) mają status
+    #   'dostarczone', ale puste delivered_at — nikt go nie backfillował (Task 1
+    #   backfillował tylko shipped_at). Bez rozróżnienia taki historyczny rekord
+    #   przechodziłby przez strażnik, dostawał nadpisaną datą "teraz" i mailem
+    #   z podziękowaniem za odbiór sprzed miesięcy.
+    #   Jedyny wyjątek: synchronizacja statusów w adminie, która SAMA zapisała
+    #   sr.status='dostarczone' i zacommitowała tuż przed wywołaniem — ona zna
+    #   różnicę między „przed chwilą" a „historycznie" i mówi to wprost przez
+    #   status_juz_ustawiony=True.
+    if sr.delivered_at is not None:
+        raise ZlecenieJuzDostarczone(
+            f'Zlecenie {sr.request_number} jest już oznaczone jako dostarczone')
+
+    if sr.status == 'dostarczone' and not status_juz_ustawiony:
         raise ZlecenieJuzDostarczone(
             f'Zlecenie {sr.request_number} jest już oznaczone jako dostarczone')
 

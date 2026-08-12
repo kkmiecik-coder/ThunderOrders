@@ -3831,6 +3831,13 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
     Przejście na 'dostarczone' deleguje do dostarcz_zlecenie() — wcześniej ta funkcja
     ustawiała status zamówień sama i NIE dopisywała przedmiotów do kolekcji klienta,
     więc ręczna zmiana statusu na zleceniu gubiła kolekcję.
+
+    status_juz_ustawiony=True, bo to WŁAŚNIE ta funkcja (a konkretnie jej wywołujący
+    w _zapisz_zlecenie_wysylki / admin_bulk_status_shipping_requests) ustawia
+    shipping_request.status na 'dostarczone' i commituje ZANIM w ogóle tu trafi —
+    dostarcz_zlecenie() nie ma bez tej flagi jak odróżnić „status ustawiony przed
+    chwilą przez wywołującego" od „zlecenie historyczne, dostarczone dawno temu bez
+    delivered_at" (patrz komentarz przy strażniku w wms_utils.py).
     """
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
@@ -3839,7 +3846,9 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
 
     if new_sr_status_slug == 'dostarczone':
         try:
-            dostarcz_zlecenie(shipping_request, source='admin', user=current_user)
+            dostarcz_zlecenie(
+                shipping_request, source='admin', user=current_user,
+                status_juz_ustawiony=True)
         except (ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane) as err:
             current_app.logger.info(f'Pominięto domknięcie dostawy: {err}')
         return
