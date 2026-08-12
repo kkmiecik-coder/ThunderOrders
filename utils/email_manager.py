@@ -1757,12 +1757,33 @@ class EmailManager:
     def _adresat_zlecenia(sr):
         """(email, imię) dla zlecenia wysyłki albo (None, None).
 
-        Konto mogło zostać usunięte — wtedy schodzimy na adres z pierwszego zamówienia,
-        tak samo jak robi to notify_shipment_sent.
+        Konto mogło zostać usunięte — dla ZWYKŁEGO (niezbiorczego) zlecenia wtedy
+        schodzimy na adres z pierwszego zamówienia, tak samo jak robi to
+        notify_shipment_sent.
+
+        Dla paczki zbiorczej (sr.is_consolidation) tego fallbacku CELOWO nie ma.
+        sr.orders idzie po surowym request_orders, a przy konsolidacji junction
+        rows wszystkich uczestników wiszą pod zleceniem zbiorczym — sr.orders[0]
+        mógłby więc być zamówieniem zupełnie obcej osoby, niezwiązanej z
+        właścicielem paczki. Wysłany do niej mail ujawniłby cudzy numer
+        zlecenia i listę zamówień (patrz _kontekst_dostawy — używa poprawnie
+        display_orders, ale dla samej paczki zbiorczej display_orders i tak
+        zwraca zamówienia wszystkich uczestników, bo to ona jest ich wspólnym
+        "właścicielem"), a w notify_delivery_confirmed dodatkowo cudzą ocenę i
+        komentarz. _shipment_sent_consolidated obok rozwiązuje ten sam problem
+        inaczej — wysyła osobny mail do KAŻDEGO uczestnika z jego własną listą
+        zamówień i pomija tych bez adresu zamiast zgadywać adresata. Tutaj przy
+        braku właściciela paczki zbiorczej nie ma jednoznacznego adresata w
+        ogóle, więc zwracamy (None, None) — wywołujący (build_* / notify_*)
+        traktuje to jak zwykły brak adresu i nic nie wysyła.
         """
         user = sr.user
         if user and user.email:
             return user.email, (user.first_name or 'Kliencie')
+
+        if sr.is_consolidation:
+            return None, None
+
         orders = list(sr.orders)
         if orders and orders[0].customer_email:
             return orders[0].customer_email, (orders[0].customer_name or 'Kliencie')
