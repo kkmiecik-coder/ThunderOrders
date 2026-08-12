@@ -612,12 +612,43 @@ def statistics_exclusive():
 # Dostawy i opinie (task 869efhwph)
 # ========================================
 
+def _bez_paczek_zbiorczych():
+    """Warunek SQL „to nie jest paczka zbiorcza" dla zapytań po ShippingRequest.
+
+    Jednostką zakładki Wysyłka jest ZLECENIE KLIENTA — raportuje, ile wysyłek
+    zamówili klienci. Paczka zbiorcza jest bytem magazynowym: powstaje OBOK zleceń
+    źródłowych, które nadal są tym, co klient widzi w panelu. Dlatego z licznika
+    wypada ONA, a nie źródła — inaczej scalenie dwóch zleceń zamieniałoby dwie
+    zamówione wysyłki na jedną i zaniżało KPI wstecz.
+    (Kafelki alertowe dashboardu liczą odwrotnie i słusznie: tam jednostką jest
+    paczka do obsłużenia przez admina — patrz `get_shipping_alert_counts`
+    w modules/admin/routes.py.)
+
+    Wydzielone z `statistics_shipping()`, bo ten sam filtr musi obowiązywać
+    metryki dostaw obok: `propaguj_na_zrodla` kopiuje `delivered_source` z paczki
+    na wszystkie jej źródła, więc bez tego jedna fizyczna przesyłka trzech osób
+    dawała cztery trafienia — trzy zlecenia i paczkę. Procent to przeżywał
+    (licznik i mianownik puchły proporcjonalnie), ale liczby bezwzględne
+    w podpowiedzi „X z Y dostarczonych zleceń" były zawyżone i nie zgadzały się
+    z `total_requests` na sąsiednim kafelku.
+    """
+    zbiorcze_ids = db.session.query(ShippingRequest.consolidated_into_id).filter(
+        ShippingRequest.consolidated_into_id.isnot(None)).scalar_subquery()
+    return ~ShippingRequest.id.in_(zbiorcze_ids)
+
+
 def statystyki_dostaw():
     """Metryki potwierdzeń dostawy i opinii (task 869efhwph).
 
     Udział potwierdzeń klienta wobec domknięć automatu jest tu miarą najważniejszą:
     mówi, czy mechanizm angażowania klienta w ogóle działa, czy tylko automat po cichu
     zamyka wszystko za niego.
+
+    Jednostką jest ZLECENIE KLIENTA — dokładnie ta sama co w `total_requests`
+    i `pending_requests` obok, i ta sama, którą podpowiedź pod kafelkiem nazywa
+    „dostarczonych zleceń" (patrz buildDeliveryWidget w statistics.js). Dlatego
+    z liczników wypada sama paczka zbiorcza, a jej zlecenia źródłowe zostają —
+    uzasadnienie w komentarzu przy `nie_paczka_zbiorcza` w statistics_shipping().
     """
     rozklad = {i: 0 for i in range(1, 6)}
     for ocena, ile in (
@@ -631,8 +662,11 @@ def statystyki_dostaw():
     if liczba_opinii:
         srednia = sum(ocena * ile for ocena, ile in rozklad.items()) / liczba_opinii
 
-    przez_klienta = ShippingRequest.query.filter_by(delivered_source='klient').count()
-    automatem = ShippingRequest.query.filter_by(delivered_source='auto').count()
+    nie_paczka_zbiorcza = _bez_paczek_zbiorczych()
+    przez_klienta = ShippingRequest.query.filter(
+        ShippingRequest.delivered_source == 'klient', nie_paczka_zbiorcza).count()
+    automatem = ShippingRequest.query.filter(
+        ShippingRequest.delivered_source == 'auto', nie_paczka_zbiorcza).count()
     razem = przez_klienta + automatem
 
     return {
@@ -662,16 +696,9 @@ def statistics_shipping():
     co reszta zakładki Wysyłka. Miejsce jak najbardziej trafne: to zlecenia wysyłki
     (ShippingRequest.delivered_source) są tu jednostką liczoną.
     """
-    # Jednostką TEJ zakładki jest ZLECENIE KLIENTA — raportuje, ile wysyłek zamówili
-    # klienci i ile ich to kosztowało. Paczka zbiorcza jest bytem magazynowym: powstaje
-    # obok zleceń źródłowych, które nadal są tym, co klient widzi w panelu. Dlatego z
-    # licznika wypada ONA, a nie źródła — inaczej scalenie dwóch zleceń zamieniałoby
-    # dwie zamówione wysyłki na jedną i zaniżało KPI wstecz.
-    # (Kafelki alertowe dashboardu liczą odwrotnie i słusznie: tam jednostką jest paczka
-    # do obsłużenia przez admina — patrz `get_shipping_alert_counts` w modules/admin/routes.py.)
-    zbiorcze_ids = db.session.query(ShippingRequest.consolidated_into_id).filter(
-        ShippingRequest.consolidated_into_id.isnot(None)).scalar_subquery()
-    nie_paczka_zbiorcza = ~ShippingRequest.id.in_(zbiorcze_ids)
+    # Jednostką TEJ zakładki jest ZLECENIE KLIENTA — uzasadnienie i definicja filtra
+    # w `_bez_paczek_zbiorczych()`, wspólnego z metrykami dostaw niżej.
+    nie_paczka_zbiorcza = _bez_paczek_zbiorczych()
 
     total_requests = ShippingRequest.query.filter(nie_paczka_zbiorcza).count()
     # "Oczekujących" = wszystko PRZED wysyłką, czyli oba statusy przedpłatne

@@ -46,6 +46,90 @@ def test_statystyki_licza_udzial_potwierdzen(app, db, make_user):
     assert dane['udzial_potwierdzen'] == 25.0
 
 
+def test_statystyki_nie_licza_paczki_zbiorczej_obok_jej_zrodel(app, db, make_user):
+    """Paczka zbiorcza to byt magazynowy — liczą się zlecenia klientów.
+
+    `propaguj_na_zrodla` kopiuje `delivered_source` z paczki na wszystkie jej
+    zlecenia źródłowe, więc jedna fizyczna przesyłka dwóch osób zapisywała się
+    w bazie TRZY razy: paczka + dwa źródła. Kafelek raportuje „X z Y dostarczonych
+    zleceń", a Y liczy `total_requests` z filtrem `nie_paczka_zbiorcza` — bez tego
+    samego filtra po stronie X liczby obok siebie były w różnych jednostkach
+    i obie zawyżone.
+
+    Oczekujemy 2, nie 1: dwóch klientów zamówiło dwie wysyłki i obie zostały
+    dostarczone. Zliczenie samej paczki (1) mówiłoby „1 z 2", czyli że jeden
+    z klientów odbioru nie ma — nieprawda, a przy tym rozjazd z `total_requests`.
+    """
+    from modules.admin.statistics import statystyki_dostaw
+    from modules.orders.models import ShippingRequest, get_local_now
+
+    lider = make_user(email='lider-stat@example.com')
+    drugi = make_user(email='drugi-stat@example.com')
+    teraz = get_local_now()
+
+    zbiorcze = ShippingRequest(
+        request_number='WYS/000620', user_id=lider.id, status='dostarczone',
+        delivered_at=teraz, delivered_source='klient')
+    db.session.add(zbiorcze)
+    db.session.commit()
+
+    # Stan po propaguj_na_zrodla(): źródła dziedziczą status, datę i źródło.
+    for numer, user in (('WYS/000621', lider), ('WYS/000622', drugi)):
+        db.session.add(ShippingRequest(
+            request_number=numer, user_id=user.id, status='dostarczone',
+            delivered_at=teraz, delivered_source='klient',
+            consolidated_into_id=zbiorcze.id))
+    db.session.commit()
+    assert zbiorcze.is_consolidation
+    assert ShippingRequest.query.filter_by(delivered_source='klient').count() == 3
+
+    dane = statystyki_dostaw()
+
+    assert dane['potwierdzone_przez_klienta'] == 2
+    assert dane['domkniete_automatem'] == 0
+    assert dane['udzial_potwierdzen'] == 100.0
+
+
+def test_statystyki_dostaw_licza_w_tych_samych_jednostkach_co_kafelek_obok(
+        app, db, client, login, make_user):
+    """Mianownik podpowiedzi („X z Y dostarczonych zleceń") ma się mieścić
+    w `total_requests` z tego samego JSON-a. Jedno wywołanie endpointu, bo to
+    właśnie zestawienie obu liczb obok siebie widzi admin."""
+    from modules.orders.models import ShippingRequest, get_local_now
+
+    # profile_completed=True — bez tego before_request odsyła na uzupełnienie
+    # profilu i endpoint nie oddaje JSON-a.
+    admin = make_user(role='admin', email='admin-stat@example.com',
+                      profile_completed=True)
+    klient = make_user(email='klient-stat@example.com')
+    teraz = get_local_now()
+
+    zbiorcze = ShippingRequest(
+        request_number='WYS/000630', user_id=klient.id, status='dostarczone',
+        delivered_at=teraz, delivered_source='auto')
+    db.session.add(zbiorcze)
+    db.session.commit()
+    for numer in ('WYS/000631', 'WYS/000632'):
+        db.session.add(ShippingRequest(
+            request_number=numer, user_id=klient.id, status='dostarczone',
+            delivered_at=teraz, delivered_source='auto',
+            consolidated_into_id=zbiorcze.id))
+    db.session.commit()
+
+    login(admin)
+    dane = client.get('/admin/statistics/api/shipping').get_json()
+
+    delivery = dane['delivery']
+    razem = delivery['potwierdzone_przez_klienta'] + delivery['domkniete_automatem']
+    lacznie_zlecen = next(
+        k['raw'] for k in dane['kpis'] if k['label'] == 'Łącznie zleceń wysyłki')
+
+    assert razem == 2
+    assert lacznie_zlecen == 2
+    assert razem <= lacznie_zlecen, (
+        'dostarczonych zleceń nie może być więcej niż wszystkich zleceń')
+
+
 def test_statystyki_bez_danych_nie_dziela_przez_zero(app, db):
     from modules.admin.statistics import statystyki_dostaw
 
