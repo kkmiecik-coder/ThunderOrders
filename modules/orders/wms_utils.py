@@ -485,7 +485,16 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True, status_juz_ustawi
             if source == 'auto':
                 EmailManager.notify_delivery_autoclosed(sr)
                 PushManager.notify_delivery_autoclosed(sr)
-            else:
+            elif source == 'klient':
+                # WYŁĄCZNIE 'klient' — nie `else`. Trzecim źródłem jest 'admin'
+                # (ręczne oznaczenie dostawy w panelu), a „dziękujemy za
+                # potwierdzenie" wysłane komuś, kto niczego nie kliknął, byłoby
+                # nieprawdą; mail do adminów „Klient potwierdził odbiór" psułby
+                # dodatkowo metrykę odsetka realnych potwierdzeń. Ścieżka admina
+                # ma własne powiadomienie o zmianie statusu
+                # (notify_shipping_status_change), więc klient nie zostaje bez
+                # informacji — dostaje jedną prawdziwą zamiast trzech, z czego
+                # dwie nieprawdziwe.
                 EmailManager.notify_delivery_confirmed(sr)
                 PushManager.notify_delivery_confirmed(sr)
                 EmailManager.notify_admin_delivery_confirmed(sr)

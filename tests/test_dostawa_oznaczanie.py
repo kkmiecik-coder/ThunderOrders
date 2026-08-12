@@ -132,6 +132,69 @@ def test_powiadom_false_nic_nie_wysyla(app, db, make_user, make_order, monkeypat
     assert wyslane == []
 
 
+def test_oznaczenie_przez_admina_nie_dziekuje_za_potwierdzenie(
+        app, db, make_user, monkeypatch):
+    """Recenzja całościowa (I1): blok powiadomień miał `if source == 'auto': … else: …`,
+    więc gałąź „klient potwierdził" łapała też `source == 'admin'`. Spec mówi wprost, że
+    powiadomienia tego zdarzenia idą WYŁĄCZNIE przy `delivered_source='klient'` —
+    „dziękujemy za potwierdzenie" wysłane komuś, kto nic nie kliknął, jest nieprawdą, a
+    mail do adminów „Klient potwierdził odbiór" psuje metrykę odsetka realnych
+    potwierdzeń. Ścieżkę admina pokrywa notify_shipping_status_change."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    from modules.orders.wms_utils import dostarcz_zlecenie
+
+    wyslane = []
+    for klasa, nazwa in (
+        (EmailManager, 'notify_delivery_confirmed'),
+        (EmailManager, 'notify_admin_delivery_confirmed'),
+        (EmailManager, 'notify_delivery_autoclosed'),
+        (PushManager, 'notify_delivery_confirmed'),
+        (PushManager, 'notify_admin_delivery_confirmed'),
+        (PushManager, 'notify_delivery_autoclosed'),
+    ):
+        monkeypatch.setattr(
+            klasa, nazwa,
+            staticmethod(lambda *a, _n=nazwa, **k: wyslane.append(_n)))
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000042')
+
+    dostarcz_zlecenie(sr, source='admin', powiadom=True)
+
+    assert sr.delivered_source == 'admin'
+    assert wyslane == []
+
+
+def test_potwierdzenie_klienta_nadal_powiadamia(app, db, make_user, monkeypatch):
+    """Druga strona I1: zawężenie do `source == 'klient'` nie może wyciszyć ścieżki,
+    dla której te powiadomienia w ogóle powstały."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    from modules.orders.wms_utils import dostarcz_zlecenie
+
+    wyslane = []
+    for klasa, nazwa in (
+        (EmailManager, 'notify_delivery_confirmed'),
+        (EmailManager, 'notify_admin_delivery_confirmed'),
+        (PushManager, 'notify_delivery_confirmed'),
+        (PushManager, 'notify_admin_delivery_confirmed'),
+    ):
+        monkeypatch.setattr(
+            klasa, nazwa,
+            staticmethod(lambda *a, _n=nazwa, **k: wyslane.append(_n)))
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000043')
+
+    dostarcz_zlecenie(sr, source='klient', powiadom=True)
+
+    assert sorted(wyslane) == [
+        'notify_admin_delivery_confirmed', 'notify_admin_delivery_confirmed',
+        'notify_delivery_confirmed', 'notify_delivery_confirmed',
+    ]
+
+
 def test_zlecenie_historyczne_bez_delivered_at_nie_domyka_sie_wprost(
         app, db, make_user, monkeypatch):
     """Zlecenia sprzed tej funkcjonalności (aplikacja działa od kwietnia) mają
