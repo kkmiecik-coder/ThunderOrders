@@ -2345,18 +2345,27 @@ def update_shipping_request_default_status():
 @login_required
 @role_required('admin')
 def admin_update_delivery_settings():
-    """Zapis ustawień potwierdzania dostawy (task 869efhwph)."""
+    """Zapis ustawień potwierdzania dostawy (task 869efhwph).
+
+    Settings.set_value() commituje wewnętrznie przy KAŻDYM wywołaniu (patrz
+    modules/auth/models.py) — nie jest częścią jednej transakcji z resztą pętli.
+    Dlatego zapis idzie dwuprzebiegowo: najpierw walidujemy komplet pól bez
+    ani jednego zapisu do bazy, dopiero gdy cały formularz jest poprawny —
+    zapisujemy. Inaczej błąd na którymś z kolejnych pól zostawiałby w bazie
+    część już zapisanej, niekompletnej konfiguracji, mimo odpowiedzi 400.
+    """
     from modules.auth.models import Settings
     from modules.orders.delivery_config import DOMYSLNE, KLUCZE, pobierz_konfig_dostawy
 
     dane = request.get_json() or {}
 
+    # Przebieg 1: walidacja całego formularza — zero zapisów do bazy.
+    do_zapisu = []
     for pole, klucz in KLUCZE.items():
         if pole not in dane:
             continue
         if isinstance(DOMYSLNE[pole], bool):
-            Settings.set_value(klucz, bool(dane[pole]), updated_by=current_user.id,
-                               type='boolean')
+            do_zapisu.append((klucz, bool(dane[pole]), 'boolean'))
         else:
             try:
                 liczba = int(dane[pole])
@@ -2370,7 +2379,11 @@ def admin_update_delivery_settings():
                     'success': False,
                     'message': f'Pole „{pole}" musi wynosić co najmniej 1'
                 }), 400
-            Settings.set_value(klucz, liczba, updated_by=current_user.id, type='integer')
+            do_zapisu.append((klucz, liczba, 'integer'))
+
+    # Przebieg 2: komplet danych poprawny — dopiero teraz zapisujemy.
+    for klucz, wartosc, typ in do_zapisu:
+        Settings.set_value(klucz, wartosc, updated_by=current_user.id, type=typ)
 
     db.session.commit()
     return jsonify({'success': True, 'config': pobierz_konfig_dostawy()})

@@ -54,7 +54,15 @@ def pobierz_konfig_dostawy():
     konfig = {}
     for pole, klucz in KLUCZE.items():
         domyslna = DOMYSLNE[pole]
-        surowa = Settings.get_value(klucz, None)
+        try:
+            # Settings.get_value() dla type='integer' woła int(setting.value) bez
+            # obsługi wyjątku — wpis zapisany ręcznie albo przez starszą wersję UI
+            # z nieliczbową wartością rzuca tu ValueError, zanim _jako_int w ogóle
+            # dostanie szansę zadziałać. Cron nie może się na tym wywrócić, więc
+            # dowolny błąd odczytu pojedynczego klucza schodzi na wartość domyślną.
+            surowa = Settings.get_value(klucz, None)
+        except (ValueError, TypeError):
+            surowa = None
         if isinstance(domyslna, bool):
             konfig[pole] = _jako_bool(surowa, domyslna)
         else:
