@@ -1297,3 +1297,96 @@ class PushManager:
             f"Sale end date changed push fired for {sent}/{len(user_ids)} users (page={page.id})"
         )
         return sent
+
+    # ========================================
+    # DOSTAWA (task 869efhwph)
+    # ========================================
+
+    @staticmethod
+    def _url_potwierdzenia(sr):
+        """URL strony potwierdzenia odbioru dla danego zlecenia.
+
+        Poza kontekstem żądania (np. wywołanie z cronu bez aktywnego request
+        contextu do budowy _external URL) url_for rzuca RuntimeError — wtedy
+        zwracamy '/' zamiast wywalać całe powiadomienie.
+        """
+        from flask import url_for
+        try:
+            return url_for('client.confirm_delivery', request_id=sr.id, _external=True)
+        except RuntimeError:
+            return '/'
+
+    @staticmethod
+    def notify_delivery_confirmation(sr):
+        """Przypomnienie: potwierdź odbiór paczki."""
+        if not sr.user:
+            return
+        PushManager._fire_and_forget(
+            user_id=sr.user.id,
+            title='Czy paczka do Ciebie dotarła?',
+            body=f'Potwierdź odbiór paczki {sr.request_number}',
+            url=PushManager._url_potwierdzenia(sr),
+            tag=f'delivery-confirm-{sr.id}',
+            notification_type='shipping_updates',
+        )
+
+    @staticmethod
+    def notify_delivery_confirmed(sr):
+        """Potwierdzenie przyjęte — zostaje też wpisem w dzwonku."""
+        if not sr.user:
+            return
+        PushManager._fire_and_forget(
+            user_id=sr.user.id,
+            title='Dziękujemy za potwierdzenie',
+            body=f'Paczka {sr.request_number} oznaczona jako dostarczona',
+            url=PushManager._url_potwierdzenia(sr),
+            tag=f'delivery-done-{sr.id}',
+            notification_type='shipping_updates',
+        )
+
+    @staticmethod
+    def notify_delivery_autoclosed(sr):
+        """Zlecenie domknięte automatycznie."""
+        if not sr.user:
+            return
+        PushManager._fire_and_forget(
+            user_id=sr.user.id,
+            title='Zamykamy Twoje zlecenie',
+            body=f'{sr.request_number} — dziękujemy za zakupy. Możesz ocenić dostawę',
+            url=PushManager._url_potwierdzenia(sr),
+            tag=f'delivery-auto-{sr.id}',
+            notification_type='shipping_updates',
+        )
+
+    @staticmethod
+    def notify_admin_delivery_confirmed(sr):
+        """Do adminów: klient potwierdził odbiór.
+
+        Tylko dla potwierdzeń klienta — domknięcia automatu idą porcjami i byłyby szumem.
+        """
+        from flask import url_for
+        from modules.auth.models import User
+
+        admins = User.query.filter_by(role='admin').all()
+        if not admins:
+            return
+
+        try:
+            url = url_for('orders.admin_shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
+
+        opinia = sr.review
+        body = f'{sr.request_number} odebrana przez klienta'
+        if opinia:
+            body += f' · ocena {opinia.rating}/5'
+
+        for admin in admins:
+            PushManager._fire_and_forget(
+                user_id=admin.id,
+                title='Klient potwierdził odbiór',
+                body=body,
+                url=url,
+                tag=f'admin-delivery-{sr.id}',
+                notification_type='admin_alerts',
+            )
