@@ -34,6 +34,45 @@ def test_niezalogowany_trafia_na_logowanie(app, db, client, make_user):
     assert '/login' in odp.headers['Location']
 
 
+def test_get_wlasciciela_pokazuje_strone_potwierdzenia(app, db, client, login, make_user):
+    """Ścieżka GET renderuje szablon z kontekstem (sr, moze_potwierdzic, ...) —
+    dopisane po recenzji: żaden inny test w tym pliku nie dociera do
+    render_template (cudze zlecenie kończy się na 404, niezalogowany na
+    przekierowaniu), więc ten kontekst był niepokryty. Asercja treści celowo
+    luźna (tylko numer zlecenia) — pełny szablon powstaje w Task 8 i nie ma
+    sensu betonować go tym testem."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000403')
+    login(user)
+
+    odp = client.get(f'/client/shipping/requests/{sr.id}/potwierdz')
+
+    assert odp.status_code == 200
+    assert 'WYS/000403' in odp.get_data(as_text=True)
+
+
+def test_get_dostarczonego_z_ocena_pokazuje_strone(app, db, client, login, make_user):
+    """Druga gałąź kontekstu: zlecenie już dostarczone, z wystawioną opinią
+    (review nie jest None). Tania dodatkowa asercja, że render_template nie
+    wywala się przy niepustym `review`."""
+    from modules.orders.models import get_local_now
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000404', status='dostarczone')
+    sr.delivered_at = get_local_now() - timedelta(days=1)
+    sr.delivered_source = 'klient'
+    db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=user.id,
+                                   rating=5, comment='Super'))
+    db.session.commit()
+    login(user)
+
+    odp = client.get(f'/client/shipping/requests/{sr.id}/potwierdz')
+
+    assert odp.status_code == 200
+    assert 'WYS/000404' in odp.get_data(as_text=True)
+
+
 def test_potwierdzenie_domyka_zlecenie(app, db, client, login, make_user):
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000402')
