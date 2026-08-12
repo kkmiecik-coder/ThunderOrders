@@ -576,30 +576,48 @@ def _przetworz_dostawy(dry_run=False):
 
     # === Faza 1: przypomnienia ===
     if konfig['reminder_enabled']:
-        kandydaci = (
+        kandydaci_q = (
             _wyslane_wczesniej_niz(konfig['reminder_days'])
             .filter(ShippingRequest.delivery_reminder_sent_at.is_(None))
             .filter(ShippingRequest.user_id.isnot(None))
+        )
+
+        kandydaci = (
+            kandydaci_q
             .order_by(ShippingRequest.shipped_at.asc())
             .all()
         )
 
-        wiadomosci, zlecenia = [], []
+        # Lista wiadomości per zlecenie, nie jedna na zlecenie: paczka zbiorcza
+        # rodzi po jednej wiadomości na uczestnika (patrz
+        # EmailManager.build_delivery_confirmation_message).
+        zadania = []
         for sr in kandydaci:
-            msg = EmailManager.build_delivery_confirmation_message(sr)
-            if msg is None:
-                continue
-            wiadomosci.append(msg)
-            zlecenia.append(sr)
+            msgs = EmailManager.build_delivery_confirmation_message(sr)
+            if msgs:
+                zadania.append((sr, msgs))
+
+        wiadomosci = [m for _, msgs in zadania for m in msgs]
 
         if dry_run:
-            wynik['przypomnienia'] = len(wiadomosci)
+            wynik['przypomnienia'] = len(zadania)
         elif wiadomosci:
             # Jedno połączenie SMTP na cały batch — Hostinger limituje AUTH per IP.
             rezultaty = send_email_batch_sync(wiadomosci)
-            for sr, ok in zip(zlecenia, rezultaty):
-                if not ok:
-                    # Bez znacznika: nieudane przypomnienie wróci w kolejnym przebiegu.
+            od = 0
+            for sr, msgs in zadania:
+                wyniki_zlecenia = rezultaty[od:od + len(msgs)]
+                od += len(msgs)
+                if not all(wyniki_zlecenia):
+                    # Bez znacznika: nieudane przypomnienie wróci w kolejnym
+                    # przebiegu. Przy paczce zbiorczej wraca CAŁE zlecenie, więc
+                    # uczestnicy, do których mail doszedł, dostaną duplikat —
+                    # świadomie wybieramy duplikat zamiast cichej, trwałej utraty
+                    # przypomnienia dla tego jednego, u którego wysyłka padła.
+                    current_app.logger.warning(
+                        f'Przypomnienie o dostawie {sr.request_number}: '
+                        f'{wyniki_zlecenia.count(False)} z {len(msgs)} maili nie '
+                        f'poszło, zlecenie zostaje nieoznaczone')
                     continue
                 sr.delivery_reminder_sent_at = teraz
                 wynik['przypomnienia'] += 1
@@ -633,10 +651,12 @@ def _przetworz_dostawy(dry_run=False):
                     current_app.logger.info(f'Pominięto {sr.request_number}: {err}')
                     continue
                 wynik['domkniete'] += 1
-                msg = EmailManager.build_delivery_autoclosed_message(sr)
-                if msg is not None:
-                    wiadomosci.append(msg)
-                    zlecenia_domkniete.append(sr)
+                # Lista, nie pojedyncza wiadomość — paczka zbiorcza ma po jednym
+                # mailu na uczestnika. `zlecenia_domkniete` trzyma numer zlecenia
+                # per wiadomość, żeby log nieudanych wysyłek dalej się zgadzał.
+                msgs = EmailManager.build_delivery_autoclosed_message(sr)
+                wiadomosci.extend(msgs)
+                zlecenia_domkniete.extend([sr] * len(msgs))
                 try:
                     PushManager.notify_delivery_autoclosed(sr)
                 except Exception as err:

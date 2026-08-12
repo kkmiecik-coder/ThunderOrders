@@ -1646,6 +1646,24 @@ class ShippingRequest(db.Model):
         ))
         return wynik
 
+    @property
+    def review_dostawy(self):
+        """Opinia o dostawie TEJ przesyłki — dla zbiorczej z zlecenia wiodącego.
+
+        Odbiór paczki zbiorczej potwierdza klient wiodący ze SWOJEGO zlecenia
+        źródłowego, więc `zapisz_ocene` zakłada DeliveryReview właśnie tam, a
+        `zbiorcze.review` zostaje puste. Wszędzie, gdzie mówimy o ocenie całej
+        przesyłki (powiadomienia dla adminów), pytamy tędy — inaczej dla paczki
+        zbiorczej ocena zawsze wyglądałaby na niewystawioną.
+        """
+        if self.review:
+            return self.review
+        if not self.lead_source_request_id or not self.is_consolidation:
+            return None
+        lead = next((z for z in self.consolidated_sources
+                     if z.id == self.lead_source_request_id), None)
+        return lead.review if lead else None
+
     # Etykiety etapów rozliczenia, na których paczka zbiorcza stoi i czeka na ludzi.
     # Dalsze statusy (opłacone, spakowane, wysłane…) nie blokują niczego po stronie
     # klientów, więc nie mają tu wpisu — brak klucza = brak zdania.

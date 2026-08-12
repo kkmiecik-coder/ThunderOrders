@@ -106,6 +106,65 @@ def app():
         _db.drop_all()
 
 
+@pytest.fixture(autouse=True)
+def _czysty_cache_przelacznikow_maili():
+    """Zeruje cache przełączników e-mail przed i po każdym teście.
+
+    EmailManager trzyma `email_notifications_config` w atrybucie KLASY z 60-sekundowym
+    TTL, a klasa żyje przez cały przebieg pytesta — baza nie. Test, który wyłączył
+    jakiś przełącznik (np. `notify_delivery_confirmation`), zostawiał tę wartość w
+    cache'u dla wszystkich kolejnych testów w tej samej minucie, mimo że ich baza jest
+    świeża i nic w niej nie jest wyłączone. Efekt: wynik testu zależy od tego, co
+    uruchomiono przed nim i jak szybko poszło — czyli dokładnie ten rodzaj
+    niedeterminizmu, którego szukaliśmy.
+    """
+    from utils.email_manager import EmailManager
+    EmailManager.clear_email_config_cache()
+    yield
+    EmailManager.clear_email_config_cache()
+
+
+class _WatekNatychmiastowy:
+    """Zamiennik threading.Thread na potrzeby testów renderujących maile naprawdę.
+
+    send_email()/send_email_batch() renderują szablon Jinja SYNCHRONICZNIE, ale samą
+    wysyłkę odpalają w wątku tła — bez tej podmiany asercja na treść wysłanej
+    wiadomości ścigałaby się z tamtym wątkiem (albo trafiałaby na listener
+    mail.record_messages() już odłączony po wyjściu z bloku `with`). Podmieniamy
+    WYŁĄCZNIE start wątku na wywołanie synchroniczne w tym samym wątku — renderowanie
+    Jinja i mail.send() (przechwycony przez mail.record_messages()) zachodzą
+    naprawdę, nic tu nie jest zaślepką.
+    """
+
+    def __init__(self, target=None, args=(), kwargs=None, name=None, **_ignorowane):
+        self._target = target
+        self._args = args
+        self._kwargs = kwargs or {}
+
+    def start(self):
+        self._target(*self._args, **self._kwargs)
+
+    def join(self, timeout=None):
+        pass
+
+
+@pytest.fixture
+def maile_synchronicznie(app, monkeypatch):
+    """Maile renderują się i „wysyłają" w wątku testu, do mail.record_messages().
+
+    Poza podmianą wątku (patrz _WatekNatychmiastowy) ustawia MAIL_DEFAULT_SENDER:
+    .env w worktree ma go jako pusty, ale USTAWIONY string, a os.getenv(..., domyślna)
+    w config.py oddaje wtedy '' — Message z pustym nadawcą Flask-Mail odrzuca asercją
+    przy send(), nawet tłumionym przez mail.suppress. To kwestia konfiguracji
+    środowiska, nie kodu produkcyjnego.
+    """
+    monkeypatch.setattr('utils.email_sender.Thread', _WatekNatychmiastowy)
+    monkeypatch.setitem(app.config, 'MAIL_DEFAULT_SENDER', 'noreply@thunderorders.cloud')
+    # Batch (send_async_email_batch) śpi 2 s między wiadomościami, żeby trzymać się
+    # limitów dostawcy — w teście synchronicznym to czysty przestój.
+    monkeypatch.setattr('utils.email_sender.time.sleep', lambda _s: None)
+
+
 @pytest.fixture
 def db(app):
     return _db

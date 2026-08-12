@@ -18,7 +18,7 @@ def test_przypomnienie_idzie_raz(app, db, make_user, monkeypatch):
 
     monkeypatch.setattr(
         EmailManager, 'build_delivery_confirmation_message',
-        staticmethod(lambda sr: object()))
+        staticmethod(lambda sr: [object()]))
     monkeypatch.setattr(
         'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
 
@@ -39,7 +39,7 @@ def test_nieudana_wysylka_nie_znaczy_zlecenia(app, db, make_user, monkeypatch):
 
     monkeypatch.setattr(
         EmailManager, 'build_delivery_confirmation_message',
-        staticmethod(lambda sr: object()))
+        staticmethod(lambda sr: [object()]))
     monkeypatch.setattr(
         'utils.email_sender.send_email_batch_sync', lambda msgs: [False] * len(msgs))
 
@@ -156,7 +156,7 @@ def test_dry_run_nic_nie_zmienia(app, db, make_user, monkeypatch):
 
     monkeypatch.setattr(
         EmailManager, 'build_delivery_confirmation_message',
-        staticmethod(lambda sr: object()))
+        staticmethod(lambda sr: [object()]))
 
     user = make_user()
     sr = _wyslane(db, user, 'WYS/000540', dni_temu=40)
@@ -183,7 +183,7 @@ def test_dry_run_widzi_zaleglosc_ktora_wymaga_backfillu(app, db, make_user, monk
 
     monkeypatch.setattr(
         EmailManager, 'build_delivery_confirmation_message',
-        staticmethod(lambda sr: object()))
+        staticmethod(lambda sr: [object()]))
 
     user = make_user()
     # W przeciwieństwie do _wyslane() celowo BEZ shipped_at — to jest dokładnie

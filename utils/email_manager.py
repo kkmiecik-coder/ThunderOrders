@@ -41,7 +41,8 @@ REJESTR EMAILI:
         - notify_admin_new_order(order) -> nowe zamówienie offer
         - notify_admin_delivery_confirmed(sr) -> klient potwierdził odbiór paczki
 
-    DOSTAWA:
+    DOSTAWA (build_* zwracają LISTĘ Message — paczka zbiorcza to jedna wiadomość
+    na uczestnika, zwykłe zlecenie jedna pozycja):
         - build_delivery_confirmation_message(sr) -> przypomnienie „czy paczka dotarła?" (batch)
         - build_delivery_autoclosed_message(sr) -> info o automatycznym domknięciu (batch)
         - notify_delivery_confirmed(sr) -> podziękowanie po potwierdzeniu odbioru
@@ -1790,80 +1791,156 @@ class EmailManager:
         return None, None
 
     @staticmethod
-    def _kontekst_dostawy(sr):
-        """Wspólne zmienne wszystkich maili o dostawie."""
+    def _kontekst_dostawy(sr, orders=None):
+        """Wspólne zmienne maili o dostawie — dla JEDNEGO adresata.
+
+        `sr` to zlecenie, które adresat widzi u siebie w panelu: dla uczestnika
+        paczki zbiorczej jego własne zlecenie ŹRÓDŁOWE, nie sama paczka. Stąd bierze
+        się numer w treści maila i cel linku, więc nikt nie dostaje identyfikatora
+        paczki, w której jadą cudze zamówienia (strona potwierdzenia i tak odrzuca
+        wejście po id paczki zbiorczej — patrz zlecenie_do_potwierdzenia).
+
+        `orders` pozwala podać listę zamówień wprost; domyślnie `sr.display_orders`.
+        Dla zlecenia źródłowego display_orders już filtruje po source_request_id, ale
+        wołający konsolidacyjny ma tę listę policzoną raz w consolidation_participants
+        i nie ma sensu jej odtwarzać.
+        """
         from flask import url_for
+        if orders is None:
+            orders = sr.display_orders
         return {
             'request_number': sr.request_number,
-            'order_numbers': [o.order_number for o in sr.display_orders],
+            'order_numbers': [o.order_number for o in orders],
             'confirm_url': url_for('client.confirm_delivery',
                                    request_id=sr.id, _external=True),
         }
+
+    @staticmethod
+    def _odbiorcy_dostawy(sr):
+        """Adresaci maila o dostawie: [{'email', 'imie', 'zlecenie', 'kontekst'}].
+
+        Dla zwykłego zlecenia jedna pozycja. Dla paczki zbiorczej — po jednej na
+        uczestnika, każdy z WŁASNĄ listą zamówień i własnym numerem zlecenia.
+
+        Dlaczego to nie może być jeden mail do sr.user: `_kopiuj_adres` przy
+        konsolidacji ustawia `zbiorcze.user_id = lead.user_id`, a wiersze junction
+        wszystkich uczestników zjeżdżają pod zlecenie zbiorcze. Jeden mail do lidera
+        wymieniałby więc numery zamówień obcych osób, a pozostali uczestnicy nie
+        dostawaliby o dostawie ŻADNEJ wiadomości. Ten sam problem i to samo
+        rozwiązanie co w `_shipment_sent_consolidated` — bez fallbacku na adres z
+        zamówienia dla osób z usuniętym kontem, bo przy paczce zbiorczej taki adres
+        może należeć do kogoś zupełnie innego niż właściciel danych w mailu.
+        """
+        if not sr.is_consolidation:
+            email, imie = EmailManager._adresat_zlecenia(sr)
+            if not email:
+                return []
+            return [{
+                'email': email,
+                'imie': imie,
+                'zlecenie': sr,
+                'kontekst': EmailManager._kontekst_dostawy(sr),
+            }]
+
+        odbiorcy = []
+        for uczestnik in sr.consolidation_participants:
+            user = uczestnik['user']
+            if not user or not user.email:
+                current_app.logger.warning(
+                    f'Uczestnik paczki {sr.request_number} bez adresu e-mail — pomijam')
+                continue
+            zrodlo = uczestnik['source_request']
+            odbiorcy.append({
+                'email': user.email,
+                'imie': user.first_name or 'Kliencie',
+                'zlecenie': zrodlo,
+                'kontekst': EmailManager._kontekst_dostawy(zrodlo, uczestnik['orders']),
+            })
+        return odbiorcy
 
     @staticmethod
     def build_delivery_confirmation_message(sr):
         """Przypomnienie „czy paczka dotarła?" BEZ wysyłania — do batcha cronowego.
 
         Returns:
-            Message albo None (powiadomienia wyłączone / brak adresata).
+            list[Message]: jednoelementowa dla zwykłego zlecenia, po jednej pozycji
+            na uczestnika dla paczki zbiorczej, pusta gdy powiadomienia wyłączone
+            albo nie ma do kogo pisać. Lista, a nie pojedynczy Message, bo paczka
+            zbiorcza z definicji rodzi kilka wiadomości, a cron i tak zbiera je
+            wszystkie do jednego batcha SMTP.
         """
         if not EmailManager.is_email_enabled('notify_delivery_confirmation'):
             current_app.logger.info(
                 "Email notification 'notify_delivery_confirmation' is disabled, skipping")
-            return None
+            return []
 
         from utils.email_sender import prepare_email
 
-        email, imie = EmailManager._adresat_zlecenia(sr)
-        if not email:
+        odbiorcy = EmailManager._odbiorcy_dostawy(sr)
+        if not odbiorcy:
             current_app.logger.warning(
-                f'Brak adresu dla przypomnienia o dostawie {sr.request_number}')
-            return None
+                f'Brak adresata przypomnienia o dostawie {sr.request_number}')
+            return []
 
-        return prepare_email(
-            to=email,
-            subject=f'Czy paczka {sr.request_number} do Ciebie dotarła?',
-            template='delivery_confirmation',
-            user_name=imie,
-            **EmailManager._kontekst_dostawy(sr),
-        )
+        wiadomosci = []
+        for odb in odbiorcy:
+            wiadomosci.append(prepare_email(
+                to=odb['email'],
+                subject=f"Czy paczka {odb['kontekst']['request_number']} do Ciebie dotarła?",
+                template='delivery_confirmation',
+                user_name=odb['imie'],
+                **odb['kontekst'],
+            ))
+        # prepare_email oddaje None, gdy render szablonu padnie — jedna zepsuta
+        # wiadomość nie może wywrócić batcha pozostałych uczestników.
+        return [m for m in wiadomosci if m is not None]
 
     @staticmethod
     def build_delivery_autoclosed_message(sr):
-        """Informacja o automatycznym domknięciu zlecenia — do batcha cronowego."""
+        """Informacja o automatycznym domknięciu — do batcha cronowego.
+
+        Returns:
+            list[Message] — patrz build_delivery_confirmation_message.
+        """
         if not EmailManager.is_email_enabled('notify_delivery_autoclosed'):
             current_app.logger.info(
                 "Email notification 'notify_delivery_autoclosed' is disabled, skipping")
-            return None
+            return []
 
         from utils.email_sender import prepare_email
         from modules.orders.delivery_config import pobierz_konfig_dostawy
 
-        email, imie = EmailManager._adresat_zlecenia(sr)
-        if not email:
+        odbiorcy = EmailManager._odbiorcy_dostawy(sr)
+        if not odbiorcy:
             current_app.logger.warning(
-                f'Brak adresu dla informacji o domknięciu {sr.request_number}')
-            return None
+                f'Brak adresata informacji o domknięciu {sr.request_number}')
+            return []
 
         konfig = pobierz_konfig_dostawy()
-        return prepare_email(
-            to=email,
-            subject=f'Zamykamy zlecenie {sr.request_number} — dziękujemy za zakupy',
-            template='delivery_autoclosed',
-            user_name=imie,
-            dni_do_domkniecia=konfig['autocomplete_days'],
-            okno_oceny_dni=konfig['review_window_days'],
-            **EmailManager._kontekst_dostawy(sr),
-        )
+        wiadomosci = []
+        for odb in odbiorcy:
+            numer = odb['kontekst']['request_number']
+            wiadomosci.append(prepare_email(
+                to=odb['email'],
+                subject=f'Zamykamy zlecenie {numer} — dziękujemy za zakupy',
+                template='delivery_autoclosed',
+                user_name=odb['imie'],
+                dni_do_domkniecia=konfig['autocomplete_days'],
+                okno_oceny_dni=konfig['review_window_days'],
+                **odb['kontekst'],
+            ))
+        return [m for m in wiadomosci if m is not None]
 
     @staticmethod
     def notify_delivery_autoclosed(sr):
         """Pojedyncza wysyłka informacji o domknięciu (poza batchem)."""
         from utils.email_sender import send_email_batch_sync
 
-        msg = EmailManager.build_delivery_autoclosed_message(sr)
-        if msg is not None:
-            send_email_batch_sync([msg])
+        wiadomosci = EmailManager.build_delivery_autoclosed_message(sr)
+        if wiadomosci:
+            # Jedno połączenie SMTP na całą paczkę zbiorczą — Hostinger limituje
+            # AUTH per IP, a uczestników bywa kilku.
+            send_email_batch_sync(wiadomosci)
 
     @staticmethod
     def notify_delivery_confirmed(sr):
@@ -1872,10 +1949,18 @@ class EmailManager:
         Mail nie jest tu grzecznościowy: to jedyne miejsce, w którym klient dostaje
         trwały link do zmiany wystawionej oceny — okno edycji ma tylko 3 dni, a na
         stronę potwierdzenia sam z siebie nie wróci.
+
+        Paczka zbiorcza idzie osobną gałęzią (patrz _delivery_confirmed_consolidated):
+        wspólny mail do lidera ujawniłby mu cudze numery zamówień, a reszta uczestników
+        nie dowiedziałaby się o dostawie w ogóle.
         """
         if not EmailManager.is_email_enabled('notify_delivery_confirmed'):
             current_app.logger.info(
                 "Email notification 'notify_delivery_confirmed' is disabled, skipping")
+            return
+
+        if sr.is_consolidation:
+            EmailManager._delivery_confirmed_consolidated(sr)
             return
 
         from utils.email_sender import send_email
@@ -1902,6 +1987,51 @@ class EmailManager:
                 f'Mail o potwierdzeniu {sr.request_number}: {e}')
 
     @staticmethod
+    def _delivery_confirmed_consolidated(sr):
+        """Paczka zbiorcza: jeden mail na uczestnika, każdy ze swoją oceną i linkiem.
+
+        Ocenę czytamy ze zlecenia ŹRÓDŁOWEGO adresata, nie ze zbiorczego: klient
+        wiodący potwierdza odbiór ze swojego zlecenia i tam `zapisz_ocene` zakłada
+        DeliveryReview, więc `zbiorcze.review` jest z definicji puste. Bez tego mail
+        z podziękowaniem szedłby bez wystawionej przed chwilą oceny i z przyciskiem
+        „Oceń dostawę" pokazanym komuś, kto właśnie ocenił.
+
+        send_email_batch (jak w _shipment_sent_consolidated), nie pętla send_email —
+        pętla otwierałaby tyle sesji SMTP, ilu jest uczestników.
+        """
+        from utils.email_sender import prepare_email, send_email_batch
+        from modules.orders.review_models import DeliveryReview
+
+        odbiorcy = EmailManager._odbiorcy_dostawy(sr)
+        if not odbiorcy:
+            current_app.logger.info(
+                f'Paczka {sr.request_number}: brak uczestników z adresem e-mail, '
+                f'nie wysyłam potwierdzenia odbioru')
+            return
+
+        wiadomosci = []
+        for odb in odbiorcy:
+            opinia = odb['zlecenie'].review
+            numer = odb['kontekst']['request_number']
+            wiadomosci.append(prepare_email(
+                to=odb['email'],
+                subject=f'Dziękujemy za potwierdzenie odbioru — {numer}',
+                template='delivery_confirmed',
+                user_name=odb['imie'],
+                rating=opinia.rating if opinia else None,
+                comment=opinia.comment if opinia else None,
+                okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
+                **odb['kontekst'],
+            ))
+
+        wiadomosci = [m for m in wiadomosci if m is not None]
+        if wiadomosci:
+            send_email_batch(wiadomosci)
+            current_app.logger.info(
+                f'Wysłano {len(wiadomosci)} maili o potwierdzeniu odbioru '
+                f'paczki zbiorczej {sr.request_number}')
+
+    @staticmethod
     def notify_admin_delivery_confirmed(sr):
         """Informacja do adminów, że klient potwierdził odbiór.
 
@@ -1919,7 +2049,10 @@ class EmailManager:
         if not odbiorcy:
             return
 
-        opinia = sr.review
+        # review_dostawy, nie review: dla paczki zbiorczej opinia wisi na zleceniu
+        # źródłowym klienta wiodącego, więc samo `sr.review` byłoby zawsze puste i
+        # admin dostawałby mail bez oceny, którą klient przed chwilą wystawił.
+        opinia = sr.review_dostawy
         user = sr.user
         klient = f'{user.first_name} {user.last_name}'.strip() if user else 'nieznany'
 

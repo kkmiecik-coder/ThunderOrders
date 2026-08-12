@@ -1336,46 +1336,60 @@ class PushManager:
             return '/'
 
     @staticmethod
+    def _odbiorcy_dostawy(sr):
+        """[(user, zlecenie_adresata)] — dla paczki zbiorczej po jednym na uczestnika.
+
+        Zlecenie adresata to dla uczestnika paczki zbiorczej jego własne zlecenie
+        ŹRÓDŁOWE: stąd numer w treści pusha i cel linku. Bez tego push szedł wyłącznie
+        do `sr.user` (czyli lidera, bo `_kopiuj_adres` kopiuje jego user_id na paczkę)
+        z numerem i identyfikatorem paczki zbiorczej — reszta uczestników nie
+        dostawała nic, a lider dostawał link na stronę cudzych zamówień (dziś już
+        odrzucaną przez zlecenie_do_potwierdzenia).
+        """
+        if not sr.is_consolidation:
+            return [(sr.user, sr)] if sr.user else []
+        return [(u['user'], u['source_request'])
+                for u in sr.consolidation_participants if u['user']]
+
+    @staticmethod
     def notify_delivery_confirmation(sr):
         """Przypomnienie: potwierdź odbiór paczki."""
-        if not sr.user:
-            return
-        PushManager._fire_and_forget(
-            user_id=sr.user.id,
-            title='Czy paczka do Ciebie dotarła?',
-            body=f'Potwierdź odbiór paczki {sr.request_number}',
-            url=PushManager._url_potwierdzenia(sr),
-            tag=f'delivery-confirm-{sr.id}',
-            notification_type='shipping_updates',
-        )
+        for user, zlecenie in PushManager._odbiorcy_dostawy(sr):
+            PushManager._fire_and_forget(
+                user_id=user.id,
+                title='Czy paczka do Ciebie dotarła?',
+                body=f'Potwierdź odbiór paczki {zlecenie.request_number}',
+                url=PushManager._url_potwierdzenia(zlecenie),
+                tag=f'delivery-confirm-{zlecenie.id}',
+                notification_type='shipping_updates',
+            )
 
     @staticmethod
     def notify_delivery_confirmed(sr):
         """Potwierdzenie przyjęte — zostaje też wpisem w dzwonku."""
-        if not sr.user:
-            return
-        PushManager._fire_and_forget(
-            user_id=sr.user.id,
-            title='Dziękujemy za potwierdzenie',
-            body=f'Paczka {sr.request_number} oznaczona jako dostarczona',
-            url=PushManager._url_potwierdzenia(sr),
-            tag=f'delivery-done-{sr.id}',
-            notification_type='shipping_updates',
-        )
+        for user, zlecenie in PushManager._odbiorcy_dostawy(sr):
+            PushManager._fire_and_forget(
+                user_id=user.id,
+                title='Dziękujemy za potwierdzenie',
+                body=f'Paczka {zlecenie.request_number} oznaczona jako dostarczona',
+                url=PushManager._url_potwierdzenia(zlecenie),
+                tag=f'delivery-done-{zlecenie.id}',
+                notification_type='shipping_updates',
+            )
 
     @staticmethod
     def notify_delivery_autoclosed(sr):
         """Zlecenie domknięte automatycznie."""
-        if not sr.user:
-            return
-        PushManager._fire_and_forget(
-            user_id=sr.user.id,
-            title='Zamykamy Twoje zlecenie',
-            body=f'{sr.request_number} — dziękujemy za zakupy. Możesz ocenić dostawę',
-            url=PushManager._url_potwierdzenia(sr),
-            tag=f'delivery-auto-{sr.id}',
-            notification_type='shipping_updates',
-        )
+        for user, zlecenie in PushManager._odbiorcy_dostawy(sr):
+            PushManager._fire_and_forget(
+                user_id=user.id,
+                title='Zamykamy Twoje zlecenie',
+                body=f'{zlecenie.request_number} — dziękujemy za zakupy. '
+                     f'Możesz ocenić dostawę',
+                url=PushManager._url_potwierdzenia(zlecenie),
+                tag=f'delivery-auto-{zlecenie.id}',
+                notification_type='shipping_updates',
+            )
 
     @staticmethod
     def notify_admin_delivery_confirmed(sr):
@@ -1395,7 +1409,9 @@ class PushManager:
         except RuntimeError:
             url = '/'
 
-        opinia = sr.review
+        # review_dostawy, nie review — dla paczki zbiorczej ocena wisi na zleceniu
+        # źródłowym klienta wiodącego (patrz ShippingRequest.review_dostawy).
+        opinia = sr.review_dostawy
         body = f'{sr.request_number} odebrana przez klienta'
         if opinia:
             body += f' · ocena {opinia.rating}/5'

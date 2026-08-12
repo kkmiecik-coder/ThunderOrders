@@ -37,11 +37,13 @@ def test_przypomnienie_buduje_wiadomosc(app, db, make_user, make_order):
     db.session.commit()
 
     with app.test_request_context():
-        msg = EmailManager.build_delivery_confirmation_message(sr)
+        msgs = EmailManager.build_delivery_confirmation_message(sr)
 
-    assert msg is not None
-    assert msg.recipients == ['klient@example.com']
-    assert sr.request_number in msg.html
+    # build_* zwraca LISTĘ Message (jednoelementową dla zwykłego zlecenia) — paczka
+    # zbiorcza z definicji rodzi po jednej wiadomości na uczestnika.
+    assert len(msgs) == 1
+    assert msgs[0].recipients == ['klient@example.com']
+    assert sr.request_number in msgs[0].html
 
 
 def test_przypomnienie_respektuje_przelacznik(app, db, make_user):
@@ -52,10 +54,10 @@ def test_przypomnienie_respektuje_przelacznik(app, db, make_user):
     sr = _zlecenie(db, user, 'WYS/000201')
 
     with app.test_request_context():
-        assert EmailManager.build_delivery_confirmation_message(sr) is None
+        assert EmailManager.build_delivery_confirmation_message(sr) == []
 
 
-def test_przypomnienie_bez_adresata_zwraca_none(app, db):
+def test_przypomnienie_bez_adresata_zwraca_pusto(app, db):
     from modules.orders.models import ShippingRequest
     from utils.email_manager import EmailManager
     from extensions import db as _db
@@ -65,7 +67,7 @@ def test_przypomnienie_bez_adresata_zwraca_none(app, db):
     _db.session.commit()
 
     with app.test_request_context():
-        assert EmailManager.build_delivery_confirmation_message(sr) is None
+        assert EmailManager.build_delivery_confirmation_message(sr) == []
 
 
 def test_mail_o_automatycznym_domknieciu_podaje_liczbe_dni(app, db, make_user):
@@ -79,10 +81,10 @@ def test_mail_o_automatycznym_domknieciu_podaje_liczbe_dni(app, db, make_user):
     sr = _zlecenie(db, user, 'WYS/000203', status='dostarczone')
 
     with app.test_request_context():
-        msg = EmailManager.build_delivery_autoclosed_message(sr)
+        msgs = EmailManager.build_delivery_autoclosed_message(sr)
 
-    assert msg is not None
-    assert '14' in msg.html
+    assert len(msgs) == 1
+    assert '14' in msgs[0].html
 
 
 def test_mail_do_adminow_zawiera_ocene(app, db, make_user, monkeypatch):
@@ -111,98 +113,136 @@ def test_mail_do_adminow_zawiera_ocene(app, db, make_user, monkeypatch):
     assert wyslane[0][1]['comment'] == 'Super'
 
 
-def test_przypomnienie_paczka_zbiorcza_bez_wlasciciela_zwraca_none(app, db, make_user, make_order):
-    """Regres z code review rundy 1 (Important 1): konto lidera paczki zbiorczej
-    usunięte (user_id=None na zleceniu zbiorczym) nie może schodzić na adres z
-    pierwszego zamówienia. sr.orders dla paczki zbiorczej idzie po surowym
-    request_orders i zwraca zamówienia WSZYSTKICH uczestników razem — orders[0]
-    mógłby być zamówieniem osoby zupełnie niezwiązanej z liderem. Wysłany do niej
-    mail ujawniłby cudzy numer zlecenia i listę zamówień. Zero adresata -> zero
-    maila, bez fallbacku na zgadywanie."""
+def _paczka_zbiorcza(db, make_user, make_order, numery, user_lidera=None):
+    """Paczka zbiorcza dwóch klientów, każdy z własnym zamówieniem.
+
+    Zwraca (zbiorcze, [(user, zrodlo, order), ...]) — pierwszy element listy jest
+    liderem. `numery` to trzy numery zleceń: zbiorcze, źródło lidera, źródło drugiego.
+    """
     from modules.orders.models import ShippingRequest, ShippingRequestOrder
-    from utils.email_manager import EmailManager
     from extensions import db as _db
 
-    lider = make_user(email='lider@example.com')
+    lider = user_lidera if user_lidera is not None else make_user(email='lider@example.com')
     drugi = make_user(email='drugi@example.com')
 
-    # Zlecenie zbiorcze bez właściciela (konto lidera usunięte po konsolidacji).
-    zbiorcze = ShippingRequest(request_number='WYS/000205', user_id=None, status='wyslane')
+    # _kopiuj_adres przy konsolidacji ustawia zbiorcze.user_id = user_id lidera —
+    # odtwarzamy dokładnie ten stan, bo to on jest źródłem wycieku.
+    zbiorcze = ShippingRequest(
+        request_number=numery[0], user_id=lider.id, status='wyslane')
     _db.session.add(zbiorcze)
     _db.session.commit()
 
-    zrodlo_a = ShippingRequest(
-        request_number='WYS/000206', user_id=lider.id, status='wyslane',
-        consolidated_into_id=zbiorcze.id)
-    zrodlo_b = ShippingRequest(
-        request_number='WYS/000207', user_id=drugi.id, status='wyslane',
-        consolidated_into_id=zbiorcze.id)
-    _db.session.add_all([zrodlo_a, zrodlo_b])
-    _db.session.commit()
-    zbiorcze.lead_source_request_id = zrodlo_a.id
+    zrodla = []
+    for numer, user in ((numery[1], lider), (numery[2], drugi)):
+        zrodlo = ShippingRequest(
+            request_number=numer, user_id=user.id, status='wyslane',
+            consolidated_into_id=zbiorcze.id)
+        _db.session.add(zrodlo)
+        _db.session.commit()
+        order = make_order(user, status='wyslane')
+        _db.session.add(ShippingRequestOrder(
+            shipping_request_id=zbiorcze.id, order_id=order.id,
+            source_request_id=zrodlo.id))
+        _db.session.commit()
+        zrodla.append((user, zrodlo, order))
 
-    order_a = make_order(lider, status='wyslane')
-    order_b = make_order(drugi, status='wyslane')
-    _db.session.add(ShippingRequestOrder(
-        shipping_request_id=zbiorcze.id, order_id=order_a.id, source_request_id=zrodlo_a.id))
-    _db.session.add(ShippingRequestOrder(
-        shipping_request_id=zbiorcze.id, order_id=order_b.id, source_request_id=zrodlo_b.id))
+    zbiorcze.lead_source_request_id = zrodla[0][1].id
     _db.session.commit()
-
     assert zbiorcze.is_consolidation
+    return zbiorcze, zrodla
+
+
+def test_przypomnienie_paczka_zbiorcza_idzie_osobno_do_kazdego(app, db, make_user, make_order):
+    """Recenzja całościowa (C1): ścieżka główna wycieku — lider Z AKTYWNYM kontem.
+
+    `_kopiuj_adres` ustawia `zbiorcze.user_id = lead.user_id`, więc `_adresat_zlecenia`
+    kończyło na pierwszej gałęzi (jest user, jest e-mail) i strażnik `is_consolidation`
+    poniżej był nieosiągalny. Mail szedł WYŁĄCZNIE do lidera i wymieniał w treści
+    numery zamówień wszystkich uczestników, a pozostali nie dostawali nic.
+    """
+    from utils.email_manager import EmailManager
+
+    zbiorcze, zrodla = _paczka_zbiorcza(
+        db, make_user, make_order, ('WYS/000205', 'WYS/000206', 'WYS/000207'))
+    (lider, zrodlo_a, order_a), (drugi, zrodlo_b, order_b) = zrodla
 
     with app.test_request_context():
-        assert EmailManager.build_delivery_confirmation_message(zbiorcze) is None
+        msgs = EmailManager.build_delivery_confirmation_message(zbiorcze)
+
+    assert len(msgs) == 2, 'każdy uczestnik ma dostać własną wiadomość'
+    po_adresie = {m.recipients[0]: m for m in msgs}
+    assert set(po_adresie) == {'lider@example.com', 'drugi@example.com'}
+
+    mail_lidera = po_adresie['lider@example.com']
+    assert order_a.order_number in mail_lidera.html
+    assert order_b.order_number not in mail_lidera.html, 'wyciek cudzego zamówienia'
+    assert zrodlo_a.request_number in mail_lidera.html
+    assert zbiorcze.request_number not in mail_lidera.html
+
+    mail_drugiego = po_adresie['drugi@example.com']
+    assert order_b.order_number in mail_drugiego.html
+    assert order_a.order_number not in mail_drugiego.html, 'wyciek cudzego zamówienia'
+    assert zrodlo_b.request_number in mail_drugiego.html
 
 
-class _WatekNatychmiastowy:
-    """Zamiennik threading.Thread na potrzeby testów renderujących maile naprawdę.
+def test_domkniecie_paczki_zbiorczej_idzie_osobno_do_kazdego(app, db, make_user, make_order):
+    """Ta sama wada w drugim mailu: automatyczne domknięcie. delivery_autoclosed.html
+    nie renderuje listy zamówień, ale niesie numer zlecenia i link — jedno i drugie
+    prowadziło na paczkę zbiorczą z cudzymi danymi."""
+    from utils.email_manager import EmailManager
 
-    send_email() renderuje szablon Jinja SYNCHRONICZNIE (msg.html = render_template(...)),
-    ale samą wysyłkę (mail.send) odpala w wątku tła — bez tej podmiany asercja na
-    treść wysłanej wiadomości ścigałaby się z tamtym wątkiem (albo trafiałaby na
-    listener mail.record_messages() już odłączony po wyjściu z bloku `with`).
-    Podmieniamy WYŁĄCZNIE start wątku na wywołanie synchroniczne w tym samym wątku —
-    renderowanie Jinja i mail.send() (przechwycony przez mail.record_messages())
-    zachodzą naprawdę, nic tu nie jest zaślepką.
-    """
+    zbiorcze, zrodla = _paczka_zbiorcza(
+        db, make_user, make_order, ('WYS/000215', 'WYS/000216', 'WYS/000217'))
+    (lider, zrodlo_a, _), (drugi, zrodlo_b, _) = zrodla
 
-    def __init__(self, target=None, args=(), kwargs=None, name=None, **_ignorowane):
-        self._target = target
-        self._args = args
-        self._kwargs = kwargs or {}
+    with app.test_request_context():
+        msgs = EmailManager.build_delivery_autoclosed_message(zbiorcze)
 
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-    def join(self, timeout=None):
-        pass
+    assert len(msgs) == 2
+    po_adresie = {m.recipients[0]: m for m in msgs}
+    assert zrodlo_a.request_number in po_adresie['lider@example.com'].html
+    assert zrodlo_b.request_number not in po_adresie['lider@example.com'].html
+    assert zbiorcze.request_number not in po_adresie['lider@example.com'].html
+    assert zrodlo_b.request_number in po_adresie['drugi@example.com'].html
+    assert zrodlo_a.request_number not in po_adresie['drugi@example.com'].html
 
 
-def test_notify_delivery_confirmed_renderuje_z_ocena(app, db, make_user, monkeypatch):
+def test_uczestnik_bez_konta_jest_pomijany_a_reszta_dostaje_mail(app, db, make_user, make_order):
+    """Wariant brzegowy z poprzedniej rundy zostaje domknięty: uczestnik bez konta
+    (albo bez adresu) jest POMIJANY, bez fallbacku na adres z zamówienia — dla paczki
+    zbiorczej taki adres może należeć do zupełnie innej osoby. Reszta uczestników
+    dostaje swoje maile normalnie, zamiast tracić powiadomienie przez cudzy brak."""
+    from utils.email_manager import EmailManager
+
+    zbiorcze, zrodla = _paczka_zbiorcza(
+        db, make_user, make_order, ('WYS/000225', 'WYS/000226', 'WYS/000227'))
+    (lider, zrodlo_a, _), (drugi, zrodlo_b, _) = zrodla
+
+    zrodlo_a.user_id = None  # konto lidera usunięte po konsolidacji
+    db.session.commit()
+
+    with app.test_request_context():
+        msgs = EmailManager.build_delivery_confirmation_message(zbiorcze)
+
+    assert len(msgs) == 1
+    assert msgs[0].recipients == ['drugi@example.com']
+
+
+def test_notify_delivery_confirmed_renderuje_z_ocena(app, db, make_user, maile_synchronicznie):
     """Regres z code review rundy 1 (Important 2): notify_delivery_confirmed() był
     jedyną z pięciu metod kontraktu bez żadnego pokrycia, więc delivery_confirmed.html
     nigdy nie był realnie renderowany przez Jinję w testach — literówka w {{ comment }}
     albo błąd w {% if rating %} przeszłaby niezauważona.
 
-    Podmieniamy TYLKO threading.Thread (patrz _WatekNatychmiastowy) — send_email()
-    woła prawdziwy render_template(), a wysyłkę przechwytuje wbudowany w Flask-Mail
-    mail.record_messages(). Żaden SMTP nie jest wołany: pod TESTING=True
+    Fixture `maile_synchronicznie` podmienia TYLKO wątek wysyłki (patrz conftest) —
+    send_email() woła prawdziwy render_template(), a wysyłkę przechwytuje wbudowany
+    w Flask-Mail mail.record_messages(). Żaden SMTP nie jest wołany: pod TESTING=True
     mail.suppress jest True (Flask-Mail: config.get('MAIL_SUPPRESS_SEND', testing)),
     więc Connection.send() i tak pomija realne wysłanie, tylko emituje sygnał
     email_dispatched, na którym łapie record_messages()."""
     from extensions import mail
     from modules.orders.review_models import DeliveryReview
     from utils.email_manager import EmailManager
-
-    monkeypatch.setattr('utils.email_sender.Thread', _WatekNatychmiastowy)
-    # .env w tym worktree ma MAIL_DEFAULT_SENDER='' (pusty, ale USTAWIONY string) —
-    # os.getenv(..., 'noreply@thunderorders.cloud') w config.py zwraca wtedy '',
-    # bo domyślna wartość działa tylko przy BRAKU zmiennej, nie przy pustej. Message
-    # z pustym sender=... Flask-Mail odrzuca asercją przy realnym send() (nawet
-    # tłumionym przez mail.suppress). To wyłącznie kwestia konfiguracji tego
-    # środowiska testowego, nie kodu produkcyjnego — nadpisujemy na czas testu.
-    monkeypatch.setitem(app.config, 'MAIL_DEFAULT_SENDER', 'noreply@thunderorders.cloud')
 
     user = make_user(email='klient@example.com', first_name='Zosia')
     sr = _zlecenie(db, user, 'WYS/000210', status='dostarczone')
@@ -221,17 +261,13 @@ def test_notify_delivery_confirmed_renderuje_z_ocena(app, db, make_user, monkeyp
     assert 'Szybka wysyłka' in html
 
 
-def test_notify_delivery_confirmed_renderuje_bez_oceny(app, db, make_user, monkeypatch):
+def test_notify_delivery_confirmed_renderuje_bez_oceny(app, db, make_user, maile_synchronicznie):
     """Druga gałąź {% if rating %} w delivery_confirmed.html: bez wystawionej
     jeszcze oceny (sr.review is None) mail pokazuje przycisk „Oceń dostawę",
     nie sekcję z gwiazdkami/komentarzem. Patrz docstring testu powyżej —
     ta sama technika (mail.record_messages() + synchroniczny Thread)."""
     from extensions import mail
     from utils.email_manager import EmailManager
-
-    monkeypatch.setattr('utils.email_sender.Thread', _WatekNatychmiastowy)
-    # Patrz komentarz w teście powyżej — MAIL_DEFAULT_SENDER='' w .env tego worktree.
-    monkeypatch.setitem(app.config, 'MAIL_DEFAULT_SENDER', 'noreply@thunderorders.cloud')
 
     user = make_user(email='klient2@example.com', first_name='Adam')
     sr = _zlecenie(db, user, 'WYS/000211', status='dostarczone')

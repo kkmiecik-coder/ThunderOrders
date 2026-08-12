@@ -125,6 +125,83 @@ def test_lider_potwierdza_cala_paczke_zbiorcza(app, db, client, login, make_user
     assert zrodlo_uczestnika.status == 'dostarczone'
 
 
+def test_wejscie_po_id_paczki_zbiorczej_zwraca_404(app, db, client, login, make_user, make_order):
+    """Recenzja całościowa (C1 pkt 3): `_kopiuj_adres` ustawia
+    `zbiorcze.user_id = lead.user_id`, więc filtr po właścicielu przepuszczał lidera
+    na stronę paczki ZBIORCZEJ — a tam `sr.display_orders` schodzi na `self.orders`,
+    czyli zamówienia wszystkich uczestników. To była jedyna droga do pokazania mu
+    cudzych numerów, a zapis oceny z tej strony założyłby DRUGI wiersz DeliveryReview
+    dla tej samej fizycznej przesyłki (UNIQUE jest per shipping_request_id)."""
+    from modules.orders.models import ShippingRequestOrder
+
+    lider = make_user(profile_completed=True)
+    uczestnik = make_user(profile_completed=True)
+    zbiorcze = _zlecenie(db, lider, 'WYS/000425')
+    zrodlo_lidera = _zlecenie(db, lider, 'WYS/000426')
+    zrodlo_uczestnika = _zlecenie(db, uczestnik, 'WYS/000427')
+    for z in (zrodlo_lidera, zrodlo_uczestnika):
+        z.consolidated_into_id = zbiorcze.id
+    zbiorcze.lead_source_request_id = zrodlo_lidera.id
+    order_uczestnika = make_order(uczestnik, status='wyslane')
+    db.session.add(ShippingRequestOrder(
+        shipping_request_id=zbiorcze.id, order_id=order_uczestnika.id,
+        source_request_id=zrodlo_uczestnika.id))
+    db.session.commit()
+
+    login(lider)
+
+    assert client.get(
+        f'/client/shipping/requests/{zbiorcze.id}/potwierdz').status_code == 404
+    assert client.post(
+        f'/client/shipping/requests/{zbiorcze.id}/potwierdz', json={}).status_code == 404
+    assert client.post(
+        f'/client/shipping/requests/{zbiorcze.id}/ocena',
+        json={'rating': 5}).status_code == 404
+    # Własne zlecenie źródłowe zostaje dostępne — to na nie prowadzą linki z maili.
+    assert client.get(
+        f'/client/shipping/requests/{zrodlo_lidera.id}/potwierdz').status_code == 200
+
+
+def test_lider_paczki_zbiorczej_ma_dokladnie_jedna_opinie(
+        app, db, client, login, make_user, maile_synchronicznie):
+    """Recenzja całościowa (I2): ocena lidera ląduje na jego zleceniu ŹRÓDŁOWYM, a
+    `dostarcz_zlecenie` domyka zlecenie ZBIORCZE i z niego czyta ocenę do maila. Test
+    pilnuje obu stron naraz: powstaje DOKŁADNIE jeden wiersz DeliveryReview (drugą
+    drogą było wejście po id paczki zbiorczej, dziś 404), a mail „dziękujemy" niesie
+    wystawioną przed chwilą ocenę zamiast CTA „Oceń dostawę"."""
+    from extensions import mail
+    from modules.orders.review_models import DeliveryReview
+
+    lider = make_user(profile_completed=True, email='lider@example.com', first_name='Ola')
+    uczestnik = make_user(profile_completed=True, email='druga@example.com')
+    zbiorcze = _zlecenie(db, lider, 'WYS/000428')
+    zrodlo_lidera = _zlecenie(db, lider, 'WYS/000429')
+    zrodlo_uczestnika = _zlecenie(db, uczestnik, 'WYS/000431')
+    for z in (zrodlo_lidera, zrodlo_uczestnika):
+        z.consolidated_into_id = zbiorcze.id
+    zbiorcze.lead_source_request_id = zrodlo_lidera.id
+    db.session.commit()
+
+    login(lider)
+    with mail.record_messages() as outbox:
+        odp = client.post(f'/client/shipping/requests/{zrodlo_lidera.id}/potwierdz',
+                          json={'rating': 5, 'comment': 'Wszystko OK'})
+
+    assert odp.status_code == 200
+    assert DeliveryReview.query.count() == 1
+    assert zrodlo_lidera.review.rating == 5
+    assert zbiorcze.review is None
+    assert zbiorcze.review_dostawy is zrodlo_lidera.review
+
+    do_lidera = [m for m in outbox if m.recipients == ['lider@example.com']]
+    assert len(do_lidera) == 1, 'lider ma dostać dokładnie jeden mail o potwierdzeniu'
+    assert 'Twoja ocena dostawy: 5/5' in do_lidera[0].html
+    assert 'Wszystko OK' in do_lidera[0].html
+    assert 'Oceń dostawę' not in do_lidera[0].html
+    # Uczestnik też dostaje swoją wiadomość — wcześniej nie dostawał żadnej.
+    assert [m for m in outbox if m.recipients == ['druga@example.com']]
+
+
 def test_ocena_poza_zakresem_odrzucona(app, db, client, login, make_user):
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000430')

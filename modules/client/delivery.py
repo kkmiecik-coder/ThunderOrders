@@ -33,6 +33,18 @@ def zlecenie_do_potwierdzenia(user_id, request_id):
     if sr is None:
         return None, None
 
+    # Samo zlecenie ZBIORCZE jest tu nie do przyjęcia, mimo że filtr po user_id je
+    # przepuszcza: `_kopiuj_adres` ustawia `zbiorcze.user_id = lead.user_id`, więc
+    # klient wiodący formalnie jest jego właścicielem. Tyle że pod tym id wiszą
+    # wiersze junction WSZYSTKICH uczestników — strona pokazałaby mu cudze numery
+    # zamówień, a zapis oceny założyłby DRUGI wiersz DeliveryReview dla tej samej
+    # fizycznej przesyłki (UNIQUE jest per shipping_request_id, więc nic tego nie
+    # blokuje) i statystyki policzyłyby jedną dostawę dwa razy. Klient nie ma tu
+    # czego oglądać: swoje zlecenie źródłowe widzi pod własnym id, i to na nie
+    # prowadzą wszystkie linki z maili i pushy.
+    if sr.is_consolidation:
+        return None, None
+
     if not sr.is_consolidated_source:
         return sr, sr
 
