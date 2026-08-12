@@ -277,3 +277,84 @@ def test_maile_nazywaja_adresata_takze_przy_paczkomacie(db, przechwycone, monkey
     assert skrot in mail_wysylka_b['consolidation_note']
     # Pełne nazwisko obcej osoby nadal nie wychodzi z serwera.
     assert sr_a.user.last_name not in mail_wysylka_b['consolidation_note']
+
+
+def test_wysylka_paczki_bez_nazwy_adresata_nie_pisze_none(db, przechwycone, make_user, make_order):
+    """`_shipment_sent_consolidated` musi mieć ten sam fallback co reszta pliku —
+    konto lidera bez nazwiska I paczkomat bez shipping_name dają
+    `short_addressee_name` == None; bez zastępnika zdanie kończyło się dosłownym
+    „na adres: None.” (dokładnie ten błąd żyje dziś na produkcji)."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.user.first_name = None
+    sr_a.user.last_name = None
+    zbiorcze.shipping_name = None  # paczkomat: adresu tekstowego nie ma
+    db.session.commit()
+
+    from utils.email_manager import EmailManager
+    EmailManager.notify_shipment_sent(zbiorcze, tracking_number='622333444', courier='inpost')
+
+    mail_b = {m['user_email']: m for m in przechwycone['email']}[sr_b.user.email]
+    assert 'None' not in mail_b['consolidation_note']
+    assert 'osoby odbierającej paczkę' in mail_b['consolidation_note']
+    # Zdanie ma się kończyć dokładnie jedną kropką, nie zostać urwane.
+    assert mail_b['consolidation_note'].endswith('paczkę.')
+
+
+def test_wysylka_paczki_nie_ma_podwojnej_kropki(db, przechwycone, make_user, make_order):
+    """`short_addressee_name` kończy się kropką skrótu nazwiska („Ola K.”) —
+    doklejenie własnej kropki w zdaniu dawało „Ola K..” (błąd z produkcji)."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    db.session.commit()
+
+    from utils.email_manager import EmailManager
+    EmailManager.notify_shipment_sent(zbiorcze, tracking_number='622333444', courier='inpost')
+
+    mail_b = {m['user_email']: m for m in przechwycone['email']}[sr_b.user.email]
+    assert zbiorcze.short_addressee_name.endswith('.')
+    assert '..' not in mail_b['consolidation_note']
+    assert mail_b['consolidation_note'].endswith(zbiorcze.short_addressee_name)
+
+
+def test_szablon_scalenia_nie_dubluje_kropki_po_skrocie(app):
+    """templates/emails/shipment_consolidated.html: ta sama pułapka co w
+    email_manager, tylko w Jinja — recipient_name w formie „Ola K.” + własna
+    kropka szablonu dawały „Ola K..”."""
+    from flask import render_template
+
+    with app.test_request_context():
+        html = render_template(
+            'emails/shipment_consolidated.html',
+            user_name='Ktoś',
+            request_number='WYS/000300',
+            order_numbers=['PO/00000001'],
+            recipient_name='Ola K.',
+            is_recipient=False,
+            shipping_requests_url=None,
+        )
+
+    assert 'Ola K..' not in html
+    assert 'Ola K.' in html
+
+
+def test_szablon_scalenia_pelna_nazwa_konczy_sie_jedna_kropka(app):
+    """recipient_name bez skrótu (pełna nazwa paczkomatu) nie ma własnej kropki —
+    szablon musi ją dołożyć, a nie zostawić zdanie urwane."""
+    from flask import render_template
+
+    with app.test_request_context():
+        html = render_template(
+            'emails/shipment_consolidated.html',
+            user_name='Ktoś',
+            request_number='WYS/000300',
+            order_numbers=['PO/00000001'],
+            recipient_name='Paczkomat KRA01M',
+            is_recipient=False,
+            shipping_requests_url=None,
+        )
+
+    # Kropka doklejana przez szablon ląduje POZA <strong>, więc „Paczkomat KRA01M.”
+    # nie jest ciągłym fragmentem HTML — sprawdzamy dokładnie ten kawałek znacznika.
+    assert '<strong>Paczkomat KRA01M</strong>.' in html
+    assert '<strong>Paczkomat KRA01M</strong>..' not in html

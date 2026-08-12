@@ -337,6 +337,25 @@ def send_email_batch(messages):
     """
     Wysyła listę przygotowanych Message w jednym wątku z jednym połączeniem SMTP.
 
+    Wątek świadomie NIE jest daemonem. `daemon=True` zostałby ubity natychmiast,
+    gdy proces się kończy — a gunicorn worker kończy się właśnie zwykłym wyjściem
+    Pythona przy SIGTERM (restart usługi / deploy), które domyślnie CZEKA na
+    wątki nie-daemon zamiast przerywać je w połowie. Dla maila to różnica między
+    „batch dokończy wysyłkę mimo restartu w trakcie” a „część uczestników paczki
+    zbiorczej nie dostanie nic, bez śladu w logach" — nieakceptowalne, bo to
+    jedyne miejsce, gdzie klient dowiaduje się o wysyłce/dostawie.
+
+    Pod TESTING wysyłka idzie więc SYNCHRONICZNIE, w wątku wołającego (ten sam
+    wzorzec co PushManager._fire_and_forget) — bez tego każdy test, który trafia
+    tę funkcję bez własnego monkeypatcha (patrz fixture `maile_synchronicznie`
+    w conftest), zostawiał żywy nie-daemon wątek: TESTING włącza domyślnie
+    MAIL_SUPPRESS_SEND (patrz flask_mail.Mail.init_mail), więc `mail.connect()`
+    nie dotyka sieci, ale send_async_email_batch() i tak śpi 2 s między kolejnymi
+    wiadomościami (limit dostawcy) — przy paczce zbiorczej z kilkoma uczestnikami
+    to kilka realnych sekund życia wątku, na którego zakończenie pytest czekał
+    przy wyjściu procesu (Python joinuje wątki nie-daemon przy zamknięciu
+    interpretera). Produkcja nie ma TESTING i dostaje wątek tła bez zmian.
+
     Args:
         messages (list): Lista obiektów Message (z prepare_email())
     """
@@ -346,6 +365,9 @@ def send_email_batch(messages):
 
     app = current_app._get_current_object()
     logger.info(f"[EMAIL-BATCH] Queuing batch of {len(messages)} emails")
+    if app.config.get('TESTING'):
+        send_async_email_batch(app, messages)
+        return
     Thread(
         target=send_async_email_batch,
         args=(app, messages),

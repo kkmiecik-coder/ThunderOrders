@@ -32,8 +32,11 @@
                                     Twoje zlecenie {{ request_number }} zostało połączone z zamówieniami innych osób
                                     w jedną paczkę zbiorczą. Paczka pojedzie na Twój adres.
                                 {% else %}
+                                    {# recipient_name bywa skrótem nazwiska kończącym się kropką („Ola K.”) —
+                                       doklejenie własnej dawało „Ola K..”. Stawiamy ją tylko wtedy, gdy
+                                       zdanie jeszcze jej nie ma (ten sam wzorzec co w email_manager). #}
                                     Twoje zlecenie {{ request_number }} zostało połączone z zamówieniami innych osób
-                                    w jedną paczkę zbiorczą, która pojedzie na adres: <strong>{{ recipient_name }}</strong>.
+                                    w jedną paczkę zbiorczą, która pojedzie na adres: <strong>{{ recipient_name }}</strong>{{ '' if recipient_name.endswith('.') else '.' }}
                                     Odbierz swoje rzeczy bezpośrednio od tej osoby.
                                 {% endif %}
                             </p>

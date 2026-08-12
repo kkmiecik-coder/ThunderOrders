@@ -1260,12 +1260,23 @@ class EmailManager:
             requests_url = url_for('client.shipping_requests_list', _external=True)
         except RuntimeError:
             requests_url = None
-        adresat = sr.short_addressee_name
+        # Konto bez imienia albo paczkomat bez shipping_name daje short_addressee_name
+        # == None — bez zastępnika zdanie kończyło się dosłownym „na adres: None.”
+        # (patrz ten sam wzorzec w notify_shipment_consolidated / _nota_paczki_zbiorczej).
+        adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
 
         wiadomosci = []
         for uczestnik in uczestnicy:
             user = uczestnik['user']
             czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            nota = None
+            if not czy_adresat:
+                # short_addressee_name kończy się kropką skrótu nazwiska („Ola K.”) —
+                # dokładanie własnej kropki dawało „Ola K..”. Stawiamy ją tylko wtedy,
+                # gdy zdanie jeszcze jej nie ma.
+                nota = f'Twoje zamówienia jadą w paczce zbiorczej wysłanej na adres: {adresat}'
+                if not nota.endswith('.'):
+                    nota += '.'
             wiadomosci.append(prepare_shipment_sent_email(
                 user_email=user.email,
                 user_name=user.first_name or 'Kliencie',
@@ -1275,9 +1286,7 @@ class EmailManager:
                 courier_name=courier_name,
                 tracking_url=tracking_url,
                 shipping_requests_url=requests_url,
-                consolidation_note=None if czy_adresat else (
-                    f'Twoje zamówienia jadą w paczce zbiorczej wysłanej na adres: {adresat}.'
-                ),
+                consolidation_note=nota,
             ))
 
         send_email_batch(wiadomosci)
@@ -2045,24 +2054,23 @@ class EmailManager:
             return
 
         opinia = sr.review
-        try:
-            send_email(
-                to=email,
-                subject=f'Dziękujemy za potwierdzenie odbioru — {sr.request_number}',
-                template='delivery_confirmed',
-                user_name=imie,
-                rating=opinia.rating if opinia else None,
-                comment=opinia.comment if opinia else None,
-                okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
-                # Zwykłe zlecenie: adresat sam potwierdził, więc żadnego zdania
-                # o cudzej paczce nie ma. Przekazujemy jawnie, żeby szablon nie
-                # zależał od Undefined (patrz gałąź konsolidacyjna niżej).
-                consolidation_note=None,
-                **EmailManager._kontekst_dostawy(sr),
-            )
-        except Exception as e:
-            current_app.logger.error(
-                f'Mail o potwierdzeniu {sr.request_number}: {e}')
+        # Bez try/except: send_email() łapie własne wyjątki (render szablonu, SMTP)
+        # i zwraca bool — nigdy nie rzuca. Błąd trafia już do logu przez [EMAIL]
+        # w send_email(), więc dublowanie go tutaj tylko sugerowałoby nieistniejące ryzyko.
+        send_email(
+            to=email,
+            subject=f'Dziękujemy za potwierdzenie odbioru — {sr.request_number}',
+            template='delivery_confirmed',
+            user_name=imie,
+            rating=opinia.rating if opinia else None,
+            comment=opinia.comment if opinia else None,
+            okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
+            # Zwykłe zlecenie: adresat sam potwierdził, więc żadnego zdania
+            # o cudzej paczce nie ma. Przekazujemy jawnie, żeby szablon nie
+            # zależał od Undefined (patrz gałąź konsolidacyjna niżej).
+            consolidation_note=None,
+            **EmailManager._kontekst_dostawy(sr),
+        )
 
     @staticmethod
     def _delivery_confirmed_consolidated(sr):
@@ -2147,19 +2155,17 @@ class EmailManager:
         user = sr.user
         klient = f'{user.first_name} {user.last_name}'.strip() if user else 'nieznany'
 
+        # Bez try/except: send_email() łapie własne wyjątki i zwraca bool — nigdy
+        # nie rzuca (patrz uzasadnienie w notify_delivery_confirmed).
         for adres in odbiorcy:
-            try:
-                send_email(
-                    to=adres,
-                    subject=f'Klient potwierdził odbiór — {sr.request_number}',
-                    template='admin_delivery_confirmed',
-                    request_number=sr.request_number,
-                    client_name=klient,
-                    client_email=(user.email if user else None),
-                    rating=opinia.rating if opinia else None,
-                    comment=opinia.comment if opinia else None,
-                    order_numbers=[o.order_number for o in sr.display_orders],
-                )
-            except Exception as e:
-                current_app.logger.error(
-                    f'Mail do admina o potwierdzeniu {sr.request_number}: {e}')
+            send_email(
+                to=adres,
+                subject=f'Klient potwierdził odbiór — {sr.request_number}',
+                template='admin_delivery_confirmed',
+                request_number=sr.request_number,
+                client_name=klient,
+                client_email=(user.email if user else None),
+                rating=opinia.rating if opinia else None,
+                comment=opinia.comment if opinia else None,
+                order_numbers=[o.order_number for o in sr.display_orders],
+            )
