@@ -23,9 +23,13 @@ class DeliveryReview(db.Model):
     OKNO_EDYCJI_DNI = 3
 
     id = db.Column(db.Integer, primary_key=True)
+    # Bez index=True: UNIQUE w MariaDB samo zakłada indeks, więc osobny `index=True`
+    # nie dodałby nic poza rozjazdem wobec migracji (tam ta kolumna ma tylko
+    # UniqueConstraint, bez create_index) — autogenerate próbowałby go co chwilę
+    # kasować i tworzyć na nowo.
     shipping_request_id = db.Column(
         db.Integer, db.ForeignKey('shipping_requests.id', ondelete='CASCADE'),
-        unique=True, nullable=False, index=True)
+        unique=True, nullable=False)
     user_id = db.Column(
         db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
 
