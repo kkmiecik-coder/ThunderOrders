@@ -455,6 +455,68 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- Delivery Confirmation Settings Section -->
+                <div class="settings-card" id="deliveryConfirmationSettings">
+                    <div class="card-header">
+                        <h3>Potwierdzenie dostawy</h3>
+                    </div>
+
+                    <p class="section-description">
+                        Klient dostaje przypomnienie o potwierdzeniu odbioru, a niepotwierdzone
+                        zlecenia domykają się automatycznie.
+                    </p>
+
+                    <div class="form-group">
+                        <label class="form-label checkbox-label">
+                            <input type="checkbox" id="deliveryReminderEnabled"
+                                   {% if delivery_config.reminder_enabled %}checked{% endif %}>
+                            <span>Wysyłaj przypomnienie o potwierdzeniu odbioru</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="deliveryReminderDays">Przypomnienie po (dni od wysyłki)</label>
+                        <input type="number" min="1" id="deliveryReminderDays" class="form-input"
+                               value="{{ delivery_config.reminder_days }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label checkbox-label">
+                            <input type="checkbox" id="deliveryAutocompleteEnabled"
+                                   {% if delivery_config.autocomplete_enabled %}checked{% endif %}>
+                            <span>Domykaj niepotwierdzone zlecenia automatycznie</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="deliveryAutocompleteDays">Automatyczne domknięcie po (dni od wysyłki)</label>
+                        <input type="number" min="1" id="deliveryAutocompleteDays" class="form-input"
+                               value="{{ delivery_config.autocomplete_days }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="deliveryAutocompleteBatch">Maksymalnie zleceń domykanych na jeden przebieg</label>
+                        <input type="number" min="1" id="deliveryAutocompleteBatch" class="form-input"
+                               value="{{ delivery_config.autocomplete_batch }}">
+                        <span class="input-hint">Chroni przed lawiną maili przy nadrabianiu zaległości. Cron chodzi co godzinę.</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="deliveryReviewWindowDays">Ocenę można wystawić przez (dni od dostarczenia)</label>
+                        <input type="number" min="1" id="deliveryReviewWindowDays" class="form-input"
+                               value="{{ delivery_config.review_window_days }}">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="saveDeliverySettings">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                            </svg>
+                            Zapisz ustawienia dostawy
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Tab: Powiadomienia email -->
@@ -670,6 +732,36 @@
                                     <span class="email-toggle-slider"></span>
                                 </label>
                             </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Przypomnienie o potwierdzeniu odbioru</div>
+                                    <div class="email-notif-desc">„Czy paczka dotarła?" kilka dni po wysyłce</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_delivery_confirmation" {{ 'checked' if email_notif_config.get('notify_delivery_confirmation', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Podziękowanie po potwierdzeniu odbioru</div>
+                                    <div class="email-notif-desc">Zawiera link do zmiany wystawionej oceny</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_delivery_confirmed" {{ 'checked' if email_notif_config.get('notify_delivery_confirmed', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Automatyczne zamknięcie zlecenia</div>
+                                    <div class="email-notif-desc">Wysyłane, gdy klient nie potwierdził odbioru w terminie</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_delivery_autoclosed" {{ 'checked' if email_notif_config.get('notify_delivery_autoclosed', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -727,6 +819,16 @@
                                 </div>
                                 <label class="email-toggle-switch">
                                     <input type="checkbox" class="email-notif-toggle" data-key="notify_admin_new_order" {{ 'checked' if email_notif_config.get('notify_admin_new_order', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Do adminów: klient potwierdził odbiór</div>
+                                    <div class="email-notif-desc">Razem z oceną i komentarzem, jeśli klient je zostawił</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_admin_delivery_confirmed" {{ 'checked' if email_notif_config.get('notify_admin_delivery_confirmed', true) != false }}>
                                     <span class="email-toggle-slider"></span>
                                 </label>
                             </div>

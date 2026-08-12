@@ -2004,6 +2004,9 @@ def settings():
     ocr_auto_approve_threshold = Settings.get_value('ocr_auto_approve_threshold', 90)
     ocr_suggest_threshold = Settings.get_value('ocr_suggest_threshold', 60)
 
+    # Konfiguracja potwierdzeń dostawy (przypomnienie + automatyczne domknięcie)
+    from modules.orders.delivery_config import pobierz_konfig_dostawy
+
     return render_template(
         'admin/orders/settings.html',
         statuses=statuses,
@@ -2022,6 +2025,7 @@ def settings():
         maintenance_enabled=Settings.get_value('maintenance_mode', False),
         maintenance_message=Settings.get_value('maintenance_message', ''),
         maintenance_eta=Settings.get_value('maintenance_eta', ''),
+        delivery_config=pobierz_konfig_dostawy(),
         page_title='Ustawienia zamówień'
     )
 
@@ -2171,6 +2175,8 @@ def update_email_notification_settings():
         'notify_shipping_status_change', 'notify_offer_closure',
         'notify_new_offer_page', 'notify_back_in_stock',
         'notify_admin_new_order', 'notify_admin_payment_uploaded',
+        'notify_delivery_confirmation', 'notify_delivery_confirmed',
+        'notify_delivery_autoclosed', 'notify_admin_delivery_confirmed',
     }
 
     try:
@@ -2333,6 +2339,41 @@ def update_shipping_request_default_status():
         db.session.rollback()
         flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
         return redirect(url_for('orders.settings') + '#tab-shipping-requests')
+
+
+@orders_bp.route('/admin/settings/delivery', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_update_delivery_settings():
+    """Zapis ustawień potwierdzania dostawy (task 869efhwph)."""
+    from modules.auth.models import Settings
+    from modules.orders.delivery_config import DOMYSLNE, KLUCZE, pobierz_konfig_dostawy
+
+    dane = request.get_json() or {}
+
+    for pole, klucz in KLUCZE.items():
+        if pole not in dane:
+            continue
+        if isinstance(DOMYSLNE[pole], bool):
+            Settings.set_value(klucz, bool(dane[pole]), updated_by=current_user.id,
+                               type='boolean')
+        else:
+            try:
+                liczba = int(dane[pole])
+            except (TypeError, ValueError):
+                return jsonify({
+                    'success': False,
+                    'message': f'Pole „{pole}" musi być liczbą całkowitą'
+                }), 400
+            if liczba < 1:
+                return jsonify({
+                    'success': False,
+                    'message': f'Pole „{pole}" musi wynosić co najmniej 1'
+                }), 400
+            Settings.set_value(klucz, liczba, updated_by=current_user.id, type='integer')
+
+    db.session.commit()
+    return jsonify({'success': True, 'config': pobierz_konfig_dostawy()})
 
 
 @orders_bp.route('/admin/orders/shipping-request-statuses/<int:status_id>', methods=['GET'])

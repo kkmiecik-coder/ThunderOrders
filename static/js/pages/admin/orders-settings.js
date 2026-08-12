@@ -1050,6 +1050,45 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // ==========================================
+    // POTWIERDZENIE DOSTAWY - USTAWIENIA
+    // ==========================================
+
+    const zapiszDostawe = document.getElementById('saveDeliverySettings');
+    if (zapiszDostawe) {
+        zapiszDostawe.addEventListener('click', async () => {
+            const dane = {
+                reminder_enabled: document.getElementById('deliveryReminderEnabled').checked,
+                reminder_days: document.getElementById('deliveryReminderDays').value,
+                autocomplete_enabled: document.getElementById('deliveryAutocompleteEnabled').checked,
+                autocomplete_days: document.getElementById('deliveryAutocompleteDays').value,
+                autocomplete_batch: document.getElementById('deliveryAutocompleteBatch').value,
+                review_window_days: document.getElementById('deliveryReviewWindowDays').value,
+            };
+
+            try {
+                // Ten sam sposób pobrania CSRF co reszta tego pliku (brak getCsrfToken() tutaj).
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                const odp = await fetch('/admin/settings/delivery', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(dane),
+                });
+                const wynik = await odp.json();
+                window.showToast(
+                    wynik.message || (wynik.success ? 'Zapisano ustawienia dostawy' : 'Nie udało się zapisać'),
+                    wynik.success ? 'success' : 'error'
+                );
+            } catch (error) {
+                console.error('Error saving delivery settings:', error);
+                window.showToast('Błąd podczas zapisywania ustawień dostawy', 'error');
+            }
+        });
+    }
 });
 
 /**

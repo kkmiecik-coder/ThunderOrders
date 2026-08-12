@@ -264,6 +264,13 @@
     margin-top: var(--space-1);
 }
 
+/* Pola liczbowe w sekcji "Potwierdzenie dostawy" - same liczby dni/porcji,
+   pełna szerokość .form-input byłaby absurdalnie rozciągnięta. Sama geometria,
+   bez kolorów, więc nie potrzebuje wariantu dark mode. */
+#deliveryConfirmationSettings input[type="number"].form-input {
+    max-width: 160px;
+}
+
 /* ==================== */
 /* Statuses List        */
 /* ==================== */
