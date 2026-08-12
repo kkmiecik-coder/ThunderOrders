@@ -3827,31 +3827,38 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
     """
     Synchronizuje statusy zamówień klienta na podstawie zmiany statusu zlecenia wysyłki.
     Mapowanie: SR 'wyslane' → Order 'wyslane', SR 'dostarczone' → Order 'dostarczone'.
+
+    Przejście na 'dostarczone' deleguje do dostarcz_zlecenie() — wcześniej ta funkcja
+    ustawiała status zamówień sama i NIE dopisywała przedmiotów do kolekcji klienta,
+    więc ręczna zmiana statusu na zleceniu gubiła kolekcję.
     """
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
+    from modules.orders.wms_utils import (
+        ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
 
-    SR_TO_ORDER_STATUS_MAP = {
-        'wyslane': 'wyslane',
-        'dostarczone': 'dostarczone',
-    }
-
-    target_order_status = SR_TO_ORDER_STATUS_MAP.get(new_sr_status_slug)
-    if not target_order_status:
+    if new_sr_status_slug == 'dostarczone':
+        try:
+            dostarcz_zlecenie(shipping_request, source='admin', user=current_user)
+        except (ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane) as err:
+            current_app.logger.info(f'Pominięto domknięcie dostawy: {err}')
         return
 
-    order_status_obj = OrderStatus.query.filter_by(slug=target_order_status, is_active=True).first()
+    if new_sr_status_slug != 'wyslane':
+        return
+
+    order_status_obj = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
     if not order_status_obj:
-        current_app.logger.warning(f"Order status '{target_order_status}' not found or inactive")
+        current_app.logger.warning("Order status 'wyslane' not found or inactive")
         return
 
     for ro in shipping_request.request_orders:
         order = ro.order
-        if not order or order.status == target_order_status:
+        if not order or order.status == 'wyslane':
             continue
 
         old_status_name = order.status_display_name
-        order.status = target_order_status
+        order.status = 'wyslane'
 
         try:
             EmailManager.notify_status_change(order, old_status_name, order_status_obj.name)

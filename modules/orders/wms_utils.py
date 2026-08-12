@@ -370,6 +370,129 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
 
 
 # ====================
+# DOSTAWA ZLECENIA
+# ====================
+
+
+class ZlecenieJuzDostarczone(Exception):
+    """Zlecenie ma już status 'dostarczone' — drugi raz go nie domykamy."""
+
+
+class ZlecenieZrodloweNieDomykane(Exception):
+    """Zlecenie oddane do paczki zbiorczej domyka się wyłącznie przez tę paczkę.
+
+    Gdyby wolno je było domknąć osobno, uczestnicy jednego kartonu rozjechaliby się
+    statusami, a propagacja z paczki zbiorczej i tak nadpisałaby wynik.
+    """
+
+
+def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True):
+    """Oznacza zlecenie wysyłki jako dostarczone.
+
+    Jedyne miejsce, w którym zachodzi to przejście — wołają je panel klienta,
+    komenda cron, synchronizacja statusów w adminie i API mobilne. Symetryczne do
+    ship_shipping_request(): statusy, kaskady i kolekcja lądują w JEDNYM commicie,
+    powiadomienia idą dopiero po nim i ich błąd nie cofa zapisanej dostawy.
+
+    Args:
+        sr: obiekt ShippingRequest
+        source (str): 'klient' | 'auto' | 'admin' — zapisywane w delivered_source
+        user: kto wykonał akcję (do logu aktywności); None dla automatu
+        powiadom (bool): False pomija wysyłkę i oddaje dane wołającemu, który wyśle
+            zbiorczo jednym połączeniem SMTP (używa tego cron przy zaległościach)
+
+    Returns:
+        dict: id, request_number, delivered_at, source, zmienione_zamowienia
+
+    Raises:
+        ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane
+    """
+    from flask import current_app
+
+    from extensions import db
+    from modules.client.collection_utils import auto_add_order_to_collection
+    from modules.orders.consolidation import propaguj_na_zrodla
+    from modules.orders.models import OrderStatus, get_local_now
+    from utils.activity_logger import log_activity
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    # Strażnik patrzy na delivered_at, nie na sam status: dwa z trzech miejsc,
+    # które wołają tę funkcję (zapis pojedynczego zlecenia i zmiana zbiorcza w
+    # adminie, oba w routes.py) ustawiają sr.status na 'dostarczone' i commitują
+    # WCZEŚNIEJ, zanim w ogóle tu trafią — dla nich sam status jest 'dostarczone'
+    # już na wejściu, mimo że to pierwsze (i jedyne) domknięcie. delivered_at
+    # ustawiamy wyłącznie tutaj, więc to ono jest wiarygodnym sygnałem „już było".
+    if sr.status == 'dostarczone' and sr.delivered_at is not None:
+        raise ZlecenieJuzDostarczone(
+            f'Zlecenie {sr.request_number} jest już oznaczone jako dostarczone')
+
+    if sr.is_consolidated_source:
+        raise ZlecenieZrodloweNieDomykane(
+            f'Zlecenie {sr.request_number} jedzie w paczce zbiorczej — '
+            f'potwierdzenie odbioru dotyczy całej paczki')
+
+    old_status = sr.status
+    teraz = get_local_now()
+
+    sr.status = 'dostarczone'
+    sr.delivered_at = teraz
+    sr.delivered_source = source
+
+    propaguj_na_zrodla(sr)
+
+    zmienione = []
+    order_status = OrderStatus.query.filter_by(slug='dostarczone', is_active=True).first()
+    if order_status:
+        for o in sr.orders:
+            if o.status != 'dostarczone':
+                o.status = 'dostarczone'
+                zmienione.append(o)
+
+    # Kolekcja przed commitem — razem ze statusami albo wcale. To właśnie gubiła
+    # dotychczasowa synchronizacja statusów zlecenia w adminie.
+    for o in zmienione:
+        try:
+            auto_add_order_to_collection(o)
+        except Exception as err:
+            current_app.logger.error(
+                f'Dopisanie do kolekcji dla {o.order_number}: {err}')
+
+    db.session.commit()
+
+    if powiadom:
+        try:
+            if source == 'auto':
+                EmailManager.notify_delivery_autoclosed(sr)
+                PushManager.notify_delivery_autoclosed(sr)
+            else:
+                EmailManager.notify_delivery_confirmed(sr)
+                PushManager.notify_delivery_confirmed(sr)
+                EmailManager.notify_admin_delivery_confirmed(sr)
+                PushManager.notify_admin_delivery_confirmed(sr)
+        except Exception as err:
+            current_app.logger.error(
+                f'Powiadomienie o dostawie {sr.request_number}: {err}')
+
+    log_activity(
+        user=user,
+        action='shipping_request_delivered',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        old_value={'status': old_status},
+        new_value={'status': 'dostarczone', 'source': source},
+    )
+
+    return {
+        'id': sr.id,
+        'request_number': sr.request_number,
+        'delivered_at': sr.delivered_at,
+        'source': source,
+        'zmienione_zamowienia': zmienione,
+    }
+
+
+# ====================
 # POWRÓT DO WMS
 # ====================
 
