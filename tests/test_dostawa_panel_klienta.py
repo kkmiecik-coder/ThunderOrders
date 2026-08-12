@@ -201,6 +201,48 @@ def test_ocena_po_domknieciu_automatem_dziala(app, db, client, login, make_user)
     assert sr.review.rating == 4
 
 
+def test_ocena_niewyslanej_paczki_odrzucona(app, db, client, login, make_user):
+    """Recenzja całościowa (I6): `_okno_oceny_otwarte` zwracało True dla każdego
+    statusu innego niż 'dostarczone', a endpointy oceny statusu nie sprawdzają wcale —
+    dało się więc ocenić paczkę, która nigdy nie wyjechała z magazynu (albo została
+    anulowana), i taka ocena wchodziła do średniej w statystykach."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000490', status='czeka_na_wycene')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena', json={'rating': 5})
+
+    assert odp.status_code == 409
+    assert sr.review is None
+
+
+def test_strona_niewyslanej_paczki_nie_pokazuje_gwiazdek(app, db, client, login, make_user):
+    """Druga powierzchnia I6: szablon podsuwał gwiazdki tuż pod komunikatem
+    „tej paczki nie da się teraz potwierdzić"."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000491', status='czeka_na_wycene')
+    login(user)
+
+    tresc = client.get(f'/client/shipping/requests/{sr.id}/potwierdz').get_data(as_text=True)
+
+    assert 'deliveryReview' not in tresc
+    assert 'WYS/000491' in tresc
+
+
+def test_ocena_wyslanej_paczki_nadal_dziala(app, db, client, login, make_user):
+    """Druga strona I6: 'wyslane' musi zostać ocenialne — klient ocenia razem z
+    potwierdzeniem odbioru, więc zawężenie do samego 'dostarczone' zabiłoby
+    główną ścieżkę."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000492')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena', json={'rating': 4})
+
+    assert odp.status_code == 200
+    assert sr.review.rating == 4
+
+
 def test_potwierdzenie_juz_dostarczonego_zlecenia_zwraca_409(app, db, client, login, make_user):
     """Poprawka do briefu: POST na /potwierdz musi odrzucić zlecenie, które nie jest
     w statusie 'wyslane', ZANIM cokolwiek zapisze — inaczej klient mógłby POST-em

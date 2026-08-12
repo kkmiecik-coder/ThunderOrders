@@ -11,8 +11,11 @@
       3. w pozostałych przypadkach (np. uczestnik paczki zbiorczej, który nie jest
          klientem wiodącym, albo zlecenie jeszcze nie wysłane) → nic do zrobienia tutaj.
     Sekcja oceny (gwiazdki + komentarz) jest niezależna od powyższego i pokazuje się,
-    gdy okno oceny jest otwarte ALBO opinia już istnieje — o tym, czy da się ją
-    edytować, decyduje `review.mozna_edytowac` z widoku.
+    gdy widok tak powie w `pokaz_ocene` (paczka jest 'wyslane' albo 'dostarczone' ORAZ
+    okno oceny jest otwarte lub opinia już istnieje) — o tym, czy da się ją edytować,
+    decyduje `review.mozna_edytowac` z widoku. Bez warunku po statusie strona zlecenia
+    'anulowane' albo 'czeka_na_wycene' pokazywała komunikat „nie da się potwierdzić"
+    i tuż pod nim żywe gwiazdki, a taka ocena wchodziła do średniej w statystykach.
 #}
 
 {% block title %}Potwierdzenie odbioru - ThunderOrders{% endblock %}
@@ -70,7 +73,7 @@
     </section>
     {% endif %}
 
-    {% if okno_oceny_otwarte or review %}
+    {% if pokaz_ocene %}
     <section class="confirm-delivery__review" id="deliveryReview"
              data-editable="{{ 'true' if (okno_oceny_otwarte and (not review or review.mozna_edytowac)) else 'false' }}">
         <h2 class="confirm-delivery__subtitle">Jak oceniasz dostawę i obsługę?</h2>

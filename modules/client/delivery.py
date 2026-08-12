@@ -44,11 +44,29 @@ def zlecenie_do_potwierdzenia(user_id, request_id):
     return sr, None
 
 
+# Statusy, w których ocena dostawy ma jakikolwiek sens. 'wyslane' jest tu, bo
+# klient ocenia razem z potwierdzeniem odbioru — paczka fizycznie już u niego jest,
+# tylko system dowie się o tym w tej samej sekundzie.
+STATUSY_Z_OCENA = ('wyslane', 'dostarczone')
+
+
 def _okno_oceny_otwarte(sr):
-    """Czy można jeszcze wystawić ocenę tej paczki."""
+    """Czy można jeszcze wystawić ocenę tej paczki.
+
+    Poprzednia wersja odpowiadała True dla KAŻDEGO statusu innego niż 'dostarczone'
+    (warunek `if sr.status != 'dostarczone': return True`), a endpointy oceny — webowy
+    i mobilny — nie sprawdzają statusu w ogóle. Dało się więc ocenić zlecenie
+    'czeka_na_wycene', 'spakowane' czy 'anulowane', a strona potwierdzenia sama to
+    podsuwała: komunikat „tej paczki nie da się potwierdzić" i tuż pod nim żywe
+    gwiazdki. Takie oceny wchodziły wprost do średniej w statystykach.
+    """
+    if sr.status not in STATUSY_Z_OCENA:
+        return False
     if sr.status != 'dostarczone':
         return True
     if sr.delivered_at is None:
+        # Rekord historyczny: status 'dostarczone' bez daty (backfill objął tylko
+        # shipped_at). Nie ma od czego liczyć okna, więc go nie zamykamy.
         return True
     dni = pobierz_konfig_dostawy()['review_window_days']
     return get_local_now() - sr.delivered_at <= timedelta(days=dni)
@@ -72,6 +90,10 @@ def zapisz_ocene(sr, dane):
         return None, 'Ocena musi być liczbą od 1 do 5', 400
 
     if not _okno_oceny_otwarte(sr):
+        if sr.status not in STATUSY_Z_OCENA:
+            # Inny powód niż upływ czasu — komunikat o „N dniach od dostarczenia"
+            # mówiłby klientowi nieprawdę o paczce, która jeszcze nie wyjechała.
+            return None, 'Ocenić można dopiero wysłaną paczkę', 409
         dni = pobierz_konfig_dostawy()['review_window_days']
         return None, f'Ocenę można wystawić w ciągu {dni} dni od dostarczenia', 409
 
@@ -96,12 +118,18 @@ def confirm_delivery(request_id):
     if sr is None:
         abort(404)
 
+    okno_oceny_otwarte = _okno_oceny_otwarte(sr)
     return render_template(
         'client/shipping/confirm_delivery.html',
         title='Potwierdzenie odbioru',
         sr=sr,
         moze_potwierdzic=(do_domkniecia is not None and sr.status == 'wyslane'),
-        okno_oceny_otwarte=_okno_oceny_otwarte(sr),
+        okno_oceny_otwarte=okno_oceny_otwarte,
+        # Sekcja oceny nie ma prawa pojawić się na zleceniu, którego w ogóle nie da
+        # się ocenić (np. 'anulowane', 'czeka_na_wycene') — decyzję podejmuje widok,
+        # szablon jej nie dubluje. Istniejąca opinia zostaje widoczna, żeby klient
+        # nie stracił z oczu tego, co sam napisał.
+        pokaz_ocene=(sr.status in STATUSY_Z_OCENA and (okno_oceny_otwarte or sr.review)),
         review=sr.review,
         okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
         konfig=pobierz_konfig_dostawy(),
