@@ -307,8 +307,27 @@ class PushManager:
 
     @staticmethod
     def _fire_and_forget(user_id, title, body, url='/', tag='default', notification_type=None):
-        """Non-blocking push send using a background thread."""
+        """Non-blocking push send using a background thread.
+
+        Pod TESTING wołamy send_to_user() SYNCHRONICZNIE, w wątku wołającego, i to
+        nie jest kosmetyka: testowa konfiguracja (config.py, TestingConfig) używa
+        SQLite in-memory ze StaticPool i check_same_thread=False, więc wątek pusha i
+        wątek testu dzielą JEDNO połączenie do bazy. send_to_user() robi na nim
+        add/commit, a w gałęzi błędu rollback() — wykonany w tle w losowym momencie
+        kasuje niezacommitowaną pracę wątku głównego. Objawiało się to migotaniem
+        testów, które z pushem nie mają nic wspólnego: znikała zacommitowana chwilę
+        wcześniej zmiana statusu albo drugi zapis oceny. Nowa pętla crona odpala do
+        `autocomplete_batch` takich wątków na przebieg, więc dopiero ona wystawiła
+        problem na światło — ale wyścig był tu od zawsze.
+
+        Zamiast łatać każdy test z osobna (monkeypatch na Thread w każdym miejscu,
+        które pośrednio dotyka powiadomień) zdejmujemy współbieżność w jednym
+        miejscu. Produkcja nie ma TESTING i dostaje wątek tak samo jak dotąd.
+        """
         app = current_app._get_current_object()
+        if app.config.get('TESTING'):
+            PushManager.send_to_user(user_id, title, body, url, tag, notification_type)
+            return
         thread = threading.Thread(
             target=PushManager._send_async,
             args=(app, user_id, title, body, url, tag, notification_type)
