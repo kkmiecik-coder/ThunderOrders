@@ -102,6 +102,22 @@ def _serialize_available_order(order):
     }
 
 
+def _moze_potwierdzic(req):
+    """Czy właściciel TEGO zlecenia (req.user_id) może z niego potwierdzić odbiór.
+
+    Uczestnik paczki zbiorczej, który nie jest klientem wiodącym, nie może — karton
+    fizycznie odbiera osoba, na której adres został nadany (zlecenie zbiorcze).
+    Parytet z `zlecenie_do_potwierdzenia()` w panelu webowym (modules/client/delivery.py),
+    ale bez zapytań do bazy dla cudzych zleceń — tu req już należy do żądającego.
+    """
+    if req.status != 'wyslane':
+        return False
+    if not req.is_consolidated_source:
+        return True
+    zbiorcze = req.consolidated_into
+    return bool(zbiorcze and zbiorcze.lead_source_request_id == req.id)
+
+
 def _serialize_request(req):
     # Paczka zbiorcza: bez tych dwóch pól apka pokazywała `full_address` (WŁASNY
     # adres klienta) jako adres dostawy, choć karton jedzie do innej osoby — czyli
@@ -125,6 +141,16 @@ def _serialize_request(req):
         # request_orders wisi już przy paczce, nie tutaj (parytet z webem).
         'orders': [{'id': o.id, 'order_number': o.order_number} for o in req.display_orders],
         'created_at': req.created_at.isoformat() if req.created_at else None,
+        # Dostawa (task 869efhwph) — parytet z panelem webowym.
+        'shipped_at': req.shipped_at.isoformat() if req.shipped_at else None,
+        'delivered_at': req.delivered_at.isoformat() if req.delivered_at else None,
+        'delivered_source': req.delivered_source,
+        'can_confirm_delivery': _moze_potwierdzic(req),
+        'review': ({
+            'rating': req.review.rating,
+            'comment': req.review.comment,
+            'can_edit': req.review.mozna_edytowac,
+        } if req.review else None),
     }
 
 
@@ -222,3 +248,90 @@ def shipping_request_cancel(request_id):
             )
         return json_err('cannot_cancel', 'Nie można anulować zlecenia w tym statusie.', 409)
     return json_ok({'cancelled': True})
+
+
+# ============================================================================
+# DOSTAWA (task 869efhwph) — potwierdzenie odbioru i ocena, parytet z webem
+# ============================================================================
+
+@api_mobile_bp.route('/shipping/requests/<int:request_id>/confirm-delivery', methods=['POST'])
+@jwt_required()
+@limiter.limit("30 per minute")
+@idempotent('shipping_confirm_delivery')
+def shipping_confirm_delivery(request_id):
+    """Potwierdzenie odbioru paczki (opcjonalnie z oceną). Parytet z panelem webowym
+    (modules/client/delivery.py: confirm_delivery_submit)."""
+    from modules.client.delivery import zapisz_ocene, zlecenie_do_potwierdzenia
+    from modules.orders.wms_utils import (
+        ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
+
+    user_id = int(get_jwt_identity())
+    sr, do_domkniecia = zlecenie_do_potwierdzenia(user_id, request_id)
+    if sr is None:
+        # Cudze zlecenie jest nieodróżnialne od nieistniejącego — nie zdradzamy,
+        # które numery zleceń istnieją w systemie.
+        return json_err('request_not_found', 'Zlecenie nie istnieje.', 404)
+    if do_domkniecia is None:
+        return json_err(
+            'consolidated_lead_only',
+            'Tę paczkę potwierdza osoba, na której adres została nadana.', 403)
+
+    # Poprawka do briefu (zgodna z wersją webową): strona GET jedynie UKRYWA przycisk,
+    # gdy status != 'wyslane' — samego POST-a nic nie broni bez tego warunku. Bez niego
+    # klient mógłby domknąć zlecenie, które fizycznie nigdy nie zostało wysłane (np.
+    # 'nowe', 'anulowane', 'w_magazynie'). Sprawdzamy do_domkniecia (nie sr) — to on
+    # faktycznie przechodzi przez dostarcz_zlecenie(); dla zlecenia niekonsolidowanego
+    # to ten sam obiekt, dla lidera paczki zbiorczej to zlecenie zbiorcze, którego
+    # status jest zsynchronizowany ze źródłem przez propaguj_na_zrodla().
+    if do_domkniecia.status != 'wyslane':
+        return json_err(
+            'not_ready',
+            f'Zlecenie {sr.request_number} nie jest gotowe do potwierdzenia '
+            f'odbioru (status: {do_domkniecia.status}).', 409)
+
+    dane = request.get_json(silent=True) or {}
+
+    # Ocena PRZED domknięciem: dostarcz_zlecenie() wysyła mail z jej treścią, więc
+    # musi ją już widzieć w sesji (parytet z webem).
+    opinia, blad, kod = zapisz_ocene(sr, dane)
+    if blad:
+        db.session.rollback()
+        return json_err('invalid_input', blad, kod)
+
+    user = db.session.get(User, user_id)
+    try:
+        dostarcz_zlecenie(do_domkniecia, source='klient', user=user)
+    except ZlecenieJuzDostarczone:
+        # Podwójne potwierdzenie (np. duplikat idempotency albo klik po odświeżeniu) —
+        # nie traktujemy jako błąd, tylko zapisujemy ewentualną ocenę i zwracamy 200.
+        db.session.commit()
+    except ZlecenieZrodloweNieDomykane as err:
+        db.session.rollback()
+        return json_err('consolidated_lead_only', str(err), 403)
+
+    return json_ok({'request': _serialize_request(sr)})
+
+
+@api_mobile_bp.route('/shipping/requests/<int:request_id>/review', methods=['PUT'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def shipping_delivery_review(request_id):
+    """Wystawienie albo zmiana oceny dostawy, bez zmiany statusu zlecenia. Parytet
+    z panelem webowym (modules/client/delivery.py: delivery_review_submit)."""
+    from modules.client.delivery import zapisz_ocene, zlecenie_do_potwierdzenia
+
+    sr, _ = zlecenie_do_potwierdzenia(int(get_jwt_identity()), request_id)
+    if sr is None:
+        return json_err('request_not_found', 'Zlecenie nie istnieje.', 404)
+
+    dane = request.get_json(silent=True) or {}
+    if dane.get('rating') in (None, ''):
+        return json_err('invalid_input', 'Podaj ocenę od 1 do 5.', 400)
+
+    opinia, blad, kod = zapisz_ocene(sr, dane)
+    if blad:
+        db.session.rollback()
+        return json_err('invalid_input', blad, kod)
+
+    db.session.commit()
+    return json_ok({'request': _serialize_request(sr)})
