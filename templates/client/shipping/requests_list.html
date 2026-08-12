@@ -146,6 +146,19 @@
 
             <!-- Card Footer - Actions -->
             <div class="card-footer">
+                {# Potwierdzenie odbioru (task 869efhwph): tylko zlecenie wysłane, i tylko
+                   klient wiodący paczki zbiorczej — reszta uczestników nie odbiera fizycznie
+                   kartonu. Ten sam warunek widzenia przycisku, co moze_potwierdzic liczy
+                   widok client.confirm_delivery (modules/client/delivery.py) — samo kliknięcie
+                   i tak trafia na stronę, która ostatecznie decyduje o realnym stanie. #}
+                {% if req.status == 'wyslane'
+                      and (not req.is_consolidated_source
+                           or (req.consolidated_into and req.consolidated_into.lead_source_request_id == req.id)) %}
+                <a class="btn btn-primary confirm-delivery-cta"
+                   href="{{ url_for('client.confirm_delivery', request_id=req.id) }}">
+                    Potwierdź odbiór
+                </a>
+                {% endif %}
                 {% if req.tracking_number and req.tracking_url %}
                 <a href="{{ req.tracking_url }}" target="_blank" class="btn-action btn-tracking" title="Śledź przesyłkę">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

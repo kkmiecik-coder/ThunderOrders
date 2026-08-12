@@ -1,30 +1,128 @@
 {% extends "client/base_client.html" %}
 
 {#
-    Szkielet strony potwierdzenia odbioru (task 869efhwph, Task 7).
+    Strona potwierdzenia odbioru paczki (task 869efhwph, Task 8).
 
-    Celowo minimalny — pełny widok (formularz oceny gwiazdkowej, komentarz, stany
-    UI dla "już potwierdzone" / "okno oceny zamknięte" / uczestnik paczki zbiorczej)
-    powstaje w Task 8. Ten plik istnieje wyłącznie po to, żeby GET na trasę
-    `client.confirm_delivery` nie kończył się TemplateNotFound, zanim Task 8
-    dostarczy właściwy szablon — kontekst (moze_potwierdzic, okno_oceny_otwarte,
-    review, okno_edycji_dni, konfig) już tu trafia z routingu.
+    Cel linku z maila i pusha (Task 5/6) — klient musi być zalogowany (routing w
+    modules/client/delivery.py wymusza to @login_required). Trzy stany renderowane
+    tu na podstawie kontekstu z widoku GET (nie dokładamy własnej logiki decyzyjnej):
+      1. moze_potwierdzic       → paczka 'wyslane', klient może potwierdzić odbiór.
+      2. sr.status=='dostarczone' bez moze_potwierdzic → już potwierdzone/domknięte.
+      3. w pozostałych przypadkach (np. uczestnik paczki zbiorczej, który nie jest
+         klientem wiodącym, albo zlecenie jeszcze nie wysłane) → nic do zrobienia tutaj.
+    Sekcja oceny (gwiazdki + komentarz) jest niezależna od powyższego i pokazuje się,
+    gdy okno oceny jest otwarte ALBO opinia już istnieje — o tym, czy da się ją
+    edytować, decyduje `review.mozna_edytowac` z widoku.
 #}
 
 {% block title %}Potwierdzenie odbioru - ThunderOrders{% endblock %}
 
-{% block content %}
-<div class="confirm-delivery-page client-view">
-    <div class="page-header">
-        <h1>Potwierdzenie odbioru</h1>
-    </div>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/confirm-delivery.css') }}">
+{% endblock %}
 
-    <p>Zlecenie: {{ sr.request_number }}</p>
+{% block content %}
+{#
+    Nazwy kurierów: ShippingRequest.courier trzyma slug (np. "inpost"), nie ma na
+    modelu odpowiednika OrderShipment.courier_display_name. Ta sama mapa co
+    modules/orders/wms_utils.COURIER_NAMES — czysto prezentacyjne, więc zostaje w
+    szablonie zamiast dokładać nowe pole do widoku Task 7.
+#}
+{% set nazwy_kurierow = {
+    'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
+    'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
+    'ups': 'UPS', 'fedex': 'FedEx', 'pocztex': 'Pocztex', 'other': 'Inny',
+} %}
+<div class="confirm-delivery" data-request-id="{{ sr.id }}">
+    <header class="confirm-delivery__header">
+        <h1 class="confirm-delivery__title">Paczka {{ sr.request_number }}</h1>
+        {% if sr.courier %}
+        <p class="confirm-delivery__meta">
+            {{ nazwy_kurierow.get(sr.courier, sr.courier) }}
+            {% if sr.tracking_number %} · {{ sr.tracking_number }}{% endif %}
+        </p>
+        {% endif %}
+    </header>
+
+    {% if sr.display_orders %}
+    <section class="confirm-delivery__orders">
+        <h2 class="confirm-delivery__subtitle">W paczce</h2>
+        <ul class="confirm-delivery__order-list">
+            {% for order in sr.display_orders %}
+            <li>{{ order.order_number }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
 
     {% if moze_potwierdzic %}
-        <p>Możesz potwierdzić odbiór tej paczki.</p>
+    <section class="confirm-delivery__action">
+        <p>Potwierdź, że paczka do Ciebie dotarła.</p>
+        <button type="button" class="btn btn-primary confirm-delivery__confirm"
+                id="confirmDeliveryBtn">Potwierdzam odbiór</button>
+    </section>
+    {% elif sr.status == 'dostarczone' %}
+    <section class="confirm-delivery__status confirm-delivery__status--done">
+        {% if sr.delivered_source == 'auto' %}
+        <p>
+            To zlecenie zostało zamknięte automatycznie po
+            {{ konfig.autocomplete_days }} dniach od wysyłki.
+        </p>
+        {% else %}
+        <p>Odbiór tej paczki został potwierdzony. Dziękujemy!</p>
+        {% endif %}
+    </section>
     {% else %}
-        <p>Tej paczki nie można teraz potwierdzić z tego miejsca.</p>
+    <section class="confirm-delivery__status">
+        <p>
+            Tej paczki nie da się teraz potwierdzić z tego miejsca — jeśli jedzie
+            zbiorczo, odbiór potwierdza osoba, na której adres została nadana.
+        </p>
+    </section>
     {% endif %}
+
+    {% if okno_oceny_otwarte or review %}
+    <section class="confirm-delivery__review" id="deliveryReview"
+             data-editable="{{ 'true' if (okno_oceny_otwarte and (not review or review.mozna_edytowac)) else 'false' }}">
+        <h2 class="confirm-delivery__subtitle">Jak oceniasz dostawę i obsługę?</h2>
+
+        <div class="rating" role="radiogroup" aria-label="Ocena dostawy">
+            {% for i in range(1, 6) %}
+            <button type="button" class="rating__star{% if review and review.rating >= i %} is-active{% endif %}"
+                    data-value="{{ i }}" role="radio"
+                    aria-checked="{{ 'true' if review and review.rating == i else 'false' }}"
+                    aria-label="{{ i }} z 5">★</button>
+            {% endfor %}
+        </div>
+
+        <label class="confirm-delivery__comment-label" for="deliveryComment">
+            Komentarz (opcjonalnie)
+        </label>
+        <textarea id="deliveryComment" class="confirm-delivery__comment" maxlength="2000"
+                  placeholder="Co poszło dobrze, a co moglibyśmy poprawić?">{{ review.comment or '' }}</textarea>
+
+        <button type="button" class="btn btn-secondary" id="saveReviewBtn">
+            {{ 'Zapisz zmianę oceny' if review else 'Wyślij ocenę' }}
+        </button>
+
+        {% if review and review.mozna_edytowac %}
+        <p class="confirm-delivery__hint">
+            Ocenę możesz zmieniać przez {{ okno_edycji_dni }} dni od wystawienia.
+        </p>
+        {% elif review %}
+        <p class="confirm-delivery__hint">
+            Minęło {{ okno_edycji_dni }} dni od wystawienia — oceny nie da się już zmienić.
+        </p>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <a class="confirm-delivery__back" href="{{ url_for('client.shipping_requests_list') }}">
+        Wróć do zleceń wysyłki
+    </a>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/client/confirm-delivery.js') }}"></script>
 {% endblock %}
