@@ -1869,6 +1869,19 @@ class ShippingRequest(db.Model):
         from modules.orders.utils import get_tracking_url
         return get_tracking_url(self.courier, self.tracking_number)
 
+    @property
+    def courier_display_name(self):
+        """Czytelna nazwa kuriera (np. "InPost") zamiast surowego sluga ("inpost").
+
+        Czyta z `wms_utils.COURIER_NAMES` — kanonicznej mapy, którą posługuje się
+        już WMS (routes.py, wms_utils.py) — zamiast trzymać własną kopię literału,
+        jak robi to `OrderShipment.courier_display_name`. Import wewnątrz property,
+        nie na górze pliku: `wms_utils` importuje z `modules.orders.models`
+        (m.in. `get_local_now`), więc import na poziomie modułu zapętliłby się.
+        """
+        from modules.orders.wms_utils import COURIER_NAMES
+        return COURIER_NAMES.get(self.courier, self.courier)
+
     @classmethod
     def generate_request_number(cls):
         """Generates next request number in format WYS/000001"""

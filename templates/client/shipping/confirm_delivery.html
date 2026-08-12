@@ -22,23 +22,12 @@
 {% endblock %}
 
 {% block content %}
-{#
-    Nazwy kurierów: ShippingRequest.courier trzyma slug (np. "inpost"), nie ma na
-    modelu odpowiednika OrderShipment.courier_display_name. Ta sama mapa co
-    modules/orders/wms_utils.COURIER_NAMES — czysto prezentacyjne, więc zostaje w
-    szablonie zamiast dokładać nowe pole do widoku Task 7.
-#}
-{% set nazwy_kurierow = {
-    'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
-    'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
-    'ups': 'UPS', 'fedex': 'FedEx', 'pocztex': 'Pocztex', 'other': 'Inny',
-} %}
 <div class="confirm-delivery" data-request-id="{{ sr.id }}">
     <header class="confirm-delivery__header">
         <h1 class="confirm-delivery__title">Paczka {{ sr.request_number }}</h1>
         {% if sr.courier %}
         <p class="confirm-delivery__meta">
-            {{ nazwy_kurierow.get(sr.courier, sr.courier) }}
+            {{ sr.courier_display_name }}
             {% if sr.tracking_number %} · {{ sr.tracking_number }}{% endif %}
         </p>
         {% endif %}
