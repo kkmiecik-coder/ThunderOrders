@@ -152,13 +152,19 @@ def _paczka_zbiorcza(db, make_user, make_order, numery, user_lidera=None):
     return zbiorcze, zrodla
 
 
-def test_przypomnienie_paczka_zbiorcza_idzie_osobno_do_kazdego(app, db, make_user, make_order):
-    """Recenzja całościowa (C1): ścieżka główna wycieku — lider Z AKTYWNYM kontem.
+def test_przypomnienie_paczki_zbiorczej_idzie_tylko_do_lidera(app, db, make_user, make_order):
+    """Dwie wady naraz — wyciek (C1) i prośba o czynność niewykonalną.
 
     `_kopiuj_adres` ustawia `zbiorcze.user_id = lead.user_id`, więc `_adresat_zlecenia`
     kończyło na pierwszej gałęzi (jest user, jest e-mail) i strażnik `is_consolidation`
     poniżej był nieosiągalny. Mail szedł WYŁĄCZNIE do lidera i wymieniał w treści
-    numery zamówień wszystkich uczestników, a pozostali nie dostawali nic.
+    numery zamówień wszystkich uczestników — to naprawiła poprzednia fala.
+
+    Rozesłanie go wtedy do wszystkich wprowadziło jednak wadę drugą: nie-lider
+    dostawał prośbę „potwierdź odbiór" z CTA prowadzącym na stronę, która odpowiada
+    mu, że tej paczki stąd nie potwierdzi (`zlecenie_do_potwierdzenia` oddaje mu
+    `do_domkniecia=None`). Ten mail nie informuje, tylko prosi — więc dostaje go
+    wyłącznie osoba zdolna prośbę spełnić.
     """
     from utils.email_manager import EmailManager
 
@@ -169,49 +175,94 @@ def test_przypomnienie_paczka_zbiorcza_idzie_osobno_do_kazdego(app, db, make_use
     with app.test_request_context():
         msgs = EmailManager.build_delivery_confirmation_message(zbiorcze)
 
-    assert len(msgs) == 2, 'każdy uczestnik ma dostać własną wiadomość'
-    po_adresie = {m.recipients[0]: m for m in msgs}
-    assert set(po_adresie) == {'lider@example.com', 'drugi@example.com'}
+    assert len(msgs) == 1, 'o potwierdzenie prosimy wyłącznie lidera'
+    mail_lidera = msgs[0]
+    assert mail_lidera.recipients == ['lider@example.com']
+    assert 'Potwierdzam odbiór' in mail_lidera.html
 
-    mail_lidera = po_adresie['lider@example.com']
+    # Wyciek z poprzedniej fali nadal pilnowany: lider widzi swoje zamówienie
+    # i numer SWOJEGO zlecenia źródłowego, nie paczki zbiorczej ani cudzych danych.
     assert order_a.order_number in mail_lidera.html
     assert order_b.order_number not in mail_lidera.html, 'wyciek cudzego zamówienia'
     assert zrodlo_a.request_number in mail_lidera.html
+    assert zrodlo_b.request_number not in mail_lidera.html
     assert zbiorcze.request_number not in mail_lidera.html
 
-    mail_drugiego = po_adresie['drugi@example.com']
-    assert order_b.order_number in mail_drugiego.html
-    assert order_a.order_number not in mail_drugiego.html, 'wyciek cudzego zamówienia'
-    assert zrodlo_b.request_number in mail_drugiego.html
 
+def test_domkniecie_paczki_zbiorczej_idzie_do_kazdego_ale_nie_tak_samo(
+        app, db, make_user, make_order):
+    """Domknięcie automatem to informacja, nie prośba — idzie więc do WSZYSTKICH.
 
-def test_domkniecie_paczki_zbiorczej_idzie_osobno_do_kazdego(app, db, make_user, make_order):
-    """Ta sama wada w drugim mailu: automatyczne domknięcie. delivery_autoclosed.html
-    nie renderuje listy zamówień, ale niesie numer zlecenia i link — jedno i drugie
-    prowadziło na paczkę zbiorczą z cudzymi danymi."""
+    Ta sama wada wycieku co w przypomnieniu: delivery_autoclosed.html nie renderuje
+    listy zamówień, ale niesie numer zlecenia i link — jedno i drugie prowadziło na
+    paczkę zbiorczą z cudzymi danymi.
+
+    Nie-lider musi dodatkowo wiedzieć, że karton pojechał na cudzy adres: bez tego
+    zdania „od wysyłki paczki WYS/… minęło N dni" brzmi jak o przesyłce nadanej do
+    niego. Nazwisko skrócone (`short_addressee_name`), pełnego nigdzie nie ma.
+    """
     from utils.email_manager import EmailManager
 
+    lider = make_user(email='lider@example.com', first_name='Ola', last_name='Kowalska')
     zbiorcze, zrodla = _paczka_zbiorcza(
-        db, make_user, make_order, ('WYS/000215', 'WYS/000216', 'WYS/000217'))
-    (lider, zrodlo_a, _), (drugi, zrodlo_b, _) = zrodla
+        db, make_user, make_order, ('WYS/000215', 'WYS/000216', 'WYS/000217'),
+        user_lidera=lider)
+    (_, zrodlo_a, _), (drugi, zrodlo_b, _) = zrodla
 
     with app.test_request_context():
         msgs = EmailManager.build_delivery_autoclosed_message(zbiorcze)
 
-    assert len(msgs) == 2
+    assert len(msgs) == 2, 'informację o domknięciu dostają wszyscy uczestnicy'
     po_adresie = {m.recipients[0]: m for m in msgs}
-    assert zrodlo_a.request_number in po_adresie['lider@example.com'].html
-    assert zrodlo_b.request_number not in po_adresie['lider@example.com'].html
-    assert zbiorcze.request_number not in po_adresie['lider@example.com'].html
-    assert zrodlo_b.request_number in po_adresie['drugi@example.com'].html
-    assert zrodlo_a.request_number not in po_adresie['drugi@example.com'].html
+    mail_lidera = po_adresie['lider@example.com']
+    mail_drugiego = po_adresie['drugi@example.com']
+
+    assert zrodlo_a.request_number in mail_lidera.html
+    assert zrodlo_b.request_number not in mail_lidera.html
+    assert zbiorcze.request_number not in mail_lidera.html
+    assert zrodlo_b.request_number in mail_drugiego.html
+    assert zrodlo_a.request_number not in mail_drugiego.html
+
+    # Adresat kartonu nie dostaje zdania o „paczce zbiorczej na cudzy adres" —
+    # to jego adres.
+    assert 'paczce zbiorczej' not in mail_lidera.html
+    assert ('Twoje zamówienia jechały w paczce zbiorczej wysłanej na adres: Ola K.'
+            in mail_drugiego.html)
+    # Nazwisko już kończy zdanie kropką skrótu — druga byłaby „Ola K...".
+    assert 'Ola K..' not in mail_drugiego.html
+    assert 'Kowalska' not in mail_drugiego.html, 'pełne nazwisko obcej osoby'
+    # Automat nie jest niczyim potwierdzeniem — o potwierdzeniu ani słowa.
+    assert 'potwierdziła' not in mail_drugiego.html
+
+
+def test_domkniecie_bez_nazwy_adresata_nie_zostawia_dziury_w_zdaniu(
+        app, db, make_user, make_order):
+    """Konto lidera bez imienia i nazwiska, paczkomat bez shipping_name:
+    `short_addressee_name` oddaje None. Zdanie ma wtedy zostać zdaniem, a nie
+    urwać się na dwukropku ani wypisać „None"."""
+    from utils.email_manager import EmailManager
+
+    zbiorcze, zrodla = _paczka_zbiorcza(
+        db, make_user, make_order, ('WYS/000235', 'WYS/000236', 'WYS/000237'))
+
+    with app.test_request_context():
+        msgs = EmailManager.build_delivery_autoclosed_message(zbiorcze)
+
+    mail_drugiego = {m.recipients[0]: m for m in msgs}['drugi@example.com']
+    assert 'wysłanej na adres innego uczestnika' in mail_drugiego.html
+    assert 'None' not in mail_drugiego.html
 
 
 def test_uczestnik_bez_konta_jest_pomijany_a_reszta_dostaje_mail(app, db, make_user, make_order):
     """Wariant brzegowy z poprzedniej rundy zostaje domknięty: uczestnik bez konta
     (albo bez adresu) jest POMIJANY, bez fallbacku na adres z zamówienia — dla paczki
     zbiorczej taki adres może należeć do zupełnie innej osoby. Reszta uczestników
-    dostaje swoje maile normalnie, zamiast tracić powiadomienie przez cudzy brak."""
+    dostaje swoje maile normalnie, zamiast tracić powiadomienie przez cudzy brak.
+
+    Na mailu o domknięciu, nie na przypomnieniu: przypomnienie idzie dziś wyłącznie
+    do lidera, więc usunięcie jego konta zostawiałoby zero wiadomości i test nie
+    mówiłby już nic o pomijaniu jednego uczestnika przy zachowaniu pozostałych.
+    """
     from utils.email_manager import EmailManager
 
     zbiorcze, zrodla = _paczka_zbiorcza(
@@ -222,10 +273,90 @@ def test_uczestnik_bez_konta_jest_pomijany_a_reszta_dostaje_mail(app, db, make_u
     db.session.commit()
 
     with app.test_request_context():
-        msgs = EmailManager.build_delivery_confirmation_message(zbiorcze)
+        msgs = EmailManager.build_delivery_autoclosed_message(zbiorcze)
 
     assert len(msgs) == 1
     assert msgs[0].recipients == ['drugi@example.com']
+
+
+def test_paczka_zbiorcza_bez_lidera_nie_prosi_nikogo_o_potwierdzenie(
+        app, db, make_user, make_order):
+    """Stan awaryjny danych: paczka zbiorcza bez `lead_source_request_id`.
+
+    Odbioru nie potwierdzi wtedy NIKT (`zlecenie_do_potwierdzenia` porównuje się
+    właśnie z tym polem), więc przypomnienie nie ma adresata — zamiast rozesłać je
+    do wszystkich „na wszelki wypadek" nie wysyłamy nic. Informacja o domknięciu
+    działa dalej, bo ona o nic nie prosi.
+    """
+    from utils.email_manager import EmailManager
+
+    zbiorcze, _ = _paczka_zbiorcza(
+        db, make_user, make_order, ('WYS/000245', 'WYS/000246', 'WYS/000247'))
+    zbiorcze.lead_source_request_id = None
+    db.session.commit()
+
+    with app.test_request_context():
+        assert EmailManager.build_delivery_confirmation_message(zbiorcze) == []
+        assert len(EmailManager.build_delivery_autoclosed_message(zbiorcze)) == 2
+
+
+def test_podziekowanie_za_odbior_rozroznia_lidera_od_uczestnika(
+        app, db, make_user, make_order, maile_synchronicznie):
+    """Sedno ustalenia 1a: „Dziękujemy za potwierdzenie" tylko temu, kto potwierdził.
+
+    Realny render przez Jinję (mail.record_messages()), bo wada siedzi w treści
+    szablonu, nie w doborze adresatów — poprzednia fala rozesłała nie-liderowi temat
+    „Dziękujemy za potwierdzenie odbioru", nagłówek „Dziękujemy, X!" i zdanie
+    „Odbiór paczki … został potwierdzony", czyli podziękowanie za cudze kliknięcie.
+    """
+    from extensions import mail
+    from modules.orders.review_models import DeliveryReview
+    from utils.email_manager import EmailManager
+
+    lider = make_user(email='lider@example.com', first_name='Ola', last_name='Kowalska')
+    zbiorcze, zrodla = _paczka_zbiorcza(
+        db, make_user, make_order, ('WYS/000255', 'WYS/000256', 'WYS/000257'),
+        user_lidera=lider)
+    (_, zrodlo_a, order_a), (drugi, zrodlo_b, order_b) = zrodla
+
+    # Ocenę wystawia lider na SWOIM zleceniu źródłowym — tak robi zapisz_ocene.
+    db.session.add(DeliveryReview(
+        shipping_request_id=zrodlo_a.id, user_id=lider.id, rating=5, comment='Ekspresowo'))
+    db.session.commit()
+
+    with app.test_request_context(), mail.record_messages() as outbox:
+        EmailManager.notify_delivery_confirmed(zbiorcze)
+
+    assert len(outbox) == 2, 'o odbiorze dowiadują się obaj uczestnicy'
+    po_adresie = {m.recipients[0]: m for m in outbox}
+    mail_lidera = po_adresie['lider@example.com']
+    mail_drugiego = po_adresie['drugi@example.com']
+
+    # Lider: podziękowanie i jego własna ocena.
+    assert mail_lidera.subject == f'Dziękujemy za potwierdzenie odbioru — {zrodlo_a.request_number}'
+    assert 'Dziękujemy, Ola!' in mail_lidera.html
+    assert 'Twoja ocena dostawy: 5/5' in mail_lidera.html
+
+    # Nie-lider: żadnego podziękowania za potwierdzenie i wprost powiedziane, kto
+    # potwierdził. Numer zlecenia w temacie jest JEGO, nie lidera.
+    assert mail_drugiego.subject == (
+        f'Paczka z Twoimi zamówieniami została odebrana — {zrodlo_b.request_number}')
+    assert 'Dziękujemy za potwierdzenie' not in mail_drugiego.subject
+    assert 'Dziękujemy za potwierdzenie' not in mail_drugiego.html
+    assert 'Dziękujemy,' not in mail_drugiego.html
+    assert 'został potwierdzony' not in mail_drugiego.html
+    assert 'Odbiór potwierdziła osoba, do której paczka została nadana.' in mail_drugiego.html
+    assert 'Ola K.' in mail_drugiego.html
+    assert 'Kowalska' not in mail_drugiego.html
+
+    # I nadal żadnego wycieku między uczestnikami (regres po poprzedniej fali).
+    assert zrodlo_b.request_number not in mail_lidera.html
+    assert order_b.order_number not in mail_lidera.html
+    assert 'Ekspresowo' not in mail_drugiego.html, 'cudza opinia'
+    assert zrodlo_a.request_number not in mail_drugiego.html
+    assert order_a.order_number not in mail_drugiego.html
+    assert zbiorcze.request_number not in mail_lidera.html
+    assert zbiorcze.request_number not in mail_drugiego.html
 
 
 def test_notify_delivery_confirmed_renderuje_z_ocena(app, db, make_user, maile_synchronicznie):

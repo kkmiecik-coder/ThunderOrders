@@ -29,6 +29,18 @@
                                 Cześć {{ user_name }}!
                             </h1>
 
+                            {# Niepusty TYLKO dla uczestnika paczki zbiorczej, który nie jest
+                               jej adresatem: karton pojechał na cudzy adres, więc bez tego
+                               zdania „minęło N dni od wysyłki paczki" brzmiałoby jak o paczce
+                               nadanej do niego. Tu — inaczej niż w delivery_confirmed.html —
+                               nikt niczego nie potwierdzał, więc nota mówi wyłącznie o trybie
+                               wysyłki. #}
+                            {% if consolidation_note %}
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                {{ consolidation_note }}
+                            </p>
+                            {% endif %}
+
                             <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
                                 Od wysyłki paczki <strong>{{ request_number }}</strong> minęło
                                 {{ dni_do_domkniecia }} dni, więc zamykamy to zlecenie i uznajemy je za dostarczone.

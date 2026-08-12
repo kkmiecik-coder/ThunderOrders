@@ -1337,7 +1337,7 @@ class PushManager:
 
     @staticmethod
     def _odbiorcy_dostawy(sr):
-        """[(user, zlecenie_adresata)] — dla paczki zbiorczej po jednym na uczestnika.
+        """[(user, zlecenie_adresata, czy_lider)] — dla zbiorczej po jednym na uczestnika.
 
         Zlecenie adresata to dla uczestnika paczki zbiorczej jego własne zlecenie
         ŹRÓDŁOWE: stąd numer w treści pusha i cel linku. Bez tego push szedł wyłącznie
@@ -1345,16 +1345,29 @@ class PushManager:
         z numerem i identyfikatorem paczki zbiorczej — reszta uczestników nie
         dostawała nic, a lider dostawał link na stronę cudzych zamówień (dziś już
         odrzucaną przez zlecenie_do_potwierdzenia).
+
+        `czy_lider` to odpowiednik flagi z EmailManager._odbiorcy_dostawy: czy adresat
+        jest osobą, na której adres nadano karton. Tylko ona potwierdza odbiór, więc
+        tylko jej wolno o to prosić i tylko jej dziękować za kliknięcie.
         """
         if not sr.is_consolidation:
-            return [(sr.user, sr)] if sr.user else []
-        return [(u['user'], u['source_request'])
+            return [(sr.user, sr, True)] if sr.user else []
+        return [(u['user'], u['source_request'],
+                 u['source_request'].id == sr.lead_source_request_id)
                 for u in sr.consolidation_participants if u['user']]
 
     @staticmethod
     def notify_delivery_confirmation(sr):
-        """Przypomnienie: potwierdź odbiór paczki."""
-        for user, zlecenie in PushManager._odbiorcy_dostawy(sr):
+        """Przypomnienie: potwierdź odbiór paczki.
+
+        Wyłącznie do lidera — dokładnie jak mail z tym samym CTA (patrz
+        EmailManager.build_delivery_confirmation_message). Uczestnik paczki zbiorczej
+        po kliknięciu w push trafiłby na stronę, która odpowiada mu, że tej paczki nie
+        potwierdzi; prośba o czynność niewykonalną to szum, nie powiadomienie.
+        """
+        for user, zlecenie, czy_lider in PushManager._odbiorcy_dostawy(sr):
+            if not czy_lider:
+                continue
             PushManager._fire_and_forget(
                 user_id=user.id,
                 title='Czy paczka do Ciebie dotarła?',
@@ -1366,12 +1379,21 @@ class PushManager:
 
     @staticmethod
     def notify_delivery_confirmed(sr):
-        """Potwierdzenie przyjęte — zostaje też wpisem w dzwonku."""
-        for user, zlecenie in PushManager._odbiorcy_dostawy(sr):
+        """Potwierdzenie przyjęte — zostaje też wpisem w dzwonku.
+
+        Idzie do wszystkich uczestników, bo informuje o realnej zmianie stanu ich
+        zamówień, ale nie-liderowi NIE dziękujemy: kliknął ktoś inny. On dostaje
+        informację, że paczkę zbiorczą odebrała osoba, na której adres jechała.
+        """
+        for user, zlecenie, czy_lider in PushManager._odbiorcy_dostawy(sr):
             PushManager._fire_and_forget(
                 user_id=user.id,
-                title='Dziękujemy za potwierdzenie',
-                body=f'Paczka {zlecenie.request_number} oznaczona jako dostarczona',
+                title=('Dziękujemy za potwierdzenie' if czy_lider
+                       else 'Twoja paczka została odebrana'),
+                body=(f'Paczka {zlecenie.request_number} oznaczona jako dostarczona'
+                      if czy_lider else
+                      f'{zlecenie.request_number} jechało w paczce zbiorczej — '
+                      f'odbiór potwierdziła osoba, na której adres została nadana'),
                 url=PushManager._url_potwierdzenia(zlecenie),
                 tag=f'delivery-done-{zlecenie.id}',
                 notification_type='shipping_updates',
@@ -1379,8 +1401,12 @@ class PushManager:
 
     @staticmethod
     def notify_delivery_autoclosed(sr):
-        """Zlecenie domknięte automatycznie."""
-        for user, zlecenie in PushManager._odbiorcy_dostawy(sr):
+        """Zlecenie domknięte automatycznie.
+
+        Bez rozróżnienia ról: nikt tu niczego nie potwierdzał, a treść („zamykamy
+        Twoje zlecenie") jest prawdziwa dla każdego uczestnika tak samo.
+        """
+        for user, zlecenie, _ in PushManager._odbiorcy_dostawy(sr):
             PushManager._fire_and_forget(
                 user_id=user.id,
                 title='Zamykamy Twoje zlecenie',

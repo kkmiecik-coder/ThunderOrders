@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {# Ten mail prosi o czynność, a nie informuje, więc przy paczce zbiorczej dostaje
+       go WYŁĄCZNIE osoba, na której adres nadano karton (patrz
+       build_delivery_confirmation_message). Dlatego nie ma tu consolidation_note —
+       adresat jest zawsze tą samą osobą, która może kliknąć CTA. #}
     <title>Czy paczka dotarła? - ThunderOrders</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">

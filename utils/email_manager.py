@@ -1817,7 +1817,9 @@ class EmailManager:
 
     @staticmethod
     def _odbiorcy_dostawy(sr):
-        """Adresaci maila o dostawie: [{'email', 'imie', 'zlecenie', 'kontekst'}].
+        """Adresaci maila o dostawie.
+
+        [{'email', 'imie', 'zlecenie', 'kontekst', 'czy_lider'}].
 
         Dla zwykłego zlecenia jedna pozycja. Dla paczki zbiorczej — po jednej na
         uczestnika, każdy z WŁASNĄ listą zamówień i własnym numerem zlecenia.
@@ -1830,6 +1832,14 @@ class EmailManager:
         rozwiązanie co w `_shipment_sent_consolidated` — bez fallbacku na adres z
         zamówienia dla osób z usuniętym kontem, bo przy paczce zbiorczej taki adres
         może należeć do kogoś zupełnie innego niż właściciel danych w mailu.
+
+        `czy_lider` to dokładnie to samo rozróżnienie co `czy_adresat`
+        w `_shipment_sent_consolidated`: czy TEN adresat jest osobą, na której adres
+        paczkę nadano. Tylko ona może potwierdzić odbiór (`zlecenie_do_potwierdzenia`
+        odsyła pozostałych) i tylko ona faktycznie klika, więc bez tej flagi
+        rozesłanie maila do wszystkich uczestników znaczyłoby proszenie ich o czynność
+        niewykonalną i dziękowanie im za cudze kliknięcie. Dla zwykłego zlecenia
+        zawsze True — jedyny adresat jest zarazem jedynym potwierdzającym.
         """
         if not sr.is_consolidation:
             email, imie = EmailManager._adresat_zlecenia(sr)
@@ -1840,6 +1850,7 @@ class EmailManager:
                 'imie': imie,
                 'zlecenie': sr,
                 'kontekst': EmailManager._kontekst_dostawy(sr),
+                'czy_lider': True,
             }]
 
         odbiorcy = []
@@ -1855,19 +1866,55 @@ class EmailManager:
                 'imie': user.first_name or 'Kliencie',
                 'zlecenie': zrodlo,
                 'kontekst': EmailManager._kontekst_dostawy(zrodlo, uczestnik['orders']),
+                'czy_lider': zrodlo.id == sr.lead_source_request_id,
             })
         return odbiorcy
+
+    @staticmethod
+    def _nota_paczki_zbiorczej(sr, potwierdzony=False):
+        """Zdanie dla uczestnika paczki zbiorczej, który NIE jest jej adresatem.
+
+        Odpowiednik `consolidation_note` z `_shipment_sent_consolidated` dla maili
+        o dostawie: uczestnik dostaje wiadomość o cudzym kartonie, więc musi wiedzieć,
+        że jego zamówienia jechały zbiorczo i na czyj adres. Nazwisko skracamy przez
+        `short_addressee_name` (jak wszędzie indziej), a gdy go nie ma — mówimy
+        „innego uczestnika” zamiast wstawiać puste miejsce.
+
+        `potwierdzony=True` dokłada zdanie o tym, KTO potwierdził odbiór. Używa go
+        wyłącznie mail po potwierdzeniu; przy domknięciu automatem nie potwierdził
+        nikt, więc takie zdanie byłoby nieprawdą.
+        """
+        adresat = sr.short_addressee_name
+        gdzie = (f'wysłanej na adres: {adresat}' if adresat
+                 else 'wysłanej na adres innego uczestnika')
+        # `short_addressee_name` kończy się kropką skrótu nazwiska („Ola K.”), więc
+        # dokładanie własnej dawało „Ola K...”. Kropkę stawiamy tylko wtedy, gdy
+        # zdania jeszcze nie zamyka.
+        nota = f'Twoje zamówienia jechały w paczce zbiorczej {gdzie}'
+        if not nota.endswith('.'):
+            nota += '.'
+        if potwierdzony:
+            nota += ' Odbiór potwierdziła osoba, do której paczka została nadana.'
+        return nota
 
     @staticmethod
     def build_delivery_confirmation_message(sr):
         """Przypomnienie „czy paczka dotarła?" BEZ wysyłania — do batcha cronowego.
 
+        Przy paczce zbiorczej idzie WYŁĄCZNIE do lidera. Ten mail nie informuje, tylko
+        prosi o jedną konkretną czynność (CTA „Potwierdzam odbiór”), a wykonać ją może
+        wyłącznie osoba, na której adres paczkę nadano — `zlecenie_do_potwierdzenia`
+        odsyła pozostałych uczestników komunikatem, że tej paczki stąd nie potwierdzą.
+        Wysłanie im prośby o rzecz niemożliwą to czysty szum; o samej dostawie
+        dowiedzą się z maila po potwierdzeniu albo po domknięciu automatem (te idą do
+        wszystkich, bo informują, a nie proszą).
+
         Returns:
-            list[Message]: jednoelementowa dla zwykłego zlecenia, po jednej pozycji
-            na uczestnika dla paczki zbiorczej, pusta gdy powiadomienia wyłączone
-            albo nie ma do kogo pisać. Lista, a nie pojedynczy Message, bo paczka
-            zbiorcza z definicji rodzi kilka wiadomości, a cron i tak zbiera je
-            wszystkie do jednego batcha SMTP.
+            list[Message]: jednoelementowa dla zwykłego zlecenia i dla paczki
+            zbiorczej (sam lider), pusta gdy powiadomienia wyłączone albo nie ma do
+            kogo pisać. Lista, a nie pojedynczy Message, bo pozostałe maile o dostawie
+            rodzą po jednej wiadomości na uczestnika i wołający (cron) obsługuje
+            wszystkie tym samym kodem, zbierając je do jednego batcha SMTP.
         """
         if not EmailManager.is_email_enabled('notify_delivery_confirmation'):
             current_app.logger.info(
@@ -1880,6 +1927,18 @@ class EmailManager:
         if not odbiorcy:
             current_app.logger.warning(
                 f'Brak adresata przypomnienia o dostawie {sr.request_number}')
+            return []
+
+        odbiorcy = [odb for odb in odbiorcy if odb['czy_lider']]
+        if not odbiorcy:
+            # Paczka zbiorcza bez wskazanego zlecenia wiodącego: odbioru nie potwierdzi
+            # NIKT (zlecenie_do_potwierdzenia porównuje się właśnie z tym polem), więc
+            # nie ma komu przypominać. Stan niespodziewany — konsolidacja ustawia
+            # lead_source_request_id przy każdym scaleniu i przy wypięciu lidera —
+            # dlatego zostaje w logu zamiast przejść po cichu.
+            current_app.logger.warning(
+                f'Paczka {sr.request_number} bez zlecenia wiodącego — nie ma komu '
+                f'przypomnieć o potwierdzeniu odbioru')
             return []
 
         wiadomosci = []
@@ -1898,6 +1957,16 @@ class EmailManager:
     @staticmethod
     def build_delivery_autoclosed_message(sr):
         """Informacja o automatycznym domknięciu — do batcha cronowego.
+
+        W odróżnieniu od przypomnienia idzie do WSZYSTKICH uczestników paczki
+        zbiorczej: to informacja, nie prośba o czynność. Uczestnik ma prawo wiedzieć,
+        że jego zlecenie zostało zamknięte, a zamówienia trafiły do kolekcji — nie
+        prosimy go o nic, czego nie może zrobić (ocenę wystawia na SWOIM zleceniu
+        źródłowym, patrz delivery_review_submit).
+
+        Nie-lider dostaje dodatkowo `consolidation_note`: mail mówi o paczce, której
+        fizycznie nie odbierał, więc bez tego zdania nie wiedziałby, że jechała
+        zbiorczo i na czyj adres.
 
         Returns:
             list[Message] — patrz build_delivery_confirmation_message.
@@ -1922,11 +1991,16 @@ class EmailManager:
             numer = odb['kontekst']['request_number']
             wiadomosci.append(prepare_email(
                 to=odb['email'],
+                # Temat jest prawdziwy dla obu ról: zlecenie adresata faktycznie
+                # zamykamy, niezależnie od tego, kto był adresatem kartonu.
                 subject=f'Zamykamy zlecenie {numer} — dziękujemy za zakupy',
                 template='delivery_autoclosed',
                 user_name=odb['imie'],
                 dni_do_domkniecia=konfig['autocomplete_days'],
                 okno_oceny_dni=konfig['review_window_days'],
+                consolidation_note=(
+                    None if odb['czy_lider']
+                    else EmailManager._nota_paczki_zbiorczej(sr)),
                 **odb['kontekst'],
             ))
         return [m for m in wiadomosci if m is not None]
@@ -1980,6 +2054,10 @@ class EmailManager:
                 rating=opinia.rating if opinia else None,
                 comment=opinia.comment if opinia else None,
                 okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
+                # Zwykłe zlecenie: adresat sam potwierdził, więc żadnego zdania
+                # o cudzej paczce nie ma. Przekazujemy jawnie, żeby szablon nie
+                # zależał od Undefined (patrz gałąź konsolidacyjna niżej).
+                consolidation_note=None,
                 **EmailManager._kontekst_dostawy(sr),
             )
         except Exception as e:
@@ -1995,6 +2073,14 @@ class EmailManager:
         DeliveryReview, więc `zbiorcze.review` jest z definicji puste. Bez tego mail
         z podziękowaniem szedłby bez wystawionej przed chwilą oceny i z przyciskiem
         „Oceń dostawę" pokazanym komuś, kto właśnie ocenił.
+
+        Kliknął JEDEN uczestnik — lider. Pozostałym nie wolno powiedzieć „dziękujemy
+        za potwierdzenie odbioru”: nie potwierdzali niczego i nawet nie mogli (patrz
+        `zlecenie_do_potwierdzenia`). Wiadomość dostają mimo to, bo ich zamówienia
+        naprawdę zostały zamknięte i trafiły do kolekcji — zmienia się temat, nagłówek
+        i pierwszy akapit, a `consolidation_note` mówi wprost, że odbiór potwierdziła
+        osoba, na której adres nadano paczkę. To ta sama konwencja co
+        `_shipment_sent_consolidated`.
 
         send_email_batch (jak w _shipment_sent_consolidated), nie pętla send_email —
         pętla otwierałaby tyle sesji SMTP, ilu jest uczestników.
@@ -2015,12 +2101,17 @@ class EmailManager:
             numer = odb['kontekst']['request_number']
             wiadomosci.append(prepare_email(
                 to=odb['email'],
-                subject=f'Dziękujemy za potwierdzenie odbioru — {numer}',
+                subject=(f'Dziękujemy za potwierdzenie odbioru — {numer}'
+                         if odb['czy_lider']
+                         else f'Paczka z Twoimi zamówieniami została odebrana — {numer}'),
                 template='delivery_confirmed',
                 user_name=odb['imie'],
                 rating=opinia.rating if opinia else None,
                 comment=opinia.comment if opinia else None,
                 okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
+                consolidation_note=(
+                    None if odb['czy_lider']
+                    else EmailManager._nota_paczki_zbiorczej(sr, potwierdzony=True)),
                 **odb['kontekst'],
             ))
 

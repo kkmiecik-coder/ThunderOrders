@@ -47,6 +47,89 @@ def test_zlecenie_bez_wlasciciela_nie_wysyla(app, db, monkeypatch):
     assert wyslane == []
 
 
+def _paczka_zbiorcza_push(db, make_user, make_order, numery):
+    """Paczka zbiorcza dwóch klientów — odpowiednik helpera z test_dostawa_maile."""
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    from extensions import db as _db
+
+    lider = make_user(email='lider-push@example.com')
+    drugi = make_user(email='drugi-push@example.com')
+
+    zbiorcze = ShippingRequest(
+        request_number=numery[0], user_id=lider.id, status='wyslane')
+    _db.session.add(zbiorcze)
+    _db.session.commit()
+
+    zrodla = []
+    for numer, user in ((numery[1], lider), (numery[2], drugi)):
+        zrodlo = ShippingRequest(
+            request_number=numer, user_id=user.id, status='wyslane',
+            consolidated_into_id=zbiorcze.id)
+        _db.session.add(zrodlo)
+        _db.session.commit()
+        order = make_order(user, status='wyslane')
+        _db.session.add(ShippingRequestOrder(
+            shipping_request_id=zbiorcze.id, order_id=order.id,
+            source_request_id=zrodlo.id))
+        _db.session.commit()
+        zrodla.append((user, zrodlo))
+
+    zbiorcze.lead_source_request_id = zrodla[0][1].id
+    _db.session.commit()
+    return zbiorcze, zrodla
+
+
+def test_push_z_przypomnieniem_omija_uczestnikow_paczki_zbiorczej(
+        app, db, make_user, make_order, monkeypatch):
+    """Push niesie to samo CTA co mail: „potwierdź odbiór". Uczestnik paczki
+    zbiorczej po kliknięciu trafiał na stronę odmawiającą mu tej akcji."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+    monkeypatch.setattr(
+        PushManager, '_fire_and_forget',
+        staticmethod(lambda **kw: wyslane.append(kw)))
+
+    zbiorcze, zrodla = _paczka_zbiorcza_push(
+        db, make_user, make_order, ('WYS/000310', 'WYS/000311', 'WYS/000312'))
+    (lider, zrodlo_a), (drugi, zrodlo_b) = zrodla
+
+    with app.test_request_context():
+        PushManager.notify_delivery_confirmation(zbiorcze)
+
+    assert len(wyslane) == 1, 'o potwierdzenie prosimy wyłącznie lidera'
+    assert wyslane[0]['user_id'] == lider.id
+    assert zrodlo_a.request_number in wyslane[0]['body']
+
+
+def test_push_po_odbiorze_nie_dziekuje_uczestnikowi(
+        app, db, make_user, make_order, monkeypatch):
+    """Odpowiednik ustalenia 1a po stronie pusha: „Dziękujemy za potwierdzenie"
+    trafiało do osoby, która nic nie kliknęła."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+    monkeypatch.setattr(
+        PushManager, '_fire_and_forget',
+        staticmethod(lambda **kw: wyslane.append(kw)))
+
+    zbiorcze, zrodla = _paczka_zbiorcza_push(
+        db, make_user, make_order, ('WYS/000320', 'WYS/000321', 'WYS/000322'))
+    (lider, zrodlo_a), (drugi, zrodlo_b) = zrodla
+
+    with app.test_request_context():
+        PushManager.notify_delivery_confirmed(zbiorcze)
+
+    assert len(wyslane) == 2, 'o odbiorze dowiadują się obaj uczestnicy'
+    po_userze = {w['user_id']: w for w in wyslane}
+    assert po_userze[lider.id]['title'] == 'Dziękujemy za potwierdzenie'
+    assert po_userze[drugi.id]['title'] == 'Twoja paczka została odebrana'
+    assert 'Dziękujemy' not in po_userze[drugi.id]['title']
+    assert 'odbiór potwierdziła osoba' in po_userze[drugi.id]['body']
+    assert zrodlo_b.request_number in po_userze[drugi.id]['body']
+    assert zrodlo_a.request_number not in po_userze[drugi.id]['body']
+
+
 def test_powiadomienie_dla_adminow_idzie_do_kazdego(app, db, make_user, monkeypatch):
     from utils.push_manager import PushManager
 
