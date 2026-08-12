@@ -27,7 +27,7 @@ def _kandydaci():
     )
 
 
-def odtworz_shipped_at():
+def odtworz_shipped_at(dry_run=False):
     """Uzupełnia shipped_at kaskadą po wiarygodności źródeł.
 
     1. Najstarszy wpis w activity_log z action='shipping_request_shipped' — to zapisuje
@@ -35,6 +35,17 @@ def odtworz_shipped_at():
     2. Najstarszy OrderShipment.created_at wśród zamówień zlecenia — istnieje tylko
        wtedy, gdy podano numer przesyłki.
     3. updated_at zlecenia — ostatnia deska ratunku, data przybliżona.
+
+    Args:
+        dry_run (bool): True — policz i przypisz shipped_at tak samo jak normalnie,
+            ale zamiast db.session.commit() zrób db.session.flush(). Flush zapisuje
+            zmiany W OBRĘBIE bieżącej transakcji (kolejne zapytania w tym samym
+            przebiegu je zobaczą — np. filtr shipped_at IS NOT NULL w cronie), ale
+            nic nie trafia trwale do bazy — to wywołujący (cron w trybie --dry-run)
+            odpowiada za późniejszy db.session.rollback(). Bez tego --dry-run nigdy
+            nie pokazałby zaległości sprzed wdrożenia, bo cała ta historia ma
+            shipped_at puste z definicji, a obie fazy crona wymagają, żeby było
+            ustawione.
 
     Returns:
         dict: liczba zleceń uzupełnionych z każdego źródła.
@@ -77,5 +88,8 @@ def odtworz_shipped_at():
             sr.shipped_at = sr.updated_at
             wynik['z_updated_at'] += 1
 
-    db.session.commit()
+    if dry_run:
+        db.session.flush()
+    else:
+        db.session.commit()
     return wynik

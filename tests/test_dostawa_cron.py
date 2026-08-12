@@ -166,3 +166,43 @@ def test_dry_run_nic_nie_zmienia(app, db, make_user, monkeypatch):
     assert wynik['przypomnienia'] >= 1
     assert sr.status == 'wyslane'
     assert sr.delivery_reminder_sent_at is None
+
+
+def test_dry_run_widzi_zaleglosc_ktora_wymaga_backfillu(app, db, make_user, monkeypatch):
+    """Zlecenie z shipped_at=NULL (jak cała historia sprzed wdrożenia) musi się
+    pokazać w liczbach --dry-run, żeby dry-run miał w ogóle sens jako podgląd skali
+    zaległości przed włączeniem crona. Backfill w trybie dry_run robi flush (widoczny
+    w tej transakcji), nie commit — po przebiegu shipped_at ma zostać z powrotem
+    puste, bo flush bez commit nigdy nie trafia trwale do bazy, a funkcja na końcu
+    woła rollback().
+    """
+    from modules.admin.models import ActivityLog
+    from modules.orders.models import ShippingRequest, get_local_now
+    from app import _przetworz_dostawy
+    from utils.email_manager import EmailManager
+
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message',
+        staticmethod(lambda sr: object()))
+
+    user = make_user()
+    # W przeciwieństwie do _wyslane() celowo BEZ shipped_at — to jest dokładnie
+    # kształt danych historycznych, których dotyczy backfill.
+    sr = ShippingRequest(request_number='WYS/000550', user_id=user.id, status='wyslane')
+    db.session.add(sr)
+    db.session.commit()
+    db.session.add(ActivityLog(
+        action='shipping_request_shipped', entity_type='shipping_request',
+        entity_id=sr.id, created_at=get_local_now() - timedelta(days=40)))
+    db.session.commit()
+
+    assert sr.shipped_at is None  # potwierdzenie stanu wyjściowego przed dry-run
+
+    wynik = _przetworz_dostawy(dry_run=True)
+
+    assert wynik['backfill']['z_logu'] == 1
+    assert wynik['przypomnienia'] >= 1
+    assert wynik['domkniete'] >= 1
+
+    assert sr.shipped_at is None
+    assert sr.status == 'wyslane'

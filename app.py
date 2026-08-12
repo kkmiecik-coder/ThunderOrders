@@ -552,11 +552,14 @@ def _przetworz_dostawy(dry_run=False):
     from utils.email_sender import send_email_batch_sync
     from utils.push_manager import PushManager
 
-    # Historia sprzed wdrożenia nie ma shipped_at — bez tego automat nigdy nie
-    # zobaczyłby zaległości. Funkcja jest idempotentna i tania, gdy nie ma czego robić.
-    # W --dry-run pomijamy backfill CAŁKOWICIE (nie tylko commit) — dry-run ma
-    # niczego nie zmieniać w bazie, a odtworz_shipped_at() sama woła commit.
-    backfill = {} if dry_run else odtworz_shipped_at()
+    # Historia sprzed wdrożenia nie ma shipped_at — bez tego automat (i --dry-run)
+    # nigdy nie zobaczyłby zaległości, o którą tu chodzi. Dlatego backfill wołamy
+    # ZAWSZE, także w --dry-run — z dry_run=True odtworz_shipped_at() robi flush
+    # zamiast commit (zmiany widoczne w tej transakcji dla obu faz niżej, ale nic
+    # nie trafia trwale do bazy). Na końcu tej funkcji, w trybie dry_run, robimy
+    # db.session.rollback() — dlatego żadna z faz PONIŻEJ nie może w trybie dry_run
+    # wołać commit(), bo rollback cofnąłby tylko flush z backfillu, nie zapisane dane.
+    backfill = odtworz_shipped_at(dry_run=dry_run)
 
     konfig = pobierz_konfig_dostawy()
     teraz = get_local_now()
@@ -619,7 +622,7 @@ def _przetworz_dostawy(dry_run=False):
         if dry_run:
             wynik['domkniete'] = len(zalegle)
         else:
-            wiadomosci = []
+            wiadomosci, zlecenia_domkniete = [], []
             for sr in zalegle:
                 try:
                     # powiadom=False: maile budujemy sami i wysyłamy JEDNYM
@@ -633,6 +636,7 @@ def _przetworz_dostawy(dry_run=False):
                 msg = EmailManager.build_delivery_autoclosed_message(sr)
                 if msg is not None:
                     wiadomosci.append(msg)
+                    zlecenia_domkniete.append(sr)
                 try:
                     PushManager.notify_delivery_autoclosed(sr)
                 except Exception as err:
@@ -640,7 +644,27 @@ def _przetworz_dostawy(dry_run=False):
                         f'Push o domknięciu {sr.request_number}: {err}')
 
             if wiadomosci:
-                send_email_batch_sync(wiadomosci)
+                # dostarcz_zlecenie() już zacommitował domknięcie zlecenia —
+                # nieudany mail nie cofa statusu, a zlecenie w nim raz domknięte
+                # nigdy nie wróci do żadnej fazy (nie jest już 'wyslane'). Bez tego
+                # logu nieudana wysyłka byłaby cichą, trwałą utratą powiadomienia,
+                # o której nikt by się nie dowiedział.
+                rezultaty = send_email_batch_sync(wiadomosci)
+                nieudane = [
+                    sr.request_number
+                    for sr, ok in zip(zlecenia_domkniete, rezultaty)
+                    if not ok
+                ]
+                if nieudane:
+                    current_app.logger.warning(
+                        'Mail o automatycznym domknięciu NIE wysłany dla: '
+                        + ', '.join(nieudane))
+
+    # W trybie dry_run żadna z faz powyżej nie commituje — jedyna pending zmiana to
+    # flush z backfillu. Rollback ją cofa, więc --dry-run faktycznie niczego w bazie
+    # nie zmienia, mimo że backfill musiał zostać policzony, żeby liczby były prawdziwe.
+    if dry_run:
+        db.session.rollback()
 
     return wynik
 
@@ -859,15 +883,19 @@ def register_cli_commands(app):
     def check_delivery_confirmations(dry_run):
         """Przypomnienia o potwierdzeniu odbioru i automatyczne domykanie (co godzinę)."""
         wynik = _przetworz_dostawy(dry_run=dry_run)
+        prefiks = '[DRY RUN] ' if dry_run else ''
 
+        # Backfill liczymy (i w --dry-run pokazujemy) ZAWSZE — inaczej --dry-run
+        # przed pierwszym uruchomieniem crona zawsze pokazałby 0/0 dla historii
+        # sprzed wdrożenia (ona z definicji ma shipped_at puste), co uśpiłoby
+        # czujność przy ocenie skali zaległości i wielkości porcji.
         backfill = wynik.get('backfill') or {}
         if any(backfill.values()):
             click.echo(
-                f"Uzupełniono shipped_at: z logu {backfill.get('z_logu', 0)}, "
+                f"{prefiks}Uzupełniono shipped_at: z logu {backfill.get('z_logu', 0)}, "
                 f"z przesyłek {backfill.get('z_przesylek', 0)}, "
                 f"z updated_at {backfill.get('z_updated_at', 0)}")
 
-        prefiks = '[DRY RUN] ' if dry_run else ''
         click.echo(f"{prefiks}Przypomnienia: {wynik['przypomnienia']}")
         click.echo(f"{prefiks}Domknięte automatycznie: {wynik['domkniete']}")
 
