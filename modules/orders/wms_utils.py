@@ -237,7 +237,7 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     from flask import current_app
 
     from extensions import db
-    from modules.orders.models import Order, OrderShipment, OrderStatus
+    from modules.orders.models import Order, OrderShipment, OrderStatus, get_local_now
     from utils.activity_logger import log_activity
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
@@ -264,6 +264,7 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     if parcel_size:
         sr.parcel_size = parcel_size
     sr.status = 'wyslane'
+    sr.shipped_at = get_local_now()
 
     if shipping_cost:
         try:

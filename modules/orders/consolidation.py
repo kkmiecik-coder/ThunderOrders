@@ -356,6 +356,12 @@ def propaguj_na_zrodla(sr):
         if zrodlo.courier != sr.courier:
             zrodlo.courier = sr.courier
             zmiana = True
+        # Daty dostawy jadą razem ze statusem — inaczej zlecenie źródłowe miałoby
+        # status 'wyslane' bez shipped_at i automat nigdy by go nie zobaczył.
+        for pole in ('shipped_at', 'delivered_at', 'delivered_source'):
+            if getattr(zrodlo, pole) != getattr(sr, pole):
+                setattr(zrodlo, pole, getattr(sr, pole))
+                zmiana = True
         if zmiana:
             zmienione.append(zrodlo)
     return zmienione

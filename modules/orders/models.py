@@ -1536,6 +1536,18 @@ class ShippingRequest(db.Model):
     # Termin płatności za wysyłkę PL (E4)
     payment_deadline = db.Column(db.DateTime, nullable=True)
 
+    # Dostawa (task 869efhwph). shipped_at jest punktem odniesienia dla przypomnienia
+    # i automatycznego domknięcia — updated_at się do tego nie nadaje, bo zmienia się
+    # przy każdej edycji zlecenia, a OrderShipment.created_at powstaje tylko wtedy,
+    # gdy podano numer przesyłki.
+    shipped_at = db.Column(db.DateTime, nullable=True)
+    delivered_at = db.Column(db.DateTime, nullable=True)
+    # 'klient' | 'auto' | 'admin' — bez tego statystyki nie odróżnią realnych
+    # potwierdzeń od domknięć automatu.
+    delivered_source = db.Column(db.String(20), nullable=True)
+    # Deduplikacja przypomnienia: jedno na zlecenie, więc kolumna zamiast tabeli logu.
+    delivery_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+
     # Konsolidacja — paczka zbiorcza łącząca zlecenia kilku klientów (task 869eckz7u).
     # Na zleceniu ŹRÓDŁOWYM: wskazuje paczkę zbiorczą, w której jadą jego zamówienia.
     consolidated_into_id = db.Column(
