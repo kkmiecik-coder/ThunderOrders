@@ -39,6 +39,13 @@ REJESTR EMAILI:
     ADMIN:
         - notify_admin_payment_uploaded(order, stage_names) -> nowe potwierdzenie płatności
         - notify_admin_new_order(order) -> nowe zamówienie offer
+        - notify_admin_delivery_confirmed(sr) -> klient potwierdził odbiór paczki
+
+    DOSTAWA:
+        - build_delivery_confirmation_message(sr) -> przypomnienie „czy paczka dotarła?" (batch)
+        - build_delivery_autoclosed_message(sr) -> info o automatycznym domknięciu (batch)
+        - notify_delivery_confirmed(sr) -> podziękowanie po potwierdzeniu odbioru
+        - notify_delivery_autoclosed(sr) -> pojedyncza wysyłka info o domknięciu
 """
 
 import time
@@ -1741,3 +1748,173 @@ class EmailManager:
             current_app.logger.info(f"Payment rejected email sent for {order.order_number} ({stage_name}) to {email}")
         except Exception as e:
             current_app.logger.error(f"Failed to send payment rejected email for {order.order_number}: {e}")
+
+    # ========================================
+    # DOSTAWA (task 869efhwph)
+    # ========================================
+
+    @staticmethod
+    def _adresat_zlecenia(sr):
+        """(email, imię) dla zlecenia wysyłki albo (None, None).
+
+        Konto mogło zostać usunięte — wtedy schodzimy na adres z pierwszego zamówienia,
+        tak samo jak robi to notify_shipment_sent.
+        """
+        user = sr.user
+        if user and user.email:
+            return user.email, (user.first_name or 'Kliencie')
+        orders = list(sr.orders)
+        if orders and orders[0].customer_email:
+            return orders[0].customer_email, (orders[0].customer_name or 'Kliencie')
+        return None, None
+
+    @staticmethod
+    def _kontekst_dostawy(sr):
+        """Wspólne zmienne wszystkich maili o dostawie."""
+        from flask import url_for
+        return {
+            'request_number': sr.request_number,
+            'order_numbers': [o.order_number for o in sr.display_orders],
+            'confirm_url': url_for('client.confirm_delivery',
+                                   request_id=sr.id, _external=True),
+        }
+
+    @staticmethod
+    def build_delivery_confirmation_message(sr):
+        """Przypomnienie „czy paczka dotarła?" BEZ wysyłania — do batcha cronowego.
+
+        Returns:
+            Message albo None (powiadomienia wyłączone / brak adresata).
+        """
+        if not EmailManager.is_email_enabled('notify_delivery_confirmation'):
+            current_app.logger.info(
+                "Email notification 'notify_delivery_confirmation' is disabled, skipping")
+            return None
+
+        from utils.email_sender import prepare_email
+
+        email, imie = EmailManager._adresat_zlecenia(sr)
+        if not email:
+            current_app.logger.warning(
+                f'Brak adresu dla przypomnienia o dostawie {sr.request_number}')
+            return None
+
+        return prepare_email(
+            to=email,
+            subject=f'Czy paczka {sr.request_number} do Ciebie dotarła?',
+            template='delivery_confirmation',
+            user_name=imie,
+            **EmailManager._kontekst_dostawy(sr),
+        )
+
+    @staticmethod
+    def build_delivery_autoclosed_message(sr):
+        """Informacja o automatycznym domknięciu zlecenia — do batcha cronowego."""
+        if not EmailManager.is_email_enabled('notify_delivery_autoclosed'):
+            current_app.logger.info(
+                "Email notification 'notify_delivery_autoclosed' is disabled, skipping")
+            return None
+
+        from utils.email_sender import prepare_email
+        from modules.orders.delivery_config import pobierz_konfig_dostawy
+
+        email, imie = EmailManager._adresat_zlecenia(sr)
+        if not email:
+            current_app.logger.warning(
+                f'Brak adresu dla informacji o domknięciu {sr.request_number}')
+            return None
+
+        konfig = pobierz_konfig_dostawy()
+        return prepare_email(
+            to=email,
+            subject=f'Zamykamy zlecenie {sr.request_number} — dziękujemy za zakupy',
+            template='delivery_autoclosed',
+            user_name=imie,
+            dni_do_domkniecia=konfig['autocomplete_days'],
+            okno_oceny_dni=konfig['review_window_days'],
+            **EmailManager._kontekst_dostawy(sr),
+        )
+
+    @staticmethod
+    def notify_delivery_autoclosed(sr):
+        """Pojedyncza wysyłka informacji o domknięciu (poza batchem)."""
+        from utils.email_sender import send_email_batch_sync
+
+        msg = EmailManager.build_delivery_autoclosed_message(sr)
+        if msg is not None:
+            send_email_batch_sync([msg])
+
+    @staticmethod
+    def notify_delivery_confirmed(sr):
+        """Podziękowanie po potwierdzeniu odbioru przez klienta.
+
+        Mail nie jest tu grzecznościowy: to jedyne miejsce, w którym klient dostaje
+        trwały link do zmiany wystawionej oceny — okno edycji ma tylko 3 dni, a na
+        stronę potwierdzenia sam z siebie nie wróci.
+        """
+        if not EmailManager.is_email_enabled('notify_delivery_confirmed'):
+            current_app.logger.info(
+                "Email notification 'notify_delivery_confirmed' is disabled, skipping")
+            return
+
+        from utils.email_sender import send_email
+        from modules.orders.review_models import DeliveryReview
+
+        email, imie = EmailManager._adresat_zlecenia(sr)
+        if not email:
+            return
+
+        opinia = sr.review
+        try:
+            send_email(
+                to=email,
+                subject=f'Dziękujemy za potwierdzenie odbioru — {sr.request_number}',
+                template='delivery_confirmed',
+                user_name=imie,
+                rating=opinia.rating if opinia else None,
+                comment=opinia.comment if opinia else None,
+                okno_edycji_dni=DeliveryReview.OKNO_EDYCJI_DNI,
+                **EmailManager._kontekst_dostawy(sr),
+            )
+        except Exception as e:
+            current_app.logger.error(
+                f'Mail o potwierdzeniu {sr.request_number}: {e}')
+
+    @staticmethod
+    def notify_admin_delivery_confirmed(sr):
+        """Informacja do adminów, że klient potwierdził odbiór.
+
+        Świadomie tylko dla potwierdzeń klienta — domknięcia automatu idą porcjami
+        po kilkadziesiąt na godzinę i zasypałyby skrzynkę.
+        """
+        if not EmailManager.is_email_enabled('notify_admin_delivery_confirmed'):
+            current_app.logger.info(
+                "Email notification 'notify_admin_delivery_confirmed' is disabled, skipping")
+            return
+
+        from utils.email_sender import send_email
+
+        odbiorcy = EmailManager.get_admin_notification_emails()
+        if not odbiorcy:
+            return
+
+        opinia = sr.review
+        user = sr.user
+        klient = f'{user.first_name} {user.last_name}'.strip() if user else 'nieznany'
+
+        for adres in odbiorcy:
+            try:
+                send_email(
+                    to=adres,
+                    subject=f'Klient potwierdził odbiór — {sr.request_number}',
+                    template='admin_delivery_confirmed',
+                    request_number=sr.request_number,
+                    client_name=klient,
+                    client_email=(user.email if user else None),
+                    rating=opinia.rating if opinia else None,
+                    comment=opinia.comment if opinia else None,
+                    order_numbers=[o.order_number for o in sr.display_orders],
+                )
+            except Exception as e:
+                current_app.logger.error(
+                    f'Mail do admina o potwierdzeniu {sr.request_number}: {e}')
