@@ -166,3 +166,108 @@ def test_lista_opinii_filtruje_po_ocenie(app, db, client, login, make_user):
     assert odp.status_code == 200
     assert b'WYS/000621' in odp.data
     assert b'WYS/000620' not in odp.data
+
+
+def test_lista_opinii_filtruje_tylko_z_komentarzem(app, db, client, login, make_user):
+    """Brak pokrycia dla `with_comment=1` — jedynego filtra listy opinii poza
+    oceną. `DeliveryReview.comment` jest nullable, więc filtr musi realnie
+    odróżnić NULL od pustego/wypełnionego komentarza, nie tylko nie wywalić się."""
+    from modules.orders.review_models import DeliveryReview
+
+    admin = make_user(role='admin', profile_completed=True)
+    klient = make_user()
+    sr_z_komentarzem = _dostarczone(db, klient, 'WYS/000622', 'klient')
+    sr_bez_komentarza = _dostarczone(db, klient, 'WYS/000623', 'klient')
+    db.session.add(DeliveryReview(
+        shipping_request_id=sr_z_komentarzem.id, user_id=klient.id, rating=5,
+        comment='Szybka dostawa, wszystko OK'))
+    db.session.add(DeliveryReview(
+        shipping_request_id=sr_bez_komentarza.id, user_id=klient.id, rating=4))
+    db.session.commit()
+
+    login(admin)
+    odp = client.get('/admin/shipping-requests/opinie?with_comment=1')
+
+    assert odp.status_code == 200
+    assert b'WYS/000622' in odp.data
+    assert b'WYS/000623' not in odp.data
+
+
+def test_lista_opinii_bez_filtra_pokazuje_wszystkie_niezaleznie_od_komentarza(
+        app, db, client, login, make_user):
+    """Kontrast wobec testu wyżej: bez `with_comment` filtr nie działa wcale —
+    opinia bez komentarza ma się pokazać."""
+    from modules.orders.review_models import DeliveryReview
+
+    admin = make_user(role='admin', profile_completed=True)
+    klient = make_user()
+    sr_z_komentarzem = _dostarczone(db, klient, 'WYS/000624', 'klient')
+    sr_bez_komentarza = _dostarczone(db, klient, 'WYS/000625', 'klient')
+    db.session.add(DeliveryReview(
+        shipping_request_id=sr_z_komentarzem.id, user_id=klient.id, rating=5,
+        comment='Super'))
+    db.session.add(DeliveryReview(
+        shipping_request_id=sr_bez_komentarza.id, user_id=klient.id, rating=4))
+    db.session.commit()
+
+    login(admin)
+    odp = client.get('/admin/shipping-requests/opinie')
+
+    assert odp.status_code == 200
+    assert b'WYS/000624' in odp.data
+    assert b'WYS/000625' in odp.data
+
+
+def test_lista_opinii_filtruje_tylko_z_komentarzem_w_kombinacji_z_ocena(
+        app, db, client, login, make_user):
+    """Oba filtry naraz (AND, nie OR) — opinia musi spełnić WARUNEK OCENY i mieć
+    komentarz, żeby się pokazać."""
+    from modules.orders.review_models import DeliveryReview
+
+    admin = make_user(role='admin', profile_completed=True)
+    klient = make_user()
+    # Pasuje do obu filtrów naraz.
+    pasujaca = _dostarczone(db, klient, 'WYS/000626', 'klient')
+    # Ocena się zgadza, ale bez komentarza — ma odpaść przez with_comment.
+    bez_komentarza = _dostarczone(db, klient, 'WYS/000627', 'klient')
+    # Komentarz jest, ale inna ocena — ma odpaść przez rating.
+    inna_ocena = _dostarczone(db, klient, 'WYS/000628', 'klient')
+    db.session.add(DeliveryReview(
+        shipping_request_id=pasujaca.id, user_id=klient.id, rating=5, comment='Ok'))
+    db.session.add(DeliveryReview(
+        shipping_request_id=bez_komentarza.id, user_id=klient.id, rating=5))
+    db.session.add(DeliveryReview(
+        shipping_request_id=inna_ocena.id, user_id=klient.id, rating=3, comment='Ok'))
+    db.session.commit()
+
+    login(admin)
+    odp = client.get('/admin/shipping-requests/opinie?rating=5&with_comment=1')
+
+    assert odp.status_code == 200
+    assert b'WYS/000626' in odp.data
+    assert b'WYS/000627' not in odp.data
+    assert b'WYS/000628' not in odp.data
+
+
+def test_lista_opinii_ma_paginacje_i_nie_laduje_wszystkiego_naraz(
+        app, db, client, login, make_user):
+    """`.all()` bez limitu ładowało całą tabelę na raz — tu sprawdzamy, że ponad
+    jedna strona wyników realnie ogranicza to, co wraca w pojedynczym żądaniu
+    (per_page=20 w admin_delivery_reviews)."""
+    from modules.orders.review_models import DeliveryReview
+
+    admin = make_user(role='admin', profile_completed=True)
+    klient = make_user()
+    for i in range(25):
+        sr = _dostarczone(db, klient, f'WYS/0007{i:02d}', 'klient')
+        db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=klient.id, rating=5))
+    db.session.commit()
+
+    login(admin)
+    strona_1 = client.get('/admin/shipping-requests/opinie')
+    strona_2 = client.get('/admin/shipping-requests/opinie?page=2')
+
+    assert strona_1.status_code == 200
+    assert strona_2.status_code == 200
+    assert strona_1.data.count(b'WYS/0007') == 20
+    assert strona_2.data.count(b'WYS/0007') == 5

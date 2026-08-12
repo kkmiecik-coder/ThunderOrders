@@ -142,6 +142,55 @@ def test_endpoint_ignoruje_klucze_spoza_klucze(client, db, make_user, login):
     assert Settings.get_value('is_admin') is None
 
 
+def test_endpoint_odrzuca_string_zamiast_bool_dla_pola_logicznego(client, db, make_user, login):
+    """bool("false") == True w Pythonie (niepusty string jest prawdziwy) — bez
+    jawnego sprawdzenia typu endpoint cicho włączyłby przełącznik zamiast go
+    wyłączyć. Nieosiągalne z checkboksa w UI (zawsze wysyła prawdziwy bool), ale
+    to publiczne API admina."""
+    from modules.orders.delivery_config import pobierz_konfig_dostawy
+
+    login(_admin(make_user))
+    stan_przed = pobierz_konfig_dostawy()
+
+    resp = client.post('/admin/settings/delivery', json={'reminder_enabled': 'false'})
+
+    assert resp.status_code == 400
+    assert resp.get_json()['success'] is False
+    # Zero efektu ubocznego — walidacja jest w pierwszym przebiegu, przed zapisem.
+    assert pobierz_konfig_dostawy() == stan_przed
+
+
+def test_endpoint_odrzuca_liczbe_zamiast_bool_dla_pola_logicznego(client, db, make_user, login):
+    login(_admin(make_user))
+
+    resp = client.post('/admin/settings/delivery', json={'autocomplete_enabled': 1})
+
+    assert resp.status_code == 400
+    assert resp.get_json()['success'] is False
+
+
+def test_endpoint_blad_pokazuje_etykiete_z_ui_a_nie_surowy_klucz(client, db, make_user, login):
+    """Komunikat błędu ma mówić to samo, co admin widzi w formularzu
+    (templates/admin/orders/settings.html), nie surowy klucz z KLUCZE."""
+    login(_admin(make_user))
+
+    resp = client.post('/admin/settings/delivery', json={'reminder_days': 'abc'})
+
+    tresc = resp.get_json()['message']
+    assert 'reminder_days' not in tresc
+    assert 'Przypomnienie po (dni od wysyłki)' in tresc
+
+
+def test_endpoint_blad_bool_pokazuje_etykiete_z_ui(client, db, make_user, login):
+    login(_admin(make_user))
+
+    resp = client.post('/admin/settings/delivery', json={'autocomplete_enabled': 'nie'})
+
+    tresc = resp.get_json()['message']
+    assert 'autocomplete_enabled' not in tresc
+    assert 'Domykaj niepotwierdzone zlecenia automatycznie' in tresc
+
+
 def test_endpoint_wymaga_roli_admina(client, db, make_user, login):
     login(make_user(role='client'))
 

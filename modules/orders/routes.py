@@ -2341,6 +2341,20 @@ def update_shipping_request_default_status():
         return redirect(url_for('orders.settings') + '#tab-shipping-requests')
 
 
+# Etykiety pól konfiguracji dostawy do komunikatów walidacji — 1:1 z podpisami
+# w templates/admin/orders/settings.html (sekcja „Potwierdzenie dostawy"). Admin
+# widzi w formularzu opis pola, nie jego klucz z KLUCZE (modules/orders/delivery_config.py),
+# więc komunikat błędu ma mówić tym samym językiem.
+ETYKIETY_KONFIGURACJI_DOSTAWY = {
+    'reminder_enabled': 'Wysyłaj przypomnienie o potwierdzeniu odbioru',
+    'reminder_days': 'Przypomnienie po (dni od wysyłki)',
+    'autocomplete_enabled': 'Domykaj niepotwierdzone zlecenia automatycznie',
+    'autocomplete_days': 'Automatyczne domknięcie po (dni od wysyłki)',
+    'autocomplete_batch': 'Maksymalnie zleceń domykanych na jeden przebieg',
+    'review_window_days': 'Ocenę można wystawić przez (dni od dostarczenia)',
+}
+
+
 @orders_bp.route('/admin/settings/delivery', methods=['POST'])
 @login_required
 @role_required('admin')
@@ -2364,20 +2378,32 @@ def admin_update_delivery_settings():
     for pole, klucz in KLUCZE.items():
         if pole not in dane:
             continue
+        etykieta = ETYKIETY_KONFIGURACJI_DOSTAWY.get(pole, pole)
         if isinstance(DOMYSLNE[pole], bool):
-            do_zapisu.append((klucz, bool(dane[pole]), 'boolean'))
+            wartosc = dane[pole]
+            # bool("false") == True w Pythonie (niepusty string jest prawdziwy) —
+            # bez jawnego sprawdzenia typu endpoint przyjąłby dowolny śmieciowy
+            # JSON jako włączenie przełącznika. Nieosiągalne z checkboksa w UI,
+            # ale to publiczne API admina, więc traktujemy je tak samo surowo
+            # jak pola liczbowe niżej: odrzucamy 400, nie zgadujemy intencji.
+            if not isinstance(wartosc, bool):
+                return jsonify({
+                    'success': False,
+                    'message': f'Pole „{etykieta}" musi być wartością logiczną (prawda/fałsz)'
+                }), 400
+            do_zapisu.append((klucz, wartosc, 'boolean'))
         else:
             try:
                 liczba = int(dane[pole])
             except (TypeError, ValueError):
                 return jsonify({
                     'success': False,
-                    'message': f'Pole „{pole}" musi być liczbą całkowitą'
+                    'message': f'Pole „{etykieta}" musi być liczbą całkowitą'
                 }), 400
             if liczba < 1:
                 return jsonify({
                     'success': False,
-                    'message': f'Pole „{pole}" musi wynosić co najmniej 1'
+                    'message': f'Pole „{etykieta}" musi wynosić co najmniej 1'
                 }), 400
             do_zapisu.append((klucz, liczba, 'integer'))
 
@@ -4733,18 +4759,32 @@ def admin_bulk_status_shipping_requests():
     from modules.orders.consolidation import propaguj_na_zrodla
 
     updated_count = 0
+    skipped_source_count = 0
     changed_requests = []  # (ShippingRequest, old_status) for email notifications
     for sr_id in ids:
         sr = db.session.get(ShippingRequest, sr_id)
-        if sr:
-            old_status = sr.status
-            if old_status != new_status:
-                changed_requests.append((sr, old_status))
-            sr.status = new_status
-            updated_count += 1
-            # Zmiana zbiorcza może objąć paczkę konsolidacyjną — jej źródła muszą
-            # dostać ten sam stan, zanim padnie wspólny commit poniżej.
-            propaguj_na_zrodla(sr)
+        if not sr:
+            continue
+        # Zlecenie źródłowe paczki zbiorczej domyka się WYŁĄCZNIE przez samą
+        # paczkę (patrz dostarcz_zlecenie/ZlecenieZrodloweNieDomykane w
+        # wms_utils.py) — gdyby ustawić mu tu status wprost, strażnik i tak
+        # odrzuciłby je w fazie synchronizacji niżej, ale PO tym, jak ten
+        # commit już zapisałby np. 'dostarczone' bez delivered_at, kaskady na
+        # zamówienia i kolekcji. Nic by tego już nie naprawiło — cron filtruje
+        # status=='wyslane'. Jeśli razem z tym źródłem zaznaczono też jego
+        # paczkę zbiorczą, propaguj_na_zrodla() poniżej i tak skopiuje na nie
+        # docelowy stan paczki.
+        if sr.is_consolidated_source:
+            skipped_source_count += 1
+            continue
+        old_status = sr.status
+        if old_status != new_status:
+            changed_requests.append((sr, old_status))
+        sr.status = new_status
+        updated_count += 1
+        # Zmiana zbiorcza może objąć paczkę konsolidacyjną — jej źródła muszą
+        # dostać ten sam stan, zanim padnie wspólny commit poniżej.
+        propaguj_na_zrodla(sr)
 
     db.session.commit()
 
@@ -4758,7 +4798,12 @@ def admin_bulk_status_shipping_requests():
     if changed_requests:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
-        from modules.orders.models import ShippingRequestStatus
+        # UWAGA: ShippingRequestStatus jest już zaimportowany na poziomie modułu
+        # (patrz góra pliku). Lokalny import tej samej nazwy tutaj czynił ją
+        # lokalną dla CAŁEJ funkcji (reguła zasięgu Pythona) — walidacja statusu
+        # ~30 linii wyżej odwoływała się więc do zmiennej, która w tym momencie
+        # jeszcze nie istniała, i rzucała UnboundLocalError przy KAŻDYM wywołaniu
+        # tego endpointu. Nie dodawaj go z powrotem.
         for sr, old_status in changed_requests:
             try:
                 EmailManager.notify_shipping_status_change(sr, old_status)
@@ -4780,9 +4825,17 @@ def admin_bulk_status_shipping_requests():
         })
     )
 
+    komunikat = f'Zmieniono status {updated_count} zleceń na "{status_obj.name}"'
+    if skipped_source_count:
+        komunikat += (
+            f' (pominięto {skipped_source_count} — jadą w paczce zbiorczej, '
+            f'zmień status całej paczki)'
+        )
+
     return jsonify({
         'success': True,
-        'message': f'Zmieniono status {updated_count} zleceń na "{status_obj.name}"'
+        'message': komunikat,
+        'skipped_source_count': skipped_source_count,
     })
 
 
@@ -4890,6 +4943,15 @@ def admin_delivery_reviews():
     JOIN po ShippingRequest wykorzystujemy też do eager-loadu (contains_eager) —
     inaczej każdy wiersz tabeli w szablonie (numer zlecenia, sposób domknięcia)
     doklejałby własne zapytanie i przy dłuższej liście opinii zrobiłby z tego N+1.
+
+    Paginacja w tej samej konwencji co reszta list adminowych w tym pliku
+    (por. admin_list / client orders list wyżej): `page` z query stringu,
+    stały `per_page`, `.paginate(error_out=False)`. Bez niej `.all()` ładowało
+    całą tabelę na raz — dziś to nie boli (tabela świeża), ale rośnie
+    monotonicznie i nic jej nie czyści. Szablon (poza moim zakresem zmian w
+    tej grupie) iteruje płaską listę, więc oddajemy `pagination.items`, nie
+    sam obiekt Pagination — nawigacja między stronami wymaga osobnej zmiany
+    w templates/admin/orders/delivery_reviews.html.
     """
     from sqlalchemy.orm import contains_eager, joinedload
 
@@ -4909,12 +4971,15 @@ def admin_delivery_reviews():
     if tylko_z_komentarzem:
         zapytanie = zapytanie.filter(DeliveryReview.comment.isnot(None))
 
-    opinie = zapytanie.order_by(DeliveryReview.created_at.desc()).all()
+    strona = request.args.get('page', 1, type=int)
+    per_page = 20
+    paginacja = zapytanie.order_by(DeliveryReview.created_at.desc()).paginate(
+        page=strona, per_page=per_page, error_out=False)
 
     return render_template(
         'admin/orders/delivery_reviews.html',
         title='Opinie o dostawie',
-        opinie=opinie,
+        opinie=paginacja.items,
         wybrana_ocena=ocena,
         tylko_z_komentarzem=tylko_z_komentarzem,
     )
