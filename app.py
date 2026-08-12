@@ -12,7 +12,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify
+from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify, current_app
 from werkzeug.middleware.proxy_fix import ProxyFix
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
@@ -529,6 +529,122 @@ def register_blueprints(app):
             return redirect(new_path)
 
 
+def _przetworz_dostawy(dry_run=False):
+    """Jeden przebieg obsługi dostaw: przypomnienia + automatyczne domykanie.
+
+    Wydzielone z komendy CLI, na poziomie modułu (poza register_cli_commands),
+    żeby dało się to przetestować bez runnera Click.
+
+    Obie fazy pomijają zlecenia źródłowe paczek zbiorczych (consolidated_into_id
+    IS NULL) — paczka zbiorcza domyka się jako całość, a propagacja zjeżdża na źródła.
+
+    Returns:
+        dict: {'backfill': dict, 'przypomnienia': int, 'domkniete': int}
+    """
+    from datetime import timedelta
+
+    from modules.orders.delivery_backfill import odtworz_shipped_at
+    from modules.orders.delivery_config import pobierz_konfig_dostawy
+    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.wms_utils import (
+        ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
+    from utils.email_manager import EmailManager
+    from utils.email_sender import send_email_batch_sync
+    from utils.push_manager import PushManager
+
+    # Historia sprzed wdrożenia nie ma shipped_at — bez tego automat nigdy nie
+    # zobaczyłby zaległości. Funkcja jest idempotentna i tania, gdy nie ma czego robić.
+    # W --dry-run pomijamy backfill CAŁKOWICIE (nie tylko commit) — dry-run ma
+    # niczego nie zmieniać w bazie, a odtworz_shipped_at() sama woła commit.
+    backfill = {} if dry_run else odtworz_shipped_at()
+
+    konfig = pobierz_konfig_dostawy()
+    teraz = get_local_now()
+    wynik = {'backfill': backfill, 'przypomnienia': 0, 'domkniete': 0}
+
+    def _wyslane_wczesniej_niz(dni):
+        return (
+            ShippingRequest.query
+            .filter(ShippingRequest.status == 'wyslane')
+            .filter(ShippingRequest.consolidated_into_id.is_(None))
+            .filter(ShippingRequest.shipped_at.isnot(None))
+            .filter(ShippingRequest.shipped_at <= teraz - timedelta(days=dni))
+        )
+
+    # === Faza 1: przypomnienia ===
+    if konfig['reminder_enabled']:
+        kandydaci = (
+            _wyslane_wczesniej_niz(konfig['reminder_days'])
+            .filter(ShippingRequest.delivery_reminder_sent_at.is_(None))
+            .filter(ShippingRequest.user_id.isnot(None))
+            .order_by(ShippingRequest.shipped_at.asc())
+            .all()
+        )
+
+        wiadomosci, zlecenia = [], []
+        for sr in kandydaci:
+            msg = EmailManager.build_delivery_confirmation_message(sr)
+            if msg is None:
+                continue
+            wiadomosci.append(msg)
+            zlecenia.append(sr)
+
+        if dry_run:
+            wynik['przypomnienia'] = len(wiadomosci)
+        elif wiadomosci:
+            # Jedno połączenie SMTP na cały batch — Hostinger limituje AUTH per IP.
+            rezultaty = send_email_batch_sync(wiadomosci)
+            for sr, ok in zip(zlecenia, rezultaty):
+                if not ok:
+                    # Bez znacznika: nieudane przypomnienie wróci w kolejnym przebiegu.
+                    continue
+                sr.delivery_reminder_sent_at = teraz
+                wynik['przypomnienia'] += 1
+                try:
+                    PushManager.notify_delivery_confirmation(sr)
+                except Exception as err:
+                    current_app.logger.error(
+                        f'Push przypomnienia o dostawie {sr.request_number}: {err}')
+            db.session.commit()
+
+    # === Faza 2: automatyczne domykanie ===
+    if konfig['autocomplete_enabled']:
+        zalegle = (
+            _wyslane_wczesniej_niz(konfig['autocomplete_days'])
+            .order_by(ShippingRequest.shipped_at.asc())
+            .limit(konfig['autocomplete_batch'])
+            .all()
+        )
+
+        if dry_run:
+            wynik['domkniete'] = len(zalegle)
+        else:
+            wiadomosci = []
+            for sr in zalegle:
+                try:
+                    # powiadom=False: maile budujemy sami i wysyłamy JEDNYM
+                    # połączeniem SMTP. Pętla po notify_* otworzyłaby tyle sesji
+                    # SMTP, ile zleceń w porcji.
+                    dostarcz_zlecenie(sr, source='auto', powiadom=False)
+                except (ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane) as err:
+                    current_app.logger.info(f'Pominięto {sr.request_number}: {err}')
+                    continue
+                wynik['domkniete'] += 1
+                msg = EmailManager.build_delivery_autoclosed_message(sr)
+                if msg is not None:
+                    wiadomosci.append(msg)
+                try:
+                    PushManager.notify_delivery_autoclosed(sr)
+                except Exception as err:
+                    current_app.logger.error(
+                        f'Push o domknięciu {sr.request_number}: {err}')
+
+            if wiadomosci:
+                send_email_batch_sync(wiadomosci)
+
+    return wynik
+
+
 def register_cli_commands(app):
     """Rejestruje komendy CLI (do użycia z cron)"""
 
@@ -736,6 +852,24 @@ def register_cli_commands(app):
             db.session.commit()
 
         click.echo(f"\nGotowe. Wysłano przypomnień: {sent_count}, Przekroczone deadline: {exceeded_count}")
+
+    @app.cli.command('check-delivery-confirmations')
+    @_with_request_context
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl, nie zmieniaj i nie wysyłaj')
+    def check_delivery_confirmations(dry_run):
+        """Przypomnienia o potwierdzeniu odbioru i automatyczne domykanie (co godzinę)."""
+        wynik = _przetworz_dostawy(dry_run=dry_run)
+
+        backfill = wynik.get('backfill') or {}
+        if any(backfill.values()):
+            click.echo(
+                f"Uzupełniono shipped_at: z logu {backfill.get('z_logu', 0)}, "
+                f"z przesyłek {backfill.get('z_przesylek', 0)}, "
+                f"z updated_at {backfill.get('z_updated_at', 0)}")
+
+        prefiks = '[DRY RUN] ' if dry_run else ''
+        click.echo(f"{prefiks}Przypomnienia: {wynik['przypomnienia']}")
+        click.echo(f"{prefiks}Domknięte automatycznie: {wynik['domkniete']}")
 
     @app.cli.command('backfill-set-numbers')
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl bez zapisywania')
