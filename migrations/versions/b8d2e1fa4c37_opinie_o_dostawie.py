@@ -34,5 +34,8 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index('ix_delivery_reviews_user_id', table_name='delivery_reviews')
+    # Bez osobnego drop_index: ix_delivery_reviews_user_id podtrzymuje klucz obcy
+    # fk_delivery_reviews_user, a MariaDB odmawia usunięcia takiego indeksu
+    # („Cannot drop index … needed in a foreign key constraint"). drop_table usuwa
+    # indeksy i klucze obce razem z tabelą. Znana pułapka tego repozytorium.
     op.drop_table('delivery_reviews')
