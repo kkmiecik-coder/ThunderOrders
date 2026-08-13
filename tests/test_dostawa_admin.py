@@ -283,6 +283,70 @@ def test_lista_opinii_filtruje_tylko_z_komentarzem_w_kombinacji_z_ocena(
     assert b'WYS/000628' not in odp.data
 
 
+def test_lista_opinii_pokazuje_nawigacje_i_liczbe_wszystkich_wynikow(
+        app, db, client, login, make_user):
+    """Paginacja bez sygnału w UI była gorsza niż jej brak.
+
+    Pierwsza wersja tej zmiany oddawała szablonowi samą listę `pagination.items`,
+    więc widok ucinał się po cichu na 20 wierszach: admin przy 25 opiniach widział
+    20 i NIE MIAŁ SKĄD wiedzieć, że reszta istnieje — w tym ewentualne oceny 1–2
+    z reklamacjami. Wcześniej (`.all()`) widział wszystko.
+
+    Sprawdzamy jedno i drugie: że da się przejść na kolejną stronę i że widoczna
+    jest łączna liczba wyników.
+    """
+    from modules.orders.review_models import DeliveryReview
+
+    admin = make_user(role='admin', profile_completed=True)
+    klient = make_user()
+    for i in range(25):
+        sr = _dostarczone(db, klient, f'WYS/0008{i:02d}', 'klient')
+        db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=klient.id, rating=5))
+    db.session.commit()
+
+    login(admin)
+    odp = client.get('/admin/shipping-requests/opinie')
+    html = odp.get_data(as_text=True)
+
+    assert odp.status_code == 200
+    # Nawigacja z makra components/_pagination.html — link „następna strona".
+    assert 'rel="next"' in html
+    assert 'page=2' in html
+    # Licznik wszystkich wyników, nie tylko tych z bieżącej strony.
+    assert '25 pozycji' in html
+
+
+def test_lista_opinii_niesie_filtry_w_linkach_paginacji(
+        app, db, client, login, make_user):
+    """Skok na stronę 2 nie może gubić filtra — inaczej admin ogląda drugą stronę
+    czegoś zupełnie innego niż to, co przefiltrował."""
+    import re
+
+    from modules.orders.review_models import DeliveryReview
+
+    admin = make_user(role='admin', profile_completed=True)
+    klient = make_user()
+    for i in range(25):
+        sr = _dostarczone(db, klient, f'WYS/0009{i:02d}', 'klient')
+        db.session.add(DeliveryReview(
+            shipping_request_id=sr.id, user_id=klient.id, rating=1, comment='Reklamacja'))
+    db.session.commit()
+
+    login(admin)
+    odp = client.get('/admin/shipping-requests/opinie?rating=1&with_comment=1')
+    html = odp.get_data(as_text=True)
+
+    assert odp.status_code == 200
+    dopasowanie = re.search(r'<a href="([^"]+)"[^>]*rel="next"', html)
+    assert dopasowanie, 'brak linku „następna strona" mimo 25 opinii na stronach po 20'
+
+    # Oba filtry muszą jechać razem z numerem strony w tym samym adresie.
+    link_next = dopasowanie.group(1)
+    assert 'page=2' in link_next
+    assert 'rating=1' in link_next
+    assert 'with_comment=1' in link_next
+
+
 def test_lista_opinii_ma_paginacje_i_nie_laduje_wszystkiego_naraz(
         app, db, client, login, make_user):
     """`.all()` bez limitu ładowało całą tabelę na raz — tu sprawdzamy, że ponad
@@ -305,3 +369,97 @@ def test_lista_opinii_ma_paginacje_i_nie_laduje_wszystkiego_naraz(
     assert strona_2.status_code == 200
     assert strona_1.data.count(b'WYS/0007') == 20
     assert strona_2.data.count(b'WYS/0007') == 5
+
+
+# ====================
+# ZLECENIE ŹRÓDŁOWE PACZKI ZBIORCZEJ A ZAPIS STATUSU
+# ====================
+
+def _admin_statusow(make_user):
+    return make_user(role='admin', email='admin-statusy@example.com', profile_completed=True)
+
+
+def _zrodlo_w_paczce(db, user, numer_paczki, numer_zrodla, status):
+    """Paczka zbiorcza + jedno zlecenie źródłowe w tym samym statusie."""
+    from modules.orders.models import ShippingRequest
+
+    zbiorcze = ShippingRequest(request_number=numer_paczki, user_id=user.id, status=status)
+    db.session.add(zbiorcze)
+    db.session.commit()
+    zrodlo = ShippingRequest(request_number=numer_zrodla, user_id=user.id, status=status,
+                             consolidated_into_id=zbiorcze.id)
+    db.session.add(zrodlo)
+    db.session.commit()
+    return zbiorcze, zrodlo
+
+
+def test_bulk_status_zapisuje_status_finansowy_na_zrodle_paczki_zbiorczej(
+        app, db, client, login, make_user):
+    """Pomijanie źródeł miało dotyczyć TYLKO statusów logistycznych.
+
+    `propaguj_na_zrodla` kopiuje na uczestników wyłącznie STATUSY_LOGISTYCZNE —
+    dla finansów propagacja jest celowo wyłączona („finanse zostają indywidualne"),
+    a `przeprowadz_uczestnikow_na_oplacenie` wprost ZAPISUJE je na źródłach. Gdy
+    pomijanie objęło każdy status, ustawienie źródłu „opłacone" stało się cichym
+    no-opem, a komunikat radził adminowi „zmień status całej paczki", co też by
+    źródeł nie ruszyło.
+    """
+    lider = make_user(email='lider-finanse@example.com')
+    _zbiorcze, zrodlo = _zrodlo_w_paczce(
+        db, lider, 'WYS/000810', 'WYS/000811', 'czeka_na_oplacenie')
+    login(_admin_statusow(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/bulk-status', json={
+        'ids': [zrodlo.id], 'status': 'oplacone',
+    })
+
+    assert r.status_code == 200
+    assert r.get_json()['skipped_source_count'] == 0
+    db.session.refresh(zrodlo)
+    assert zrodlo.status == 'oplacone'
+
+
+def test_put_zlecenia_odmawia_statusu_logistycznego_zrodlu_ale_zapisuje_reszte(
+        app, db, client, login, make_user, make_order):
+    """Ten sam połowiczny stan żył w bliźniaczej trasie PUT (`_zapisz_zlecenie_wysylki`).
+
+    Zapis ustawiał źródłu `status='dostarczone'` i commitował, a strażnik
+    `ZlecenieZrodloweNieDomykane` w `dostarcz_zlecenie()` odrzucał je dopiero
+    w synchronizacji statusów — czyli PO commicie. Zostawało „dostarczone" bez
+    `delivered_at`, bez kaskady na zamówienia i bez kolekcji; cron tego nie
+    podniesie (filtruje status=='wyslane').
+
+    Drugi człon testu pilnuje, żeby strażnik nie był ZA szeroki: modal wysyła cały
+    payload, więc niezmieniony status w żądaniu nie może blokować zapisu kosztów.
+    """
+    from modules.orders.models import ShippingRequestOrder
+
+    lider = make_user(email='lider-put@example.com')
+    _zbiorcze, zrodlo = _zrodlo_w_paczce(db, lider, 'WYS/000820', 'WYS/000821', 'wyslane')
+    zamowienie = make_order(lider, status='wyslane')
+    db.session.add(ShippingRequestOrder(
+        shipping_request_id=zrodlo.id, order_id=zamowienie.id))
+    db.session.commit()
+    login(_admin_statusow(make_user))
+
+    odmowa = client.put(f'/admin/orders/shipping-requests/{zrodlo.id}', json={
+        'status': 'dostarczone',
+    })
+
+    assert odmowa.status_code == 400
+    assert 'paczce zbiorczej' in odmowa.get_json()['error']
+    db.session.refresh(zrodlo)
+    db.session.refresh(zamowienie)
+    assert zrodlo.status == 'wyslane'
+    assert zrodlo.delivered_at is None
+    assert zamowienie.status == 'wyslane'
+
+    # Ten sam status co w bazie = brak zmiany: zapis ma przejść razem z kosztami.
+    bez_zmiany = client.put(f'/admin/orders/shipping-requests/{zrodlo.id}', json={
+        'status': 'wyslane',
+        'order_costs': [{'order_id': zamowienie.id, 'shipping_cost': 19.99}],
+    })
+
+    assert bez_zmiany.status_code == 200
+    db.session.refresh(zamowienie)
+    assert float(zamowienie.shipping_cost) == 19.99

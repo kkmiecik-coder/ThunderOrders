@@ -2384,8 +2384,21 @@ def admin_update_delivery_settings():
             # bool("false") == True w Pythonie (niepusty string jest prawdziwy) —
             # bez jawnego sprawdzenia typu endpoint przyjąłby dowolny śmieciowy
             # JSON jako włączenie przełącznika. Nieosiągalne z checkboksa w UI,
-            # ale to publiczne API admina, więc traktujemy je tak samo surowo
-            # jak pola liczbowe niżej: odrzucamy 400, nie zgadujemy intencji.
+            # ale to publiczne API admina, więc odrzucamy 400 zamiast zgadywać
+            # intencję.
+            #
+            # Tak, jest to SUROWSZE niż gałąź liczbowa niżej, która przez int()
+            # przyjmuje też stringi („5"), i surowsze niż warstwa odczytu
+            # (_jako_bool w delivery_config.py, która parsuje „true"/„on"/„1").
+            # Ta asymetria jest zamierzona i nie ma jej po co „ujednolicać":
+            #  * _jako_bool MUSI umieć stringi, bo tabela settings trzyma
+            #    wartości jako tekst — czyta z bazy, nie z JSON-a;
+            #  * „5" ma dokładnie jedno sensowne odczytanie jako liczba, więc
+            #    int() niczego nie zgaduje;
+            #  * dowolny string jako bool sensownego odczytania NIE ma — „false"
+            #    czyta się dla człowieka jako fałsz, a dla Pythona jako prawda,
+            #    i to był właśnie ten błąd.
+            # JSON ma natywny typ logiczny, więc na wejściu możemy go wymagać.
             if not isinstance(wartosc, bool):
                 return jsonify({
                     'success': False,
@@ -3956,6 +3969,27 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
             current_app.logger.error(f'Status sync email error for {order.order_number}: {e}')
 
 
+def _status_logistyczny_dla_zrodla(sr, nowy_status):
+    """Czy `nowy_status` to zmiana logistyczna zlecenia jadącego w paczce zbiorczej?
+
+    Jedno miejsce na regułę wspólną dla obu tras zapisu statusu
+    (`_zapisz_zlecenie_wysylki` i `admin_bulk_status_shipping_requests`), żeby nie
+    rozjechały się jak dotąd — poprawka wprowadzona w jednej z nich obchodziła się
+    bokiem drugiej.
+
+    Podział jest ten sam, co w `propaguj_na_zrodla`: logistyka („spakowane",
+    „wysłane", „dostarczone") jest własnością kartonu i schodzi na uczestników
+    z paczki zbiorczej, więc ustawiona źródłu wprost albo rozjeżdża uczestników
+    jednej przesyłki, albo — dla „dostarczone" — zostawia połowiczny stan, bo
+    `dostarcz_zlecenie()` odrzuca źródło strażnikiem `ZlecenieZrodloweNieDomykane`
+    JUŻ PO zapisie statusu. Statusy finansowe są indywidualne per uczestnik
+    i wolno je zapisywać źródłom wprost (robi to `przeprowadz_uczestnikow_na_oplacenie`).
+    """
+    from modules.orders.consolidation import STATUSY_LOGISTYCZNE
+
+    return sr.is_consolidated_source and nowy_status in STATUSY_LOGISTYCZNE
+
+
 class BladZapisuZlecenia(Exception):
     """Odmowa zapisu zlecenia wysyłki z powodem nadającym się do pokazania adminowi.
 
@@ -4049,6 +4083,26 @@ def _zapisz_zlecenie_wysylki(sr, data):
 
     # Update basic fields
     if 'status' in data:
+        # Bliźniaczy strażnik do tego z admin_bulk_status_shipping_requests —
+        # ta trasa (w odróżnieniu od tamtej) NIE jest martwa, woła ją modal
+        # wyceny/wysyłki. Bez niego zapis zostawiał źródłu paczki zbiorczej
+        # 'dostarczone' bez delivered_at: strażnik w dostarcz_zlecenie() odrzuca
+        # takie zlecenie dopiero w synchronizacji statusów niżej, czyli PO
+        # commicie samego statusu.
+        #
+        # Odmowa, nie ciche pominięcie pola — reszta tej funkcji trzyma tę samą
+        # konwencję (patrz _odmowa_zapisu przy kosztach): admin ma wiedzieć,
+        # czego nie zapisano i dlaczego, zamiast zobaczyć „zapisano" po zapisie
+        # niepełnym.
+        #
+        # Warunek na zmianę wartości jest istotny: modal wysyła cały payload,
+        # więc niezmieniony status w żądaniu nie może blokować zapisu kosztów
+        # ani trackingu na zleceniu źródłowym.
+        if data['status'] != sr.status and _status_logistyczny_dla_zrodla(sr, data['status']):
+            paczka = sr.consolidated_into.request_number if sr.consolidated_into else '?'
+            raise _odmowa_zapisu(
+                sr, f'jedzie w paczce zbiorczej {paczka} — status logistyczny '
+                    f'ustaw na samej paczce, zjedzie na nie propagacją')
         sr.status = data['status']
     if 'courier' in data:
         sr.courier = data['courier'] or None
@@ -4740,7 +4794,15 @@ def admin_consolidation_dissolve(shipping_request_id):
 @login_required
 @role_required('admin', 'mod')
 def admin_bulk_status_shipping_requests():
-    """Bulk change status for multiple shipping requests."""
+    """Zbiorcza zmiana statusu wielu zleceń wysyłki.
+
+    UWAGA: trasa jest MARTWA — po żadnej stronie (`static/js/`, `templates/`) nic
+    jej nie woła; jedyne wywołania to testy. Zostaje, bo to spójne z resztą API
+    adminowego wejście i nic nie kosztuje, ale przy szacowaniu wagi błędów w tej
+    funkcji nie licz „widoczności na produkcji" — dziś dosięgnąć jej można wyłącznie
+    ręcznym żądaniem. (Notatka po tym, jak pierwsza fala sprzątania długu opisała
+    tutejszy UnboundLocalError jako awarię produkcyjną — nią nie był.)
+    """
     data = request.get_json()
     ids = data.get('ids', [])
     new_status = data.get('status')
@@ -4765,16 +4827,23 @@ def admin_bulk_status_shipping_requests():
         sr = db.session.get(ShippingRequest, sr_id)
         if not sr:
             continue
-        # Zlecenie źródłowe paczki zbiorczej domyka się WYŁĄCZNIE przez samą
-        # paczkę (patrz dostarcz_zlecenie/ZlecenieZrodloweNieDomykane w
-        # wms_utils.py) — gdyby ustawić mu tu status wprost, strażnik i tak
-        # odrzuciłby je w fazie synchronizacji niżej, ale PO tym, jak ten
-        # commit już zapisałby np. 'dostarczone' bez delivered_at, kaskady na
-        # zamówienia i kolekcji. Nic by tego już nie naprawiło — cron filtruje
-        # status=='wyslane'. Jeśli razem z tym źródłem zaznaczono też jego
-        # paczkę zbiorczą, propaguj_na_zrodla() poniżej i tak skopiuje na nie
-        # docelowy stan paczki.
-        if sr.is_consolidated_source:
+        # Pomijamy WYŁĄCZNIE statusy logistyczne, nie każdy status. Logistyka
+        # jest własnością kartonu: propaguj_na_zrodla() kopiuje na źródła tylko
+        # STATUSY_LOGISTYCZNE, a dostarcz_zlecenie() odrzuca źródło strażnikiem
+        # ZlecenieZrodloweNieDomykane — ustawiony tu wprost status zostawiłby
+        # połowiczny stan ('dostarczone' bez delivered_at, bez kaskady na
+        # zamówienia i bez kolekcji), którego nic już nie podnosi (cron filtruje
+        # status=='wyslane'), albo rozjechałby uczestników jednego kartonu.
+        # Finanse są odwrotnie — indywidualne per uczestnik: propagacja jest dla
+        # nich CELOWO wyłączona, a przeprowadz_uczestnikow_na_oplacenie() wprost
+        # zapisuje status finansowy na źródłach. Pomijanie ich (tak robiła
+        # pierwsza wersja tej poprawki) czyniło z ustawienia źródłu np.
+        # 'oplacone' cichy no-op, a rada „zmień status całej paczki" była
+        # nieprawdziwa — paczka takiego statusu na źródła nie zjedzie.
+        # Pominięte źródło niczego nie traci: jeśli w tym samym zaznaczeniu jest
+        # jego paczka zbiorcza, propaguj_na_zrodla() niżej i tak skopiuje na nie
+        # docelowy stan paczki, niezależnie od kolejności ID.
+        if _status_logistyczny_dla_zrodla(sr, new_status):
             skipped_source_count += 1
             continue
         old_status = sr.status
@@ -4802,8 +4871,11 @@ def admin_bulk_status_shipping_requests():
         # (patrz góra pliku). Lokalny import tej samej nazwy tutaj czynił ją
         # lokalną dla CAŁEJ funkcji (reguła zasięgu Pythona) — walidacja statusu
         # ~30 linii wyżej odwoływała się więc do zmiennej, która w tym momencie
-        # jeszcze nie istniała, i rzucała UnboundLocalError przy KAŻDYM wywołaniu
-        # tego endpointu. Nie dodawaj go z powrotem.
+        # jeszcze nie istniała, i rzucała UnboundLocalError. Padało każde żądanie,
+        # które przeszło wcześniejsze bramki: rola (403 z dekoratora), brak `ids`
+        # i brak `status` (400) wracały normalnie i do tej linii nie docierały —
+        # więc nie „przy KAŻDYM wywołaniu", jak głosił poprzedni komentarz.
+        # Nie dodawaj importu z powrotem.
         for sr, old_status in changed_requests:
             try:
                 EmailManager.notify_shipping_status_change(sr, old_status)
@@ -4827,9 +4899,11 @@ def admin_bulk_status_shipping_requests():
 
     komunikat = f'Zmieniono status {updated_count} zleceń na "{status_obj.name}"'
     if skipped_source_count:
+        # Rada jest prawdziwa tylko dla statusów logistycznych i tylko takie tu
+        # pomijamy — status paczki zbiorczej zjeżdża na uczestników propagacją.
         komunikat += (
-            f' (pominięto {skipped_source_count} — jadą w paczce zbiorczej, '
-            f'zmień status całej paczki)'
+            f' (pominięto {skipped_source_count} — jadą w paczce zbiorczej; '
+            f'status logistyczny ustaw na samej paczce, zjedzie na nie propagacją)'
         )
 
     return jsonify({
@@ -4944,18 +5018,23 @@ def admin_delivery_reviews():
     inaczej każdy wiersz tabeli w szablonie (numer zlecenia, sposób domknięcia)
     doklejałby własne zapytanie i przy dłuższej liście opinii zrobiłby z tego N+1.
 
-    Paginacja w tej samej konwencji co reszta list adminowych w tym pliku
-    (por. admin_list / client orders list wyżej): `page` z query stringu,
-    stały `per_page`, `.paginate(error_out=False)`. Bez niej `.all()` ładowało
-    całą tabelę na raz — dziś to nie boli (tabela świeża), ale rośnie
-    monotonicznie i nic jej nie czyści. Szablon (poza moim zakresem zmian w
-    tej grupie) iteruje płaską listę, więc oddajemy `pagination.items`, nie
-    sam obiekt Pagination — nawigacja między stronami wymaga osobnej zmiany
-    w templates/admin/orders/delivery_reviews.html.
+    Paginacja przez wspólny `utils/pagination.py` — ten sam mechanizm, co lista
+    produktów, użytkowników i zleceń wysyłki: `page` z query stringu, wybór „ile
+    na stronie" zapamiętywany na czas sesji logowania, opcja „Wszystkie".
+    Bez paginacji `.all()` ładowało całą tabelę, która rośnie monotonicznie
+    i nic jej nie czyści.
+
+    Do szablonu idzie CAŁY obiekt paginacji, nie sama lista pozycji: pierwsza
+    wersja tej zmiany oddawała `pagination.items`, więc widok cichcem ucinał się
+    na 20 wierszach i admin przy 25 opiniach nie miał skąd wiedzieć, że pozostałe
+    (w tym ewentualne oceny 1–2 z reklamacjami) w ogóle istnieją. Szablon
+    renderuje makro `pagination_nav` z components/_pagination.html, które pokazuje
+    licznik wszystkich wyników nawet wtedy, gdy strona jest jedna.
     """
     from sqlalchemy.orm import contains_eager, joinedload
 
     from modules.orders.review_models import DeliveryReview
+    from utils.pagination import paginate_with_choice, resolve_per_page
 
     zapytanie = (
         DeliveryReview.query
@@ -4972,14 +5051,16 @@ def admin_delivery_reviews():
         zapytanie = zapytanie.filter(DeliveryReview.comment.isnot(None))
 
     strona = request.args.get('page', 1, type=int)
-    per_page = 20
-    paginacja = zapytanie.order_by(DeliveryReview.created_at.desc()).paginate(
-        page=strona, per_page=per_page, error_out=False)
+    per_page = resolve_per_page('delivery_reviews', default=20)
+    paginacja = paginate_with_choice(
+        zapytanie.order_by(DeliveryReview.created_at.desc()), strona, per_page)
 
     return render_template(
         'admin/orders/delivery_reviews.html',
         title='Opinie o dostawie',
         opinie=paginacja.items,
+        paginacja=paginacja,
+        per_page=per_page,
         wybrana_ocena=ocena,
         tylko_z_komentarzem=tylko_z_komentarzem,
     )

@@ -1,12 +1,21 @@
 {% extends "admin/base_admin.html" %}
+{% from "components/_pagination.html" import pagination_nav %}
 
 {% block title %}Opinie o dostawie - ThunderOrders{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pagination.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/delivery-reviews.css') }}">
 {% endblock %}
 
 {% block content %}
+{# Linki paginacji niosą WSZYSTKIE aktywne parametry (filtr oceny, „tylko
+   z komentarzem"), nie tylko numer strony — inaczej skok na stronę 2 gubiłby
+   filtr i admin oglądałby drugą stronę czegoś innego. Konwencja 1:1 z listą
+   użytkowników i produktów. #}
+{% macro opinie_page_url(n) %}{{ url_for('orders.admin_delivery_reviews', page=n, per_page=per_page, **(request.args|reject_key('page')|reject_key('per_page'))) }}{% endmacro %}
+{# Zmiana liczby pozycji wraca na stronę 1 — stary numer wskazywałby na co innego. #}
+{% macro opinie_per_page_url(v) %}{{ url_for('orders.admin_delivery_reviews', per_page=v, **(request.args|reject_key('page')|reject_key('per_page'))) }}{% endmacro %}
 <div class="delivery-reviews">
     <h1 class="delivery-reviews__title">Opinie o dostawie</h1>
 
@@ -70,5 +79,21 @@
     {% else %}
     <p class="delivery-reviews__empty">Brak opinii spełniających wybrane kryteria.</p>
     {% endif %}
+
+    {# Wspólny komponent (components/_pagination.html) w wariancie pełnym: obok
+       nawigacji pokazuje licznik WSZYSTKICH wyników i selektor „ile na stronie"
+       (z opcją „Wszystkie"). Bez niego widok ucinał się po cichu na 20 wierszach
+       — admin przy 25 opiniach widział 20 i nie miał skąd wiedzieć, że reszta
+       (w tym ewentualne oceny 1–2 z reklamacjami) istnieje. Renderuje się także
+       przy jednej stronie, bo podano per_page_url — dzięki temu licznik jest
+       zawsze, a wybór „Wszystkie" da się cofnąć. Styl w całości z
+       css/components/pagination.css (ma własny wariant ciemny), bez lokalnych
+       klas. #}
+    {{ pagination_nav(paginacja, opinie_page_url, 'Strony listy opinii o dostawie',
+                      false, opinie_per_page_url, per_page) }}
 </div>
+
+{# Obsługa pola „numer strony" i selektora liczby pozycji — ten sam plik, co na
+   pozostałych listach adminowych. #}
+<script src="{{ url_for('static', filename='js/components/pagination.js') }}"></script>
 {% endblock %}
