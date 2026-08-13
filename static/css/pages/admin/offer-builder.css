@@ -4045,3 +4045,13 @@
 [data-theme="dark"] .image-section-thumb-remove::before {
     background: rgba(0, 0, 0, 0.7);
 }
+
+/* Przeciągana miniatura — przygaszona, żeby było widać gdzie wskoczy */
+.image-section-thumb.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+}
+
+[data-theme="dark"] .image-section-thumb.dragging {
+    opacity: 0.35;
+}

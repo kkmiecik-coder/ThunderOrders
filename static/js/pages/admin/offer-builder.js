@@ -32,6 +32,9 @@ function initOfferBuilder(config) {
     // Setup drag and drop
     setupDragAndDrop();
 
+    // Zmiana kolejności miniatur w sekcjach zdjęciowych
+    setupSectionImageDnD();
+
     // Setup checkbox toggles
     setupCheckboxToggles();
 
@@ -1942,6 +1945,65 @@ function removeSectionImage(btn) {
     if (!thumb) return;
     thumb.remove();
     markDirty();
+}
+
+let draggedSectionImage = null;
+
+/**
+ * Zmiana kolejności miniatur w sekcji zdjęciowej.
+ *
+ * Delegacja na dokumencie — miniatury powstają dynamicznie po uploadzie.
+ * KAŻDE zdarzenie woła stopPropagation(), żeby chwycenie miniatury nie uruchomiło
+ * drag & drop całej sekcji (setupDragAndDrop nasłuchuje na .section-card).
+ *
+ * Ograniczenie: HTML5 drag & drop nie działa na ekranach dotykowych — z telefonu
+ * kolejności nie zmienisz (dodawanie i usuwanie zdjęć działa wszędzie).
+ */
+function setupSectionImageDnD() {
+    document.addEventListener('dragstart', function (e) {
+        const thumb = e.target.closest ? e.target.closest('.image-section-thumb') : null;
+        if (!thumb) return;
+        e.stopPropagation();
+        draggedSectionImage = thumb;
+        thumb.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    }, true);
+
+    document.addEventListener('dragover', function (e) {
+        const kontener = e.target.closest ? e.target.closest('.image-section-thumbs') : null;
+        if (!kontener || !draggedSectionImage) return;
+        if (!kontener.contains(draggedSectionImage)) return;  // tylko w obrębie tej samej sekcji
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+
+        const cel = e.target.closest('.image-section-thumb');
+        if (!cel || cel === draggedSectionImage) return;
+
+        const prostokat = cel.getBoundingClientRect();
+        const przedCelem = (e.clientX - prostokat.left) < prostokat.width / 2;
+        kontener.insertBefore(draggedSectionImage, przedCelem ? cel : cel.nextSibling);
+    }, true);
+
+    document.addEventListener('drop', function (e) {
+        if (!draggedSectionImage) return;
+        const kontener = e.target.closest ? e.target.closest('.image-section-thumbs') : null;
+        if (!kontener) return;
+        e.preventDefault();
+        e.stopPropagation();
+        markDirty();
+    }, true);
+
+    document.addEventListener('dragend', function (e) {
+        if (!draggedSectionImage) return;
+        e.stopPropagation();
+        draggedSectionImage.classList.remove('dragging');
+        draggedSectionImage = null;
+        // handleDragEnd sekcji nie dostanie tego zdarzenia (stopPropagation powyżej),
+        // więc podświetlenie karty sprzątamy tutaj — miniatura mogła przejechać nad
+        // kartą sekcji poza kontenerem miniatur i zostawić .drag-over.
+        document.querySelectorAll('.section-card.drag-over').forEach(s => s.classList.remove('drag-over'));
+    }, true);
 }
 
 /**
