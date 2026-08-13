@@ -163,6 +163,48 @@ def test_walidacja_przepuszcza_poprawne_sciezki():
     assert blad is None
 
 
+def test_walidacja_odrzuca_images_null_zamiast_500(db, make_user):
+    # 'images': None (klucz obecny, wartość None) nie może rzucić TypeError
+    # przy iteracji — musi zwrócić czytelny błąd walidacji
+    ok, blad = _validate_section_data({'type': 'image', 'images': None})
+
+    assert ok is False
+    assert isinstance(blad, str)
+    assert 'zdjęc' in blad.lower() or 'ścieżk' in blad.lower() or 'list' in blad.lower()
+
+
+def test_walidacja_odrzuca_images_nie_liste():
+    ok, blad = _validate_section_data({'type': 'image', 'images': 'uploads/offers/a.jpg'})
+
+    assert ok is False
+    assert isinstance(blad, str)
+
+
+def test_zapis_z_images_null_nie_wywala_500(db, make_user):
+    page = _page(db, make_user)
+
+    with pytest.raises(ValueError):
+        _update_sections(page, [{'id': None, 'type': 'image', 'images': None}])
+
+
+def test_walidacja_odrzuca_zbyt_dluga_sciezke():
+    zbyt_dluga = 'uploads/offers/' + ('a' * 500) + '.jpg'
+    ok, blad = _validate_section_data({'type': 'image', 'images': [zbyt_dluga]})
+
+    assert ok is False
+    assert isinstance(blad, str)
+
+
+def test_walidacja_przepuszcza_sciezke_dokladnie_500_znakow():
+    # Kolumna to VARCHAR(500) — dokładnie 500 znaków musi przejść
+    sciezka = 'uploads/offers/' + ('a' * (500 - len('uploads/offers/') - 4)) + '.jpg'
+    assert len(sciezka) == 500
+    ok, blad = _validate_section_data({'type': 'image', 'images': [sciezka]})
+
+    assert ok is True
+    assert blad is None
+
+
 def test_duplikacja_strony_daje_kopii_wlasne_pliki_zdjec(app, db, client, make_user, login):
     admin = make_user(role='admin', email='admin-duplikacja@example.com', profile_completed=True)
     page = _page(db, make_user)

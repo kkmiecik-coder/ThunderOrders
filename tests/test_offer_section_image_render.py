@@ -30,6 +30,9 @@ def test_exclusive_renderuje_galerie_dla_wielu_zdjec(app, db, make_user):
     assert 'data-gallery' in html
     assert 'uploads/offers/a.jpg' in html
     assert 'uploads/offers/b.jpg' in html
+    # Kolejność z bazy (sort_order) musi być widoczna w wyrenderowanym HTML,
+    # nie tylko w kolejności zwracanej przez get_images_ordered()
+    assert html.index('uploads/offers/a.jpg') < html.index('uploads/offers/b.jpg')
 
 
 def test_preorder_renderuje_pojedyncze_zdjecie_bez_paska(app, db, make_user):

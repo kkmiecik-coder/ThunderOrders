@@ -89,6 +89,17 @@ function markDirty() {
 }
 
 /**
+ * Otwiera wybór pliku dla sekcji zdjęciowej. Szuka inputu przez najbliższy
+ * `.image-section-editor` zamiast po pozycji w DOM (`previousElementSibling`),
+ * żeby wstawienie czegokolwiek między przyciskiem a inputem nie psuło dodawania zdjęć.
+ */
+function openSectionImagePicker(btn) {
+    const editor = btn.closest('.image-section-editor');
+    const input = editor && editor.querySelector('.image-section-input');
+    if (input) input.click();
+}
+
+/**
  * Setup payment stages toggle (Proxy left / Polska right)
  * Proxy = 4 platnosci (unchecked/left), Polska = 3 platnosci (checked/right)
  */
@@ -467,8 +478,8 @@ function getSectionTemplate(type) {
                         <div class="image-section-thumbs"></div>
                         <input type="file" class="image-section-input" accept="image/*" multiple hidden
                                onchange="uploadSectionImages(this)">
-                        <button type="button" class="btn btn-outline btn-sm"
-                                onclick="this.previousElementSibling.click()">
+                        <button type="button" class="btn btn-outline btn-sm image-section-add-btn"
+                                onclick="openSectionImagePicker(this)">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
                                 <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
@@ -1870,36 +1881,62 @@ async function uploadSectionImages(input) {
 
     const editor = input.closest('.image-section-editor');
     const thumbs = editor.querySelector('.image-section-thumbs');
+    const addBtn = editor.querySelector('.image-section-add-btn');
     input.value = '';  // pozwala wgrać ten sam plik ponownie
 
+    // Blokada na czas uploadu — bez niej drugie kliknięcie "Dodaj zdjęcia"
+    // w trakcie trwającej pętli uruchamia równoległą pętlę dopisującą do tego
+    // samego kontenera i miniatury przeplatają się w losowej kolejności.
+    input.disabled = true;
+    let pierwotnaTrescBtn = null;
+    if (addBtn) {
+        addBtn.disabled = true;
+        pierwotnaTrescBtn = addBtn.innerHTML;
+        addBtn.innerHTML = 'Przesyłanie…';
+    }
+
     let bledy = 0;
-    for (const file of files) {
-        try {
-            const formData = new FormData();
-            formData.append('image', file);
-            formData.append('type', 'section_image');
+    let wgrane = 0;
+    let ostatniBlad = null;
+    try {
+        for (const file of files) {
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('type', 'section_image');
 
-            const response = await fetch('/admin/offers/api/upload-image', {
-                method: 'POST',
-                headers: { 'X-CSRFToken': builderConfig.csrfToken },
-                body: formData
-            });
-            const result = await response.json();
+                const response = await fetch('/admin/offers/api/upload-image', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': builderConfig.csrfToken },
+                    body: formData
+                });
+                const result = await response.json();
 
-            if (result.success) {
-                thumbs.appendChild(buildSectionImageThumb(result.path, result.url));
-            } else {
+                if (result.success) {
+                    thumbs.appendChild(buildSectionImageThumb(result.path, result.url, thumbs.children.length + 1));
+                    wgrane++;
+                } else {
+                    bledy++;
+                    ostatniBlad = result.error;
+                    console.error('Upload zdjęcia sekcji:', result.error);
+                }
+            } catch (error) {
                 bledy++;
-                console.error('Upload zdjęcia sekcji:', result.error);
+                console.error('Upload zdjęcia sekcji:', error);
             }
-        } catch (error) {
-            bledy++;
-            console.error('Upload zdjęcia sekcji:', error);
+        }
+    } finally {
+        input.disabled = false;
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.innerHTML = pierwotnaTrescBtn;
         }
     }
 
-    markDirty();
-    const wgrane = files.length - bledy;
+    // markDirty tylko gdy coś faktycznie doszło do DOM — same nieudane
+    // uploady nie zmieniają strony, więc nie ma powodu oznaczać jej jako niezapisanej
+    if (wgrane > 0) markDirty();
+
     if (bledy === 0) {
         // Odmiana: 2-4 (ale nie 12-14) → "zdjęcia", reszta → "zdjęć"
         const r10 = wgrane % 10;
@@ -1907,7 +1944,13 @@ async function uploadSectionImages(input) {
         const rzecz = (r10 >= 2 && r10 <= 4 && (r100 < 12 || r100 > 14)) ? 'zdjęcia' : 'zdjęć';
         showToast(wgrane === 1 ? 'Zdjęcie przesłane' : `Przesłano ${wgrane} ${rzecz}`, 'success');
     } else if (wgrane === 0) {
-        showToast('Nie udało się przesłać zdjęć', 'error');
+        // Przy jednym pliku pokaż konkretny powód odrzucenia zamiast ogólnika —
+        // accept="image/*" przepuszcza np. HEIC/AVIF, które backend odrzuca
+        if (files.length === 1 && ostatniBlad) {
+            showToast(ostatniBlad, 'error');
+        } else {
+            showToast('Nie udało się przesłać zdjęć', 'error');
+        }
     } else {
         showToast(`Przesłano ${wgrane} z ${files.length} zdjęć`, 'warning');
     }
@@ -1915,8 +1958,10 @@ async function uploadSectionImages(input) {
 
 /**
  * Buduje kafelek miniatury. Ścieżka trzymana w data-path — stąd czyta ją collectPageData.
+ * altIndex to numer miniatury (1-based) w chwili dodania — spójny ze
+ * "Zdjęcie {{ loop.index }}" z renderu serwerowego w edit.html.
  */
-function buildSectionImageThumb(path, url) {
+function buildSectionImageThumb(path, url, altIndex) {
     const thumb = document.createElement('div');
     thumb.className = 'image-section-thumb';
     thumb.draggable = true;
@@ -1924,7 +1969,7 @@ function buildSectionImageThumb(path, url) {
 
     const img = document.createElement('img');
     img.src = url;
-    img.alt = 'Zdjęcie sekcji';
+    img.alt = `Zdjęcie ${altIndex}`;
     thumb.appendChild(img);
 
     const remove = document.createElement('button');
@@ -1940,12 +1985,15 @@ function buildSectionImageThumb(path, url) {
 
 /**
  * Usuwa miniaturę z edytora. Plik na dysku zostaje — tak samo działa tło setu.
+ * Bez potwierdzenia (usunięcie jest odwracalne — wystarczy wgrać zdjęcie ponownie),
+ * ale z toastem — pole dotyku przycisku jest duże i łatwo trafić przez przypadek.
  */
 function removeSectionImage(btn) {
     const thumb = btn.closest('.image-section-thumb');
     if (!thumb) return;
     thumb.remove();
     markDirty();
+    showToast('Usunięto zdjęcie', 'success');
 }
 
 let draggedSectionImage = null;

@@ -484,8 +484,10 @@ def test_sekcja_zdjeciowa_zwraca_liste_url_i(client, db, make_user):
     section = OfferSection(offer_page_id=page.id, section_type='image', sort_order=0)
     db.session.add(section)
     db.session.flush()
-    db.session.add(OfferSectionImage(section_id=section.id, path='uploads/offers/pierwsza.jpg', sort_order=0))
+    # Wstawiane odwrotnie do docelowej kolejności — jeśli API sortowałoby po
+    # kolejności wstawienia (id) zamiast po sort_order, test to wykryje.
     db.session.add(OfferSectionImage(section_id=section.id, path='uploads/offers/druga.jpg', sort_order=1))
+    db.session.add(OfferSectionImage(section_id=section.id, path='uploads/offers/pierwsza.jpg', sort_order=0))
     db.session.commit()
 
     resp = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}', headers=headers)
@@ -497,3 +499,22 @@ def test_sekcja_zdjeciowa_zwraca_liste_url_i(client, db, make_user):
     assert sekcja['images'][0].endswith('uploads/offers/pierwsza.jpg')
     assert sekcja['images'][1].endswith('uploads/offers/druga.jpg')
     assert sekcja['images'][0].startswith('http')
+
+
+def test_sekcja_zdjeciowa_bez_zdjec_zwraca_pusta_liste(client, db, make_user):
+    from modules.offers.models import OfferSection
+
+    headers, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+
+    section = OfferSection(offer_page_id=page.id, section_type='image', sort_order=0)
+    db.session.add(section)
+    db.session.commit()
+
+    resp = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}', headers=headers)
+
+    assert resp.status_code == 200
+    sekcje = resp.get_json()['data']['sections']
+    sekcja = [s for s in sekcje if s['section_type'] == 'image'][0]
+    assert 'images' in sekcja
+    assert sekcja['images'] == []

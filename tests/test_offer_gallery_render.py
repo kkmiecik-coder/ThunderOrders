@@ -81,8 +81,9 @@ def test_wspolny_partial_bez_zdjec_domyslnie_nic_nie_renderuje(app):
     with app.test_request_context():
         html = render_template('offers/_gallery.html', gallery_images=[])
 
-    assert 'no-image' not in html
-    assert 'zoomable-image-wrapper' not in html
+    # Żadna gałąź (galeria/pojedyncze zdjęcie/placeholder) się nie uruchamia —
+    # po odcięciu białych znaków z {% set %} zostaje pusty string.
+    assert html.strip() == ''
 
 
 def test_wspolny_partial_pokazuje_placeholder_na_zadanie(app):

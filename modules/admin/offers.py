@@ -586,9 +586,14 @@ def _validate_section_data(section_data):
 
     # Walidacja sekcji "image" - ścieżki muszą wskazywać wyłącznie na uploads/offers/
     if section_type == 'image':
-        for path in section_data.get('images', []):
+        images = section_data.get('images', [])
+        if not isinstance(images, list):
+            return False, 'Sekcja zdjęciowa musi mieć listę zdjęć'
+        for path in images:
             if not isinstance(path, str) or not path.startswith('uploads/offers/') or '..' in path:
                 return False, 'Nieprawidłowa ścieżka zdjęcia w sekcji zdjęciowej'
+            if len(path) > 500:
+                return False, 'Ścieżka zdjęcia w sekcji zdjęciowej jest za długa'
 
     return True, None
 
@@ -670,7 +675,9 @@ def _update_sections(page, sections_data):
 
         # Obsługa zdjęć sekcji zdjęciowej
         if section.section_type == 'image':
-            _update_section_images(section, section_data.get('images', []))
+            # images przeszło już _validate_section_data, ale trzymamy się listy
+            # nawet gdyby ktoś wywołał tę funkcję z pominięciem walidacji
+            _update_section_images(section, section_data.get('images') or [])
 
         # Zapisz zmiany limitów do późniejszego sprawdzenia powiadomień
         if section_type in ['product', 'variant_group']:
