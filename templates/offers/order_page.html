@@ -141,6 +141,24 @@
                     <p>{{ section.content }}</p>
                 </section>
 
+                {% elif section.is_image %}
+                {% set _imgs = section.get_images_ordered() %}
+                {% if _imgs %}
+                <section class="section image-section" data-section-id="{{ section.id }}">
+                    {% set _entries = [] %}
+                    {% for img in _imgs %}
+                        {% set _ = _entries.append({
+                            'src': img.path,
+                            'full': img.path,
+                            'alt': page.name ~ ' — zdjęcie ' ~ loop.index,
+                        }) %}
+                    {% endfor %}
+                    {% with gallery_images = _entries, gallery_main_alt = page.name %}
+                        {% include 'offers/_gallery.html' %}
+                    {% endwith %}
+                </section>
+                {% endif %}
+
                 {% elif section.is_product %}
                 <section class="section section-product" data-section-id="{{ section.id }}" data-product-id="{{ section.product_id }}">
                     {% if section.product %}

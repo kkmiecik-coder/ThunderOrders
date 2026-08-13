@@ -10,6 +10,15 @@
         <p>{{ section.content }}</p>
     </section>
 
+    {% elif section.is_image %}
+        {% set _imgs = section.get_images_ordered() %}
+        {% if _imgs %}
+        <section class="preview-section preview-image">
+            <img src="{{ url_for('static', filename=_imgs[0].path) }}"
+                 alt="{{ _imgs[0].path }}" loading="lazy">
+        </section>
+        {% endif %}
+
     {% elif section.is_product and section.product %}
     <section class="preview-section preview-product">
         <div class="preview-product-media">

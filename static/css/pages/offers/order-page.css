@@ -5267,3 +5267,22 @@ body.offer-page-body {
     .image-lightbox-next { right: 10px; }
     .image-lightbox-nav svg { width: 20px; height: 20px; }
 }
+
+/* ===== Sekcja zdjęciowa ===== */
+.image-section {
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+}
+
+.image-section .product-gallery,
+.image-section .zoomable-image-wrapper {
+    margin: 0 auto;
+}
+
+[data-theme="dark"] .image-section {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(10px);
+}
