@@ -1564,7 +1564,7 @@ def offers_duplicate(page_id):
         src_path = os.path.join(current_app.static_folder, src_relative)
         if not os.path.exists(src_path):
             current_app.logger.warning(
-                f"[OFFER DUPLICATE] brak pliku tła setu do skopiowania: {src_relative} (page {page_id})"
+                f"[OFFER DUPLICATE] brak pliku do skopiowania przy duplikacji: {src_relative} (page {page_id})"
             )
             return None
         ext = src_relative.rsplit('.', 1)[1].lower() if '.' in src_relative else 'png'
@@ -1576,7 +1576,7 @@ def offers_duplicate(page_id):
             shutil.copy2(src_path, dst_path)
         except OSError as e:
             current_app.logger.error(
-                f"[OFFER DUPLICATE] nie udało się skopiować tła {src_relative}: {e}"
+                f"[OFFER DUPLICATE] nie udało się skopiować pliku {src_relative}: {e}"
             )
             return None
         return dst_relative

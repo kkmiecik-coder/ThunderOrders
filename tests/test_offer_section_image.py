@@ -182,6 +182,7 @@ def test_duplikacja_strony_daje_kopii_wlasne_pliki_zdjec(app, db, client, make_u
     db.session.add(OfferSectionImage(section_id=section.id, path=rel, sort_order=0))
     db.session.commit()
 
+    plik_kopii = None
     try:
         login(admin)
         resp = client.post(f'/admin/offers/{page.id}/duplicate')
@@ -200,7 +201,8 @@ def test_duplikacja_strony_daje_kopii_wlasne_pliki_zdjec(app, db, client, make_u
         assert os.path.exists(plik_kopii)
         with open(plik_kopii, 'rb') as f:
             assert f.read() == b'zawartosc-testowa'
-        os.remove(plik_kopii)
     finally:
         if os.path.exists(sciezka):
             os.remove(sciezka)
+        if plik_kopii and os.path.exists(plik_kopii):
+            os.remove(plik_kopii)
