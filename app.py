@@ -538,17 +538,20 @@ def _przetworz_dostawy(dry_run=False):
     Obie fazy pomijają zlecenia źródłowe paczek zbiorczych (consolidated_into_id
     IS NULL) — paczka zbiorcza domyka się jako całość, a propagacja zjeżdża na źródła.
 
-    Obie fazy są też porcjowane tym samym `autocomplete_batch`, przy czym porcja
-    to limit PODWÓJNY, a nie jeden zamiast drugiego:
-      - twardy `.limit()` w SQL — jeden przebieg TKNIE najwyżej N zleceń,
-        niezależnie od tego, czy powstały z nich jakiekolwiek wiadomości;
-      - licznik wiadomości (faza 2) — bo domknięcie automatem powiadamia
+    Obie fazy są też porcjowane tym samym `autocomplete_batch`, ale budżet mają
+    RÓŻNY — limit podwójny ma wyłącznie faza 2:
+      - obie fazy: twardy `.limit()` w SQL — jeden przebieg TKNIE najwyżej N
+        zleceń, niezależnie od tego, czy powstały z nich jakiekolwiek wiadomości;
+      - faza 2 dodatkowo: licznik wiadomości — bo domknięcie automatem powiadamia
         WSZYSTKICH uczestników paczki zbiorczej, więc N zleceń może znaczyć
-        wielokrotnie więcej maili w jednym batchu SMTP z odstępem 2 s.
-    Przebieg kończy ten z dwóch budżetów, który wyczerpie się pierwszy. Pierwszy
-    przebieg po wdrożeniu widzi całą historię naraz (backfill uzupełnia shipped_at
-    w tym samym przebiegu, ~1800 zleceń), więc oba budżety są jedyną rzeczą, która
-    stoi między cronem a przemieleniem całej zaległości w jednej iteracji.
+        wielokrotnie więcej maili w jednym batchu SMTP z odstępem 2 s. Fazę 2
+        kończy ten z dwóch budżetów, który wyczerpie się pierwszy.
+    Faza 1 drugiego budżetu nie ma i mieć nie powinna: przypomnienie idzie co
+    najwyżej do lidera, więc licznik wiadomości nigdy nie wystrzeliłby przed
+    końcem listy (uzasadnienie przy `.limit()` fazy 1 niżej). Pierwszy przebieg
+    po wdrożeniu widzi całą historię naraz (backfill uzupełnia shipped_at w tym
+    samym przebiegu, ~1800 zleceń), więc te budżety są jedyną rzeczą, która stoi
+    między cronem a przemieleniem całej zaległości w jednej iteracji.
 
     Returns:
         dict: {'backfill': dict, 'przypomnienia': int, 'domkniete': int}
@@ -600,6 +603,29 @@ def _przetworz_dostawy(dry_run=False):
             return sum(1 for uczestnik in sr.consolidation_participants
                        if uczestnik['user'] and uczestnik['user'].email)
         return 1 if EmailManager._adresat_zlecenia(sr)[0] else 0
+
+    def _jest_komu_przypomniec(sr):
+        """Czy przypomnienie ma w ogóle adresata — BEZ budowania wiadomości.
+
+        Odwzorowuje EmailManager._odbiorcy_dostawy zawężone filtrem `czy_lider`,
+        którym build_delivery_confirmation_message przycina listę: przypomnienie
+        idzie WYŁĄCZNIE do osoby, na której adres paczkę nadano. Dla paczki
+        zbiorczej to uczestnik wskazany przez lead_source_request_id, o ile ma
+        konto z adresem; dla zwykłego zlecenia — jego adresat.
+
+        Dlaczego nie zawołać wprost _odbiorcy_dostawy, skoro build_* zrobił to
+        linię wyżej: to byłoby jego DRUGIE wywołanie w tym samym przebiegu, a ono
+        nie jest darmowe ani ciche. Buduje na nowo kontekst każdego adresata
+        (_kontekst_dostawy → url_for(_external=True)) i DRUGI RAZ loguje WARNING
+        o każdym uczestniku paczki bez adresu e-mail — a zdublowane ostrzeżenia
+        pod rząd to fałszywy trop dla kogoś, kto czyta log produkcyjny.
+        """
+        if sr.is_consolidation:
+            return any(
+                uczestnik['source_request'].id == sr.lead_source_request_id
+                and uczestnik['user'] and uczestnik['user'].email
+                for uczestnik in sr.consolidation_participants)
+        return bool(EmailManager._adresat_zlecenia(sr)[0])
 
     # Całe porcjowanie obu faz stoi w try/finally, żeby gwarancja rollbacku w
     # --dry-run była jawna W TEJ FUNKCJI, a nie przypadkowym skutkiem ubocznym
@@ -661,8 +687,8 @@ def _przetworz_dostawy(dry_run=False):
             # „młodsze niż autocomplete_days" wyżej jest zależny od tamtej fazy.
             # Kandydat, z którego nie powstała wiadomość, zajmuje teraz miejsce
             # w porcji: przy braku odbiorcy dokładnie raz (dostaje trwały znacznik),
-            # przy błędzie renderu w każdym przebiegu — i tak ma być, bo alternatywą
-            # jest cicha utrata przypomnienia; dlatego log jest wtedy na ERROR.
+            # przy nieudanym złożeniu wiadomości w każdym przebiegu — i tak ma być,
+            # bo alternatywą jest cicha utrata przypomnienia; log jest wtedy na ERROR.
             kandydaci = (
                 kandydaci_q
                 .order_by(ShippingRequest.shipped_at.asc())
@@ -682,28 +708,33 @@ def _przetworz_dostawy(dry_run=False):
             #   - globalny toggle notify_delivery_confirmation wyłączony przez
             #     admina — stan ODWRACALNY, obsłużony wyżej warunkiem wejścia do
             #     fazy, więc tutaj wystąpić już nie może;
-            #   - błąd renderu szablonu: prepare_email() oddaje wtedy None, a build_*
-            #     odfiltrowuje None-y. Odbiorca ISTNIEJE, tylko wiadomości nie udało
-            #     się złożyć — przyczyna równie odwracalna jak wyłączony toggle, więc
-            #     znacznik byłby cichą, trwałą utratą przypomnienia. Dokładnie tego
-            #     unikamy niżej przy nieudanej WYSYŁCE, gdzie świadomie wybieramy
-            #     powrót kandydata (i ryzyko duplikatu) zamiast cichej utraty.
+            #   - prepare_email() oddał None, a build_* odfiltrowuje None-y. Odbiorca
+            #     ISTNIEJE, tylko wiadomości nie udało się złożyć — przyczyna równie
+            #     odwracalna jak wyłączony toggle, więc znacznik byłby cichą, trwałą
+            #     utratą przypomnienia. Dokładnie tego unikamy niżej przy nieudanej
+            #     WYSYŁCE, gdzie świadomie wybieramy powrót kandydata (i ryzyko
+            #     duplikatu) zamiast cichej utraty.
             # Dlatego rozstrzygamy po tym, czy odbiorca w OGÓLE był, a nie po samej
-            # pustej liście. Pytamy prywatną _odbiorcy_dostawy (EmailManager nie
-            # wystawia publicznego „czy jest do kogo pisać"), z tym samym filtrem
-            # `czy_lider` co build_*: paczka bez zlecenia wiodącego nie ma komu
-            # przypomnieć i to jest stan trwały. Wołamy ją wyłącznie na tej rzadkiej
-            # ścieżce, więc nie dokłada pracy przy normalnym przebiegu.
+            # pustej liście — i pytamy o to lokalnym `_jest_komu_przypomniec`, a nie
+            # drugim wywołaniem _odbiorcy_dostawy (uzasadnienie w jego docstringu).
             bez_odbiorcy = []
             for sr in kandydaci:
                 msgs = EmailManager.build_delivery_confirmation_message(sr)
                 if msgs:
                     zadania.append((sr, msgs))
-                elif any(odb['czy_lider'] for odb in EmailManager._odbiorcy_dostawy(sr)):
+                elif _jest_komu_przypomniec(sr):
+                    # Świadomie NIE nazywamy tu przyczyny: prepare_email() zwraca None
+                    # po DOWOLNYM wyjątku w swoim try — obejmuje to render szablonu
+                    # .html, ale też odczyt i doklejenie logo z dysku. Kategoryczne
+                    # „błąd renderu" wysyłało diagnozę na produkcji w jedną, często
+                    # niewłaściwą stronę; prawdziwy wyjątek jest w logu wyżej, pod
+                    # „[EMAIL] Prepare FAILED".
                     current_app.logger.error(
                         f'Przypomnienie o dostawie {sr.request_number}: odbiorca '
-                        f'jest, ale nie udało się złożyć wiadomości (błąd renderu) '
-                        f'— zlecenie zostaje nieoznaczone i wróci w kolejnym przebiegu')
+                        f'jest, ale prepare_email nie oddał wiadomości (przyczyna '
+                        f'w logu „[EMAIL] Prepare FAILED" — render szablonu albo '
+                        f'doklejenie logo) — zlecenie zostaje nieoznaczone i wróci '
+                        f'w kolejnym przebiegu')
                 else:
                     bez_odbiorcy.append(sr)
 
@@ -773,6 +804,22 @@ def _przetworz_dostawy(dry_run=False):
             limit_wiadomosci = konfig['autocomplete_batch']
             zalegle = (
                 _wyslane_wczesniej_niz(konfig['autocomplete_days'])
+                # Dokładne odbicie strażnika w dostarcz_zlecenie() (wms_utils.py):
+                # ten odrzuca KAŻDE zlecenie z ustawionym delivered_at, niezależnie
+                # od statusu. Bez tego filtra porcja potrafi się zakleszczyć na zero:
+                # stan „status wyslane + ustawione delivered_at" jest osiągalny
+                # produkcyjnie (paczka zwrócona i nadana ponownie —
+                # ship_shipping_request() przepuszcza status 'dostarczone' i NIE zeruje
+                # delivered_at; albo admin cofający status przez PUT), a delivered_at
+                # nie jest w całym repo nigdzie zerowane, więc taki bloker wraca
+                # w KAŻDYM przebiegu. Kolejka idzie shipped_at ASC, czyli blokery
+                # osiadają na czele i degradują porcję na stałe — przy ich liczbie
+                # równej `autocomplete_batch` automat staje całkowicie i cicho,
+                # z jedyną linią INFO „Pominięto…" w logu.
+                # W fazie 1 tego filtra NIE MA i być go tam nie powinno: paczce
+                # nadanej ponownie przypomnienie o potwierdzeniu odbioru należy się
+                # normalnie.
+                .filter(ShippingRequest.delivered_at.is_(None))
                 .order_by(ShippingRequest.shipped_at.asc())
                 .limit(konfig['autocomplete_batch'])
                 .all()
@@ -793,6 +840,19 @@ def _przetworz_dostawy(dry_run=False):
                 # (render szablonu Jinja woła url_for(_external=True), a dry-run
                 # wywołany z testu może nie mieć kontekstu żądania) — liczbę adresatów
                 # da się policzyć bez renderowania czegokolwiek.
+                #
+                # Że podgląd zlicza KAŻDY wiersz porcji, a realny przebieg pomija te,
+                # na których dostarcz_zlecenie() rzuca — to była dziura w tym parytecie
+                # do czasu, aż zapytanie wyżej dostało filtr `delivered_at IS NULL`.
+                # Dziś oba wyjątki strażnika są w tej porcji nieosiągalne: status
+                # 'dostarczone' odcina filtr statusu, delivered_at — nowy filtr,
+                # a is_consolidated_source — filtr consolidated_into_id. Zdejmij
+                # którykolwiek z nich i parytet znika razem z nim.
+                # Zostaje jedna, wąska rozbieżność, świadomie nie zasypana: tutaj
+                # liczymy ADRESATÓW, a realny przebieg — wiadomości, które faktycznie
+                # powstały (prepare_email oddaje None i taka wypada z listy). Przy
+                # awarii składania maila realny przebieg zmieści się więc w porcji
+                # szerzej niż podgląd obiecał, nigdy odwrotnie.
                 maile_wlaczone = EmailManager.is_email_enabled('notify_delivery_autoclosed')
                 lacznie_wiadomosci = 0
                 for sr in zalegle:

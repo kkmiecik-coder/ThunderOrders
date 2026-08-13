@@ -87,11 +87,21 @@ def odtworz_shipped_at(dry_run=False):
                 func.min(OrderShipment.created_at),
             )
             .join(OrderShipment, ShippingRequestOrder.order_id == OrderShipment.order_id)
-            # created_at jest nullable na OrderShipment — bez tego filtra grupa
-            # złożona WYŁĄCZNIE z wierszy o created_at=NULL dałaby MIN()=NULL i
-            # nadpisałaby shipped_at pustą wartością zamiast zejść do updated_at,
-            # tak jak robił to `if przesylka and przesylka.created_at` w wersji
-            # per-wiersz.
+            # created_at jest nullable na OrderShipment, a filtr robi tu DWIE różne
+            # rzeczy dla dwóch różnych kształtów grupy:
+            #   - grupa złożona WYŁĄCZNIE z wierszy o created_at=NULL bez niego
+            #     w ogóle by się tu znalazła, z MIN()=NULL, i nadpisałaby shipped_at
+            #     pustą wartością (licząc się przy tym jako 'z_przesylek') zamiast
+            #     zejść kaskadą do updated_at. Filtr wycina ją z wyniku i kaskada
+            #     działa — tak samo, jak robił to `if przesylka and
+            #     przesylka.created_at` w wersji per-wiersz;
+            #   - grupa MIESZANA (część wierszy z datą, część bez) jest obsłużona
+            #     LEPIEJ niż w wersji per-wiersz, i to nie przypadkiem. Tamta brała
+            #     `ORDER BY created_at ASC` + `.first()`, a NULL-e sortują się
+            #     pierwsze i na SQLite, i na MariaDB — więc jeden pusty created_at
+            #     wystarczał, żeby zignorować prawdziwe daty z tej samej grupy
+            #     i zejść na przybliżony updated_at. Tu MIN() po odfiltrowaniu
+            #     NULL-i oddaje najstarszą FAKTYCZNĄ datę wysyłki.
             .filter(OrderShipment.created_at.isnot(None))
             .filter(ShippingRequestOrder.shipping_request_id.in_(brak_logu))
             .group_by(ShippingRequestOrder.shipping_request_id)

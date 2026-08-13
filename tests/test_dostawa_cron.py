@@ -510,6 +510,42 @@ def _paczka_zbiorcza_wyslana(db, make_user, numer_paczki, numery_zrodel, dni_tem
     return zbiorcze, zrodla
 
 
+def test_rozstrzyganie_odbiorcy_nie_dubluje_ostrzezen(app, db, make_user, monkeypatch, caplog):
+    """Ścieżka „odbiorca jest, ale wiadomość się nie złożyła" wołała
+    EmailManager._odbiorcy_dostawy DRUGI raz w tym samym przebiegu — pierwszy raz
+    zrobiło to build_delivery_confirmation_message linię wyżej. Ta funkcja nie jest
+    ani darmowa, ani cicha: buduje od nowa kontekst każdego adresata (url_for
+    _external=True) i loguje WARNING o każdym uczestniku paczki bez adresu e-mail.
+    Efekt: te same ostrzeżenia dwa razy pod rząd, czyli fałszywy trop dla kogoś, kto
+    diagnozuje produkcję po logu."""
+    import logging
+    from app import _przetworz_dostawy
+
+    monkeypatch.setattr('utils.email_sender.prepare_email', lambda **kw: None)
+    monkeypatch.setattr(
+        'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
+
+    zbiorcze, zrodla = _paczka_zbiorcza_wyslana(
+        db, make_user, 'WYS/000650', ('WYS/000651', 'WYS/000652'), dni_temu=5)
+    # Drugi uczestnik traci konto (ON DELETE SET NULL na user_id) — to o nim
+    # _odbiorcy_dostawy loguje ostrzeżenie. Lider (pierwsze źródło) konto zachowuje,
+    # więc odbiorca ISTNIEJE i wchodzimy dokładnie w tę gałąź.
+    zrodla[1].user_id = None
+    db.session.commit()
+
+    with app.test_request_context(), caplog.at_level(logging.WARNING):
+        wynik = _przetworz_dostawy()
+
+    assert wynik['przypomnienia'] == 0
+    assert zbiorcze.delivery_reminder_sent_at is None, (
+        'nieudane złożenie wiadomości jest odwracalne — znacznik byłby cichą utratą')
+    ostrzezenia = [r for r in caplog.records
+                   if 'bez adresu e-mail' in r.getMessage()]
+    assert len(ostrzezenia) == 1, (
+        f'uczestnik bez adresu ma dać JEDNO ostrzeżenie na przebieg, dostaliśmy '
+        f'{len(ostrzezenia)}: {[r.getMessage() for r in ostrzezenia]}')
+
+
 def test_porcja_fazy2_liczy_wiadomosci_paczki_zbiorczej(app, db, make_user, monkeypatch):
     """O6: porcja fazy 2 to limit PODWÓJNY, a jedyny test, jaki miała, używał czterech
     zwykłych zleceń po jednej wiadomości — nie odróżniał limitu na zlecenia od limitu
@@ -585,11 +621,66 @@ def test_porcja_fazy2_obowiazuje_gdy_nie_powstaje_zadna_wiadomosc(
     assert len(pushe) == 2, 'burza pushy do klientów jest częścią tej samej regresji'
 
 
+def test_porcja_fazy2_nie_zakleszcza_sie_na_zleceniach_z_delivered_at(
+        app, db, make_user, monkeypatch):
+    """Regresja po przywróceniu `.limit()` (druga fala): zapytanie fazy 2 brało N
+    najstarszych zleceń o statusie `wyslane`, ale NIE pytało o delivered_at — a
+    strażnik w dostarcz_zlecenie() odrzuca każde zlecenie z ustawionym delivered_at
+    niezależnie od statusu. Takie zlecenie zjadało miejsce w porcji i wracało
+    w KAŻDYM przebiegu, bo delivered_at nie jest w całym repo nigdzie zerowane.
+    Kolejka idzie shipped_at ASC, więc blokery osiadają na czele: przy ich liczbie
+    równej porcji automat domykał zero i nie ruszał się już nigdy, zostawiając
+    w logu wyłącznie INFO „Pominięto…".
+
+    Stan „wyslane + delivered_at" nie jest wymysłem testu: ship_shipping_request()
+    odrzuca tylko status `wyslane` i statusy nieopłacone, więc paczka zwrócona
+    i nadana ponownie przechodzi przez nią ze statusu `dostarczone`, dostaje świeży
+    shipped_at i ZACHOWUJE stary delivered_at. Druga droga to admin cofający status
+    zleceniu przez PUT."""
+    from modules.auth.models import Settings
+    from app import _przetworz_dostawy
+    from modules.orders.models import get_local_now
+
+    Settings.set_value('delivery_reminder_enabled', False, type='boolean')
+    Settings.set_value('delivery_autocomplete_batch', 2, type='integer')
+    db.session.commit()
+    monkeypatch.setattr(
+        'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
+
+    user = make_user()
+    # Dwa blokery na CZELE kolejki (najstarsze) — dokładnie tyle, ile wynosi porcja.
+    blokery = [_wyslane(db, user, f'WYS/00064{i}', dni_temu=40 - i) for i in range(2)]
+    for bloker in blokery:
+        bloker.delivered_at = get_local_now() - timedelta(days=30)
+    db.session.commit()
+    # Prawdziwy kandydat stoi ZA nimi (młodszy o dwa dni).
+    kandydat = _wyslane(db, user, 'WYS/000642', dni_temu=38)
+
+    with app.test_request_context():
+        wynik = _przetworz_dostawy()
+
+    assert wynik['domkniete'] == 1
+    assert kandydat.status == 'dostarczone', (
+        'blokery z ustawionym delivered_at zjadły całą porcję — automat stanął '
+        'i nie ruszy się już nigdy, bo one wracają w każdym przebiegu')
+    assert [b.status for b in blokery] == ['wyslane', 'wyslane'], (
+        'blokerów nie ruszamy — filtr ma je omijać, a nie naprawiać ich stan')
+
+
 def test_dry_run_pokazuje_tyle_ile_domknie_realny_przebieg(app, db, make_user, monkeypatch):
     """Podgląd jest krokiem bezpieczeństwa z instrukcji wdrożenia, więc musi zgadzać
     się z przebiegiem realnym. Liczył jednak wiadomości tak, jakby mail był zawsze
     włączony i jakby pisał do KAŻDEGO uczestnika paczki — przy wyłączonym przełączniku
-    pokazywał mniej zleceń, niż automat by domknął."""
+    pokazywał mniej zleceń, niż automat by domknął.
+
+    Scenariusz jest dobrany tak, żeby ROZRÓŻNIAĆ stary licznik od nowego, a nie tylko
+    padać z jakiegokolwiek powodu: paczka zbiorcza z trzema uczestnikami na czele
+    kolejki, wyłączony notify_delivery_autoclosed, porcja 2. Stary licznik dopisywał
+    3 wiadomości niezależnie od przełącznika, wyczerpywał budżet już na pierwszym
+    zleceniu i pokazywał 1 — a realny przebieg nie wysyła nic, więc domyka 2.
+    Pierwsza wersja tego testu używała sześciu zwykłych zleceń, gdzie stary licznik
+    (1 na zlecenie) i nowy (0, bo mail wyłączony) przy porcji 2 dają tę samą liczbę,
+    więc przywrócenie starego bloku podglądu zostawiało ją zieloną."""
     import json
     from modules.auth.models import Settings
     from app import _przetworz_dostawy
@@ -605,13 +696,21 @@ def test_dry_run_pokazuje_tyle_ile_domknie_realny_przebieg(app, db, make_user, m
     monkeypatch.setattr(
         'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
 
-    user = make_user()
-    zlecenia = [_wyslane(db, user, f'WYS/00063{i}', dni_temu=40 - i) for i in range(6)]
+    zbiorcze, zrodla = _paczka_zbiorcza_wyslana(
+        db, make_user, 'WYS/000630',
+        ('WYS/000631', 'WYS/000632', 'WYS/000633'), dni_temu=40)
+    # Młodsze o dzień, więc w kolejce (shipped_at rosnąco) stoi ZA paczką zbiorczą.
+    kolejne = _wyslane(db, make_user(), 'WYS/000634', dni_temu=39)
 
     podglad = _przetworz_dostawy(dry_run=True)
-    assert all(z.status == 'wyslane' for z in zlecenia), 'dry-run niczego nie zmienia'
+    assert zbiorcze.status == 'wyslane' and kolejne.status == 'wyslane', (
+        'dry-run niczego nie zmienia')
 
     with app.test_request_context():
         realny = _przetworz_dostawy()
 
     assert podglad['domkniete'] == realny['domkniete'] == 2
+    assert kolejne.status == 'dostarczone', (
+        'przy wyłączonym mailu nic nie zjada budżetu wiadomości, więc porcja 2 '
+        'obejmuje oba zlecenia — i podgląd musi mówić to samo')
+    assert all(z.status == 'dostarczone' for z in zrodla), 'propagacja na źródła'

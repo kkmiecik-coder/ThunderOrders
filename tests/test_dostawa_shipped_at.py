@@ -1,5 +1,30 @@
 """shipped_at — moment wysyłki jako punkt odniesienia dla przypomnień i automatu."""
+from contextlib import contextmanager
 from datetime import datetime, timedelta
+
+
+@contextmanager
+def _zliczone_selecty(db):
+    """Liczy SELECT-y puszczone na bazę w obrębie bloku.
+
+    Podpina się pod `before_cursor_execute`, czyli widzi KAŻDE zapytanie, także te
+    z leniwych relacji — a o to tu chodzi: pilnujemy, żeby liczba zapytań backfillu
+    nie zależała od liczby kandydatów. INSERT/UPDATE pomijamy świadomie, bo tych
+    z definicji jest tyle, ile uzupełnionych wierszy.
+    """
+    from sqlalchemy import event
+
+    selecty = []
+
+    def _zapisz(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith('SELECT'):
+            selecty.append(statement)
+
+    event.listen(db.engine, 'before_cursor_execute', _zapisz)
+    try:
+        yield selecty
+    finally:
+        event.remove(db.engine, 'before_cursor_execute', _zapisz)
 
 
 def _zlecenie(db, user, status='spakowane'):
@@ -132,7 +157,8 @@ def test_backfill_wielu_kandydatow_nie_miesza_zrodel(app, db, make_user, make_or
     sr_updated.updated_at = kiedy_updated
     db.session.commit()
 
-    wynik = odtworz_shipped_at()
+    with _zliczone_selecty(db) as selecty:
+        wynik = odtworz_shipped_at()
 
     # sr_updated.updated_at NIE nadaje się tu jako punkt odniesienia po fakcie:
     # backfill sam robi UPDATE na tym wierszu (ustawia shipped_at), więc kolumna z
@@ -142,3 +168,16 @@ def test_backfill_wielu_kandydatow_nie_miesza_zrodel(app, db, make_user, make_or
     assert abs((sr_log.shipped_at - kiedy_log).total_seconds()) < 1
     assert abs((sr_przesylka.shipped_at - kiedy_przesylka).total_seconds()) < 1
     assert abs((sr_updated.shipped_at - kiedy_updated).total_seconds()) < 1
+
+    # Sedno tej naprawy było WYDAJNOŚCIOWE, a same asercje na daty przechodzą tak
+    # samo dla wersji per-wiersz — bez tej asercji powrót do N+1 zostawiłby test
+    # zielony (sprawdzone: cofnięcie backfillu do pętli per-wiersz zostawia
+    # wszystkie asercje wyżej zielone i pada dopiero tutaj).
+    # Trzy SELECT-y i ani jednego więcej — kandydaci, MIN() z activity_log, MIN()
+    # z przesyłek — i ta trójka NIE rośnie z liczbą kandydatów. Wersja per-wiersz
+    # robiła 1 + N + (ilu bez wpisu w logu), czyli tu zmierzone 6, a na jednorazowym
+    # przebiegu po wdrożeniu (~1800 zaległych zleceń) do ~3600.
+    assert len(selecty) == 3, (
+        'liczba zapytań backfillu musi być STAŁA, niezależna od liczby '
+        f'kandydatów — poszło {len(selecty)}: ' + ' | '.join(
+            ' '.join(s.split())[:90] for s in selecty))
