@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from modules.admin.offers import _update_sections, _validate_section_data
@@ -159,3 +161,46 @@ def test_walidacja_przepuszcza_poprawne_sciezki():
 
     assert ok is True
     assert blad is None
+
+
+def test_duplikacja_strony_daje_kopii_wlasne_pliki_zdjec(app, db, client, make_user, login):
+    admin = make_user(role='admin', email='admin-duplikacja@example.com', profile_completed=True)
+    page = _page(db, make_user)
+
+    # Prawdziwy plik na dysku — duplikacja kopiuje zawartość, nie tylko ścieżkę
+    nazwa = 'test_duplikacja_src.jpg'
+    rel = f'uploads/offers/{nazwa}'
+    katalog = os.path.join(app.static_folder, 'uploads', 'offers')
+    os.makedirs(katalog, exist_ok=True)
+    sciezka = os.path.join(katalog, nazwa)
+    with open(sciezka, 'wb') as f:
+        f.write(b'zawartosc-testowa')
+
+    section = OfferSection(offer_page_id=page.id, section_type='image', sort_order=0)
+    db.session.add(section)
+    db.session.flush()
+    db.session.add(OfferSectionImage(section_id=section.id, path=rel, sort_order=0))
+    db.session.commit()
+
+    try:
+        login(admin)
+        resp = client.post(f'/admin/offers/{page.id}/duplicate')
+        assert resp.status_code in (200, 302)
+
+        kopia = OfferPage.query.filter(OfferPage.id != page.id).order_by(OfferPage.id.desc()).first()
+        sekcja_kopii = kopia.get_sections_ordered()[0]
+        zdjecia_kopii = sekcja_kopii.get_images_ordered()
+
+        assert len(zdjecia_kopii) == 1
+        nowa_sciezka = zdjecia_kopii[0].path
+        assert nowa_sciezka != rel, 'kopia współdzieli plik z oryginałem'
+        assert nowa_sciezka.startswith('uploads/offers/')
+
+        plik_kopii = os.path.join(app.static_folder, nowa_sciezka)
+        assert os.path.exists(plik_kopii)
+        with open(plik_kopii, 'rb') as f:
+            assert f.read() == b'zawartosc-testowa'
+        os.remove(plik_kopii)
+    finally:
+        if os.path.exists(sciezka):
+            os.remove(sciezka)

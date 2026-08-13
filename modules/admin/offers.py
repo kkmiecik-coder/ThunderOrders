@@ -1554,9 +1554,9 @@ def offers_duplicate(page_id):
 
     original = OfferPage.query.get_or_404(page_id)
 
-    def _copy_set_image(src_relative):
-        """Kopiuje plik tła setu do nowej, unikalnej nazwy (konwencja jak upload:
-        uuid.hex.ext). Dzięki temu kopia ma WŁASNY plik — usunięcie tła lub całej
+    def _copy_offer_upload(src_relative):
+        """Kopiuje plik z `uploads/offers/` do nowej, unikalnej nazwy (konwencja jak upload:
+        uuid.hex.ext). Dzięki temu kopia ma WŁASNY plik — usunięcie go lub całej
         kopii nie rusza pliku strony pierwotnej. Zwraca nową ścieżkę względną,
         lub None gdy plik źródłowy nie istnieje / kopiowanie się nie powiodło."""
         if not src_relative:
@@ -1606,7 +1606,7 @@ def offers_duplicate(page_id):
             min_quantity=section.min_quantity,
             max_quantity=section.max_quantity,
             set_name=section.set_name,
-            set_image=_copy_set_image(section.set_image),
+            set_image=_copy_offer_upload(section.set_image),
             set_max_sets=section.set_max_sets,
             set_max_per_product=section.set_max_per_product,
             set_product_id=section.set_product_id,
@@ -1653,6 +1653,19 @@ def offers_duplicate(page_id):
                         min_quantity=rp.min_quantity,
                     )
                     db.session.add(new_rp)
+
+        # Kopiuj zdjęcia sekcji zdjęciowej — każda kopia dostaje WŁASNE pliki,
+        # żeby usunięcie zdjęcia w kopii nie psuło strony pierwotnej
+        if section.section_type == 'image':
+            for img in section.get_images_ordered():
+                nowa_sciezka = _copy_offer_upload(img.path)
+                if nowa_sciezka is None:
+                    continue
+                db.session.add(OfferSectionImage(
+                    section_id=new_section.id,
+                    path=nowa_sciezka,
+                    sort_order=img.sort_order
+                ))
 
     db.session.commit()
 
