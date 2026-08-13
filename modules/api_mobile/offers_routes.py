@@ -164,6 +164,8 @@ def _serialize_section(s):
         })
     elif s.section_type == 'bonus':
         base['bonuses'] = [_serialize_bonus(b) for b in s.bonuses if b.is_active]
+    elif s.section_type == 'image':
+        base['images'] = [absolute_static_url(img.path) for img in s.get_images_ordered()]
     return base
 
 

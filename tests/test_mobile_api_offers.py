@@ -473,3 +473,27 @@ def test_place_order_binds_reservations_to_user(client, db, make_user, make_prod
     assert len(res) == 1 and res[0].quantity == 2 and res[0].user_id == user_a.id
     # ZERO zamówień B w bazie
     assert Order.query.filter_by(user_id=user_b.id).count() == 0
+
+
+def test_sekcja_zdjeciowa_zwraca_liste_url_i(client, db, make_user):
+    from modules.offers.models import OfferSection, OfferSectionImage
+
+    headers, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+
+    section = OfferSection(offer_page_id=page.id, section_type='image', sort_order=0)
+    db.session.add(section)
+    db.session.flush()
+    db.session.add(OfferSectionImage(section_id=section.id, path='uploads/offers/pierwsza.jpg', sort_order=0))
+    db.session.add(OfferSectionImage(section_id=section.id, path='uploads/offers/druga.jpg', sort_order=1))
+    db.session.commit()
+
+    resp = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}', headers=headers)
+
+    assert resp.status_code == 200
+    sekcje = resp.get_json()['data']['sections']
+    sekcja = [s for s in sekcje if s['section_type'] == 'image'][0]
+    assert len(sekcja['images']) == 2
+    assert sekcja['images'][0].endswith('uploads/offers/pierwsza.jpg')
+    assert sekcja['images'][1].endswith('uploads/offers/druga.jpg')
+    assert sekcja['images'][0].startswith('http')
