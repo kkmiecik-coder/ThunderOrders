@@ -99,13 +99,18 @@
     transform: translateY(-1px);
 }
 
-.cookie-banner .btn-secondary {
+/* Podbita szczegółowość (.btn.btn-secondary = 0-3-0).
+   DLACZEGO: baner ma ciemnofioletowe tło w OBU motywach, więc jego biały kontur jest poprawny
+   niezależnie od [data-theme]. Ten plik ładuje się PRZED main.css, a main.css ma teraz globalną
+   regułę [data-theme="dark"] .btn-secondary o tej samej szczegółowości (0-2-0) — bez tego podbicia
+   wygrałaby jako późniejsza i baner dostałby w trybie ciemnym różową ramkę, a w jasnym białą. */
+.cookie-banner .btn.btn-secondary {
     background: transparent;
     color: rgba(255, 255, 255, 0.9);
     border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
-.cookie-banner .btn-secondary:hover {
+.cookie-banner .btn.btn-secondary:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.5);
     color: #ffffff;

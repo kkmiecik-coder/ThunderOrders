@@ -122,6 +122,32 @@ body {
   color: var(--white);
 }
 
+/* Tryb ciemny dla .btn-secondary.
+   DLACZEGO: w jasnym motywie ten przycisk to ciemnofioletowy kontur (--purple-300 = #5A189A)
+   z ciemnofioletowym napisem. Rampa --purple-* nie ma wariantu [data-theme="dark"], więc
+   w trybie ciemnym te same kolory lądują na prawie czarnym tle (#0f0c29 / karta #1b1834) —
+   kontrast 1,66–1,84 : 1 przy progach WCAG 3,0 dla obramowania i 4,5 dla tekstu. Przycisk jest
+   wtedy praktycznie niewidoczny (np. „Wyślij ocenę" na stronie potwierdzenia dostawy).
+   DLACZEGO NIE zmienna: --purple-300 jest używana w kilkudziesięciu miejscach poza przyciskami
+   (topbar, profil, akcenty formularzy w modalach) — jej nadpisanie przemalowałoby pół aplikacji.
+   DLACZEGO te wartości: to dokładnie wariant ciemny z components/modals.css (sekcja
+   „Modal Buttons - Dark Mode"), sprawdzony w praktyce na ~130 przyciskach w modalach. Dzięki
+   temu przycisk poza modalem wygląda tak samo jak w modalu.
+   UWAGA: reguła ma szczegółowość 0-2-0, więc w trybie ciemnym wygrywa z definicjami „na goło"
+   (0-1-0) w arkuszach stron. Reguły zakresowe z plików ładowanych PO main.css (np.
+   [data-theme="dark"] .btn-secondary w pages/admin/*) nadal wygrywają i zostają bez zmian. */
+[data-theme="dark"] .btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(240, 147, 251, 0.5);
+  color: #ffffff;
+}
+
 .btn-success {
   background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
   color: var(--white);

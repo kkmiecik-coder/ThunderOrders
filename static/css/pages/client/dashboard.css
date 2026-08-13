@@ -1235,7 +1235,8 @@ a.metric-card-clickable.metric-card-info:hover {
     color: #a78bfa;
 }
 
-/* Dark mode: uses .btn .btn-secondary from buttons.css */
+/* Dark mode: .btn-secondary bierze wariant ciemny z main.css (NIE z components/buttons.css —
+   tamtego pliku nie ładuje żaden szablon, patrz jego nagłówek). */
 
 /* Show More Button */
 .offer-show-more,

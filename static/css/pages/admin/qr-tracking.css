@@ -18,7 +18,8 @@
    BUTTONS - page-scoped overrides
    All buttons match the "Akcje" style:
    bordered, rounded, subtle hover glow.
-   Uses high specificity to beat buttons.css
+   Podbita szczegółowość (.qrt-page .btn.btn-secondary) bije globalne reguły z main.css
+   — NIE components/buttons.css, którego nie ładuje żaden szablon (patrz nagłówek tego pliku).
    ==================================== */
 
 .qrt-page .btn,

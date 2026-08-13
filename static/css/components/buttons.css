@@ -2,6 +2,21 @@
  * ThunderOrders - Buttons Component
  * Centralized button styling with CSS variables and dark mode support
  * Usage: .btn .btn-primary .btn-secondary .btn-sm .btn-md .btn-lg .btn-icon .btn-icon-sm .btn-shine .btn-loader
+ *
+ * ==========================================================================
+ * UWAGA: TEN PLIK NIE JEST ŁADOWANY PRZEZ ŻADEN SZABLON (stan: 2026-08-13).
+ * ==========================================================================
+ * Zero odwołań w templates/ — przeglądarka nigdy nie widziała tych reguł. Nie pisz kodu
+ * „przeciwko" nim (np. podbijając szczegółowość, żeby je pokonać) i nie zakładaj, że
+ * .btn-secondary bierze stąd tryb ciemny. Obowiązujące reguły przycisków to:
+ *   - static/css/main.css (.btn, .btn-primary, .btn-secondary + wariant ciemny secondary)
+ *   - static/css/components/modals.css (warianty w modalach)
+ *
+ * Wpięcie tego pliku to OSOBNE zadanie z własnym przeglądem, nie zmiana „przy okazji":
+ *   1. redefiniuje samą klasę .btn (inline-flex, min-height 44px, inne promienie i cienie),
+ *      więc przemalowałoby KAŻDY przycisk w aplikacji, w obu motywach;
+ *   2. blok :root niżej nie jest motywem jasnym — ustawia biały tekst na półprzezroczystym tle,
+ *      czyli plik jest „ciemny w obie strony" i bez poprawek zepsułby tryb jasny.
  */
 
 /* ============================================
