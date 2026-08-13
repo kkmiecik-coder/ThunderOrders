@@ -538,9 +538,12 @@ def _przetworz_dostawy(dry_run=False):
     Obie fazy pomijają zlecenia źródłowe paczek zbiorczych (consolidated_into_id
     IS NULL) — paczka zbiorcza domyka się jako całość, a propagacja zjeżdża na źródła.
 
-    Obie fazy są też porcjowane tym samym `autocomplete_batch`: pierwszy przebieg po
-    wdrożeniu widzi całą historię naraz (backfill uzupełnia shipped_at w tym samym
-    przebiegu), a batch SMTP z odstępem 2 s między mailami nie ma prawa trwać godzinami.
+    Obie fazy są też porcjowane tym samym `autocomplete_batch` — ale limit dotyczy
+    liczby WIADOMOŚCI, nie zleceń: domknięcie automatem powiadamia WSZYSTKICH
+    uczestników paczki zbiorczej (przypomnienie tylko lidera), więc zlecenie i
+    wiadomość to nie zawsze to samo. Pierwszy przebieg po wdrożeniu widzi całą
+    historię naraz (backfill uzupełnia shipped_at w tym samym przebiegu), a batch
+    SMTP z odstępem 2 s między mailami nie ma prawa trwać godzinami.
 
     Returns:
         dict: {'backfill': dict, 'przypomnienia': int, 'domkniete': int}
@@ -578,136 +581,217 @@ def _przetworz_dostawy(dry_run=False):
             .filter(ShippingRequest.shipped_at <= teraz - timedelta(days=dni))
         )
 
-    # === Faza 1: przypomnienia ===
-    if konfig['reminder_enabled']:
-        kandydaci_q = (
-            _wyslane_wczesniej_niz(konfig['reminder_days'])
-            .filter(ShippingRequest.delivery_reminder_sent_at.is_(None))
-            .filter(ShippingRequest.user_id.isnot(None))
-        )
+    # Całe porcjowanie obu faz stoi w try/finally, żeby gwarancja rollbacku w
+    # --dry-run była jawna W TEJ FUNKCJI, a nie przypadkowym skutkiem ubocznym
+    # teardownu kontekstu Flaska w _with_request_context (tak było wcześniej —
+    # bezpieczne dziś, ale wyłącznie dzięki temu, że wywołujący akurat sprząta po
+    # sobie w ten konkretny sposób).
+    try:
+        # === Faza 1: przypomnienia ===
+        if konfig['reminder_enabled']:
+            kandydaci_q = (
+                _wyslane_wczesniej_niz(konfig['reminder_days'])
+                .filter(ShippingRequest.delivery_reminder_sent_at.is_(None))
+            )
+            # BEZ filtra po ShippingRequest.user_id (był tu wcześniej — patrz dług
+            # #2). Faza 2 (domykanie) niżej takiego filtra nie ma i to ONA ma rację:
+            # to, kto faktycznie dostanie maila, ustala warstwa mailowa
+            # (EmailManager._adresat_zlecenia / _odbiorcy_dostawy), nie SQL tutaj.
+            # Dla zwykłego zlecenia z usuniętym kontem ta warstwa i tak schodzi na
+            # e-mail z zamówienia; dla paczki zbiorczej patrzy na WŁASNE konto
+            # każdego uczestnika, nie na sr.user_id paczki (które jest tylko kopią
+            # konta lidera z chwili konsolidacji i może wyzerować się przez ON
+            # DELETE SET NULL, gdy tamto konto zniknie — niezależnie od tego, czy
+            # pozostali uczestnicy mają swoje konta cały czas aktywne). Filtr w SQL
+            # wykluczał więc kandydatów, którym warstwa mailowa i tak znalazłaby
+            # odbiorcę, i to WYŁĄCZNIE w fazie 1 — paczka z usuniętym kontem lidera
+            # nigdy nie dostawała przypomnienia, ale i tak później trafiała do fazy 2
+            # i domykała się normalnie. Usunięcie filtra ujednolica obie fazy:
+            # SQL wybiera kandydatów po stanie przesyłki (status/wiek), a brak
+            # odbiorcy (dług #5 niżej) obsługuje się tam, gdzie się go faktycznie
+            # rozstrzyga.
+            if konfig['autocomplete_enabled']:
+                # Zlecenie starsze niż autocomplete_days łapie się już do fazy 2 i za
+                # chwilę zostanie domknięte — przypominanie o nim to szum, a przy
+                # zaległości pierwsi klienci dostawali oba maile w odstępie minut.
+                # Warunek jest zależny od przełącznika automatu: przy WYŁĄCZONYM
+                # domykaniu faza 2 nie ruszy, więc bezwarunkowe pomijanie zostawiłoby
+                # najstarsze paczki zupełnie bez przypomnienia.
+                kandydaci_q = kandydaci_q.filter(
+                    ShippingRequest.shipped_at
+                    > teraz - timedelta(days=konfig['autocomplete_days']))
 
+            # Przypomnienie (w odróżnieniu od domknięcia w fazie 2 niżej) idzie
+            # WYŁĄCZNIE do lidera paczki — build_delivery_confirmation_message
+            # zwraca co najwyżej jedną wiadomość na zlecenie, konsolidacja tego nie
+            # zmienia. Limit porcji liczony w wiadomościach jest więc tu liczbowo
+            # równoważny limitowi na zlecenia — ale NIE jest zbędny: bez SQL-owego
+            # .limit() i licząc tylko RZECZYWIŚCIE wysłane wiadomości, kandydat bez
+            # odbiorcy (dług #5 niżej) nie zajmuje miejsca w porcji, więc nie
+            # blokuje dostępu do prawdziwych kandydatów stojących za nim w
+            # kolejce (najstarsze idą pierwsze). Sam SELECT po indeksowanej
+            # shipped_at nie jest kosztowny nawet dla całej zaległości (~1800
+            # wierszy po backfillu) — kosztowne jest budowanie i wysyłanie
+            # wiadomości, a to ogranicza pętla poniżej.
+            kandydaci = (
+                kandydaci_q
+                .order_by(ShippingRequest.shipped_at.asc())
+                .all()
+            )
+
+            zadania = []
+            # Kandydat, dla którego build_* nie zwrócił ŻADNEJ wiadomości (dług #5)
+            # — typowo paczka zbiorcza bez lidera z kontem/e-mailem. Pusta lista ma
+            # dwie różne przyczyny i tylko jedna uzasadnia trwałe oznaczenie:
+            #   - brak odbiorcy w danych — sam się nie naprawi, więc bez znacznika
+            #     kandydat wracałby w KAŻDYM kolejnym przebiegu, logując to samo
+            #     ostrzeżenie i zajmując miejsce w porcji bezterminowo (zwłaszcza
+            #     przy wyłączonym automacie, bo faza 2 nigdy go nie domknie);
+            #   - globalny toggle notify_delivery_confirmation wyłączony przez
+            #     admina — stan ODWRACALNY (patrz templates/admin/orders/settings.html),
+            #     więc trwałe oznaczenie okradłoby zlecenie z przypomnienia na
+            #     zawsze, nawet po ponownym włączeniu maila.
+            bez_odbiorcy = []
+            maile_wlaczone = EmailManager.is_email_enabled('notify_delivery_confirmation')
+            limit_wiadomosci = konfig['autocomplete_batch']
+            lacznie_wiadomosci = 0
+            for sr in kandydaci:
+                if lacznie_wiadomosci >= limit_wiadomosci:
+                    break
+                msgs = EmailManager.build_delivery_confirmation_message(sr)
+                if msgs:
+                    zadania.append((sr, msgs))
+                    lacznie_wiadomosci += len(msgs)
+                elif maile_wlaczone:
+                    bez_odbiorcy.append(sr)
+
+            wiadomosci = [m for _, msgs in zadania for m in msgs]
+
+            if dry_run:
+                wynik['przypomnienia'] = len(zadania)
+            else:
+                # Znaczymy kandydatów bez odbiorcy NIEZALEŻNIE od tego, czy w tej
+                # porcji poszła choć jedna prawdziwa wiadomość — inaczej porcja
+                # złożona WYŁĄCZNIE z leaderless paczek zbiorczych (wiadomosci
+                # puste) nigdy nie trafiłaby do commitu poniżej.
+                for sr in bez_odbiorcy:
+                    sr.delivery_reminder_sent_at = teraz
+
+                if wiadomosci:
+                    # Jedno połączenie SMTP na cały batch — Hostinger limituje AUTH
+                    # per IP.
+                    rezultaty = send_email_batch_sync(wiadomosci)
+                    od = 0
+                    for sr, msgs in zadania:
+                        wyniki_zlecenia = rezultaty[od:od + len(msgs)]
+                        od += len(msgs)
+                        if not all(wyniki_zlecenia):
+                            # Bez znacznika: nieudane przypomnienie wróci w kolejnym
+                            # przebiegu. Przy paczce zbiorczej wraca CAŁE zlecenie, więc
+                            # uczestnicy, do których mail doszedł, dostaną duplikat —
+                            # świadomie wybieramy duplikat zamiast cichej, trwałej utraty
+                            # przypomnienia dla tego jednego, u którego wysyłka padła.
+                            current_app.logger.warning(
+                                f'Przypomnienie o dostawie {sr.request_number}: '
+                                f'{wyniki_zlecenia.count(False)} z {len(msgs)} maili nie '
+                                f'poszło, zlecenie zostaje nieoznaczone')
+                            continue
+                        sr.delivery_reminder_sent_at = teraz
+                        wynik['przypomnienia'] += 1
+                        try:
+                            PushManager.notify_delivery_confirmation(sr)
+                        except Exception as err:
+                            current_app.logger.error(
+                                f'Push przypomnienia o dostawie {sr.request_number}: {err}')
+
+                if bez_odbiorcy or wiadomosci:
+                    db.session.commit()
+
+        # === Faza 2: automatyczne domykanie ===
         if konfig['autocomplete_enabled']:
-            # Zlecenie starsze niż autocomplete_days łapie się już do fazy 2 i za
-            # chwilę zostanie domknięte — przypominanie o nim to szum, a przy
-            # zaległości pierwsi klienci dostawali oba maile w odstępie minut.
-            # Warunek jest zależny od przełącznika automatu: przy WYŁĄCZONYM
-            # domykaniu faza 2 nie ruszy, więc bezwarunkowe pomijanie zostawiłoby
-            # najstarsze paczki zupełnie bez przypomnienia.
-            kandydaci_q = kandydaci_q.filter(
-                ShippingRequest.shipped_at
-                > teraz - timedelta(days=konfig['autocomplete_days']))
+            zalegle = (
+                _wyslane_wczesniej_niz(konfig['autocomplete_days'])
+                .order_by(ShippingRequest.shipped_at.asc())
+                .all()
+            )
 
-        # Ten sam limit porcji co w fazie 2. Bez niego pierwszy przebieg po
-        # wdrożeniu bierze CAŁĄ historię naraz (backfill uzupełnia shipped_at w tym
-        # samym przebiegu): send_email_batch_sync śpi 2 s między mailami, więc przy
-        # ~1800 zaległych zleceniach przebieg trwałby godzinę, znacznik
-        # delivery_reminder_sent_at zapisałby się dopiero po całym batchu (kolejny
-        # cron wysłałby wszystko drugi raz), jedno połączenie SMTP zerwałby po
-        # drodze Hostinger, a w tej samej pętli poleciałoby 1800 pushy.
-        kandydaci = (
-            kandydaci_q
-            .order_by(ShippingRequest.shipped_at.asc())
-            .limit(konfig['autocomplete_batch'])
-            .all()
-        )
+            # W odróżnieniu od fazy 1 (gdzie limit liczony w wiadomościach i limit
+            # liczony w zleceniach wychodzą na to samo — przypomnienie idzie
+            # wyłącznie do lidera), TU jest to rozróżnienie realne (dług #1): paczka
+            # zbiorcza domykana automatem powiadamia WSZYSTKICH uczestników
+            # (build_delivery_autoclosed_message), więc porcja licząca zlecenia
+            # mogła wysłać wielokrotnie więcej maili w jednym batchu SMTP (2 s
+            # odstępu między wiadomościami), niż limit sugerował.
+            limit_wiadomosci = konfig['autocomplete_batch']
 
-        # Lista wiadomości per zlecenie, nie jedna na zlecenie: paczka zbiorcza
-        # rodzi po jednej wiadomości na uczestnika (patrz
-        # EmailManager.build_delivery_confirmation_message).
-        zadania = []
-        for sr in kandydaci:
-            msgs = EmailManager.build_delivery_confirmation_message(sr)
-            if msgs:
-                zadania.append((sr, msgs))
+            if dry_run:
+                # W dry-run NIE wołamy ani dostarcz_zlecenie() (realna zmiana stanu
+                # zlecenia — niedopuszczalna w podglądzie), ani
+                # build_delivery_autoclosed_message() (renderowanie szablonu Jinja
+                # wymaga kontekstu żądania, którego dry-run wywołany z testu może
+                # nie mieć). Liczba uczestników paczki jest dokładnie liczbą
+                # wiadomości, które realny przebieg by wysłał, więc to wystarczający
+                # (i tani) szacunek do podglądu skali porcji.
+                lacznie = 0
+                ile_zlecen = 0
+                for sr in zalegle:
+                    if lacznie >= limit_wiadomosci:
+                        break
+                    ile_zlecen += 1
+                    lacznie += len(sr.consolidation_participants) if sr.is_consolidation else 1
+                wynik['domkniete'] = ile_zlecen
+            else:
+                wiadomosci, zlecenia_domkniete = [], []
+                lacznie_wiadomosci = 0
+                for sr in zalegle:
+                    if lacznie_wiadomosci >= limit_wiadomosci:
+                        break
+                    try:
+                        # powiadom=False: maile budujemy sami i wysyłamy JEDNYM
+                        # połączeniem SMTP. Pętla po notify_* otworzyłaby tyle sesji
+                        # SMTP, ile zleceń w porcji.
+                        dostarcz_zlecenie(sr, source='auto', powiadom=False)
+                    except (ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane) as err:
+                        current_app.logger.info(f'Pominięto {sr.request_number}: {err}')
+                        continue
+                    wynik['domkniete'] += 1
+                    # Lista, nie pojedyncza wiadomość — paczka zbiorcza ma po jednym
+                    # mailu na uczestnika. `zlecenia_domkniete` trzyma numer zlecenia
+                    # per wiadomość, żeby log nieudanych wysyłek dalej się zgadzał.
+                    msgs = EmailManager.build_delivery_autoclosed_message(sr)
+                    wiadomosci.extend(msgs)
+                    zlecenia_domkniete.extend([sr] * len(msgs))
+                    lacznie_wiadomosci += len(msgs)
+                    try:
+                        PushManager.notify_delivery_autoclosed(sr)
+                    except Exception as err:
+                        current_app.logger.error(
+                            f'Push o domknięciu {sr.request_number}: {err}')
 
-        wiadomosci = [m for _, msgs in zadania for m in msgs]
-
+                if wiadomosci:
+                    # dostarcz_zlecenie() już zacommitował domknięcie zlecenia —
+                    # nieudany mail nie cofa statusu, a zlecenie w nim raz domknięte
+                    # nigdy nie wróci do żadnej fazy (nie jest już 'wyslane'). Bez tego
+                    # logu nieudana wysyłka byłaby cichą, trwałą utratą powiadomienia,
+                    # o której nikt by się nie dowiedział.
+                    rezultaty = send_email_batch_sync(wiadomosci)
+                    nieudane = [
+                        sr.request_number
+                        for sr, ok in zip(zlecenia_domkniete, rezultaty)
+                        if not ok
+                    ]
+                    if nieudane:
+                        current_app.logger.warning(
+                            'Mail o automatycznym domknięciu NIE wysłany dla: '
+                            + ', '.join(nieudane))
+    finally:
+        # W trybie dry_run żadna z faz powyżej nie commituje — jedyna pending zmiana
+        # to flush z backfillu. Rollback ją cofa, więc --dry-run faktycznie niczego
+        # w bazie nie zmienia, mimo że backfill musiał zostać policzony, żeby liczby
+        # były prawdziwe. W try/finally (dług #3): gwarancja obowiązuje także wtedy,
+        # gdy któraś z faz powyżej rzuci wyjątkiem, a nie tylko na szczęśliwej ścieżce.
         if dry_run:
-            wynik['przypomnienia'] = len(zadania)
-        elif wiadomosci:
-            # Jedno połączenie SMTP na cały batch — Hostinger limituje AUTH per IP.
-            rezultaty = send_email_batch_sync(wiadomosci)
-            od = 0
-            for sr, msgs in zadania:
-                wyniki_zlecenia = rezultaty[od:od + len(msgs)]
-                od += len(msgs)
-                if not all(wyniki_zlecenia):
-                    # Bez znacznika: nieudane przypomnienie wróci w kolejnym
-                    # przebiegu. Przy paczce zbiorczej wraca CAŁE zlecenie, więc
-                    # uczestnicy, do których mail doszedł, dostaną duplikat —
-                    # świadomie wybieramy duplikat zamiast cichej, trwałej utraty
-                    # przypomnienia dla tego jednego, u którego wysyłka padła.
-                    current_app.logger.warning(
-                        f'Przypomnienie o dostawie {sr.request_number}: '
-                        f'{wyniki_zlecenia.count(False)} z {len(msgs)} maili nie '
-                        f'poszło, zlecenie zostaje nieoznaczone')
-                    continue
-                sr.delivery_reminder_sent_at = teraz
-                wynik['przypomnienia'] += 1
-                try:
-                    PushManager.notify_delivery_confirmation(sr)
-                except Exception as err:
-                    current_app.logger.error(
-                        f'Push przypomnienia o dostawie {sr.request_number}: {err}')
-            db.session.commit()
-
-    # === Faza 2: automatyczne domykanie ===
-    if konfig['autocomplete_enabled']:
-        zalegle = (
-            _wyslane_wczesniej_niz(konfig['autocomplete_days'])
-            .order_by(ShippingRequest.shipped_at.asc())
-            .limit(konfig['autocomplete_batch'])
-            .all()
-        )
-
-        if dry_run:
-            wynik['domkniete'] = len(zalegle)
-        else:
-            wiadomosci, zlecenia_domkniete = [], []
-            for sr in zalegle:
-                try:
-                    # powiadom=False: maile budujemy sami i wysyłamy JEDNYM
-                    # połączeniem SMTP. Pętla po notify_* otworzyłaby tyle sesji
-                    # SMTP, ile zleceń w porcji.
-                    dostarcz_zlecenie(sr, source='auto', powiadom=False)
-                except (ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane) as err:
-                    current_app.logger.info(f'Pominięto {sr.request_number}: {err}')
-                    continue
-                wynik['domkniete'] += 1
-                # Lista, nie pojedyncza wiadomość — paczka zbiorcza ma po jednym
-                # mailu na uczestnika. `zlecenia_domkniete` trzyma numer zlecenia
-                # per wiadomość, żeby log nieudanych wysyłek dalej się zgadzał.
-                msgs = EmailManager.build_delivery_autoclosed_message(sr)
-                wiadomosci.extend(msgs)
-                zlecenia_domkniete.extend([sr] * len(msgs))
-                try:
-                    PushManager.notify_delivery_autoclosed(sr)
-                except Exception as err:
-                    current_app.logger.error(
-                        f'Push o domknięciu {sr.request_number}: {err}')
-
-            if wiadomosci:
-                # dostarcz_zlecenie() już zacommitował domknięcie zlecenia —
-                # nieudany mail nie cofa statusu, a zlecenie w nim raz domknięte
-                # nigdy nie wróci do żadnej fazy (nie jest już 'wyslane'). Bez tego
-                # logu nieudana wysyłka byłaby cichą, trwałą utratą powiadomienia,
-                # o której nikt by się nie dowiedział.
-                rezultaty = send_email_batch_sync(wiadomosci)
-                nieudane = [
-                    sr.request_number
-                    for sr, ok in zip(zlecenia_domkniete, rezultaty)
-                    if not ok
-                ]
-                if nieudane:
-                    current_app.logger.warning(
-                        'Mail o automatycznym domknięciu NIE wysłany dla: '
-                        + ', '.join(nieudane))
-
-    # W trybie dry_run żadna z faz powyżej nie commituje — jedyna pending zmiana to
-    # flush z backfillu. Rollback ją cofa, więc --dry-run faktycznie niczego w bazie
-    # nie zmienia, mimo że backfill musiał zostać policzony, żeby liczby były prawdziwe.
-    if dry_run:
-        db.session.rollback()
+            db.session.rollback()
 
     return wynik
 

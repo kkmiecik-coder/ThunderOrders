@@ -97,3 +97,48 @@ def test_backfill_jest_idempotentny(app, db, make_user):
     assert pierwszy['z_updated_at'] == 1
     assert sum(drugi.values()) == 0
     assert sr.shipped_at == zapisana
+
+
+def test_backfill_wielu_kandydatow_nie_miesza_zrodel(app, db, make_user, make_order):
+    """Dług #6 (G4-cron): backfill robił dwa zapytania NA ZLECENIE (log +
+    przesyłka) zamiast zbiorczych. Po przejściu na GROUP BY/MIN kluczowe jest, żeby
+    wynik per zlecenie dalej trafiał do WŁAŚCIWEGO wiersza — trzej kandydaci, każdy
+    z innego źródła kaskady, muszą dostać każdy SWOJĄ datę, nie datę sąsiada."""
+    from modules.admin.models import ActivityLog
+    from modules.orders.models import OrderShipment, ShippingRequestOrder, ShippingRequest
+    from modules.orders.delivery_backfill import odtworz_shipped_at
+
+    user_a, user_b, user_c = make_user(), make_user(), make_user()
+
+    sr_log = ShippingRequest(request_number='WYS/000601', user_id=user_a.id, status='wyslane')
+    sr_przesylka = ShippingRequest(request_number='WYS/000602', user_id=user_b.id, status='wyslane')
+    sr_updated = ShippingRequest(request_number='WYS/000603', user_id=user_c.id, status='wyslane')
+    db.session.add_all([sr_log, sr_przesylka, sr_updated])
+    db.session.commit()
+
+    kiedy_log = datetime.now() - timedelta(days=25)
+    db.session.add(ActivityLog(
+        action='shipping_request_shipped', entity_type='shipping_request',
+        entity_id=sr_log.id, created_at=kiedy_log))
+
+    order = make_order(user_b, status='wyslane')
+    db.session.add(ShippingRequestOrder(shipping_request_id=sr_przesylka.id, order_id=order.id))
+    kiedy_przesylka = datetime.now() - timedelta(days=18)
+    db.session.add(OrderShipment(
+        order_id=order.id, tracking_number='X9', courier='inpost', created_at=kiedy_przesylka))
+    db.session.commit()
+
+    kiedy_updated = datetime.now() - timedelta(days=12)
+    sr_updated.updated_at = kiedy_updated
+    db.session.commit()
+
+    wynik = odtworz_shipped_at()
+
+    # sr_updated.updated_at NIE nadaje się tu jako punkt odniesienia po fakcie:
+    # backfill sam robi UPDATE na tym wierszu (ustawia shipped_at), więc kolumna z
+    # onupdate=get_local_now przestawia się na „teraz" przy TYM SAMYM commicie —
+    # porównujemy więc do wartości złapanej PRZED wywołaniem odtworz_shipped_at().
+    assert wynik == {'z_logu': 1, 'z_przesylek': 1, 'z_updated_at': 1}
+    assert abs((sr_log.shipped_at - kiedy_log).total_seconds()) < 1
+    assert abs((sr_przesylka.shipped_at - kiedy_przesylka).total_seconds()) < 1
+    assert abs((sr_updated.shipped_at - kiedy_updated).total_seconds()) < 1

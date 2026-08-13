@@ -1,6 +1,8 @@
 """Komenda cron: przypomnienia o potwierdzeniu i automatyczne domykanie."""
 from datetime import timedelta
 
+import pytest
+
 
 def _wyslane(db, user, numer, dni_temu):
     from modules.orders.models import ShippingRequest, get_local_now
@@ -301,3 +303,126 @@ def test_dry_run_widzi_zaleglosc_ktora_wymaga_backfillu(app, db, make_user, monk
 
     assert all(sr.shipped_at is None for sr in zlecenia)
     assert all(sr.status == 'wyslane' for sr in zlecenia)
+
+
+def test_faza1_nie_wymaga_user_id_na_zleceniu(app, db, make_user, monkeypatch):
+    """Dług #2 (G4-cron): faza przypomnień wymagała ShippingRequest.user_id IS NOT
+    NULL, faza domykania nie — rozjazd, mimo że to warstwa mailowa
+    (_adresat_zlecenia / _odbiorcy_dostawy), nie SQL, decyduje kto faktycznie
+    dostanie maila. Kierunek naprawy: usuwamy filtr z fazy 1, bo dla zwykłego
+    zlecenia z usuniętym kontem ta warstwa i tak schodzi na e-mail z zamówienia —
+    SQL wykluczał więc kandydatów, którym mail i tak by poszedł."""
+    from app import _przetworz_dostawy
+    from modules.orders.models import ShippingRequest, get_local_now
+    from utils.email_manager import EmailManager
+
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message',
+        staticmethod(lambda sr: [object()]))
+    monkeypatch.setattr(
+        'utils.email_sender.send_email_batch_sync', lambda msgs: [True] * len(msgs))
+
+    # user_id=None: dokładnie stan po ON DELETE SET NULL, gdy konto właściciela
+    # zlecenia (albo lidera paczki zbiorczej) zostaje skasowane.
+    sr = ShippingRequest(
+        request_number='WYS/000580', user_id=None, status='wyslane',
+        shipped_at=get_local_now() - timedelta(days=5))
+    db.session.add(sr)
+    db.session.commit()
+
+    wynik = _przetworz_dostawy()
+
+    assert wynik['przypomnienia'] == 1
+    assert sr.delivery_reminder_sent_at is not None
+
+
+def test_kandydat_bez_odbiorcy_nie_wraca_bezterminowo(app, db, make_user, monkeypatch):
+    """Dług #5: gdy build_delivery_confirmation_message zwróci pustą listę (typowo
+    paczka zbiorcza bez lidera z kontem/e-mailem), delivery_reminder_sent_at musi
+    mimo to zostać ustawiony — inaczej kandydat wraca w KAŻDYM kolejnym przebiegu,
+    logując to samo ostrzeżenie i zajmując miejsce w porcji bezterminowo
+    (szczególnie przy wyłączonym automacie, bo faza 2 nigdy go nie domknie)."""
+    from app import _przetworz_dostawy
+    from utils.email_manager import EmailManager
+
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message',
+        staticmethod(lambda sr: []))
+
+    user = make_user()
+    sr = _wyslane(db, user, 'WYS/000581', dni_temu=5)
+
+    pierwszy = _przetworz_dostawy()
+    assert pierwszy['przypomnienia'] == 0
+    assert sr.delivery_reminder_sent_at is not None
+
+    # Drugi przebieg: kandydat nie wraca, bo delivery_reminder_sent_at IS NOT NULL
+    # go już wyklucza z zapytania fazy 1 — build_* w ogóle nie jest wywoływane.
+    wywolania = []
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message',
+        staticmethod(lambda sr: wywolania.append(sr) or []))
+    _przetworz_dostawy()
+    assert wywolania == []
+
+
+def test_kandydat_bez_odbiorcy_nie_znaczony_gdy_maile_wylaczone_globalnie(
+        app, db, make_user, monkeypatch):
+    """Druga strona długu #5: pusta lista z build_* ma DWIE różne przyczyny. Brak
+    odbiorcy w danych jest trwały (test wyżej). Globalny toggle
+    notify_delivery_confirmation wyłączony przez admina jest ODWRACALNY — trwałe
+    oznaczenie w tym przypadku okradłoby zlecenie z przypomnienia na zawsze, nawet
+    po ponownym włączeniu maila."""
+    import json
+    from modules.auth.models import Settings
+    from app import _przetworz_dostawy
+    from utils.email_manager import EmailManager
+
+    Settings.set_value(
+        'email_notifications_config',
+        json.dumps({'notify_delivery_confirmation': False}), type='json')
+    db.session.commit()
+    EmailManager.clear_email_config_cache()
+
+    user = make_user()
+    sr = _wyslane(db, user, 'WYS/000582', dni_temu=5)
+
+    wynik = _przetworz_dostawy()
+
+    assert wynik['przypomnienia'] == 0
+    assert sr.delivery_reminder_sent_at is None
+
+
+def test_dry_run_rollback_gwarantowany_mimo_wyjatku_w_fazie(app, db, make_user, monkeypatch):
+    """Dług #3: rollback w --dry-run stał POZA try/finally — bezpieczny wyłącznie
+    dzięki teardownowi kontekstu Flaska w _with_request_context. Ten test woła
+    _przetworz_dostawy() bez takiego kontekstu i wymusza wyjątek W TRAKCIE fazy 1,
+    więc jedyne, co może cofnąć flush z backfillu, to gwarancja w samej funkcji."""
+    from app import _przetworz_dostawy
+    from modules.orders.models import ShippingRequest, get_local_now
+    from utils.email_manager import EmailManager
+
+    user = make_user()
+    # Bez shipped_at, ale z updated_at cofniętym o 5 dni: dokładnie to, co backfill
+    # (flush, nie commit, w dry-run) uzupełnia z ostatniej deski ratunku kaskady —
+    # i wystarczająco stare, żeby zlecenie trafiło do kandydatów fazy 1.
+    sr = ShippingRequest(request_number='WYS/000590', user_id=user.id, status='wyslane')
+    db.session.add(sr)
+    db.session.commit()
+    sr.updated_at = get_local_now() - timedelta(days=5)
+    db.session.commit()
+    assert sr.shipped_at is None
+
+    def wybuchnij(_sr):
+        raise RuntimeError('symulowana awaria budowania wiadomości')
+
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message', staticmethod(wybuchnij))
+
+    with pytest.raises(RuntimeError):
+        _przetworz_dostawy(dry_run=True)
+
+    # Gdyby rollback nie zadziałał, flush z backfillu (shipped_at ustawione w tej
+    # samej transakcji) przeżyłby wyjątek — w tym teście nic nie sprząta po sobie
+    # kontekstu Flaska, więc jedyna gwarancja to try/finally w samej funkcji.
+    assert sr.shipped_at is None

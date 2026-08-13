@@ -50,6 +50,8 @@ def odtworz_shipped_at(dry_run=False):
     Returns:
         dict: liczba zleceń uzupełnionych z każdego źródła.
     """
+    from sqlalchemy import func
+
     from modules.admin.models import ActivityLog
     from modules.orders.models import OrderShipment, ShippingRequestOrder
 
@@ -58,33 +60,52 @@ def odtworz_shipped_at(dry_run=False):
     if not kandydaci:
         return wynik
 
+    ids = [sr.id for sr in kandydaci]
+
+    # Krok 1 kaskady, dla WSZYSTKICH kandydatów naraz: MIN(created_at) per
+    # entity_id daje dokładnie ten sam wybór co .order_by(...).first() w pętli
+    # (najstarszy wpis), ale jednym zapytaniem zamiast jednego na zlecenie —
+    # przy dużej historii (jednorazowy przebieg po wdrożeniu) to różnica między
+    # dwoma zapytaniami a 2*N.
+    logi = dict(
+        db.session.query(ActivityLog.entity_id, func.min(ActivityLog.created_at))
+        .filter(ActivityLog.action == 'shipping_request_shipped')
+        .filter(ActivityLog.entity_type == 'shipping_request')
+        .filter(ActivityLog.entity_id.in_(ids))
+        .group_by(ActivityLog.entity_id)
+        .all()
+    )
+
+    # Krok 2 kaskady: tylko dla kandydatów bez wpisu w logu — log ma pierwszeństwo,
+    # więc nie ma sensu liczyć przesyłek dla tych, którzy i tak go mają.
+    brak_logu = [sr_id for sr_id in ids if sr_id not in logi]
+    przesylki = {}
+    if brak_logu:
+        przesylki = dict(
+            db.session.query(
+                ShippingRequestOrder.shipping_request_id,
+                func.min(OrderShipment.created_at),
+            )
+            .join(OrderShipment, ShippingRequestOrder.order_id == OrderShipment.order_id)
+            # created_at jest nullable na OrderShipment — bez tego filtra grupa
+            # złożona WYŁĄCZNIE z wierszy o created_at=NULL dałaby MIN()=NULL i
+            # nadpisałaby shipped_at pustą wartością zamiast zejść do updated_at,
+            # tak jak robił to `if przesylka and przesylka.created_at` w wersji
+            # per-wiersz.
+            .filter(OrderShipment.created_at.isnot(None))
+            .filter(ShippingRequestOrder.shipping_request_id.in_(brak_logu))
+            .group_by(ShippingRequestOrder.shipping_request_id)
+            .all()
+        )
+
     for sr in kandydaci:
-        wpis = (
-            ActivityLog.query
-            .filter_by(action='shipping_request_shipped',
-                       entity_type='shipping_request', entity_id=sr.id)
-            .order_by(ActivityLog.created_at.asc())
-            .first()
-        )
-        if wpis and wpis.created_at:
-            sr.shipped_at = wpis.created_at
+        if sr.id in logi:
+            sr.shipped_at = logi[sr.id]
             wynik['z_logu'] += 1
-            continue
-
-        przesylka = (
-            db.session.query(OrderShipment)
-            .join(ShippingRequestOrder,
-                  ShippingRequestOrder.order_id == OrderShipment.order_id)
-            .filter(ShippingRequestOrder.shipping_request_id == sr.id)
-            .order_by(OrderShipment.created_at.asc())
-            .first()
-        )
-        if przesylka and przesylka.created_at:
-            sr.shipped_at = przesylka.created_at
+        elif sr.id in przesylki:
+            sr.shipped_at = przesylki[sr.id]
             wynik['z_przesylek'] += 1
-            continue
-
-        if sr.updated_at:
+        elif sr.updated_at:
             sr.shipped_at = sr.updated_at
             wynik['z_updated_at'] += 1
 
