@@ -3975,3 +3975,73 @@
 [data-theme="dark"] .audience-no-results {
     color: rgba(255, 255, 255, 0.4);
 }
+
+/* ===== Sekcja zdjęciowa w builderze ===== */
+.image-section-thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.image-section-thumb {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ffffff;
+    cursor: grab;
+}
+
+.image-section-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+}
+
+/* Pole dotyku 44x44 px (wymóg mobile), widoczne kółko jest mniejsze */
+.image-section-thumb-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.image-section-thumb-remove::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+/* Ikona wyśrodkowana w kółku (a nie w całym polu dotyku 44px) */
+.image-section-thumb-remove svg {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
+[data-theme="dark"] .image-section-thumb {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .image-section-thumb-remove::before {
+    background: rgba(0, 0, 0, 0.7);
+}

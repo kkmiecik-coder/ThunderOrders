@@ -442,6 +442,39 @@ function getSectionTemplate(type) {
                 </div>
             </div>
         `,
+        image: `
+            <div class="section-card" data-section-type="image">
+                <div class="section-header">
+                    <div class="section-drag-handle">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                        </svg>
+                    </div>
+                    <span class="section-type-label">Zdjęcie</span>
+                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="section-body">
+                    <div class="image-section-editor">
+                        <div class="image-section-thumbs"></div>
+                        <input type="file" class="image-section-input" accept="image/*" multiple hidden
+                               onchange="uploadSectionImages(this)">
+                        <button type="button" class="btn btn-outline btn-sm"
+                                onclick="this.previousElementSibling.click()">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                            </svg>
+                            Dodaj zdjęcia
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `,
         product: `
             <div class="section-card" data-section-type="product">
                 <div class="section-header">
@@ -971,6 +1004,11 @@ function collectPageData() {
 
         if (type === 'heading' || type === 'paragraph') {
             sectionData.content = section.querySelector('.section-content').value;
+        } else if (type === 'image') {
+            // Ścieżki miniatur w kolejności DOM — ta kolejność trafia na stronę sprzedaży
+            sectionData.images = Array.from(
+                section.querySelectorAll('.image-section-thumb')
+            ).map(el => el.dataset.path);
         } else if (type === 'product') {
             sectionData.product_id = parseInt(section.querySelector('.product-select').value) || null;
             const maxQtyInput = section.querySelector('.max-qty-value');
@@ -1816,6 +1854,94 @@ async function uploadSetImage(input, sectionId) {
         previewImg.src = '';
         showToast('Błąd przesyłania pliku', 'error');
     }
+}
+
+/**
+ * Upload zdjęć sekcji zdjęciowej.
+ * Każdy plik leci osobnym żądaniem — błąd jednego nie przerywa pozostałych.
+ */
+async function uploadSectionImages(input) {
+    const files = Array.from(input.files || []);
+    if (files.length === 0) return;
+
+    const editor = input.closest('.image-section-editor');
+    const thumbs = editor.querySelector('.image-section-thumbs');
+    input.value = '';  // pozwala wgrać ten sam plik ponownie
+
+    let bledy = 0;
+    for (const file of files) {
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('type', 'section_image');
+
+            const response = await fetch('/admin/offers/api/upload-image', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': builderConfig.csrfToken },
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                thumbs.appendChild(buildSectionImageThumb(result.path, result.url));
+            } else {
+                bledy++;
+                console.error('Upload zdjęcia sekcji:', result.error);
+            }
+        } catch (error) {
+            bledy++;
+            console.error('Upload zdjęcia sekcji:', error);
+        }
+    }
+
+    markDirty();
+    const wgrane = files.length - bledy;
+    if (bledy === 0) {
+        // Odmiana: 2-4 (ale nie 12-14) → "zdjęcia", reszta → "zdjęć"
+        const r10 = wgrane % 10;
+        const r100 = wgrane % 100;
+        const rzecz = (r10 >= 2 && r10 <= 4 && (r100 < 12 || r100 > 14)) ? 'zdjęcia' : 'zdjęć';
+        showToast(wgrane === 1 ? 'Zdjęcie przesłane' : `Przesłano ${wgrane} ${rzecz}`, 'success');
+    } else if (wgrane === 0) {
+        showToast('Nie udało się przesłać zdjęć', 'error');
+    } else {
+        showToast(`Przesłano ${wgrane} z ${files.length} zdjęć`, 'warning');
+    }
+}
+
+/**
+ * Buduje kafelek miniatury. Ścieżka trzymana w data-path — stąd czyta ją collectPageData.
+ */
+function buildSectionImageThumb(path, url) {
+    const thumb = document.createElement('div');
+    thumb.className = 'image-section-thumb';
+    thumb.draggable = true;
+    thumb.dataset.path = path;
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = 'Zdjęcie sekcji';
+    thumb.appendChild(img);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'image-section-thumb-remove';
+    remove.setAttribute('aria-label', 'Usuń zdjęcie');
+    remove.onclick = function () { removeSectionImage(this); };
+    remove.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>';
+    thumb.appendChild(remove);
+
+    return thumb;
+}
+
+/**
+ * Usuwa miniaturę z edytora. Plik na dysku zostaje — tak samo działa tło setu.
+ */
+function removeSectionImage(btn) {
+    const thumb = btn.closest('.image-section-thumb');
+    if (!thumb) return;
+    thumb.remove();
+    markDirty();
 }
 
 /**
