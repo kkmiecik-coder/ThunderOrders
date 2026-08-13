@@ -1948,6 +1948,8 @@ function removeSectionImage(btn) {
 }
 
 let draggedSectionImage = null;
+// Sąsiad kafelka sprzed przeciągnięcia — po tym poznajemy, czy kolejność faktycznie się zmieniła.
+let sasiadSectionImagePrzed = null;
 
 /**
  * Zmiana kolejności miniatur w sekcji zdjęciowej.
@@ -1965,6 +1967,7 @@ function setupSectionImageDnD() {
         if (!thumb) return;
         e.stopPropagation();
         draggedSectionImage = thumb;
+        sasiadSectionImagePrzed = thumb.nextSibling;
         thumb.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
     }, true);
@@ -1989,16 +1992,26 @@ function setupSectionImageDnD() {
         if (!draggedSectionImage) return;
         const kontener = e.target.closest ? e.target.closest('.image-section-thumbs') : null;
         if (!kontener) return;
+        if (!kontener.contains(draggedSectionImage)) return;  // pasek innej sekcji — nic tu nie upuszczamy
         e.preventDefault();
         e.stopPropagation();
-        markDirty();
     }, true);
 
     document.addEventListener('dragend', function (e) {
         if (!draggedSectionImage) return;
         e.stopPropagation();
         draggedSectionImage.classList.remove('dragging');
+
+        // Oznaczenie zmian NIE może wisieć na zdarzeniu drop: dragover przestawia kafelek
+        // na trwałe, a użytkownik może puścić przycisk obok paska albo anulować Escape'em —
+        // wtedy dropa nie ma, a kolejność już jest inna. dragend leci zawsze, więc dirty
+        // ustawiamy tutaj i tylko gdy kafelek naprawdę zmienił miejsce.
+        if (draggedSectionImage.nextSibling !== sasiadSectionImagePrzed) {
+            markDirty();
+        }
+
         draggedSectionImage = null;
+        sasiadSectionImagePrzed = null;
         // handleDragEnd sekcji nie dostanie tego zdarzenia (stopPropagation powyżej),
         // więc podświetlenie karty sprzątamy tutaj — miniatura mogła przejechać nad
         // kartą sekcji poza kontenerem miniatur i zostawić .drag-over.
