@@ -638,9 +638,13 @@ def _przetworz_dostawy(dry_run=False):
         # jest tu warunkiem WEJŚCIA do fazy, a nie tylko filtrem w środku: przy
         # wyłączonym mailu build_* nie zbuduje żadnej wiadomości, pusha wysyłamy
         # dopiero po udanym mailu, a oznaczyć kandydata mimo to nie wolno (stan
-        # odwracalny — patrz niżej). Cała faza jest wtedy no-opem, więc jedyne, co
-        # dawało jej przemielenie, to jedna linia INFO w logu na każde zlecenie
-        # zaległości.
+        # odwracalny — patrz niżej). Cała faza jest wtedy no-opem, ale jej przemielenie
+        # NIE jest darmowe: na każdego kandydata z zaległości szła jedna linia INFO
+        # („notification is disabled, skipping" z build_*) ORAZ — bo odbiorca istnieje,
+        # a lista wiadomości i tak jest pusta — jedna linia ERROR „odbiorca jest, ale
+        # prepare_email nie oddał wiadomości", czyli fałszywa diagnoza wskazująca na
+        # błąd renderu tam, gdzie admin po prostu wyłączył powiadomienie. Tego pilnuje
+        # test_wylaczony_globalnie_mail_nie_wchodzi_w_faze_przypomnien.
         if konfig['reminder_enabled'] and EmailManager.is_email_enabled(
                 'notify_delivery_confirmation'):
             kandydaci_q = (

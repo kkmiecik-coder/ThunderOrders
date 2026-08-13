@@ -566,7 +566,8 @@
                                     Śledzenie przesyłki
                                 </div>
                                 <div class="sr-tracking-content">
-                                    {% if sr.courier %}<span class="sr-courier-badge">{{ sr.courier }}</span>{% endif %}
+                                    {# courier_display_name, nie surowy slug: klient nie ma widzieć „pocztex" #}
+                                    {% if sr.courier %}<span class="sr-courier-badge">{{ sr.courier_display_name }}</span>{% endif %}
                                     {% if sr.tracking_number %}
                                         {% if sr.tracking_url %}
                                             <a href="{{ sr.tracking_url }}" target="_blank" class="sr-tracking-link">

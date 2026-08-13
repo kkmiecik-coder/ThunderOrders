@@ -374,11 +374,17 @@ def test_kandydat_bez_odbiorcy_nie_wraca_bezterminowo(app, db, make_user, monkey
 
 def test_kandydat_bez_odbiorcy_nie_znaczony_gdy_maile_wylaczone_globalnie(
         app, db, make_user, monkeypatch):
-    """Druga strona długu #5: pusta lista z build_* ma TRZY różne przyczyny. Brak
-    odbiorcy w danych jest trwały (test wyżej). Globalny toggle
-    notify_delivery_confirmation wyłączony przez admina jest ODWRACALNY — trwałe
-    oznaczenie w tym przypadku okradłoby zlecenie z przypomnienia na zawsze, nawet
-    po ponownym włączeniu maila. Trzecia przyczyna (błąd renderu) — test niżej."""
+    """Wyłączony globalnie mail o potwierdzeniu nie może zostawić po sobie trwałego
+    znacznika: to stan ODWRACALNY, a `delivery_reminder_sent_at` okradłby zlecenie
+    z przypomnienia na zawsze, także po ponownym włączeniu powiadomienia.
+
+    Test pilnuje SKUTKU (brak znacznika), nie mechanizmu, którym się go osiąga —
+    dziś dają go dwa niezależne mechanizmy naraz: warunek wejścia do fazy w app.py
+    i rozstrzyganie po `_jest_komu_przypomniec` w środku. Sam warunek wejścia
+    (i to, czym płacimy za jego brak) pokrywa
+    test_wylaczony_globalnie_mail_nie_wchodzi_w_faze_przypomnien niżej — dawna wersja
+    tego docstringa przypisywała tę rolę temu testowi, choć przy włączonym strażniku
+    gałąź „trzech przyczyn pustej listy" w ogóle się tu nie wykonuje."""
     import json
     from modules.auth.models import Settings
     from app import _przetworz_dostawy
@@ -397,6 +403,56 @@ def test_kandydat_bez_odbiorcy_nie_znaczony_gdy_maile_wylaczone_globalnie(
 
     assert wynik['przypomnienia'] == 0
     assert sr.delivery_reminder_sent_at is None
+
+
+def test_wylaczony_globalnie_mail_nie_wchodzi_w_faze_przypomnien(
+        app, db, make_user, monkeypatch, caplog):
+    """Globalny przełącznik `notify_delivery_confirmation` jest warunkiem WEJŚCIA do
+    fazy 1, a nie tylko filtrem w środku — i tego nie pilnował żaden test (zdjęcie
+    warunku zostawiało 21 z 21 testów crona zielonych).
+
+    Bez strażnika faza mieli całą zaległość: dla każdego kandydata woła build_*, ten
+    oddaje pustą listę (powiadomienie wyłączone), a że odbiorca ISTNIEJE, kod schodzi
+    w gałąź „prepare_email nie oddał wiadomości" i loguje ERROR wskazujący na błąd
+    renderu szablonu — fałszywą diagnozę, po jednej linii na każde zlecenie, dla kogoś
+    kto czyta log produkcyjny. Stąd dwie asercje: faza nie ma prawa tknąć build_*
+    ani zostawić po sobie takiego ERROR-a."""
+    import json
+    import logging
+    from modules.auth.models import Settings
+    from app import _przetworz_dostawy
+    from utils.email_manager import EmailManager
+
+    Settings.set_value(
+        'email_notifications_config',
+        json.dumps({'notify_delivery_confirmation': False}), type='json')
+    db.session.commit()
+    EmailManager.clear_email_config_cache()
+
+    prawdziwy_build = EmailManager.build_delivery_confirmation_message
+    wywolania = []
+
+    def szpieg(sr):
+        wywolania.append(sr.request_number)
+        return prawdziwy_build(sr)
+
+    monkeypatch.setattr(
+        EmailManager, 'build_delivery_confirmation_message', staticmethod(szpieg))
+
+    user = make_user()
+    _wyslane(db, user, 'WYS/000583', dni_temu=5)
+
+    with caplog.at_level(logging.ERROR):
+        _przetworz_dostawy()
+
+    assert wywolania == [], (
+        'przy wyłączonym mailu faza 1 nie ma prawa w ogóle wołać build_* — '
+        f'zawołała dla: {wywolania}')
+    falszywe = [r for r in caplog.records
+                if 'prepare_email nie oddał wiadomości' in r.getMessage()]
+    assert falszywe == [], (
+        'wyłączony przez admina przełącznik nie jest awarią renderu — ERROR o '
+        f'prepare_email to fałszywa diagnoza: {[r.getMessage() for r in falszywe]}')
 
 
 def test_dry_run_rollback_gwarantowany_mimo_wyjatku_w_fazie(app, db, make_user, monkeypatch):

@@ -254,6 +254,35 @@ def test_ocena_nieskonczonosc_odrzucona(app, db, client, login, make_user):
     assert sr.review is None
 
 
+def test_ocena_bool_odrzucona(app, db, client, login, make_user):
+    """`bool` to podtyp `int`: int(True) == 1, a kontrola ułamka dotyczy tylko float,
+    więc {"rating": true} z apki albo curla wracało z 200 i zapisywało opinię na jedną
+    gwiazdkę — do średniej w statystykach i na listę reklamacji admina."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000498')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena', json={'rating': True})
+
+    assert odp.status_code == 400
+    assert sr.review is None
+
+
+def test_komentarz_nie_string_odrzucony_z_400(app, db, client, login, make_user):
+    """`.strip()` na liczbie rzuca AttributeError, a `zapisz_ocene` łapie wyłącznie
+    ValueError — {"comment": 123} kończyło się 500-tką zamiast czytelnym 400. Ten sam
+    błąd „zły typ wyjątku daje 500", co Infinity w ocenie (test wyżej)."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000499')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena',
+                      json={'rating': 5, 'comment': 123})
+
+    assert odp.status_code == 400
+    assert sr.review is None
+
+
 def test_komentarz_za_dlugi_odrzucony_przez_api(app, db, client, login, make_user):
     """Formularz webowy ma maxlength=2000, ale API (mobile) go omija — dawniej
     komentarz ponad 2000 znaków był po cichu ucinany zamiast odrzucony jawnym

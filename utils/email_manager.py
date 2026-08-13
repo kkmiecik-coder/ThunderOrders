@@ -1044,13 +1044,12 @@ class EmailManager:
         new_status_name = new_status_obj.name if new_status_obj else shipping_request.status
         new_status_color = new_status_obj.badge_color if new_status_obj else '#6B7280'
 
-        # Courier name mapping
-        courier_names = {
-            'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
-            'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
-            'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'
-        }
-        courier_name = courier_names.get(shipping_request.courier, shipping_request.courier) if shipping_request.courier else None
+        # Nazwa kuriera z kanonicznej mapy (courier_display_name → wms_utils.COURIER_NAMES),
+        # nie z lokalnej kopii literału: tamta nie miała klucza 'pocztex', mimo że kurier
+        # jest wybieralny w WMS, więc do KLIENTA szedł w mailu surowy slug „pocztex".
+        # `if courier` zostaje, bo brak kuriera ma dać None (szablon pomija wtedy pole),
+        # a nie pusty łańcuch.
+        courier_name = shipping_request.courier_display_name if shipping_request.courier else None
 
         if shipping_request.is_consolidation:
             EmailManager._status_change_consolidated(

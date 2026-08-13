@@ -53,6 +53,37 @@ def test_ocena_niecalkowita_odrzucona_przez_model(app, db, make_user):
             DeliveryReview(shipping_request_id=sr.id, user_id=user.id, rating=zla)
 
 
+def test_ocena_bool_odrzucona_przez_model(app, db, make_user):
+    """`bool` jest podtypem `int`, więc int(True) == 1, a kontrola „konwersja niczego
+    nie zgubiła" (`ocena != wartosc`) wychodzi prawdą, bo 1 == True. Efekt:
+    DeliveryReview(rating=True) zapisywał jednogwiazdkową opinię, której nikt nie
+    wystawił — prosto do średniej w statystykach."""
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user()
+    sr_true = _zlecenie(db, user, 'WYS/000109')
+    sr_false = _zlecenie(db, user, 'WYS/000110')
+
+    for zlecenie, zla in ((sr_true, True), (sr_false, False)):
+        with pytest.raises(ValueError):
+            DeliveryReview(shipping_request_id=zlecenie.id, user_id=user.id, rating=zla)
+
+
+def test_komentarz_nie_string_odrzucony_valueerrorem(app, db, make_user):
+    """`.strip()` na liczbie rzuca AttributeError, a `zapisz_ocene` łapie wyłącznie
+    ValueError — {"comment": 123} z API kończyło się 500-tką zamiast 400. Ten sam
+    błąd „zły typ wyjątku daje 500", co OverflowError w walidacji oceny."""
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000111')
+
+    for zly in (123, 4.5, ['a'], {'a': 1}):
+        with pytest.raises(ValueError):
+            DeliveryReview(shipping_request_id=sr.id, user_id=user.id, rating=4,
+                           comment=zly)
+
+
 def test_ocena_calkowita_jako_float_lub_string_akceptowana(app, db, make_user):
     """Odrzucamy ułamek, nie sam typ: 4.0 i '4' to nadal poprawna ocena 4."""
     from modules.orders.review_models import DeliveryReview

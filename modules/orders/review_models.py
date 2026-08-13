@@ -67,6 +67,13 @@ class DeliveryReview(db.Model):
         blad = ValueError(f'Ocena musi być liczbą od 1 do 5, otrzymano: {wartosc!r}')
         if wartosc is None:
             raise blad
+        # bool odrzucamy PRZED konwersją, bo po niej nie da się go już rozpoznać:
+        # `bool` jest w Pythonie podtypem `int`, więc int(True) daje 1, a kontrola
+        # „konwersja niczego nie zgubiła" niżej wychodzi prawdą (1 == True). Bez tego
+        # DeliveryReview(rating=True) zapisywał jednogwiazdkową opinię, której nikt
+        # nie wystawił — a ta kolumna zasila średnią w statystykach.
+        if isinstance(wartosc, bool):
+            raise blad
         try:
             ocena = int(wartosc)
         except (TypeError, ValueError, OverflowError):
@@ -93,6 +100,12 @@ class DeliveryReview(db.Model):
         """
         if wartosc is None:
             return None
+        # Nie-string odrzucamy JAWNYM ValueError, zamiast pozwolić `.strip()` rzucić
+        # AttributeError: `zapisz_ocene` łapie wyłącznie ValueError, więc
+        # {"comment": 123} z API kończyło się 500-tką zamiast czytelnym 400. To ten
+        # sam błąd „zły typ wyjątku daje 500", co OverflowError w `_sprawdz_ocene`.
+        if not isinstance(wartosc, str):
+            raise ValueError('Komentarz musi być tekstem')
         wartosc = wartosc.strip()
         if not wartosc:
             return None

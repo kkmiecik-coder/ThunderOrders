@@ -100,6 +100,14 @@ def zapisz_ocene(sr, dane):
     if surowa in (None, ''):
         return None, None, 200
 
+    # bool odrzucamy PRZED konwersją, bo po niej nie da się go już rozpoznać: `bool`
+    # jest podtypem `int`, więc int(True) daje 1, a kontrola ułamka niżej dotyczy
+    # wyłącznie float. Bez tego {"rating": true} z JSON-a (apka, curl) wracało z 200
+    # i wstawiało jednogwiazdkową opinię do średniej w statystykach oraz na listę
+    # reklamacji admina.
+    if isinstance(surowa, bool):
+        return None, 'Ocena musi być liczbą od 1 do 5', 400
+
     try:
         ocena = int(surowa)
         # int() samego stringa z ułamkiem ("4.9") już rzuca ValueError, ale JSON

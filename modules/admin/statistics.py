@@ -12,6 +12,7 @@ from extensions import db
 from modules.auth.models import User
 from modules.orders.models import Order, OrderItem, OrderShipment, ShippingRequest, ShippingRequestOrder, PaymentConfirmation
 from modules.orders.review_models import DeliveryReview
+from modules.orders.wms_utils import COURIER_NAMES
 from modules.products.models import Product, ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem
 from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, asc, case
@@ -751,12 +752,10 @@ def statistics_shipping():
         func.count(OrderShipment.id)
     ).group_by(OrderShipment.courier).all()
 
-    courier_names = {
-        'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
-        'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
-        'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'
-    }
-    pie_courier_labels = [courier_names.get(c[0], c[0]) for c in courier_counts]
+    # Kanoniczna mapa (wms_utils.COURIER_NAMES) zamiast kolejnej kopii literału:
+    # lokalna nie miała klucza 'pocztex', więc etykieta na wykresie „Kurierzy"
+    # pokazywała surowy slug obok czytelnych nazw pozostałych kurierów.
+    pie_courier_labels = [COURIER_NAMES.get(c[0], c[0]) for c in courier_counts]
     pie_courier_values = [c[1] for c in courier_counts]
 
     # Tabela: ostatnie zlecenia wysyłki — ta sama jednostka co KPI licznikowe wyżej
