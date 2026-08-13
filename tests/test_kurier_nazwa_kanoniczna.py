@@ -9,6 +9,8 @@ kanoniczna, i rozjazd nie był widoczny.
 """
 from datetime import timedelta
 
+import pytest
+
 
 def _zlecenie_z_zamowieniem(db, user, make_order, numer, courier='pocztex'):
     """Zlecenie wysyłki z jednym zamówieniem — tak, jak widzą je obie strony detalu."""
@@ -55,18 +57,27 @@ def test_mail_o_zmianie_statusu_tlumaczy_pocztex(app, db, make_user, monkeypatch
         f'(cała paczka kwargów: {przechwycone})')
 
 
+@pytest.mark.parametrize('courier', [None, ''], ids=['courier=None', "courier=''"])
 def test_mail_o_zmianie_statusu_bez_kuriera_nie_wysyla_pustej_nazwy(
-        app, db, make_user, monkeypatch):
-    """Brak kuriera ma dać None (szablon pomija wtedy pole), nie pusty łańcuch —
-    to jedyne, co chroni warunek `if shipping_request.courier` przy przejściu na
-    właściwość `courier_display_name`."""
+        app, db, make_user, monkeypatch, courier):
+    """Brak kuriera ma dać None (szablon pomija wtedy pole), nie pusty łańcuch.
+
+    `courier_display_name` to `COURIER_NAMES.get(self.courier, self.courier)`:
+    dla `courier=None` to zwraca None niezależnie od warunku (None nie ma jak
+    trafić do mapy jako pasujący klucz z wartością inną niż None) — ten wariant
+    testu przechodzi nawet bez `if shipping_request.courier` w
+    `utils/email_manager.py`. Warunek jest nośny wyłącznie dla `courier=''`:
+    bez niego `courier_display_name` zwróciłaby `''` (fallback `.get` na
+    brakujący klucz), a asercja poniżej by tego nie przepuściła. Stąd oba
+    warianty w jednym teście — pierwszy pilnuje kontraktu, drugi pilnuje
+    warunku."""
     from modules.orders.models import ShippingRequest
     from utils import email_sender
     from utils.email_manager import EmailManager
 
-    user = make_user(email='kurier-mail-brak@example.com')
+    user = make_user(email=f'kurier-mail-brak-{courier or "puste"}@example.com')
     sr = ShippingRequest(request_number='WYS/000701', user_id=user.id,
-                         status='spakowane', courier=None)
+                         status='spakowane', courier=courier)
     db.session.add(sr)
     db.session.commit()
 
