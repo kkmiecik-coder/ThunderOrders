@@ -4,6 +4,8 @@ Revision ID: e7a1c4b92d55
 Revises: b8d2e1fa4c37
 Create Date: 2026-08-13 00:00:00.000000
 
+UWAGA: downgrade() kasuje wszystkie sekcje typu 'image' (wraz z ich treścią) —
+tej operacji nie da się cofnąć, dane sekcji zdjęciowych przepadają bezpowrotnie.
 """
 from alembic import op
 import sqlalchemy as sa

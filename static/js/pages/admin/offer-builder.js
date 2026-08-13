@@ -263,6 +263,7 @@ function handleDragStart(e) {
     draggedElement = e.target;
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
 }
 
 function handleDragEnd(e) {
@@ -1970,6 +1971,7 @@ function setupSectionImageDnD() {
         sasiadSectionImagePrzed = thumb.nextSibling;
         thumb.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
     }, true);
 
     document.addEventListener('dragover', function (e) {
