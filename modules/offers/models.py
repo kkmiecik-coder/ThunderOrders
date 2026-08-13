@@ -412,6 +412,7 @@ class OfferSection(db.Model):
     - product: Pojedynczy produkt
     - set: Set produktów (komplet)
     - variant_group: Grupa wariantowa (produkty z wariantami)
+    - image: Zdjęcie lub galeria zdjęć
     """
     __tablename__ = 'offer_sections'
 
@@ -420,7 +421,8 @@ class OfferSection(db.Model):
 
     # Typ sekcji
     section_type = db.Column(
-        db.Enum('heading', 'paragraph', 'product', 'set', 'variant_group', 'bonus', name='offer_section_type'),
+        db.Enum('heading', 'paragraph', 'product', 'set', 'variant_group', 'bonus', 'image',
+                name='offer_section_type'),
         nullable=False
     )
     sort_order = db.Column(db.Integer, default=0)
@@ -457,6 +459,13 @@ class OfferSection(db.Model):
         cascade='all, delete-orphan',
         order_by='OfferSetItem.sort_order'
     )
+    images = db.relationship(
+        'OfferSectionImage',
+        back_populates='section',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+        order_by='OfferSectionImage.sort_order'
+    )
 
     def __repr__(self):
         return f'<OfferSection {self.section_type} #{self.id}>'
@@ -488,6 +497,10 @@ class OfferSection(db.Model):
     @property
     def is_bonus(self):
         return self.section_type == 'bonus'
+
+    @property
+    def is_image(self):
+        return self.section_type == 'image'
 
     @property
     def is_content_section(self):
@@ -532,6 +545,14 @@ class OfferSection(db.Model):
     def get_set_products(self):
         """Zwraca produkty z setu"""
         return [item.product for item in self.get_set_items_ordered() if item.product]
+
+    # ============================================
+    # Image Helpers
+    # ============================================
+
+    def get_images_ordered(self):
+        """Zwraca zdjęcia sekcji posortowane po sort_order"""
+        return self.images.order_by(OfferSectionImage.sort_order).all()
 
 
 class OfferSetItem(db.Model):
@@ -598,6 +619,35 @@ class OfferSetItem(db.Model):
         elif self.variant_group:
             return self.variant_group.name
         return "Nieznany element"
+
+
+class OfferSectionImage(db.Model):
+    """
+    Zdjęcie sekcji typu `image` na stronie sprzedaży.
+
+    Jedno zdjęcie renderuje się jako pojedynczy obraz, wiele — jako galeria.
+    `sort_order` = 0 to zdjęcie główne (pokazywane jako pierwsze).
+    """
+    __tablename__ = 'offer_section_images'
+
+    id = db.Column(db.Integer, primary_key=True)
+    section_id = db.Column(
+        db.Integer,
+        db.ForeignKey('offer_sections.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+
+    # Ścieżka względna wobec static/, zawsze w uploads/offers/
+    path = db.Column(db.String(500), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    section = db.relationship('OfferSection', back_populates='images')
+
+    def __repr__(self):
+        return f'<OfferSectionImage #{self.id} - {self.path}>'
 
 
 class OfferReservation(db.Model):
