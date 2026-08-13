@@ -1,3 +1,6 @@
+import pytest
+
+from modules.admin.offers import _update_sections, _validate_section_data
 from modules.offers.models import OfferPage, OfferSection, OfferSectionImage
 
 
@@ -67,3 +70,92 @@ def test_inne_typy_sekcji_nie_sa_image(db, make_user):
 
     assert section.is_image is False
     assert section.get_images_ordered() == []
+
+
+def test_zapis_tworzy_sekcje_ze_zdjeciami_w_podanej_kolejnosci(db, make_user):
+    page = _page(db, make_user)
+
+    _update_sections(page, [{
+        'id': None, 'type': 'image',
+        'images': ['uploads/offers/a.jpg', 'uploads/offers/b.jpg'],
+    }])
+    db.session.commit()
+
+    sekcje = page.get_sections_ordered()
+    assert len(sekcje) == 1
+    assert [img.path for img in sekcje[0].get_images_ordered()] == [
+        'uploads/offers/a.jpg', 'uploads/offers/b.jpg',
+    ]
+
+
+def test_zapis_zmienia_kolejnosc_zdjec(db, make_user):
+    page = _page(db, make_user)
+    _update_sections(page, [{
+        'id': None, 'type': 'image',
+        'images': ['uploads/offers/a.jpg', 'uploads/offers/b.jpg'],
+    }])
+    db.session.commit()
+    section_id = page.get_sections_ordered()[0].id
+
+    _update_sections(page, [{
+        'id': section_id, 'type': 'image',
+        'images': ['uploads/offers/b.jpg', 'uploads/offers/a.jpg'],
+    }])
+    db.session.commit()
+
+    section = page.get_sections_ordered()[0]
+    assert [img.path for img in section.get_images_ordered()] == [
+        'uploads/offers/b.jpg', 'uploads/offers/a.jpg',
+    ]
+    assert OfferSectionImage.query.filter_by(section_id=section_id).count() == 2
+
+
+def test_zapis_usuwa_zdjecia_ktorych_nie_ma_w_zadaniu(db, make_user):
+    page = _page(db, make_user)
+    _update_sections(page, [{
+        'id': None, 'type': 'image',
+        'images': ['uploads/offers/a.jpg', 'uploads/offers/b.jpg'],
+    }])
+    db.session.commit()
+    section_id = page.get_sections_ordered()[0].id
+
+    _update_sections(page, [{
+        'id': section_id, 'type': 'image', 'images': ['uploads/offers/a.jpg'],
+    }])
+    db.session.commit()
+
+    assert [img.path for img in page.get_sections_ordered()[0].get_images_ordered()] == [
+        'uploads/offers/a.jpg',
+    ]
+
+
+def test_sekcja_bez_zdjec_jest_dopuszczalna(db, make_user):
+    page = _page(db, make_user)
+
+    _update_sections(page, [{'id': None, 'type': 'image', 'images': []}])
+    db.session.commit()
+
+    assert page.get_sections_ordered()[0].get_images_ordered() == []
+
+
+@pytest.mark.parametrize('zla_sciezka', [
+    '../../etc/passwd',
+    'uploads/products/cudze.jpg',
+    '/etc/passwd',
+    'http://zewnetrzny.example.com/a.jpg',
+    'uploads/offers/../../secrets.env',
+])
+def test_walidacja_odrzuca_sciezki_spoza_uploads_offers(zla_sciezka):
+    ok, blad = _validate_section_data({'type': 'image', 'images': [zla_sciezka]})
+
+    assert ok is False
+    assert 'zdjęc' in blad.lower() or 'ścieżk' in blad.lower()
+
+
+def test_walidacja_przepuszcza_poprawne_sciezki():
+    ok, blad = _validate_section_data({
+        'type': 'image', 'images': ['uploads/offers/abc123.jpg'],
+    })
+
+    assert ok is True
+    assert blad is None

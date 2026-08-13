@@ -9,7 +9,7 @@ from markupsafe import Markup
 from modules.admin import admin_bp
 from utils.decorators import admin_required, mod_required
 from extensions import db
-from modules.offers.models import OfferPage, OfferSection, OfferSetItem, OfferSetBonus, OfferBonusRequiredProduct
+from modules.offers.models import OfferPage, OfferSection, OfferSectionImage, OfferSetItem, OfferSetBonus, OfferBonusRequiredProduct
 from modules.products.models import Product, ProductType, VariantGroup
 from datetime import datetime
 import json
@@ -584,6 +584,12 @@ def _validate_section_data(section_data):
             if not threshold or float(threshold) <= 0:
                 return False, 'Bonus progowy musi mieć wartość progu większą od 0'
 
+    # Walidacja sekcji "image" - ścieżki muszą wskazywać wyłącznie na uploads/offers/
+    if section_type == 'image':
+        for path in section_data.get('images', []):
+            if not isinstance(path, str) or not path.startswith('uploads/offers/') or '..' in path:
+                return False, 'Nieprawidłowa ścieżka zdjęcia w sekcji zdjęciowej'
+
     return True, None
 
 
@@ -661,6 +667,10 @@ def _update_sections(page, sections_data):
         # Obsługa standalone bonusu (sekcja typu 'bonus')
         if section.section_type == 'bonus':
             _update_standalone_bonus(section, section_data)
+
+        # Obsługa zdjęć sekcji zdjęciowej
+        if section.section_type == 'image':
+            _update_section_images(section, section_data.get('images', []))
 
         # Zapisz zmiany limitów do późniejszego sprawdzenia powiadomień
         if section_type in ['product', 'variant_group']:
@@ -838,6 +848,31 @@ def _update_standalone_bonus(section, section_data):
                     min_quantity=max(1, int(rp_data.get('min_quantity', 1))),
                 )
                 db.session.add(rp)
+
+
+def _update_section_images(section, paths):
+    """
+    Aktualizuje zdjęcia sekcji zdjęciowej.
+
+    Pełna wymiana listy zamiast diffowania — rekord niesie wyłącznie ścieżkę
+    i kolejność, więc nie ma tu nic, co warto byłoby zachować między zapisami.
+
+    Args:
+        section: OfferSection object (type='image')
+        paths (list[str]): ścieżki względne wobec static/, w docelowej kolejności
+    """
+    # Sekcja może być świeżo dodana i nie mieć jeszcze id
+    if section.id is None:
+        db.session.flush()
+
+    # Kasujemy przez ORM, a nie bulk-delete: relacja `images` ma delete-orphan,
+    # więc bulk z synchronize_session=False zostawiłby w sesji nieaktualne obiekty
+    for img in section.get_images_ordered():
+        db.session.delete(img)
+    db.session.flush()
+
+    for idx, path in enumerate(paths):
+        db.session.add(OfferSectionImage(section_id=section.id, path=path, sort_order=idx))
 
 
 def _send_notifications_for_limit_changes(page_id, limit_changes):
