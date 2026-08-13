@@ -130,6 +130,85 @@ def test_push_po_odbiorze_nie_dziekuje_uczestnikowi(
     assert zrodlo_a.request_number not in po_userze[drugi.id]['body']
 
 
+def test_potwierdzenie_trafia_do_wlasciciela_zwyklego_zlecenia(
+        app, db, make_user, monkeypatch):
+    """Podstawowa ścieżka notify_delivery_confirmed (poza paczką zbiorczą) — do tej
+    pory pokrywał ją wyłącznie wariant zbiorczy poniżej."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+    monkeypatch.setattr(
+        PushManager, '_fire_and_forget',
+        staticmethod(lambda **kw: wyslane.append(kw)))
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000330', status='dostarczone')
+
+    with app.test_request_context():
+        PushManager.notify_delivery_confirmed(sr)
+
+    assert len(wyslane) == 1
+    assert wyslane[0]['user_id'] == user.id
+    assert wyslane[0]['title'] == 'Dziękujemy za potwierdzenie'
+    assert sr.request_number in wyslane[0]['body']
+    assert wyslane[0]['notification_type'] == 'shipping_updates'
+
+
+def test_autoclosed_trafia_do_wlasciciela_zwyklego_zlecenia(
+        app, db, make_user, monkeypatch):
+    """Brak jakiegokolwiek testu treści dla notify_delivery_autoclosed."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+    monkeypatch.setattr(
+        PushManager, '_fire_and_forget',
+        staticmethod(lambda **kw: wyslane.append(kw)))
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000340', status='dostarczone')
+
+    with app.test_request_context():
+        PushManager.notify_delivery_autoclosed(sr)
+
+    assert len(wyslane) == 1
+    assert wyslane[0]['user_id'] == user.id
+    assert wyslane[0]['title'] == 'Zamykamy Twoje zlecenie'
+    assert sr.request_number in wyslane[0]['body']
+    assert wyslane[0]['notification_type'] == 'shipping_updates'
+
+
+def test_autoclosed_zbiorcza_dociera_do_obu_uczestnikow_bez_wycieku(
+        app, db, make_user, make_order, monkeypatch):
+    """Wariant paczki zbiorczej notify_delivery_autoclosed: idzie do WSZYSTKICH
+    uczestników (w odróżnieniu od notify_delivery_confirmation, które idzie
+    wyłącznie do lidera) — to informacja, nie prośba o czynność, którą wykonać
+    może tylko jedna osoba. Każdy dostaje treść o SWOIM zleceniu źródłowym i nie
+    widzi numeru zamówienia drugiego uczestnika."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+    monkeypatch.setattr(
+        PushManager, '_fire_and_forget',
+        staticmethod(lambda **kw: wyslane.append(kw)))
+
+    zbiorcze, zrodla = _paczka_zbiorcza_push(
+        db, make_user, make_order, ('WYS/000350', 'WYS/000351', 'WYS/000352'))
+    (lider, zrodlo_a), (drugi, zrodlo_b) = zrodla
+
+    with app.test_request_context():
+        PushManager.notify_delivery_autoclosed(zbiorcze)
+
+    assert len(wyslane) == 2, 'o domknięciu dowiadują się obaj uczestnicy'
+    po_userze = {w['user_id']: w for w in wyslane}
+    assert zrodlo_a.request_number in po_userze[lider.id]['body']
+    assert zrodlo_b.request_number in po_userze[drugi.id]['body']
+    assert zrodlo_b.request_number not in po_userze[lider.id]['body']
+    assert zrodlo_a.request_number not in po_userze[drugi.id]['body']
+    # Bez rozróżnienia ról — tytuł i ton identyczne dla lidera i uczestnika,
+    # bo nikt tu niczego nie potwierdzał (patrz docstring w push_manager.py).
+    assert po_userze[lider.id]['title'] == po_userze[drugi.id]['title']
+
+
 def test_powiadomienie_dla_adminow_idzie_do_kazdego(app, db, make_user, monkeypatch):
     from utils.push_manager import PushManager
 
@@ -147,3 +226,31 @@ def test_powiadomienie_dla_adminow_idzie_do_kazdego(app, db, make_user, monkeypa
 
     assert len(wyslane) == 2
     assert all(w['notification_type'] == 'admin_alerts' for w in wyslane)
+
+
+def test_powiadomienie_dla_adminow_bledny_push_nie_przerywa_petli(
+        app, db, make_user, monkeypatch):
+    """Wyrównanie do notify_sale_date_changed: wyjątek przy jednym adminie (np.
+    martwa subskrypcja push) nie może uciąć powiadomień dla pozostałych — pętla
+    ma try/except per admin, tak jak sąsiedni wzorzec."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+
+    def _fire(**kw):
+        if kw['user_id'] == pierwszy.id:
+            raise RuntimeError('subskrypcja martwa')
+        wyslane.append(kw)
+
+    monkeypatch.setattr(PushManager, '_fire_and_forget', staticmethod(_fire))
+
+    pierwszy = make_user(role='admin', email='a1-fail@example.com')
+    drugi = make_user(role='admin', email='a2-ok@example.com')
+    klient = make_user()
+    sr = _zlecenie(db, klient, 'WYS/000303', status='dostarczone')
+
+    wynik = PushManager.notify_admin_delivery_confirmed(sr)
+
+    assert len(wyslane) == 1, 'drugi admin ma dostać push mimo błędu u pierwszego'
+    assert wyslane[0]['user_id'] == drugi.id
+    assert wynik == 1, 'zwrócona liczba to sent/total, jak w notify_sale_date_changed'

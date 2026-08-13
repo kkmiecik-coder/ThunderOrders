@@ -756,8 +756,11 @@ def statistics_shipping():
     pie_courier_labels = [courier_names.get(c[0], c[0]) for c in courier_counts]
     pie_courier_values = [c[1] for c in courier_counts]
 
-    # Tabela: ostatnie zlecenia wysyłki
-    recent_requests = ShippingRequest.query.order_by(
+    # Tabela: ostatnie zlecenia wysyłki — ta sama jednostka co KPI/wykresy wyżej
+    # w tej zakładce (ZLECENIE KLIENTA, patrz `_bez_paczek_zbiorczych()`); bez tego
+    # filtra tabela mieszała paczkę zbiorczą z jej zleceniami źródłowymi, czyli
+    # liczyła tę samą fizyczną wysyłkę więcej niż raz.
+    recent_requests = ShippingRequest.query.filter(nie_paczka_zbiorcza).order_by(
         desc(ShippingRequest.created_at)
     ).limit(15).all()
 

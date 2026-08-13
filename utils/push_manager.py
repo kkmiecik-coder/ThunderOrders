@@ -1442,12 +1442,27 @@ class PushManager:
         if opinia:
             body += f' · ocena {opinia.rating}/5'
 
+        # Jak w notify_sale_date_changed: try/except per admin, żeby błędny push do
+        # jednego nie przerywał pętli dla pozostałych, i log sent/total do diagnostyki.
+        sent = 0
         for admin in admins:
-            PushManager._fire_and_forget(
-                user_id=admin.id,
-                title='Klient potwierdził odbiór',
-                body=body,
-                url=url,
-                tag=f'admin-delivery-{sr.id}',
-                notification_type='admin_alerts',
-            )
+            try:
+                PushManager._fire_and_forget(
+                    user_id=admin.id,
+                    title='Klient potwierdził odbiór',
+                    body=body,
+                    url=url,
+                    tag=f'admin-delivery-{sr.id}',
+                    notification_type='admin_alerts',
+                )
+                sent += 1
+            except Exception as e:
+                current_app.logger.error(
+                    f"Failed to fire admin_alerts push for admin {admin.id}: {e}"
+                )
+
+        current_app.logger.info(
+            f"Admin delivery confirmed push fired for {sent}/{len(admins)} admins "
+            f"(shipping_request={sr.id})"
+        )
+        return sent

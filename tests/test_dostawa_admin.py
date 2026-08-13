@@ -130,6 +130,40 @@ def test_statystyki_dostaw_licza_w_tych_samych_jednostkach_co_kafelek_obok(
         'dostarczonych zleceń nie może być więcej niż wszystkich zleceń')
 
 
+def test_tabela_ostatnich_zlecen_pomija_paczke_zbiorcza(
+        app, db, client, login, make_user):
+    """Tabela „Ostatnie zlecenia wysyłki" ma tę samą jednostkę co KPI i wykresy w
+    tej samej zakładce (ZLECENIE KLIENTA, patrz `_bez_paczek_zbiorczych()`) — bez
+    filtra pokazywała zarówno paczkę zbiorczą, jak i jej zlecenia źródłowe, czyli
+    tę samą fizyczną wysyłkę więcej niż raz, inaczej niż liczniki obok."""
+    from modules.orders.models import ShippingRequest
+
+    admin = make_user(role='admin', email='admin-tabela@example.com',
+                      profile_completed=True)
+    lider = make_user(email='lider-tabela@example.com')
+    drugi = make_user(email='drugi-tabela@example.com')
+
+    zbiorcze = ShippingRequest(
+        request_number='WYS/000640', user_id=lider.id, status='wyslane')
+    db.session.add(zbiorcze)
+    db.session.commit()
+    for numer, user in (('WYS/000641', lider), ('WYS/000642', drugi)):
+        db.session.add(ShippingRequest(
+            request_number=numer, user_id=user.id, status='wyslane',
+            consolidated_into_id=zbiorcze.id))
+    db.session.commit()
+
+    login(admin)
+    dane = client.get('/admin/statistics/api/shipping').get_json()
+
+    tabela = next(t for t in dane['tables'] if t['title'] == 'Ostatnie zlecenia wysyłki')
+    numery_w_tabeli = [row[0] for row in tabela['rows']]
+
+    assert 'WYS/000640' not in numery_w_tabeli, 'paczka zbiorcza nie jest zleceniem klienta'
+    assert 'WYS/000641' in numery_w_tabeli
+    assert 'WYS/000642' in numery_w_tabeli
+
+
 def test_statystyki_bez_danych_nie_dziela_przez_zero(app, db):
     from modules.admin.statistics import statystyki_dostaw
 
