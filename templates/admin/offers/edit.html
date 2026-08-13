@@ -368,7 +368,7 @@
                         <textarea class="form-textarea section-content" rows="3"
                                   placeholder="Treść paragrafu">{{ section.content or '' }}</textarea>
                         {% elif section.section_type == 'image' %}
-                        <div class="image-section-editor">
+                        <div class="image-section-editor{% if not section.get_images_ordered() %} is-empty{% endif %}">
                             <div class="image-section-thumbs">
                                 {% for img in section.get_images_ordered() %}
                                 <div class="image-section-thumb" draggable="true" data-path="{{ img.path }}">

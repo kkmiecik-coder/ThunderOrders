@@ -5268,12 +5268,144 @@ body.offer-page-body {
     .image-lightbox-nav svg { width: 20px; height: 20px; }
 }
 
-/* ===== Sekcja zdjęciowa ===== */
+/* ===== Sekcja zdjęciowa =====
+   Zdjęcie jest tu treścią samą w sobie, nie ilustracją obok tekstu — dlatego
+   sekcja nie ma paddingów, a obraz idzie do krawędzi karty. `overflow: hidden`
+   przycina go do zaokrąglenia rogów dziedziczonego z `.section`.
+   Nadpisania są zawężone do `.image-section`, bo te same klasy `.gallery-*`
+   obsługują galerię produktu, gdzie zdjęcie ma stałą ramkę 350x350. */
 .image-section {
-    padding: var(--space-4) var(--space-5);
+    padding: 0;
+    overflow: hidden;
 }
 
 .image-section .product-gallery,
 .image-section .zoomable-image-wrapper {
     margin: 0 auto;
+}
+
+/* Pojedyncze zdjęcie: pełna szerokość sekcji, wysokość z proporcji obrazu.
+   Sufit 85vh trzyma zdjęcie portretowe w granicach jednego ekranu, żeby nie
+   spychało reszty oferty poza zasięg wzroku. */
+.image-section > .zoomable-image-wrapper {
+    width: 100%;
+    display: block;
+}
+
+.image-section > .zoomable-image-wrapper .product-image-centered {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    max-height: 85vh;
+    object-fit: contain;
+    display: block;
+}
+
+/* Galeria: duże zdjęcie również rozciągnięte do krawędzi... */
+.image-section .gallery-main-image {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    max-height: 85vh;
+    object-fit: contain;
+}
+
+/* ...a pasek miniatur leży NA zdjęciu, przy jego dolnej krawędzi — zdjęcie jest
+   treścią, pasek tylko nawigacją, więc nie zabiera mu miejsca. Wymusza to układ
+   poziomy również na desktopie (bazowa galeria produktu ma pasek pionowy obok). */
+.image-section .product-gallery {
+    position: relative;
+    display: block;
+}
+
+.image-section .gallery-main {
+    position: relative;
+    width: 100%;
+    /* Zdjęcia mają różne proporcje — wysokość animuje product-gallery.js,
+       który przy zmianie kadru ustawia tu docelową wartość w pikselach */
+    transition: height 0.28s ease;
+}
+
+/* Przenikanie klatek: stara zostaje nałożona jako kopia i gaśnie dopiero, gdy
+   nowa jest gotowa. Kopię tworzy i usuwa product-gallery.js. */
+.image-section .gallery-main-image,
+.image-section .gallery-main-fading {
+    transition: opacity 0.22s ease;
+}
+
+.image-section .gallery-main-fading {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+/* Lupa siedzi w prawym górnym rogu — czyli pod paskiem miniatur i jego
+   gradientem. Podnosimy ją ponad nakładkę, żeby nie ginęła w przyciemnieniu. */
+.image-section .zoom-icon {
+    z-index: 3;
+}
+
+.image-section .gallery-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 2;
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    padding: var(--space-4);
+}
+
+/* Ciemny gradient pod paskiem — bez niego miniatury i chevrony gubią się na
+   jasnym zdjęciu. Sięga niżej niż sam pasek, żeby przejście było miękkie. */
+.image-section .gallery-nav::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: -32px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0));
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* flex: 0 1 auto — pasek zajmuje tyle, ile potrzebują miniatury (dzięki czemu
+   przy kilku zdjęciach jest wyśrodkowany, a nie rozciągnięty na całą szerokość),
+   ale kurczy się i włącza przewijanie, gdy zdjęć jest dużo */
+.image-section .gallery-strip-viewport {
+    height: 56px;
+    width: auto;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.image-section .gallery-strip {
+    flex-direction: row;
+}
+
+.image-section .gallery-thumb {
+    width: 56px;
+    height: 56px;
+}
+
+.image-section .gallery-chevron {
+    width: 32px;
+    height: 56px;
+}
+
+/* Pasek jest poziomy → strzałki wskazują w lewo/prawo */
+.image-section .gallery-chevron svg {
+    transform: rotate(-90deg);
+}
+
+/* Wygaszanie krawędzi paska wtapia się w kolor karty — na zdjęciu dałoby jasne
+   plamy, a rolę miękkiego przejścia przejmuje gradient powyżej */
+.image-section .gallery-fade {
+    display: none;
 }

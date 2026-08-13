@@ -79,7 +79,13 @@
 
         var active = 0;
 
-        function vertical() { return !mobile.matches; }
+        // Galeria w sekcji zdjęciowej ma pasek nałożony na zdjęcie i ZAWSZE poziomy
+        // (także na desktopie, gdzie galeria produktu trzyma pasek pionowo obok).
+        // Bez tego rozróżnienia przesuwalibyśmy pasek w pionie i miniatury
+        // wyjeżdżałyby poza niski viewport — czyli po prostu znikały.
+        var wSekcjiZdjeciowej = !!(root.closest && root.closest('.image-section'));
+
+        function vertical() { return !wSekcjiZdjeciowej && !mobile.matches; }
 
         function render() {
             var isV = vertical();
@@ -112,8 +118,85 @@
             if (mainImg) {
                 var src = thumbs[active].getAttribute('data-src');
                 var full = thumbs[active].getAttribute('data-full-src');
-                if (src) mainImg.setAttribute('src', src);
                 if (full) mainImg.setAttribute('data-full-src', full);
+                if (src) podmienGlowneZdjecie(src);
+            }
+        }
+
+        /**
+         * Podmienia duże zdjęcie. W sekcji zdjęciowej robi to z animacją wysokości —
+         * zdjęcia mają różne proporcje, więc bez tego sekcja skacze przy każdej zmianie
+         * kadru i treść pod nią przeskakuje pod kursorem.
+         *
+         * W galerii produktu zdjęcie ma stałą ramkę 350x350, więc nie ma czego animować
+         * i podmiana jest natychmiastowa.
+         */
+        function podmienGlowneZdjecie(src) {
+            if (!wSekcjiZdjeciowej || !mainWrap) {
+                mainImg.setAttribute('src', src);
+                return;
+            }
+            if (mainImg.getAttribute('src') === src) return;
+
+            var wysokoscPrzed = mainWrap.offsetHeight;
+
+            // Stara klatka zostaje na wierzchu jako kopia i wygasza się dopiero wtedy,
+            // gdy nowa jest gotowa — dzięki temu widać przenikanie, a nie mignięcie tła.
+            // Kopia z poprzedniej, jeszcze trwającej zmiany znika od razu: przy szybkim
+            // klikaniu miniatur nie chcemy stosu nakładających się klatek.
+            var poprzedniaKopia = mainWrap.querySelector('.gallery-main-fading');
+            if (poprzedniaKopia) poprzedniaKopia.remove();
+
+            var kopia = mainImg.cloneNode(false);
+            kopia.classList.add('gallery-main-fading');
+            kopia.removeAttribute('data-full-src');
+            kopia.setAttribute('aria-hidden', 'true');
+            mainWrap.appendChild(kopia);
+
+            // Zamrażamy obecną wysokość jeszcze przed podmianą — inaczej sekcja
+            // mignęłaby zwinięta w chwili, gdy nowe zdjęcie nie ma jeszcze wymiarów
+            mainWrap.style.height = wysokoscPrzed + 'px';
+            mainImg.style.opacity = '0';
+            mainImg.setAttribute('src', src);
+
+            var dokonczone = false;
+            function pokazNowa() {
+                if (dokonczone) return;
+                dokonczone = true;
+
+                // Docelową wysokość mierzymy przy zdjętej wysokości i wyłączonym
+                // przejściu, żeby sam pomiar nie uruchomił animacji od złej wartości
+                mainWrap.style.transition = 'none';
+                mainWrap.style.height = '';
+                var wysokoscPo = mainWrap.offsetHeight;
+                mainWrap.style.height = wysokoscPrzed + 'px';
+                void mainWrap.offsetHeight;  // wymuszenie reflow przed startem animacji
+                mainWrap.style.transition = '';
+
+                if (wysokoscPo !== wysokoscPrzed) {
+                    mainWrap.style.height = wysokoscPo + 'px';
+                }
+
+                // Przenikanie: nowa klatka się pojawia, stara kopia gaśnie
+                mainImg.style.opacity = '';
+                kopia.style.opacity = '0';
+
+                var sprzatnij = function () {
+                    // Powrót do wysokości automatycznej, żeby sekcja nadal reagowała
+                    // na zmianę szerokości okna
+                    mainWrap.style.height = '';
+                    if (kopia.parentNode) kopia.remove();
+                    mainWrap.removeEventListener('transitionend', sprzatnij);
+                };
+                mainWrap.addEventListener('transitionend', sprzatnij);
+                setTimeout(sprzatnij, 500);  // gdyby transitionend nie doszedł
+            }
+
+            if (mainImg.complete && mainImg.naturalHeight > 0) {
+                pokazNowa();  // zdjęcie było już w cache
+            } else {
+                mainImg.addEventListener('load', pokazNowa, { once: true });
+                mainImg.addEventListener('error', pokazNowa, { once: true });
             }
         }
 

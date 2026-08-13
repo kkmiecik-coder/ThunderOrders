@@ -3977,11 +3977,110 @@
 }
 
 /* ===== Sekcja zdjęciowa w builderze ===== */
+
+/* Miniatury po lewej, przycisk dodawania po prawej — wyśrodkowany w pionie
+   względem rzędu miniatur. Dopóki sekcja jest pusta (.is-empty), przycisk stoi
+   sam na środku i jest większy, bo to wtedy jedyna akcja w tej sekcji. */
+.image-section-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.image-section-editor.is-empty {
+    justify-content: center;
+}
+
+.image-section-editor.is-empty .image-section-thumbs {
+    display: none;
+}
+
+.image-section-add-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.image-section-editor.is-empty .image-section-add-btn {
+    margin-left: 0;
+    padding: 16px 28px;
+    font-size: 15px;
+}
+
+.image-section-editor.is-empty .image-section-add-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
 .image-section-thumbs {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Kafelek-szkielet na czas wysyłania: puls tła + pasek postępu u dołu.
+   Wymiary muszą zgadzać się z .image-section-thumb, żeby siatka nie skakała
+   w momencie podmiany szkieletu na gotową miniaturę. */
+.image-section-skeleton {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e4e4e4 37%, #f0f0f0 63%);
+    background-size: 400% 100%;
+    animation: imageSectionShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes imageSectionShimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+.image-section-skeleton-progress {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+
+.image-section-skeleton-bar {
+    width: 0;
+    height: 100%;
+    border-radius: 2px;
+    background: #667eea;
+    transition: width 0.15s linear;
+}
+
+[data-theme="dark"] .image-section-skeleton {
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.05) 25%,
+        rgba(255, 255, 255, 0.12) 37%,
+        rgba(255, 255, 255, 0.05) 63%);
+    background-size: 400% 100%;
+}
+
+[data-theme="dark"] .image-section-skeleton-progress {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .image-section-skeleton-bar {
+    background: #f093fb;
+}
+
+/* Szanujemy systemowe ograniczenie animacji — zostaje sam pasek postępu */
+@media (prefers-reduced-motion: reduce) {
+    .image-section-skeleton {
+        animation: none;
+    }
 }
 
 .image-section-thumb {

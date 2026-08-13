@@ -474,7 +474,7 @@ function getSectionTemplate(type) {
                     </button>
                 </div>
                 <div class="section-body">
-                    <div class="image-section-editor">
+                    <div class="image-section-editor is-empty">
                         <div class="image-section-thumbs"></div>
                         <input type="file" class="image-section-input" accept="image/*" multiple hidden
                                onchange="uploadSectionImages(this)">
@@ -1884,6 +1884,15 @@ async function uploadSectionImages(input) {
     const addBtn = editor.querySelector('.image-section-add-btn');
     input.value = '';  // pozwala wgrać ten sam plik ponownie
 
+    // Szkielety wstawiamy od razu, po jednym na plik — użytkownik od pierwszej
+    // chwili widzi, ile zdjęć czeka i które z nich właśnie leci.
+    editor.classList.remove('is-empty');
+    const szkielety = files.map(() => {
+        const szkielet = buildSectionImageSkeleton();
+        thumbs.appendChild(szkielet);
+        return szkielet;
+    });
+
     // Blokada na czas uploadu — bez niej drugie kliknięcie "Dodaj zdjęcia"
     // w trakcie trwającej pętli uruchamia równoległą pętlę dopisującą do tego
     // samego kontenera i miniatury przeplatają się w losowej kolejności.
@@ -1899,29 +1908,32 @@ async function uploadSectionImages(input) {
     let wgrane = 0;
     let ostatniBlad = null;
     try {
-        for (const file of files) {
+        for (let i = 0; i < files.length; i++) {
+            const szkielet = szkielety[i];
+            const pasek = szkielet.querySelector('.image-section-skeleton-bar');
             try {
-                const formData = new FormData();
-                formData.append('image', file);
-                formData.append('type', 'section_image');
-
-                const response = await fetch('/admin/offers/api/upload-image', {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': builderConfig.csrfToken },
-                    body: formData
+                const result = await uploadOneSectionImage(files[i], (procent) => {
+                    pasek.style.width = procent + '%';
                 });
-                const result = await response.json();
 
                 if (result.success) {
-                    thumbs.appendChild(buildSectionImageThumb(result.path, result.url, thumbs.children.length + 1));
+                    // Numer alt liczymy po realnych miniaturach — szkielety się nie liczą
+                    const numer = thumbs.querySelectorAll('.image-section-thumb').length + 1;
+                    thumbs.replaceChild(
+                        buildSectionImageThumb(result.path, result.url, numer),
+                        szkielet
+                    );
                     wgrane++;
                 } else {
+                    szkielet.remove();
                     bledy++;
                     ostatniBlad = result.error;
                     console.error('Upload zdjęcia sekcji:', result.error);
                 }
             } catch (error) {
+                szkielet.remove();
                 bledy++;
+                ostatniBlad = error.message;
                 console.error('Upload zdjęcia sekcji:', error);
             }
         }
@@ -1930,6 +1942,10 @@ async function uploadSectionImages(input) {
         if (addBtn) {
             addBtn.disabled = false;
             addBtn.innerHTML = pierwotnaTrescBtn;
+        }
+        // Wszystkie pliki padły i sekcja jest nadal pusta — przycisk wraca na środek
+        if (thumbs.querySelectorAll('.image-section-thumb').length === 0) {
+            editor.classList.add('is-empty');
         }
     }
 
@@ -1954,6 +1970,70 @@ async function uploadSectionImages(input) {
     } else {
         showToast(`Przesłano ${wgrane} z ${files.length} zdjęć`, 'warning');
     }
+}
+
+/**
+ * Wysyła jeden plik przez XMLHttpRequest i raportuje postęp wysyłki.
+ *
+ * Świadomie NIE używamy tu fetch(): fetch nie udostępnia postępu uploadu
+ * (`Request.body` nie ma odpowiednika `xhr.upload.onprogress`), a pasek postępu
+ * na kafelku-szkielecie jest wymaganiem UI.
+ *
+ * @param {File} file
+ * @param {(procent: number) => void} onProgress — 0-100
+ * @returns {Promise<Object>} sparsowana odpowiedź {success, path, url} albo {success:false, error}
+ */
+function uploadOneSectionImage(file, onProgress) {
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('type', 'section_image');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/admin/offers/api/upload-image');
+        xhr.setRequestHeader('X-CSRFToken', builderConfig.csrfToken);
+
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+        });
+
+        xhr.addEventListener('load', () => {
+            // Serwer bywa niedostępny lub zwraca HTML (413, 500, wygasła sesja) —
+            // wtedy JSON.parse rzuca i wołający pokazuje czytelny komunikat
+            try {
+                resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+                reject(new Error(`Serwer odpowiedział niepoprawnie (HTTP ${xhr.status})`));
+            }
+        });
+        xhr.addEventListener('error', () => reject(new Error('Błąd sieci podczas wysyłania')));
+        xhr.addEventListener('abort', () => reject(new Error('Wysyłanie przerwane')));
+
+        xhr.send(formData);
+    });
+}
+
+/**
+ * Kafelek-szkielet pokazywany na czas wysyłania jednego pliku: animacja ładowania
+ * plus pasek postępu. Celowo NIE ma klasy `.image-section-thumb` ani `data-path` —
+ * dzięki temu nie widzi go ani collectPageData, ani obsługa przeciągania.
+ */
+function buildSectionImageSkeleton() {
+    const szkielet = document.createElement('div');
+    szkielet.className = 'image-section-skeleton';
+    szkielet.setAttribute('aria-label', 'Wysyłanie zdjęcia');
+
+    const pasekTlo = document.createElement('div');
+    pasekTlo.className = 'image-section-skeleton-progress';
+
+    const pasek = document.createElement('div');
+    pasek.className = 'image-section-skeleton-bar';
+    pasekTlo.appendChild(pasek);
+
+    szkielet.appendChild(pasekTlo);
+    return szkielet;
 }
 
 /**
@@ -1991,7 +2071,14 @@ function buildSectionImageThumb(path, url, altIndex) {
 function removeSectionImage(btn) {
     const thumb = btn.closest('.image-section-thumb');
     if (!thumb) return;
+    const editor = thumb.closest('.image-section-editor');
     thumb.remove();
+
+    // Sekcja znów pusta — przycisk wraca na środek do stanu wyjściowego
+    if (editor && editor.querySelectorAll('.image-section-thumb').length === 0) {
+        editor.classList.add('is-empty');
+    }
+
     markDirty();
     showToast('Usunięto zdjęcie', 'success');
 }
