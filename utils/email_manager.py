@@ -1262,7 +1262,13 @@ class EmailManager:
             requests_url = None
         # Konto bez imienia albo paczkomat bez shipping_name daje short_addressee_name
         # == None — bez zastępnika zdanie kończyło się dosłownym „na adres: None.”
-        # (patrz ten sam wzorzec w notify_shipment_consolidated / _nota_paczki_zbiorczej).
+        # Zastępnik jest dosłownie ten sam co w _zdjecie_paczki_zbiorczej
+        # i notify_shipment_consolidated (tak też opisuje go modules/orders/models.py
+        # przy short_addressee_name). UWAGA: _nota_paczki_zbiorczej — mimo niemal
+        # identycznego zdania w mailach o dostawie — mówi „na adres innego uczestnika”.
+        # Rozjazd jest znany i celowo nie ruszany tutaj: to sformułowanie utrwala
+        # asercja w tests/test_dostawa_maile.py, a jego ujednolicenie to zmiana treści
+        # maila do klienta w drugą stronę, nie poprawka tego błędu.
         adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
 
         wiadomosci = []
@@ -1887,7 +1893,9 @@ class EmailManager:
         o dostawie: uczestnik dostaje wiadomość o cudzym kartonie, więc musi wiedzieć,
         że jego zamówienia jechały zbiorczo i na czyj adres. Nazwisko skracamy przez
         `short_addressee_name` (jak wszędzie indziej), a gdy go nie ma — mówimy
-        „innego uczestnika” zamiast wstawiać puste miejsce.
+        „innego uczestnika” zamiast wstawiać puste miejsce. Reszta pliku wstawia
+        w tej roli „osoby odbierającej paczkę” (patrz _shipment_sent_consolidated);
+        rozjazd jest znany i utrwalony asercją w tests/test_dostawa_maile.py.
 
         `potwierdzony=True` dokłada zdanie o tym, KTO potwierdził odbiór. Używa go
         wyłącznie mail po potwierdzeniu; przy domknięciu automatem nie potwierdził
@@ -2054,9 +2062,21 @@ class EmailManager:
             return
 
         opinia = sr.review
-        # Bez try/except: send_email() łapie własne wyjątki (render szablonu, SMTP)
-        # i zwraca bool — nigdy nie rzuca. Błąd trafia już do logu przez [EMAIL]
-        # w send_email(), więc dublowanie go tutaj tylko sugerowałoby nieistniejące ryzyko.
+        # Bez try/except. Zdjęty stąd blok obejmował nie tylko send_email(), ale i
+        # budowanie jego argumentów — i to tam, nie w wysyłce, siedziało realne ryzyko:
+        # _kontekst_dostawy() woła url_for(_external=True), a to poza requestem wywala
+        # RuntimeError brakiem SERVER_NAME (ten sam plik łapie ten wyjątek jawnie dwa
+        # razy — przy requests_url w _shipment_sent_consolidated i w
+        # notify_shipment_consolidated). Dziś nieosiągalne, bo source='klient' powstaje
+        # wyłącznie w żądaniach HTTP (modules/client/delivery.py i
+        # modules/api_mobile/shipping_routes.py), więc kontekst requestu zawsze jest.
+        # Gdyby jednak poleciało, wołający (dostarcz_zlecenie) ma własny try/except
+        # wokół całego bloku powiadomień: klient nie zobaczy 500, ale straci pusha i
+        # oba maile do adminów, bo lecą w tym samym bloku.
+        # Samo send_email() błędy renderu i SMTP łapie u siebie i zwraca bool. „Nigdy
+        # nie rzuca" jest przesadą — przed swoim try robi current_app._get_current_object()
+        # i czyta MAIL_DEFAULT_SENDER z configu; to jedyne, na czym może się wywalić,
+        # a jedno i drugie znaczy zepsuty proces, nie nieudany mail.
         send_email(
             to=email,
             subject=f'Dziękujemy za potwierdzenie odbioru — {sr.request_number}',
@@ -2155,8 +2175,18 @@ class EmailManager:
         user = sr.user
         klient = f'{user.first_name} {user.last_name}'.strip() if user else 'nieznany'
 
-        # Bez try/except: send_email() łapie własne wyjątki i zwraca bool — nigdy
-        # nie rzuca (patrz uzasadnienie w notify_delivery_confirmed).
+        # Lista zamówień poza pętlą: jest ta sama dla każdego admina, a
+        # `display_orders` to odczyt z bazy — w pętli szedł raz na adresata.
+        numery_zamowien = [o.order_number for o in sr.display_orders]
+
+        # Bez try/except, z tym samym zasięgiem co w notify_delivery_confirmed:
+        # zdjęty blok obejmował też budowanie argumentów. Tu nie ma w nich url_for,
+        # a jedyny odczyt z bazy (display_orders) jest już policzony wyżej, więc
+        # w pętli został sam send_email(), który wyjątki renderu i SMTP łapie
+        # u siebie. Gdyby mimo to poleciało (patrz notify_delivery_confirmed:
+        # current_app i MAIL_DEFAULT_SENDER są przed jego try), pozostali adminowie
+        # nie dostaną maila — ale oba te błędy znaczą zepsuty proces, nie skrzynkę
+        # jednego admina, więc łapanie per adres tylko by je zamiotło pod dywan.
         for adres in odbiorcy:
             send_email(
                 to=adres,
@@ -2167,5 +2197,5 @@ class EmailManager:
                 client_email=(user.email if user else None),
                 rating=opinia.rating if opinia else None,
                 comment=opinia.comment if opinia else None,
-                order_numbers=[o.order_number for o in sr.display_orders],
+                order_numbers=numery_zamowien,
             )

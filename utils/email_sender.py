@@ -20,6 +20,10 @@ SMTP_RETRY_DELAYS = [5, 15, 30]  # seconds between retries (exponential backoff)
 # SMTP error codes that are transient and worth retrying
 SMTP_RETRYABLE_CODES = {421, 450, 451, 452, 454}
 
+# Odstęp między kolejnymi mailami w batchu — trzyma nas pod limitami dostawcy
+# (~30 maili/min u Hostingera).
+SMTP_ODSTEP_MIEDZY_MAILAMI = 2
+
 
 def _is_retryable_smtp_error(exc):
     """Check if an SMTP exception is transient and worth retrying."""
@@ -61,8 +65,13 @@ def send_async_email(app, msg):
                              f"took={elapsed:.2f}s, attempt={attempt}, error={type(e).__name__}: {e}")
 
 
-def send_async_email_batch(app, messages):
-    """Wysyła wiele emaili w jednym wątku, reużywając połączenie SMTP"""
+def send_async_email_batch(app, messages, odstep_s=SMTP_ODSTEP_MIEDZY_MAILAMI):
+    """Wysyła wiele emaili w jednym wątku, reużywając połączenie SMTP.
+
+    `odstep_s` to przerwa między kolejnymi wiadomościami. Zero znaczy „bez
+    przerwy" i używa go wyłącznie gałąź testowa send_email_batch() — patrz
+    tam uzasadnienie.
+    """
     import smtplib
     total = len(messages)
     logger.info(f"[EMAIL-BATCH] Starting batch send of {total} emails")
@@ -96,9 +105,9 @@ def send_async_email_batch(app, messages):
                                              f"attempt={attempt}, error={type(e).__name__}: {e}")
                                 break
                     # Delay between emails to avoid SMTP rate limits
-                    # 2s gap keeps us under typical provider limits (~30 emails/min)
-                    if i < total - 1:
-                        time.sleep(2)
+                    # (SMTP_ODSTEP_MIEDZY_MAILAMI; 0 = wyłączony, patrz odstep_s)
+                    if i < total - 1 and odstep_s:
+                        time.sleep(odstep_s)
     except Exception as e:
         logger.error(f"[EMAIL-BATCH] Connection error: {type(e).__name__}: {e}")
 
@@ -156,7 +165,7 @@ def send_email_batch_sync(messages):
                             break
                 # Odstęp między mailami — trzyma nas pod limitami dostawcy (~30 maili/min)
                 if i < total - 1:
-                    time.sleep(2)
+                    time.sleep(SMTP_ODSTEP_MIEDZY_MAILAMI)
     except Exception as e:
         logger.error(f"[EMAIL-BATCH-SYNC] Connection error: {type(e).__name__}: {e}")
 
@@ -348,13 +357,17 @@ def send_email_batch(messages):
     Pod TESTING wysyłka idzie więc SYNCHRONICZNIE, w wątku wołającego (ten sam
     wzorzec co PushManager._fire_and_forget) — bez tego każdy test, który trafia
     tę funkcję bez własnego monkeypatcha (patrz fixture `maile_synchronicznie`
-    w conftest), zostawiał żywy nie-daemon wątek: TESTING włącza domyślnie
+    w conftest), zostawiał żywy nie-daemon wątek, na którego zakończenie pytest
+    czekał przy wyjściu procesu (Python joinuje wątki nie-daemon przy zamknięciu
+    interpretera).
+
+    Pod TESTING pomijamy przy tym odstęp między wiadomościami (`odstep_s=0`).
+    Odstęp broni przed limitem dostawcy, a TESTING włącza domyślnie
     MAIL_SUPPRESS_SEND (patrz flask_mail.Mail.init_mail), więc `mail.connect()`
-    nie dotyka sieci, ale send_async_email_batch() i tak śpi 2 s między kolejnymi
-    wiadomościami (limit dostawcy) — przy paczce zbiorczej z kilkoma uczestnikami
-    to kilka realnych sekund życia wątku, na którego zakończenie pytest czekał
-    przy wyjściu procesu (Python joinuje wątki nie-daemon przy zamknięciu
-    interpretera). Produkcja nie ma TESTING i dostaje wątek tła bez zmian.
+    i tak nie dotyka sieci — nie ma czego limitować. Bez tego przeniesienie
+    wysyłki do wątku wołającego wciągnęłoby te 2 s na wiadomość wprost w czas
+    testu: same paczki zbiorcze w zestawie kosztowały tak ok. 10 s.
+    Produkcja nie ma TESTING i dostaje wątek tła z pełnym odstępem, bez zmian.
 
     Args:
         messages (list): Lista obiektów Message (z prepare_email())
@@ -366,7 +379,7 @@ def send_email_batch(messages):
     app = current_app._get_current_object()
     logger.info(f"[EMAIL-BATCH] Queuing batch of {len(messages)} emails")
     if app.config.get('TESTING'):
-        send_async_email_batch(app, messages)
+        send_async_email_batch(app, messages, odstep_s=0)
         return
     Thread(
         target=send_async_email_batch,

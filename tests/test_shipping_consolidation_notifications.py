@@ -334,8 +334,13 @@ def test_szablon_scalenia_nie_dubluje_kropki_po_skrocie(app):
             shipping_requests_url=None,
         )
 
+    # Asercja na sam ciąg „Ola K.." NIE wystarcza: kropka szablonu ląduje POZA
+    # <strong>, więc wersja z błędem renderowała „<strong>Ola K.</strong>." —
+    # znacznik stał między kropkami i „Ola K.." nigdy w HTML nie istniało.
+    # Sprawdzamy dokładnie ten kawałek znacznika (tak samo jak test niżej).
+    assert '<strong>Ola K.</strong>.' not in html
+    assert '<strong>Ola K.</strong>' in html
     assert 'Ola K..' not in html
-    assert 'Ola K.' in html
 
 
 def test_szablon_scalenia_pelna_nazwa_konczy_sie_jedna_kropka(app):
@@ -358,3 +363,27 @@ def test_szablon_scalenia_pelna_nazwa_konczy_sie_jedna_kropka(app):
     # nie jest ciągłym fragmentem HTML — sprawdzamy dokładnie ten kawałek znacznika.
     assert '<strong>Paczkomat KRA01M</strong>.' in html
     assert '<strong>Paczkomat KRA01M</strong>..' not in html
+
+
+def test_szablon_scalenia_przezywa_brak_nazwy_adresata(app):
+    """recipient_name == None nie może wywalić renderu.
+
+    Wołający podstawia zastępnik sam, ale `.endswith` na None rzuca w Jinja —
+    a wtedy prepare_email() zwraca None i uczestnik nie dostaje ŻADNEGO maila
+    o scaleniu (przed dołożeniem kropki dostawał brzydkie „None”, ale dostawał).
+    """
+    from flask import render_template
+
+    with app.test_request_context():
+        html = render_template(
+            'emails/shipment_consolidated.html',
+            user_name='Ktoś',
+            request_number='WYS/000300',
+            order_numbers=['PO/00000001'],
+            recipient_name=None,
+            is_recipient=False,
+            shipping_requests_url=None,
+        )
+
+    assert 'None' not in html
+    assert '<strong>osoby odbierającej paczkę</strong>.' in html

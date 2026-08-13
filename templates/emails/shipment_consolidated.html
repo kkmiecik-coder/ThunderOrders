@@ -32,11 +32,18 @@
                                     Twoje zlecenie {{ request_number }} zostało połączone z zamówieniami innych osób
                                     w jedną paczkę zbiorczą. Paczka pojedzie na Twój adres.
                                 {% else %}
-                                    {# recipient_name bywa skrótem nazwiska kończącym się kropką („Ola K.”) —
+                                    {# Zastępnik jak w email_managerze: wołający (notify_shipment_consolidated)
+                                       podstawia go już sam, ale gdyby recipient_name przyszło puste albo None,
+                                       `.endswith` wywala render — a wtedy prepare_email() zwraca None i uczestnik
+                                       NIE DOSTAJE MAILA W OGÓLE (przed dołożeniem kropki dostawał brzydkie
+                                       „None”, ale dostawał). Degradujemy, zamiast tracić powiadomienie — tak samo
+                                       jak przy braku SERVER_NAME dla linku do panelu. #}
+                                    {% set adresat = recipient_name or 'osoby odbierającej paczkę' %}
+                                    {# adresat bywa skrótem nazwiska kończącym się kropką („Ola K.”) —
                                        doklejenie własnej dawało „Ola K..”. Stawiamy ją tylko wtedy, gdy
                                        zdanie jeszcze jej nie ma (ten sam wzorzec co w email_manager). #}
                                     Twoje zlecenie {{ request_number }} zostało połączone z zamówieniami innych osób
-                                    w jedną paczkę zbiorczą, która pojedzie na adres: <strong>{{ recipient_name }}</strong>{{ '' if recipient_name.endswith('.') else '.' }}
+                                    w jedną paczkę zbiorczą, która pojedzie na adres: <strong>{{ adresat }}</strong>{{ '' if adresat.endswith('.') else '.' }}
                                     Odbierz swoje rzeczy bezpośrednio od tej osoby.
                                 {% endif %}
                             </p>
