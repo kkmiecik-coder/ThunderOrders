@@ -154,7 +154,7 @@
                 {% if req.status == 'wyslane'
                       and (not req.is_consolidated_source
                            or (req.consolidated_into and req.consolidated_into.lead_source_request_id == req.id)) %}
-                <a class="btn btn-primary confirm-delivery-cta"
+                <a class="btn btn-primary"
                    href="{{ url_for('client.confirm_delivery', request_id=req.id) }}">
                     Potwierdź odbiór
                 </a>

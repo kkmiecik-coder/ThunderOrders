@@ -24,6 +24,12 @@
         if (grupa) {
             grupa.dataset.locked = 'true';
         }
+        // Blokada wizualna to CSS (pointer-events: none) — sam w sobie nie zmienia
+        // tego, co usłyszy czytnik ekranu. Bez aria-disabled te pięć przycisków
+        // radio nadal ogłasza się jako aktywne kontrolki, mimo że kliknięcie nic nie robi.
+        gwiazdki.forEach((gwiazdka) => {
+            gwiazdka.setAttribute('aria-disabled', 'true');
+        });
         if (komentarz) {
             komentarz.disabled = true;
         }

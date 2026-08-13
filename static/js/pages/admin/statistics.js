@@ -527,8 +527,8 @@
         html += '</div>';
 
         html += '<div class="stats-metrics-row">';
-        html += buildMetricCard('Srednia ocena dostaw (' + d.liczba_opinii + ' opinii)', sredniaTekst);
-        html += buildMetricCard('Udzial potwierdzen klienta', d.udzial_potwierdzen.toFixed(1) + '%');
+        html += buildMetricCard('Średnia ocena dostaw (' + d.liczba_opinii + ' opinii)', sredniaTekst);
+        html += buildMetricCard('Udział potwierdzeń klienta', d.udzial_potwierdzen.toFixed(1) + '%');
         html += '</div>';
 
         // Goły procent nic nie mówi bez mianownika — dopisujemy go wprost, żeby

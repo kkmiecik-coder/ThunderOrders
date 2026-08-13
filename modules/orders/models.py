@@ -1423,19 +1423,20 @@ class OrderShipment(db.Model):
 
     @property
     def courier_display_name(self):
-        """Returns human-readable courier name"""
-        courier_names = {
-            'inpost': 'InPost',
-            'dpd': 'DPD',
-            'dhl': 'DHL',
-            'gls': 'GLS',
-            'poczta_polska': 'Poczta Polska',
-            'orlen': 'Orlen Paczka',
-            'ups': 'UPS',
-            'fedex': 'FedEx',
-            'other': 'Inny'
-        }
-        return courier_names.get(self.courier, self.courier)
+        """Czytelna nazwa kuriera (np. "InPost") zamiast surowego sluga ("inpost").
+
+        Czyta z `wms_utils.COURIER_NAMES` — kanonicznej mapy, którą posługuje się
+        już WMS (routes.py, wms_utils.py) i `ShippingRequest.courier_display_name`
+        — zamiast trzymać własną, drugą kopię literału. Import wewnątrz property,
+        nie na górze pliku: `wms_utils` importuje z `modules.orders.models`
+        (m.in. `get_local_now`), więc import na poziomie modułu zapętliłby się.
+
+        Ta zmiana naprawia też realny brak: lokalny literał tutaj nie miał klucza
+        'pocztex', mimo że kurier jest wybieralny w interfejsie (ten sam rodzaj
+        błędu, co w routes.py — zobacz test_update_sr_pocztex_courier_name_capitalized).
+        """
+        from modules.orders.wms_utils import COURIER_NAMES
+        return COURIER_NAMES.get(self.courier, self.courier)
 
     @property
     def courier_icon(self):
