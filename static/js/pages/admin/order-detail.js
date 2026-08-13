@@ -379,9 +379,15 @@
     // ====================
 
     /**
-     * Courier display names mapping
+     * Awaryjne nazwy kurierów — używane TYLKO gdy odpowiedź serwera nie niesie
+     * `courier_name`. Kanoniczna mapa żyje po stronie Pythona
+     * (modules/orders/wms_utils.py: COURIER_NAMES) i to ona jedzie w polu
+     * `shipment.courier_name` z /admin/orders/<id>/shipments; ta kopia
+     * rozjeżdżała się już raz o klucz 'pocztex' (kurier wybieralny w WMS), więc
+     * pierwszeństwo ma zawsze serwer. Trzymana tu na wypadek starszej odpowiedzi
+     * bez tego pola — trzeba ją utrzymywać zgodną z COURIER_NAMES.
      */
-    const courierNames = {
+    const courierNamesFallback = {
         'inpost': 'InPost',
         'dpd': 'DPD',
         'dhl': 'DHL',
@@ -390,8 +396,16 @@
         'orlen': 'Orlen Paczka',
         'ups': 'UPS',
         'fedex': 'FedEx',
+        'pocztex': 'Pocztex',
         'other': 'Inny'
     };
+
+    /**
+     * Nazwa kuriera do wyświetlenia: najpierw to, co policzył serwer.
+     */
+    function courierDisplayName(shipment) {
+        return shipment.courier_name || courierNamesFallback[shipment.courier] || shipment.courier;
+    }
 
     /**
      * Add new shipment to order
@@ -526,7 +540,9 @@
      * Create HTML for shipment item
      */
     function createShipmentItemHtml(orderId, shipment) {
-        const courierName = courierNames[shipment.courier] || shipment.courier;
+        // Skrót w ikonie liczony z TEJ SAMEJ nazwy co podpis — inaczej przy
+        // kurierze spoza lokalnej mapy ikona brała pierwsze litery surowego sluga.
+        const courierName = courierDisplayName(shipment);
         const courierAbbr = courierName.substring(0, 2).toUpperCase();
         const hasTrackingUrl = shipment.tracking_url && shipment.tracking_url !== '#';
 
@@ -556,7 +572,7 @@
                 </div>
                 <div class="shipment-info">
                     ${trackingHtml}
-                    <span class="shipment-courier-name">${shipment.courier_name || courierName}</span>
+                    <span class="shipment-courier-name">${courierName}</span>
                 </div>
                 <button type="button"
                         class="btn-delete-shipment"

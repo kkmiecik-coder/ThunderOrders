@@ -1428,8 +1428,10 @@ class OrderShipment(db.Model):
         Czyta z `wms_utils.COURIER_NAMES` — kanonicznej mapy, którą posługuje się
         już WMS (routes.py, wms_utils.py) i `ShippingRequest.courier_display_name`
         — zamiast trzymać własną, drugą kopię literału. Import wewnątrz property,
-        nie na górze pliku: `wms_utils` importuje z `modules.orders.models`
-        (m.in. `get_local_now`), więc import na poziomie modułu zapętliłby się.
+        nie na górze pliku: `wms_utils` importuje na poziomie modułu
+        `wms_models.PackagingMaterial`, a `wms_models` — `models.get_local_now`,
+        więc import na górze tego pliku zamyka cykl i wywala się na
+        „partially initialized module" (sprawdzone empirycznie).
 
         Ta zmiana naprawia też realny brak: lokalny literał tutaj nie miał klucza
         'pocztex', mimo że kurier jest wybieralny w interfejsie (ten sam rodzaj
@@ -1893,10 +1895,13 @@ class ShippingRequest(db.Model):
         """Czytelna nazwa kuriera (np. "InPost") zamiast surowego sluga ("inpost").
 
         Czyta z `wms_utils.COURIER_NAMES` — kanonicznej mapy, którą posługuje się
-        już WMS (routes.py, wms_utils.py) — zamiast trzymać własną kopię literału,
-        jak robi to `OrderShipment.courier_display_name`. Import wewnątrz property,
-        nie na górze pliku: `wms_utils` importuje z `modules.orders.models`
-        (m.in. `get_local_now`), więc import na poziomie modułu zapętliłby się.
+        już WMS (routes.py, wms_utils.py) i `OrderShipment.courier_display_name`
+        (do sierpnia 2026 trzymał własną kopię literału, dziś czyta z tej samej
+        mapy) — zamiast drugiego literału. Import wewnątrz property, nie na górze:
+        `wms_utils` importuje na poziomie modułu `wms_models.PackagingMaterial`,
+        a `wms_models` — `models.get_local_now`, więc import na górze tego pliku
+        zamyka cykl i wywala się na „partially initialized module"
+        (sprawdzone empirycznie).
         """
         from modules.orders.wms_utils import COURIER_NAMES
         return COURIER_NAMES.get(self.courier, self.courier)

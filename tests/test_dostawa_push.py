@@ -156,7 +156,9 @@ def test_potwierdzenie_trafia_do_wlasciciela_zwyklego_zlecenia(
 
 def test_autoclosed_trafia_do_wlasciciela_zwyklego_zlecenia(
         app, db, make_user, monkeypatch):
-    """Brak jakiegokolwiek testu treści dla notify_delivery_autoclosed."""
+    """Podstawowa ścieżka notify_delivery_autoclosed (poza paczką zbiorczą):
+    tytuł, numer zlecenia w treści i kanał `shipping_updates`. Wariant zbiorczy
+    sprawdza test poniżej."""
     from utils.push_manager import PushManager
 
     wyslane = []
@@ -230,7 +232,7 @@ def test_powiadomienie_dla_adminow_idzie_do_kazdego(app, db, make_user, monkeypa
 
 def test_powiadomienie_dla_adminow_bledny_push_nie_przerywa_petli(
         app, db, make_user, monkeypatch):
-    """Wyrównanie do notify_sale_date_changed: wyjątek przy jednym adminie (np.
+    """Wyrównanie do notify_sale_end_date_changed: wyjątek przy jednym adminie (np.
     martwa subskrypcja push) nie może uciąć powiadomień dla pozostałych — pętla
     ma try/except per admin, tak jak sąsiedni wzorzec."""
     from utils.push_manager import PushManager
@@ -253,4 +255,80 @@ def test_powiadomienie_dla_adminow_bledny_push_nie_przerywa_petli(
 
     assert len(wyslane) == 1, 'drugi admin ma dostać push mimo błędu u pierwszego'
     assert wyslane[0]['user_id'] == drugi.id
-    assert wynik == 1, 'zwrócona liczba to sent/total, jak w notify_sale_date_changed'
+    assert wynik == 1, 'zwrócona liczba to sent/total, jak w notify_sale_end_date_changed'
+
+
+def test_powiadomienie_dla_adminow_bez_adminow_zwraca_zero(app, db, make_user, monkeypatch):
+    """Kontrakt liczbowy trzyma się także na wczesnym wyjściu: brak adminów to 0,
+    a nie None. Funkcja zwracająca raz liczbę, a raz None, wymusza na przyszłym
+    wołającym sprawdzenie na None przed każdym porównaniem."""
+    from utils.push_manager import PushManager
+
+    monkeypatch.setattr(
+        PushManager, '_fire_and_forget', staticmethod(lambda **kw: None))
+
+    klient = make_user()
+    sr = _zlecenie(db, klient, 'WYS/000304', status='dostarczone')
+
+    wynik = PushManager.notify_admin_delivery_confirmed(sr)
+
+    assert wynik == 0, 'brak adminów to zero wysłanych, nie None'
+
+
+def test_blad_pusha_u_uczestnika_nie_zabiera_pusha_drugiemu(
+        app, db, make_user, make_order, monkeypatch):
+    """Osłona per odbiorca w pętli po uczestnikach paczki zbiorczej.
+
+    Wołający (`wms_utils.dostarcz_zlecenie`) owija cały blok powiadomień w JEDEN
+    try/except, więc wyjątek wypuszczony z tej pętli kosztuje nie tylko push
+    drugiego uczestnika, ale i oba powiadomienia adminów wysyłane linijkę niżej.
+    Test pilnuje obu rzeczy: wyjątek nie wychodzi na zewnątrz (bez osłony test
+    wywala się już na samym wywołaniu) i drugi uczestnik dostaje swój push."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+
+    zbiorcze, zrodla = _paczka_zbiorcza_push(
+        db, make_user, make_order, ('WYS/000360', 'WYS/000361', 'WYS/000362'))
+    (lider, zrodlo_a), (drugi, zrodlo_b) = zrodla
+
+    def _fire(**kw):
+        if kw['user_id'] == lider.id:
+            raise RuntimeError('subskrypcja martwa')
+        wyslane.append(kw)
+
+    monkeypatch.setattr(PushManager, '_fire_and_forget', staticmethod(_fire))
+
+    with app.test_request_context():
+        PushManager.notify_delivery_confirmed(zbiorcze)
+
+    assert len(wyslane) == 1, 'drugi uczestnik ma dostać push mimo błędu u pierwszego'
+    assert wyslane[0]['user_id'] == drugi.id
+    assert zrodlo_b.request_number in wyslane[0]['body']
+
+
+def test_blad_pusha_o_domknieciu_nie_zabiera_pusha_drugiemu(
+        app, db, make_user, make_order, monkeypatch):
+    """To samo dla notify_delivery_autoclosed. Cron owija to wywołanie własnym
+    try/except per zlecenie, więc porcji nie wywraca — ale bez osłony w pętli
+    jedna martwa subskrypcja i tak ucisza pozostałych uczestników tej paczki."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+
+    zbiorcze, zrodla = _paczka_zbiorcza_push(
+        db, make_user, make_order, ('WYS/000370', 'WYS/000371', 'WYS/000372'))
+    (lider, zrodlo_a), (drugi, zrodlo_b) = zrodla
+
+    def _fire(**kw):
+        if kw['user_id'] == lider.id:
+            raise RuntimeError('subskrypcja martwa')
+        wyslane.append(kw)
+
+    monkeypatch.setattr(PushManager, '_fire_and_forget', staticmethod(_fire))
+
+    with app.test_request_context():
+        PushManager.notify_delivery_autoclosed(zbiorcze)
+
+    assert len(wyslane) == 1, 'drugi uczestnik ma dostać push mimo błędu u pierwszego'
+    assert wyslane[0]['user_id'] == drugi.id

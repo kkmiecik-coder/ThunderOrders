@@ -696,8 +696,11 @@ def statistics_shipping():
     co reszta zakładki Wysyłka. Miejsce jak najbardziej trafne: to zlecenia wysyłki
     (ShippingRequest.delivered_source) są tu jednostką liczoną.
     """
-    # Jednostką TEJ zakładki jest ZLECENIE KLIENTA — uzasadnienie i definicja filtra
-    # w `_bez_paczek_zbiorczych()`, wspólnego z metrykami dostaw niżej.
+    # Jednostką liczników zleceń w TEJ zakładce (KPI „Łącznie"/„Oczekujących",
+    # tabela na dole, metryki dostaw) jest ZLECENIE KLIENTA — uzasadnienie
+    # i definicja filtra w `_bez_paczek_zbiorczych()`. Oba wykresy kołowe liczą
+    # w innych jednostkach (zamówienie i przesyłka OrderShipment), więc ten filtr
+    # ich nie dotyczy — patrz komentarze przy nich.
     nie_paczka_zbiorcza = _bez_paczek_zbiorczych()
 
     total_requests = ShippingRequest.query.filter(nie_paczka_zbiorcza).count()
@@ -756,10 +759,12 @@ def statistics_shipping():
     pie_courier_labels = [courier_names.get(c[0], c[0]) for c in courier_counts]
     pie_courier_values = [c[1] for c in courier_counts]
 
-    # Tabela: ostatnie zlecenia wysyłki — ta sama jednostka co KPI/wykresy wyżej
-    # w tej zakładce (ZLECENIE KLIENTA, patrz `_bez_paczek_zbiorczych()`); bez tego
-    # filtra tabela mieszała paczkę zbiorczą z jej zleceniami źródłowymi, czyli
-    # liczyła tę samą fizyczną wysyłkę więcej niż raz.
+    # Tabela: ostatnie zlecenia wysyłki — ta sama jednostka co KPI licznikowe wyżej
+    # (ZLECENIE KLIENTA, patrz `_bez_paczek_zbiorczych()`), a NIE co wykresy kołowe:
+    # tamte liczą zamówienia (`Order.delivery_method`) i przesyłki
+    # (`OrderShipment.courier`), więc filtr paczek zbiorczych nie ma się do czego
+    # w nich odnieść. Bez tego filtra tabela mieszała paczkę zbiorczą z jej
+    # zleceniami źródłowymi, czyli liczyła tę samą fizyczną wysyłkę więcej niż raz.
     recent_requests = ShippingRequest.query.filter(nie_paczka_zbiorcza).order_by(
         desc(ShippingRequest.created_at)
     ).limit(15).all()

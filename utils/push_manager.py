@@ -1357,6 +1357,37 @@ class PushManager:
                 for u in sr.consolidation_participants if u['user']]
 
     @staticmethod
+    def _push_dostawy(sr, user, zlecenie, title, body, tag_prefix):
+        """Jeden push uczestnika dostawy, odizolowany od pozostałych.
+
+        Osłona jest per ODBIORCA, a nie per wywołanie, bo wołający
+        (`wms_utils.dostarcz_zlecenie`) owija cały blok powiadomień w JEDEN
+        `try/except`. Bez tej pętlowej osłony wyjątek przy pierwszym uczestniku
+        paczki zbiorczej zabiera push każdego kolejnego uczestnika, a w gałęzi
+        potwierdzenia klienta dodatkowo oba powiadomienia adminów wysyłane dwie
+        linijki niżej u wołającego. Ten sam wzorzec co pętla po adminach
+        w notify_admin_delivery_confirmed.
+
+        W środku `try` jest też budowa URL-a: `_url_potwierdzenia` łapie wyłącznie
+        RuntimeError (brak kontekstu żądania), a `url_for` potrafi rzucić także
+        BuildError, którego tamten `except` nie widzi.
+        """
+        try:
+            PushManager._fire_and_forget(
+                user_id=user.id,
+                title=title,
+                body=body,
+                url=PushManager._url_potwierdzenia(zlecenie),
+                tag=f'{tag_prefix}-{zlecenie.id}',
+                notification_type='shipping_updates',
+            )
+        except Exception as e:
+            current_app.logger.error(
+                f"Failed to fire delivery push for user {getattr(user, 'id', None)} "
+                f"(shipping_request={getattr(sr, 'id', None)}): {e}"
+            )
+
+    @staticmethod
     def notify_delivery_confirmation(sr):
         """Przypomnienie: potwierdź odbiór paczki.
 
@@ -1368,13 +1399,11 @@ class PushManager:
         for user, zlecenie, czy_lider in PushManager._odbiorcy_dostawy(sr):
             if not czy_lider:
                 continue
-            PushManager._fire_and_forget(
-                user_id=user.id,
+            PushManager._push_dostawy(
+                sr, user, zlecenie,
                 title='Czy paczka do Ciebie dotarła?',
                 body=f'Potwierdź odbiór paczki {zlecenie.request_number}',
-                url=PushManager._url_potwierdzenia(zlecenie),
-                tag=f'delivery-confirm-{zlecenie.id}',
-                notification_type='shipping_updates',
+                tag_prefix='delivery-confirm',
             )
 
     @staticmethod
@@ -1386,17 +1415,15 @@ class PushManager:
         informację, że paczkę zbiorczą odebrała osoba, na której adres jechała.
         """
         for user, zlecenie, czy_lider in PushManager._odbiorcy_dostawy(sr):
-            PushManager._fire_and_forget(
-                user_id=user.id,
+            PushManager._push_dostawy(
+                sr, user, zlecenie,
                 title=('Dziękujemy za potwierdzenie' if czy_lider
                        else 'Twoja paczka została odebrana'),
                 body=(f'Paczka {zlecenie.request_number} oznaczona jako dostarczona'
                       if czy_lider else
                       f'{zlecenie.request_number} jechało w paczce zbiorczej — '
                       f'odbiór potwierdziła osoba, na której adres została nadana'),
-                url=PushManager._url_potwierdzenia(zlecenie),
-                tag=f'delivery-done-{zlecenie.id}',
-                notification_type='shipping_updates',
+                tag_prefix='delivery-done',
             )
 
     @staticmethod
@@ -1407,14 +1434,12 @@ class PushManager:
         Twoje zlecenie") jest prawdziwa dla każdego uczestnika tak samo.
         """
         for user, zlecenie, _ in PushManager._odbiorcy_dostawy(sr):
-            PushManager._fire_and_forget(
-                user_id=user.id,
+            PushManager._push_dostawy(
+                sr, user, zlecenie,
                 title='Zamykamy Twoje zlecenie',
                 body=f'{zlecenie.request_number} — dziękujemy za zakupy. '
                      f'Możesz ocenić dostawę',
-                url=PushManager._url_potwierdzenia(zlecenie),
-                tag=f'delivery-auto-{zlecenie.id}',
-                notification_type='shipping_updates',
+                tag_prefix='delivery-auto',
             )
 
     @staticmethod
@@ -1422,13 +1447,19 @@ class PushManager:
         """Do adminów: klient potwierdził odbiór.
 
         Tylko dla potwierdzeń klienta — domknięcia automatu idą porcjami i byłyby szumem.
+
+        Zwraca liczbę adminów, do których push faktycznie poleciał (jak
+        notify_sale_end_date_changed) — zawsze `int`, także przy wyjściu bez
+        adresatów. Dziś wynik czyta wyłącznie test, ale funkcja zwracająca raz
+        liczbę, a raz `None`, wymusza na każdym przyszłym wołającym sprawdzenie
+        na `None` przed jakimkolwiek porównaniem; jednorodny typ jest tańszy.
         """
         from flask import url_for
         from modules.auth.models import User
 
         admins = User.query.filter_by(role='admin').all()
         if not admins:
-            return
+            return 0
 
         try:
             url = url_for('orders.admin_shipping_requests_list', _external=True)
@@ -1442,8 +1473,8 @@ class PushManager:
         if opinia:
             body += f' · ocena {opinia.rating}/5'
 
-        # Jak w notify_sale_date_changed: try/except per admin, żeby błędny push do
-        # jednego nie przerywał pętli dla pozostałych, i log sent/total do diagnostyki.
+        # Jak w notify_sale_end_date_changed: try/except per admin, żeby błędny push
+        # do jednego nie przerywał pętli dla pozostałych, i log sent/total do diagnostyki.
         sent = 0
         for admin in admins:
             try:
