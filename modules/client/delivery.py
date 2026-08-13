@@ -68,9 +68,15 @@ def _okno_oceny_otwarte(sr):
     Poprzednia wersja odpowiadała True dla KAŻDEGO statusu innego niż 'dostarczone'
     (warunek `if sr.status != 'dostarczone': return True`), a endpointy oceny — webowy
     i mobilny — nie sprawdzają statusu w ogóle. Dało się więc ocenić zlecenie
-    'czeka_na_wycene', 'spakowane' czy 'anulowane', a strona potwierdzenia sama to
+    'czeka_na_wycene', 'oplacone' czy 'spakowane', a strona potwierdzenia sama to
     podsuwała: komunikat „tej paczki nie da się potwierdzić" i tuż pod nim żywe
     gwiazdki. Takie oceny wchodziły wprost do średniej w statystykach.
+
+    Statusy podawane w tym pliku dla przykładu pochodzą ze słownika
+    `shipping_request_statuses` (migracja a1f8b2c3d4e5): czeka_na_wycene,
+    czeka_na_oplacenie, oplacone, do_wyslania, spakowane, wyslane, dostarczone
+    (plus historyczne 'nowe'). Zlecenia wysyłki NIE mają statusu 'anulowane' —
+    to status z domeny zamówień i nie należy go tu przywoływać.
     """
     if sr.status not in STATUSY_Z_OCENA:
         return False
@@ -102,7 +108,10 @@ def zapisz_ocene(sr, dane):
         # ocena nie wjechała do średniej w statystykach pod zafałszowaną wartością.
         if isinstance(surowa, float) and ocena != surowa:
             raise ValueError
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError, nie ValueError, leci z int(float('inf')) — a parser JSON-a
+        # przyjmuje literał `Infinity` bez mrugnięcia, więc {"rating": Infinity}
+        # z mobile'a albo curla kończyło się 500-tką zamiast czytelnym 400.
         return None, 'Ocena musi być liczbą od 1 do 5', 400
     if ocena < 1 or ocena > 5:
         return None, 'Ocena musi być liczbą od 1 do 5', 400
@@ -181,8 +190,8 @@ def confirm_delivery_submit(request_id):
 
     # Poprawka do briefu: dostarcz_zlecenie() sam pilnuje przed powtórnym domknięciem
     # (delivered_at / status=='dostarczone'), ale to za mało jako jedyna linia obrony —
-    # strona GET jedynie UKRYWA przycisk klientowi, gdy status != 'wyslane' (np.
-    # 'nowe', 'anulowane', 'w_magazynie'), nic nie broni samego POST-a. Bez tego
+    # strona GET jedynie UKRYWA przycisk klientowi, gdy status != 'wyslane'
+    # (np. 'czeka_na_wycene', 'spakowane'), nic nie broni samego POST-a. Bez tego
     # warunku klient mógłby POST-em na ten endpoint domknąć zlecenie, które fizycznie
     # nigdy nie zostało wysłane, albo — dla już dostarczonego — dociągnąć zapis oceny
     # przez błąd ZlecenieJuzDostarczone (ten wyjątek łapiemy niżej i zwracamy 200 z

@@ -56,10 +56,30 @@ class DeliveryReview(db.Model):
 
         SmallInteger przyjmie każdą liczbę, a ocena 0 albo 7 zepsułaby średnią
         w statystykach po cichu.
+
+        Ułamek odrzucamy zamiast go obcinać: samo `int(4.9)` zapisywało 4, czyli
+        ocenę, której klient nie wystawił — dokładnie ta sama cicha utrata treści,
+        którą `_sprawdz_komentarz` odrzuca kilka linii niżej. Ścieżka HTTP (web
+        i mobile) łapie to już w `zapisz_ocene`, ale tam kończy się jej zasięg:
+        backfill, powłoka i każdy przyszły zapis prosto do modelu omijają tamten
+        strażnik, a średnia w statystykach liczy się z tej kolumny.
         """
-        if wartosc is None or int(wartosc) < 1 or int(wartosc) > 5:
-            raise ValueError(f'Ocena musi być liczbą od 1 do 5, otrzymano: {wartosc!r}')
-        return int(wartosc)
+        blad = ValueError(f'Ocena musi być liczbą od 1 do 5, otrzymano: {wartosc!r}')
+        if wartosc is None:
+            raise blad
+        try:
+            ocena = int(wartosc)
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: int(float('inf')). Tłumaczymy na ValueError, żeby
+            # wołający miał jeden typ wyjątku do złapania.
+            raise blad from None
+        # Stringi przepuszczamy jak dotąd ("4" to poprawna ocena), bo int() sam
+        # odrzuca "4.9". Dla liczb wymagamy, żeby konwersja niczego nie zgubiła.
+        if not isinstance(wartosc, str) and ocena != wartosc:
+            raise blad
+        if ocena < 1 or ocena > 5:
+            raise blad
+        return ocena
 
     @validates('comment')
     def _sprawdz_komentarz(self, key, wartosc):

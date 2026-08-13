@@ -239,6 +239,21 @@ def test_ocena_calkowita_jako_float_akceptowana(app, db, client, login, make_use
     assert sr.review.rating == 4
 
 
+def test_ocena_nieskonczonosc_odrzucona(app, db, client, login, make_user):
+    """`int(float('inf'))` rzuca OverflowError, nie ValueError — a parser JSON-a
+    przyjmuje literał `Infinity`. Bez tego wyjątku w `except` walidacja oceny
+    przepuszczała go dalej i klient (albo mobile) dostawał 500 zamiast 400."""
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000497')
+    login(user)
+
+    odp = client.post(f'/client/shipping/requests/{sr.id}/ocena',
+                      json={'rating': float('inf')})
+
+    assert odp.status_code == 400
+    assert sr.review is None
+
+
 def test_komentarz_za_dlugi_odrzucony_przez_api(app, db, client, login, make_user):
     """Formularz webowy ma maxlength=2000, ale API (mobile) go omija — dawniej
     komentarz ponad 2000 znaków był po cichu ucinany zamiast odrzucony jawnym
@@ -351,13 +366,13 @@ def test_opinia_zostaje_widoczna_po_zmianie_statusu_poza_ocenialne(
         app, db, client, login, make_user):
     """Komentarz przy `pokaz_ocene` obiecuje, że istniejąca opinia zostaje widoczna,
     nawet gdy status zjedzie poza STATUSY_Z_OCENA = ('wyslane', 'dostarczone') — np.
-    admin ręcznie cofnie błędnie oznaczone 'dostarczone' z powrotem na 'spakowane'.
-    ('anulowane' z komentarza w kodzie źródłowym to zresztą status z innej domeny —
-    ShippingRequestStatus go w ogóle nie ma, patrz migracja a1f8b2c3d4e5; 'spakowane'
-    to realny, seedowany status spoza zbioru.) Dawny warunek `sr.status in
-    STATUSY_Z_OCENA and (...)` chował sekcję razem z już wystawioną oceną — łamał
-    obietnicę z komentarza. Poprawiamy zachowanie, nie komentarz: intencja
-    komentarza jest słuszna, kod jej nie realizował."""
+    admin ręcznie cofnie błędnie oznaczone 'dostarczone' z powrotem na 'spakowane'
+    ('spakowane' to realny, seedowany status spoza zbioru — patrz migracja
+    a1f8b2c3d4e5). Dawny warunek `sr.status in STATUSY_Z_OCENA and (...)` chował
+    sekcję razem z już wystawioną oceną — łamał obietnicę z komentarza. Poprawiamy
+    zachowanie, nie komentarz: intencja komentarza jest słuszna, kod jej nie
+    realizował. Ten test jest jedyną osłoną przed „przywróceniem brakującego
+    strażnika" po statusie w widoku GET."""
     from modules.orders.models import get_local_now
     from modules.orders.review_models import DeliveryReview
 
@@ -376,6 +391,32 @@ def test_opinia_zostaje_widoczna_po_zmianie_statusu_poza_ocenialne(
 
     assert 'deliveryReview' in tresc
     assert 'Super szybko' in tresc
+
+
+def test_zablokowana_sekcja_nie_obiecuje_edycji_oceny(app, db, client, login, make_user):
+    """Podpowiedź pod przyciskiem szła za `review.mozna_edytowac`, a blokada
+    kontrolek za `okno_oceny_otwarte` — dwa różne okna. Paczka dostarczona ponad
+    30 dni temu (okno oceny zamknięte) z opinią wystawioną przed chwilą (okno
+    edycji otwarte) dostawała `data-editable="false"`, czyli martwe gwiazdki
+    i zablokowany przycisk, a nad nimi zdanie „Ocenę możesz zmieniać przez 3 dni".
+    Ten sam rozjazd daje status cofnięty poza STATUSY_Z_OCENA."""
+    from modules.orders.models import get_local_now
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user(profile_completed=True)
+    sr = _zlecenie(db, user, 'WYS/000498', status='dostarczone')
+    sr.delivered_at = get_local_now() - timedelta(days=31)
+    db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=user.id,
+                                   rating=4, comment='Dotarło z opóźnieniem'))
+    db.session.commit()
+    login(user)
+
+    tresc = client.get(f'/client/shipping/requests/{sr.id}/potwierdz').get_data(as_text=True)
+
+    assert sr.review.mozna_edytowac is True, 'okno edycji ma być jeszcze otwarte'
+    assert 'data-editable="false"' in tresc
+    assert 'Ocenę możesz zmieniać' not in tresc
+    assert 'tylko do wglądu' in tresc
 
 
 def test_ocena_wyslanej_paczki_nadal_dziala(app, db, client, login, make_user):

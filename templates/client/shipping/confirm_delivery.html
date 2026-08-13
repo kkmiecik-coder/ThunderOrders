@@ -11,11 +11,24 @@
       3. w pozostałych przypadkach (np. uczestnik paczki zbiorczej, który nie jest
          klientem wiodącym, albo zlecenie jeszcze nie wysłane) → nic do zrobienia tutaj.
     Sekcja oceny (gwiazdki + komentarz) jest niezależna od powyższego i pokazuje się,
-    gdy widok tak powie w `pokaz_ocene` (paczka jest 'wyslane' albo 'dostarczone' ORAZ
-    okno oceny jest otwarte lub opinia już istnieje) — o tym, czy da się ją edytować,
-    decyduje `review.mozna_edytowac` z widoku. Bez warunku po statusie strona zlecenia
-    'anulowane' albo 'czeka_na_wycene' pokazywała komunikat „nie da się potwierdzić"
-    i tuż pod nim żywe gwiazdki, a taka ocena wchodziła do średniej w statystykach.
+    gdy widok tak powie w `pokaz_ocene` — czyli gdy okno oceny jest otwarte ALBO
+    opinia już istnieje. NIE dokładaj tu warunku po statusie („paczka jest 'wyslane'
+    albo 'dostarczone' ORAZ ..."): ochrona przed żywymi gwiazdkami pod komunikatem
+    „nie da się potwierdzić" siedzi już w samym `okno_oceny_otwarte`, które dla
+    statusów spoza STATUSY_Z_OCENA (np. 'czeka_na_wycene', 'spakowane') jest z
+    definicji False. Drugi człon warunku jest celowy i istotny: raz wystawiona opinia
+    ma zostać widoczna także wtedy, gdy status zjechał poza ten zbiór (np. admin
+    cofnął błędne 'dostarczone' na 'spakowane') — strażnik po statusie chowałby
+    klientowi to, co sam napisał. Tak było przed `d0e61a4`; test
+    test_opinia_zostaje_widoczna_po_zmianie_statusu_poza_ocenialne pilnuje, żeby
+    ten strażnik nie wrócił.
+    (Uwaga: 'anulowane' NIE jest statusem zlecenia wysyłki — słownik
+    shipping_request_statuses go nie zna, to status z domeny zamówień.)
+
+    O tym, czy sekcja jest żywa czy tylko do wglądu, decyduje jedno wyrażenie
+    `ocena_edytowalna` niżej: idzie i do `data-editable` (JS blokuje kontrolki),
+    i do podpowiedzi pod przyciskiem — inaczej podpowiedź obiecywała edycję nad
+    martwymi gwiazdkami.
 #}
 
 {% block title %}Potwierdzenie odbioru - ThunderOrders{% endblock %}
@@ -74,8 +87,9 @@
     {% endif %}
 
     {% if pokaz_ocene %}
+    {% set ocena_edytowalna = okno_oceny_otwarte and (not review or review.mozna_edytowac) %}
     <section class="confirm-delivery__review" id="deliveryReview"
-             data-editable="{{ 'true' if (okno_oceny_otwarte and (not review or review.mozna_edytowac)) else 'false' }}">
+             data-editable="{{ 'true' if ocena_edytowalna else 'false' }}">
         <h2 class="confirm-delivery__subtitle">Jak oceniasz dostawę i obsługę?</h2>
 
         <div class="rating" role="radiogroup" aria-label="Ocena dostawy">
@@ -97,9 +111,22 @@
             {{ 'Zapisz zmianę oceny' if review else 'Wyślij ocenę' }}
         </button>
 
-        {% if review and review.mozna_edytowac %}
+        {#
+            Podpowiedź opisuje stan TEJ sekcji, nie samo okno edycji opinii. Gdy
+            `ocena_edytowalna` jest false, JS blokuje gwiazdki, pole i przycisk —
+            zdanie „możesz zmieniać przez N dni" wisiałoby wtedy nad martwymi
+            kontrolkami. Rozjazd był realny: okno edycji liczy się od wystawienia
+            opinii, a okno oceny od dostarczenia paczki (albo znika razem ze
+            statusem cofniętym poza STATUSY_Z_OCENA), więc pierwsze potrafi być
+            otwarte, kiedy drugie jest już zamknięte.
+        #}
+        {% if review and ocena_edytowalna %}
         <p class="confirm-delivery__hint">
             Ocenę możesz zmieniać przez {{ okno_edycji_dni }} dni od wystawienia.
+        </p>
+        {% elif review and review.mozna_edytowac %}
+        <p class="confirm-delivery__hint">
+            Ta ocena jest już tylko do wglądu — okno oceny tej paczki zostało zamknięte.
         </p>
         {% elif review %}
         <p class="confirm-delivery__hint">

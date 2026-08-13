@@ -38,6 +38,35 @@ def test_ocena_poza_zakresem_odrzucona(app, db, make_user):
             DeliveryReview(shipping_request_id=sr.id, user_id=user.id, rating=zla)
 
 
+def test_ocena_niecalkowita_odrzucona_przez_model(app, db, make_user):
+    """`int(4.9)` zapisywało po cichu 4 — ocenę, której nikt nie wystawił, a która
+    wchodzi do średniej w statystykach. Warstwa HTTP (`zapisz_ocene`) już to łapie,
+    ale każdy zapis prosto do modelu (backfill, powłoka) ją omija; poza tym model
+    odrzuca za długi komentarz, więc ciche obcinanie oceny było asymetrią."""
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user()
+    sr = _zlecenie(db, user, 'WYS/000106')
+
+    for zla in (4.9, 0.5, float('inf'), 'cztery'):
+        with pytest.raises(ValueError):
+            DeliveryReview(shipping_request_id=sr.id, user_id=user.id, rating=zla)
+
+
+def test_ocena_calkowita_jako_float_lub_string_akceptowana(app, db, make_user):
+    """Odrzucamy ułamek, nie sam typ: 4.0 i '4' to nadal poprawna ocena 4."""
+    from modules.orders.review_models import DeliveryReview
+
+    user = make_user()
+    sr_float = _zlecenie(db, user, 'WYS/000107')
+    sr_string = _zlecenie(db, user, 'WYS/000108')
+
+    assert DeliveryReview(shipping_request_id=sr_float.id, user_id=user.id,
+                          rating=4.0).rating == 4
+    assert DeliveryReview(shipping_request_id=sr_string.id, user_id=user.id,
+                          rating='4').rating == 4
+
+
 def test_okno_edycji_trwa_trzy_dni(app, db, make_user):
     from modules.orders.models import get_local_now
     from modules.orders.review_models import DeliveryReview
