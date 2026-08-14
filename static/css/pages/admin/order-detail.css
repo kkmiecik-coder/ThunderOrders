@@ -970,6 +970,41 @@ code {
     margin-left: 0.25rem;
 }
 
+/* Wpisy o wysłanych mailach (EmailLog) w historii zmian */
+.email-log-status {
+    font-weight: 600;
+}
+
+.email-log-status--sent {
+    color: #10B981;
+}
+
+.email-log-status--failed {
+    color: #EF4444;
+}
+
+.email-log-status--queued {
+    color: #F59E0B;
+}
+
+/* Sygnały diagnostyczne: druga próba wysyłki (możliwy duplikat u klienta)
+   i wyraźne opóźnienie między zakolejkowaniem a wysłaniem. */
+.email-log-warning {
+    display: inline-block;
+    margin-left: 0.375rem;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 0.625rem;
+    background: #FEF3C7;
+    color: #92400E;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.email-log-error {
+    color: #EF4444;
+    word-break: break-word;
+}
+
 /* WMS History */
 .wms-history {
     display: flex;
@@ -3543,6 +3578,27 @@ code {
 
 [data-theme="dark"] .history-user {
     color: #f093fb;
+}
+
+[data-theme="dark"] .email-log-status--sent {
+    color: #34D399;
+}
+
+[data-theme="dark"] .email-log-status--failed {
+    color: #F87171;
+}
+
+[data-theme="dark"] .email-log-status--queued {
+    color: #FBBF24;
+}
+
+[data-theme="dark"] .email-log-warning {
+    background: rgba(245, 158, 11, 0.18);
+    color: #FBBF24;
+}
+
+[data-theme="dark"] .email-log-error {
+    color: #F87171;
 }
 
 /* WMS History - Dark Mode */

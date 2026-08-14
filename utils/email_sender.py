@@ -38,31 +38,107 @@ def _is_retryable_smtp_error(exc):
     return False
 
 
-def send_async_email(app, msg):
-    """Wysyła email asynchronicznie w osobnym wątku z retry dla błędów tymczasowych"""
+# ---------------------------------------------------------------------------
+# EmailLog — trwały ślad po wysyłce
+#
+# Logi tekstowe serwera odpowiadają na pytania o maile tylko dopóki nie zrotują,
+# i tylko komuś z dostępem po SSH. Wpis w bazie zostaje i pokazuje się wprost w
+# historii zmian zamówienia.
+#
+# Zapis idzie WŁASNĄ, krótkotrwałą sesją — nigdy przez db.session. Powód jest
+# konkretny: część miejsc woła EmailManager mając w sesji niescommitowane zmiany
+# (np. _sync_order_statuses_from_shipping_request ustawia order.status i dopiero
+# wywołujący robi commit). Gdyby logger commitował na wspólnej sesji, wciągnąłby
+# tamte zmiany ze sobą — i rollback po późniejszym błędzie już by ich nie cofnął.
+#
+# Żadna z tych funkcji nie rzuca wyjątku: log jest dodatkiem do wysyłki, nie
+# warunkiem jej powodzenia.
+# ---------------------------------------------------------------------------
+
+def _zaloguj_kolejkowanie(to, subject, template, log_context=None):
+    """Zakłada wiersz EmailLog w stanie 'queued'. Zwraca id albo None przy błędzie."""
+    try:
+        from sqlalchemy.orm import Session
+        from extensions import db
+        from modules.admin.models import EmailLog
+
+        kontekst = log_context or {}
+        wpis = EmailLog(
+            recipient=(to or '')[:255],
+            subject=(subject or '')[:500],
+            template=(template or '')[:100] or None,
+            entity_type=kontekst.get('entity_type'),
+            entity_id=kontekst.get('entity_id'),
+            status='queued',
+            attempts=0,
+        )
+        with Session(bind=db.engine) as sesja:
+            sesja.add(wpis)
+            sesja.commit()
+            return wpis.id
+    except Exception as e:
+        logger.error(f"[EMAIL-LOG] Nie udało się zapisać wpisu 'queued' to={to}: "
+                     f"{type(e).__name__}: {e}")
+        return None
+
+
+def _zapisz_wynik_logu(log_id, status, attempts, error=None, duration_ms=None):
+    """Domyka wiersz EmailLog wynikiem wysyłki ('sent' albo 'failed')."""
+    if not log_id:
+        return
+    try:
+        from sqlalchemy.orm import Session
+        from extensions import db
+        from modules.admin.models import EmailLog, get_local_now
+
+        with Session(bind=db.engine) as sesja:
+            wpis = sesja.get(EmailLog, log_id)
+            if wpis is None:
+                return
+            wpis.status = status
+            wpis.attempts = attempts
+            wpis.error = (f"{type(error).__name__}: {error}")[:2000] if error else None
+            wpis.duration_ms = int(duration_ms) if duration_ms is not None else None
+            wpis.sent_at = get_local_now() if status == 'sent' else None
+            sesja.commit()
+    except Exception as e:
+        logger.error(f"[EMAIL-LOG] Nie udało się domknąć wpisu id={log_id}: "
+                     f"{type(e).__name__}: {e}")
+
+
+def send_async_email(app, msg, log_id=None):
+    """Wysyła email asynchronicznie w osobnym wątku z retry dla błędów tymczasowych.
+
+    `log_id` wskazuje wiersz EmailLog założony przy kolejkowaniu — domykamy go tu
+    wynikiem, bo dopiero ten wątek wie, czy i po ilu próbach mail faktycznie poszedł.
+    """
     recipient = msg.recipients[0] if msg.recipients else 'unknown'
     subject = msg.subject or 'no subject'
     logger.info(f"[EMAIL-THREAD] Starting SMTP send to={recipient}, subject='{subject}'")
     start_time = time.time()
 
-    for attempt in range(1, SMTP_MAX_RETRIES + 1):
-        try:
-            with app.app_context():
+    with app.app_context():
+        for attempt in range(1, SMTP_MAX_RETRIES + 1):
+            try:
                 mail.send(msg)
-            elapsed = time.time() - start_time
-            logger.info(f"[EMAIL-THREAD] SUCCESS to={recipient}, subject='{subject}', took={elapsed:.2f}s" +
-                        (f" (attempt {attempt})" if attempt > 1 else ""))
-            return
-        except Exception as e:
-            elapsed = time.time() - start_time
-            if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
-                delay = SMTP_RETRY_DELAYS[attempt - 1]
-                logger.warning(f"[EMAIL-THREAD] RETRY {attempt}/{SMTP_MAX_RETRIES} to={recipient}, "
-                               f"error={type(e).__name__}: {e}, retrying in {delay}s")
-                time.sleep(delay)
-            else:
-                logger.error(f"[EMAIL-THREAD] FAILED to={recipient}, subject='{subject}', "
-                             f"took={elapsed:.2f}s, attempt={attempt}, error={type(e).__name__}: {e}")
+                elapsed = time.time() - start_time
+                logger.info(f"[EMAIL-THREAD] SUCCESS to={recipient}, subject='{subject}', took={elapsed:.2f}s" +
+                            (f" (attempt {attempt})" if attempt > 1 else ""))
+                _zapisz_wynik_logu(log_id, 'sent', attempt, duration_ms=elapsed * 1000)
+                return
+            except Exception as e:
+                elapsed = time.time() - start_time
+                if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
+                    delay = SMTP_RETRY_DELAYS[attempt - 1]
+                    logger.warning(f"[EMAIL-THREAD] RETRY {attempt}/{SMTP_MAX_RETRIES} to={recipient}, "
+                                   f"error={type(e).__name__}: {e}, retrying in {delay}s")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"[EMAIL-THREAD] FAILED to={recipient}, subject='{subject}', "
+                                 f"took={elapsed:.2f}s, attempt={attempt}, error={type(e).__name__}: {e}")
+                    _zapisz_wynik_logu(log_id, 'failed', attempt, error=e,
+                                       duration_ms=elapsed * 1000)
+                    return
 
 
 def send_async_email_batch(app, messages, odstep_s=SMTP_ODSTEP_MIEDZY_MAILAMI):
@@ -84,6 +160,8 @@ def send_async_email_batch(app, messages, odstep_s=SMTP_ODSTEP_MIEDZY_MAILAMI):
             with mail.connect() as conn:
                 for i, msg in enumerate(messages):
                     recipient = msg.recipients[0] if msg.recipients else 'unknown'
+                    log_id = getattr(msg, '_email_log_id', None)
+                    msg_start = time.time()
                     msg_sent = False
                     for attempt in range(1, SMTP_MAX_RETRIES + 1):
                         try:
@@ -92,6 +170,8 @@ def send_async_email_batch(app, messages, odstep_s=SMTP_ODSTEP_MIEDZY_MAILAMI):
                             msg_sent = True
                             logger.info(f"[EMAIL-BATCH] {i+1}/{total} SUCCESS to={recipient}" +
                                         (f" (attempt {attempt})" if attempt > 1 else ""))
+                            _zapisz_wynik_logu(log_id, 'sent', attempt,
+                                               duration_ms=(time.time() - msg_start) * 1000)
                             break
                         except Exception as e:
                             if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
@@ -103,6 +183,8 @@ def send_async_email_batch(app, messages, odstep_s=SMTP_ODSTEP_MIEDZY_MAILAMI):
                                 failed += 1
                                 logger.error(f"[EMAIL-BATCH] {i+1}/{total} FAILED to={recipient}, "
                                              f"attempt={attempt}, error={type(e).__name__}: {e}")
+                                _zapisz_wynik_logu(log_id, 'failed', attempt, error=e,
+                                                   duration_ms=(time.time() - msg_start) * 1000)
                                 break
                     # Delay between emails to avoid SMTP rate limits
                     # (SMTP_ODSTEP_MIEDZY_MAILAMI; 0 = wyłączony, patrz odstep_s)
@@ -110,9 +192,50 @@ def send_async_email_batch(app, messages, odstep_s=SMTP_ODSTEP_MIEDZY_MAILAMI):
                         time.sleep(odstep_s)
     except Exception as e:
         logger.error(f"[EMAIL-BATCH] Connection error: {type(e).__name__}: {e}")
+        # Padło całe połączenie, więc pętla wyżej nie zdążyła domknąć wpisów
+        # pozostałych wiadomości. Bez tego zostałyby w bazie jako 'queued' —
+        # nie do odróżnienia od maila, który wciąż wisi w wysyłce.
+        _oznacz_reszte_batcha_jako_nieudane(app, messages, e)
 
     elapsed = time.time() - start_time
     logger.info(f"[EMAIL-BATCH] Batch complete: {sent} sent, {failed} failed, took={elapsed:.2f}s")
+
+
+def _oznacz_reszte_batcha_jako_nieudane(app, messages, blad):
+    """Domyka jako 'failed' te wpisy batcha, które zostały w stanie 'queued'."""
+    try:
+        with app.app_context():
+            for msg in messages:
+                log_id = getattr(msg, '_email_log_id', None)
+                if log_id:
+                    _zapisz_wynik_logu_gdy_w_kolejce(log_id, blad)
+    except Exception as e:
+        logger.error(f"[EMAIL-LOG] Nie udało się domknąć wpisów batcha: "
+                     f"{type(e).__name__}: {e}")
+
+
+def _zapisz_wynik_logu_gdy_w_kolejce(log_id, blad):
+    """Ustawia 'failed' wyłącznie na wpisie, który wciąż jest 'queued'.
+
+    Warunek na stan jest istotny: część wiadomości batcha mogła wyjść, zanim
+    połączenie padło, i te mają już swój wynik — nadpisanie zamieniłoby wysłany
+    mail w nieudany.
+    """
+    try:
+        from sqlalchemy.orm import Session
+        from extensions import db
+        from modules.admin.models import EmailLog
+
+        with Session(bind=db.engine) as sesja:
+            wpis = sesja.get(EmailLog, log_id)
+            if wpis is None or wpis.status != 'queued':
+                return
+            wpis.status = 'failed'
+            wpis.error = (f"{type(blad).__name__}: {blad}")[:2000]
+            sesja.commit()
+    except Exception as e:
+        logger.error(f"[EMAIL-LOG] Nie udało się domknąć wpisu id={log_id}: "
+                     f"{type(e).__name__}: {e}")
 
 
 def send_email_batch_sync(messages):
@@ -144,6 +267,8 @@ def send_email_batch_sync(messages):
         with mail.connect() as conn:
             for i, msg in enumerate(messages):
                 recipient = msg.recipients[0] if msg.recipients else 'unknown'
+                log_id = getattr(msg, '_email_log_id', None)
+                msg_start = time.time()
                 for attempt in range(1, SMTP_MAX_RETRIES + 1):
                     try:
                         conn.send(msg)
@@ -151,6 +276,8 @@ def send_email_batch_sync(messages):
                         sent += 1
                         logger.info(f"[EMAIL-BATCH-SYNC] {i+1}/{total} SUCCESS to={recipient}" +
                                     (f" (attempt {attempt})" if attempt > 1 else ""))
+                        _zapisz_wynik_logu(log_id, 'sent', attempt,
+                                           duration_ms=(time.time() - msg_start) * 1000)
                         break
                     except Exception as e:
                         if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
@@ -162,19 +289,26 @@ def send_email_batch_sync(messages):
                             failed += 1
                             logger.error(f"[EMAIL-BATCH-SYNC] {i+1}/{total} FAILED to={recipient}, "
                                          f"attempt={attempt}, error={type(e).__name__}: {e}")
+                            _zapisz_wynik_logu(log_id, 'failed', attempt, error=e,
+                                               duration_ms=(time.time() - msg_start) * 1000)
                             break
                 # Odstęp między mailami — trzyma nas pod limitami dostawcy (~30 maili/min)
                 if i < total - 1:
                     time.sleep(SMTP_ODSTEP_MIEDZY_MAILAMI)
     except Exception as e:
         logger.error(f"[EMAIL-BATCH-SYNC] Connection error: {type(e).__name__}: {e}")
+        # Patrz send_async_email_batch: wpisy bez wyniku nie mogą zostać 'queued'.
+        for msg in messages:
+            log_id = getattr(msg, '_email_log_id', None)
+            if log_id:
+                _zapisz_wynik_logu_gdy_w_kolejce(log_id, e)
 
     elapsed = time.time() - start_time
     logger.info(f"[EMAIL-BATCH-SYNC] Batch complete: {sent} sent, {failed} failed, took={elapsed:.2f}s")
     return results
 
 
-def send_email(to, subject, template, **kwargs):
+def send_email(to, subject, template, log_context=None, **kwargs):
     """
     Wysyła email z templatem HTML
 
@@ -182,10 +316,14 @@ def send_email(to, subject, template, **kwargs):
         to (str): Adres odbiorcy
         subject (str): Temat emaila
         template (str): Ścieżka do template HTML (bez .html)
+        log_context (dict): Opcjonalne powiązanie wpisu EmailLog z encją —
+            {'entity_type': 'order', 'entity_id': 123}. Bez tego mail nadal
+            trafia do logu, tylko nie pokaże się w historii zamówienia.
         **kwargs: Dodatkowe zmienne przekazywane do template
 
     Returns:
-        bool: True jeśli email został wysłany, False w przypadku błędu
+        bool: True jeśli email został ZAKOLEJKOWANY (wysyłka idzie w tle —
+            o jej wyniku mówi dopiero EmailLog, nie ta wartość)
     """
     app = current_app._get_current_object()
 
@@ -221,9 +359,17 @@ def send_email(to, subject, template, **kwargs):
 
         # Wysyłka asynchroniczna (nie blokuje aplikacji)
         logger.info(f"[EMAIL] Queuing email to={to}, subject='{subject}', smtp={app.config.get('MAIL_SERVER')}:{app.config.get('MAIL_PORT')}")
+        try:
+            log_id = _zaloguj_kolejkowanie(to, subject, template, log_context)
+        except Exception as e:
+            # _zaloguj_kolejkowanie łapie własne błędy, ale nie chcemy, żeby
+            # JAKAKOLWIEK awaria logu zabrała klientowi maila.
+            logger.error(f"[EMAIL-LOG] Pominięto log dla to={to}: {type(e).__name__}: {e}")
+            log_id = None
+
         Thread(
             target=send_async_email,
-            args=(app, msg),
+            args=(app, msg, log_id),
             name=f"email-{to}"
         ).start()
         logger.info(f"[EMAIL] Thread started for to={to}")
@@ -235,7 +381,7 @@ def send_email(to, subject, template, **kwargs):
         return False
 
 
-def send_email_sync(to, subject, template, **kwargs):
+def send_email_sync(to, subject, template, log_context=None, **kwargs):
     """
     Wysyła email SYNCHRONICZNIE - czeka na wynik SMTP.
     Używaj dla krytycznych maili (weryfikacja, reset hasła) gdzie musimy
@@ -272,6 +418,7 @@ def send_email_sync(to, subject, template, **kwargs):
                 )
 
         logger.info(f"[EMAIL-SYNC] Sending to={to}, subject='{subject}'")
+        log_id = _zaloguj_kolejkowanie(to, subject, template, log_context)
         start_time = time.time()
 
         for attempt in range(1, SMTP_MAX_RETRIES + 1):
@@ -280,6 +427,7 @@ def send_email_sync(to, subject, template, **kwargs):
                 elapsed = time.time() - start_time
                 logger.info(f"[EMAIL-SYNC] SUCCESS to={to}, took={elapsed:.2f}s" +
                             (f" (attempt {attempt})" if attempt > 1 else ""))
+                _zapisz_wynik_logu(log_id, 'sent', attempt, duration_ms=elapsed * 1000)
                 return True
             except Exception as e:
                 if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
@@ -291,6 +439,8 @@ def send_email_sync(to, subject, template, **kwargs):
                     elapsed = time.time() - start_time
                     logger.error(f"[EMAIL-SYNC] FAILED to={to}, subject='{subject}', "
                                  f"took={elapsed:.2f}s, attempt={attempt}, error={type(e).__name__}: {e}")
+                    _zapisz_wynik_logu(log_id, 'failed', attempt, error=e,
+                                       duration_ms=elapsed * 1000)
                     return False
 
         return False
@@ -300,10 +450,14 @@ def send_email_sync(to, subject, template, **kwargs):
         return False
 
 
-def prepare_email(to, subject, template, **kwargs):
+def prepare_email(to, subject, template, log_context=None, **kwargs):
     """
     Przygotowuje obiekt Message bez wysyłania.
     Używane przez send_email_batch() do batch'owego wysyłania.
+
+    Wpis EmailLog zakładamy już TUTAJ, a jego id wieszamy na wiadomości
+    (`_email_log_id`) — batch dostaje samą listę Message, więc bez tego nie miałby
+    jak połączyć wyniku wysyłki z odbiorcą.
 
     Returns:
         Message lub None w przypadku błędu
@@ -335,6 +489,7 @@ def prepare_email(to, subject, template, **kwargs):
                     headers=[('Content-ID', '<logo@thunderorders>')],
                 )
 
+        msg._email_log_id = _zaloguj_kolejkowanie(to, subject, template, log_context)
         return msg
 
     except Exception as e:
@@ -471,7 +626,7 @@ def send_password_reset_email(user_email, reset_token, user_name):
     )
 
 
-def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_offer=False, payment_stages=None):
+def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_offer=False, payment_stages=None, log_context=None):
     """
     Wysyła potwierdzenie zamówienia do klienta
 
@@ -488,6 +643,7 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         to=user_email,
         subject=f'Potwierdzenie zamówienia {order_number} - ThunderOrders',
         template='order_confirmation',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         order_total=order_total,
@@ -499,7 +655,8 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
 
 def send_admin_created_order_email(user_email, user_name, admin_name, order_number,
                                     page_name, order_total, order_items,
-                                    payment_stages=None, payment_deadline=None):
+                                    payment_stages=None, payment_deadline=None,
+                                    log_context=None):
     """
     Wysyła powiadomienie o zamówieniu utworzonym ręcznie przez administratora
     (np. po zamknięciu strony PRE-ORDER).
@@ -519,6 +676,7 @@ def send_admin_created_order_email(user_email, user_name, admin_name, order_numb
         to=user_email,
         subject=f'Zamówienie {order_number} dodane przez administratora - ThunderOrders',
         template='admin_created_order',
+        log_context=log_context,
         user_name=user_name,
         admin_name=admin_name,
         order_number=order_number,
@@ -530,7 +688,8 @@ def send_admin_created_order_email(user_email, user_name, admin_name, order_numb
     )
 
 
-def send_order_status_change_email(user_email, user_name, order_number, old_status, new_status):
+def send_order_status_change_email(user_email, user_name, order_number, old_status, new_status,
+                                   log_context=None):
     """
     Wysyła powiadomienie o zmianie statusu zamówienia
 
@@ -540,11 +699,13 @@ def send_order_status_change_email(user_email, user_name, order_number, old_stat
         order_number (str): Numer zamówienia
         old_status (str): Poprzedni status
         new_status (str): Nowy status
+        log_context (dict): Powiązanie wpisu EmailLog z zamówieniem
     """
     return send_email(
         to=user_email,
         subject=f'Zmiana statusu zamówienia {order_number} - ThunderOrders',
         template='order_status_change',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         old_status=old_status,
@@ -552,24 +713,28 @@ def send_order_status_change_email(user_email, user_name, order_number, old_stat
     )
 
 
-def send_supplier_ordered_email(user_email, user_name, order_number, order_detail_url):
+def send_supplier_ordered_email(user_email, user_name, order_number, order_detail_url,
+                                log_context=None):
     """Wysyła email o zamówieniu produktów u dostawcy."""
     return send_email(
         to=user_email,
         subject=f'Zamówiliśmy Twoje produkty u dostawcy ({order_number}) - ThunderOrders',
         template='order_supplier_ordered',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         order_detail_url=order_detail_url
     )
 
 
-def send_supplier_cancelled_email(user_email, user_name, order_number, order_detail_url):
+def send_supplier_cancelled_email(user_email, user_name, order_number, order_detail_url,
+                                  log_context=None):
     """Wysyła email o anulowaniu zamówienia u dostawcy."""
     return send_email(
         to=user_email,
         subject=f'Anulowano zamówienie u dostawcy ({order_number}) - ThunderOrders',
         template='order_supplier_cancelled',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         order_detail_url=order_detail_url
@@ -579,7 +744,7 @@ def send_supplier_cancelled_email(user_email, user_name, order_number, order_det
 def send_offer_closure_email(customer_email, customer_name, page_name, items,
                                 fulfilled_items=None, fulfilled_total=0, shipping_cost=0,
                                 grand_total=0, order_number='', payment_methods=None,
-                                upload_payment_url=''):
+                                upload_payment_url='', log_context=None):
     """
     Wysyła email z podsumowaniem zamówienia po zamknięciu strony sprzedaży.
 
@@ -608,6 +773,7 @@ def send_offer_closure_email(customer_email, customer_name, page_name, items,
         to=customer_email,
         subject=f'Podsumowanie zamówienia - {page_name} - ThunderOrders',
         template='offer_closure',
+        log_context=log_context,
         customer_name=customer_name,
         page_name=page_name,
         items=items,
@@ -622,7 +788,7 @@ def send_offer_closure_email(customer_email, customer_name, page_name, items,
 
 
 def send_order_cancelled_email(user_email, user_name, order_number, page_name,
-                               cancelled_items, reason=''):
+                               cancelled_items, reason='', log_context=None):
     """
     Wysyła email o anulowaniu zamówienia.
 
@@ -648,6 +814,7 @@ def send_order_cancelled_email(user_email, user_name, order_number, page_name,
             to=user_email,
             subject=subject,
             template='order_cancelled',
+            log_context=log_context,
             customer_name=user_name,
             order_number=order_number,
             page_name=page_name,
@@ -659,7 +826,7 @@ def send_order_cancelled_email(user_email, user_name, order_number, page_name,
         return False
 
 
-def send_payment_approved_email(user_email, user_name, order_number, amount, order_detail_url, stage_name='za produkt'):
+def send_payment_approved_email(user_email, user_name, order_number, amount, order_detail_url, stage_name='za produkt', log_context=None):
     """
     Wysyła email o zaakceptowaniu potwierdzenia płatności
 
@@ -675,6 +842,7 @@ def send_payment_approved_email(user_email, user_name, order_number, amount, ord
         to=user_email,
         subject=f'Płatność zatwierdzona ({stage_name}) - {order_number} - ThunderOrders',
         template='payment_approved',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         amount=amount,
@@ -683,7 +851,7 @@ def send_payment_approved_email(user_email, user_name, order_number, amount, ord
     )
 
 
-def send_payment_rejected_email(user_email, user_name, order_number, amount, rejection_reason, upload_url, stage_name='za produkt'):
+def send_payment_rejected_email(user_email, user_name, order_number, amount, rejection_reason, upload_url, stage_name='za produkt', log_context=None):
     """
     Wysyła email o odrzuceniu potwierdzenia płatności
 
@@ -700,6 +868,7 @@ def send_payment_rejected_email(user_email, user_name, order_number, amount, rej
         to=user_email,
         subject=f'Płatność odrzucona ({stage_name}) - {order_number} - ThunderOrders',
         template='payment_rejected',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         amount=amount,
@@ -710,7 +879,8 @@ def send_payment_rejected_email(user_email, user_name, order_number, amount, rej
 
 
 def send_admin_payment_uploaded_email(admin_email, customer_name, customer_email,
-                                      order_number, stage_names, review_url):
+                                      order_number, stage_names, review_url,
+                                      log_context=None):
     """
     Wysyła email do admina o nowym potwierdzeniu płatności do weryfikacji.
 
@@ -726,6 +896,7 @@ def send_admin_payment_uploaded_email(admin_email, customer_name, customer_email
         to=admin_email,
         subject=f'Nowe potwierdzenie płatności - {order_number} - ThunderOrders',
         template='admin_payment_uploaded',
+        log_context=log_context,
         customer_name=customer_name,
         customer_email=customer_email,
         order_number=order_number,
@@ -736,7 +907,8 @@ def send_admin_payment_uploaded_email(admin_email, customer_name, customer_email
 
 def send_admin_new_order_email(admin_email, customer_name, customer_email,
                                order_number, page_name, items,
-                               order_total, order_detail_url, created_at):
+                               order_total, order_detail_url, created_at,
+                               log_context=None):
     """
     Wysyła email do admina o nowym zamówieniu ze strony sprzedaży.
 
@@ -755,6 +927,7 @@ def send_admin_new_order_email(admin_email, customer_name, customer_email,
         to=admin_email,
         subject=f'Nowe zamówienie {order_number} - {page_name}',
         template='admin_new_order',
+        log_context=log_context,
         customer_name=customer_name,
         customer_email=customer_email,
         order_number=order_number,
@@ -768,7 +941,8 @@ def send_admin_new_order_email(admin_email, customer_name, customer_email,
 
 def send_order_completed_email(user_email, user_name, order_number, order_items,
                                 products_total, proxy_shipping, customs_vat,
-                                shipping_cost, grand_total, order_detail_url):
+                                shipping_cost, grand_total, order_detail_url,
+                                log_context=None):
     """
     Wysyła email podsumowujący zakończone zamówienie (status: dostarczone).
 
@@ -788,6 +962,7 @@ def send_order_completed_email(user_email, user_name, order_number, order_items,
         to=user_email,
         subject=f'Zamówienie {order_number} zrealizowane - ThunderOrders',
         template='order_completed',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         order_items=order_items,
@@ -865,7 +1040,7 @@ def send_sale_end_date_changed_email(user_email, user_name, page_name,
 
 
 def send_tracking_number_email(user_email, user_name, order_number, tracking_number,
-                                courier_name, tracking_url=None):
+                                courier_name, tracking_url=None, log_context=None):
     """
     Wysyła email z informacją o dodaniu numeru śledzenia przesyłki.
 
@@ -881,6 +1056,7 @@ def send_tracking_number_email(user_email, user_name, order_number, tracking_num
         to=user_email,
         subject=f'Przesyłka nadana - {order_number} - ThunderOrders',
         template='tracking_added',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         tracking_number=tracking_number,
@@ -898,7 +1074,7 @@ def _cost_added_subject(cost_type, order_number):
     return f'Koszt cła i VAT - {order_number} - ThunderOrders'
 
 
-def send_cost_added_email(user_email, user_name, order_number, cost_type, cost_amount, order_detail_url):
+def send_cost_added_email(user_email, user_name, order_number, cost_type, cost_amount, order_detail_url, log_context=None):
     """
     Wysyła email o dodaniu kosztu do zamówienia (wysyłka proxy, cło/VAT lub wysyłka krajowa).
 
@@ -914,6 +1090,7 @@ def send_cost_added_email(user_email, user_name, order_number, cost_type, cost_a
         to=user_email,
         subject=_cost_added_subject(cost_type, order_number),
         template='cost_added',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         cost_type=cost_type,
@@ -922,7 +1099,7 @@ def send_cost_added_email(user_email, user_name, order_number, cost_type, cost_a
     )
 
 
-def prepare_cost_added_email(user_email, user_name, order_number, cost_type, cost_amount, order_detail_url):
+def prepare_cost_added_email(user_email, user_name, order_number, cost_type, cost_amount, order_detail_url, log_context=None):
     """
     Buduje Message o dodaniu kosztu (BEZ wysyłania) — do send_email_batch().
     Parytet treści z send_cost_added_email().
@@ -934,6 +1111,7 @@ def prepare_cost_added_email(user_email, user_name, order_number, cost_type, cos
         to=user_email,
         subject=_cost_added_subject(cost_type, order_number),
         template='cost_added',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         cost_type=cost_type,
@@ -944,7 +1122,8 @@ def prepare_cost_added_email(user_email, user_name, order_number, cost_type, cos
 
 def send_shipping_request_created_email(user_email, user_name, request_number,
                                          orders, delivery_method_display,
-                                         full_address, shipping_requests_url):
+                                         full_address, shipping_requests_url,
+                                         log_context=None):
     """
     Wysyła potwierdzenie utworzenia zlecenia wysyłki.
 
@@ -961,6 +1140,7 @@ def send_shipping_request_created_email(user_email, user_name, request_number,
         to=user_email,
         subject=f'Zlecenie wysyłki {request_number} - ThunderOrders',
         template='shipping_request_created',
+        log_context=log_context,
         user_name=user_name,
         request_number=request_number,
         orders=orders,
@@ -978,7 +1158,7 @@ def _shipping_status_change_subject(request_number, new_status_name):
 def send_shipping_status_change_email(user_email, user_name, request_number,
                                        old_status_name, new_status_name, new_status_color,
                                        orders, tracking_number=None, courier_name=None,
-                                       shipping_requests_url=None):
+                                       shipping_requests_url=None, log_context=None):
     """
     Wysyła powiadomienie o zmianie statusu zlecenia wysyłki.
 
@@ -998,6 +1178,7 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
         to=user_email,
         subject=_shipping_status_change_subject(request_number, new_status_name),
         template='shipping_status_change',
+        log_context=log_context,
         user_name=user_name,
         request_number=request_number,
         old_status_name=old_status_name,
@@ -1013,7 +1194,7 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
 def prepare_shipping_status_change_email(user_email, user_name, request_number,
                                           old_status_name, new_status_name, new_status_color,
                                           orders, tracking_number=None, courier_name=None,
-                                          shipping_requests_url=None):
+                                          shipping_requests_url=None, log_context=None):
     """Wersja send_shipping_status_change_email do wysyłki wsadowej (BEZ wysyłania).
 
     Potrzebna dla paczki zbiorczej: zmiana statusu zbiorczego zjeżdża na wszystkie
@@ -1027,6 +1208,7 @@ def prepare_shipping_status_change_email(user_email, user_name, request_number,
         to=user_email,
         subject=_shipping_status_change_subject(request_number, new_status_name),
         template='shipping_status_change',
+        log_context=log_context,
         user_name=user_name,
         request_number=request_number,
         old_status_name=old_status_name,
@@ -1048,7 +1230,7 @@ def _shipment_sent_subject(request_number, tracking_number=None):
 
 def send_shipment_sent_email(user_email, user_name, request_number, order_numbers,
                              tracking_number=None, courier_name=None, tracking_url=None,
-                             shipping_requests_url=None):
+                             shipping_requests_url=None, log_context=None):
     """
     Wysyła JEDEN mail o wysłanej paczce — na całe zlecenie wysyłki.
 
@@ -1071,6 +1253,7 @@ def send_shipment_sent_email(user_email, user_name, request_number, order_number
         to=user_email,
         subject=_shipment_sent_subject(request_number, tracking_number),
         template='shipment_sent',
+        log_context=log_context,
         user_name=user_name,
         request_number=request_number,
         order_numbers=order_numbers,
@@ -1083,7 +1266,8 @@ def send_shipment_sent_email(user_email, user_name, request_number, order_number
 
 def prepare_shipment_sent_email(user_email, user_name, request_number, order_numbers,
                                 tracking_number=None, courier_name=None, tracking_url=None,
-                                shipping_requests_url=None, consolidation_note=None):
+                                shipping_requests_url=None, consolidation_note=None,
+                                log_context=None):
     """Wersja send_shipment_sent_email do wysyłki wsadowej (BEZ wysyłania).
 
     Pętla po uczestnikach paczki zbiorczej na send_email() otworzyłaby osobne
@@ -1098,6 +1282,7 @@ def prepare_shipment_sent_email(user_email, user_name, request_number, order_num
         to=user_email,
         subject=_shipment_sent_subject(request_number, tracking_number),
         template='shipment_sent',
+        log_context=log_context,
         user_name=user_name,
         request_number=request_number,
         order_numbers=order_numbers,
@@ -1111,7 +1296,7 @@ def prepare_shipment_sent_email(user_email, user_name, request_number, order_num
 
 def prepare_shipment_consolidated_email(user_email, user_name, request_number, order_numbers,
                                         recipient_name, is_recipient,
-                                        shipping_requests_url=None):
+                                        shipping_requests_url=None, log_context=None):
     """Mail o połączeniu wysyłki w paczkę zbiorczą — wersja wsadowa (jedno połączenie SMTP).
 
     Wysyłany raz, w chwili utworzenia paczki — inaczej uczestnik dowiaduje się
@@ -1122,6 +1307,7 @@ def prepare_shipment_consolidated_email(user_email, user_name, request_number, o
         to=user_email,
         subject=f'Twoja wysyłka {request_number} została połączona w paczkę zbiorczą',
         template='shipment_consolidated',
+        log_context=log_context,
         user_name=user_name,
         request_number=request_number,
         order_numbers=order_numbers,
@@ -1131,12 +1317,13 @@ def prepare_shipment_consolidated_email(user_email, user_name, request_number, o
     )
 
 
-def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline'):
+def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline', log_context=None):
     """Wysyła email z przypomnieniem o niezapłaconych etapach zamówienia."""
     return send_email(
         to=user_email,
         subject=f'Przypomnienie o płatności - {order_number} - ThunderOrders',
         template='payment_reminder',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         unpaid_stages=unpaid_stages,
@@ -1146,12 +1333,13 @@ def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stag
     )
 
 
-def prepare_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline'):
+def prepare_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline', log_context=None):
     """Buduje Message przypomnienia o płatności (bez wysyłania) — do batch sendingu."""
     return prepare_email(
         to=user_email,
         subject=f'Przypomnienie o płatności - {order_number} - ThunderOrders',
         template='payment_reminder',
+        log_context=log_context,
         user_name=user_name,
         order_number=order_number,
         unpaid_stages=unpaid_stages,
@@ -1249,7 +1437,7 @@ def send_account_deactivated_email(user_email, user_name, reason=''):
 
 
 def prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
-                                consolidation_note=None):
+                                consolidation_note=None, log_context=None):
     """Buduje Message ze zdjęciem paczki (BEZ wysyłania) — do batch sendingu.
 
     Nie korzysta z `prepare_email`, bo ten dokłada wyłącznie logo, a tutaj
@@ -1306,6 +1494,8 @@ def prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
                 headers=[('Content-ID', '<packing_photo@thunderorders>')],
             )
 
+        msg._email_log_id = _zaloguj_kolejkowanie(
+            user_email, msg.subject, 'packing_photo', log_context)
         return msg
 
     except Exception as e:
@@ -1315,7 +1505,7 @@ def prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
 
 
 def send_packing_photo_email(user_email, user_name, order_number, photo_path,
-                             consolidation_note=None):
+                             consolidation_note=None, log_context=None):
     """
     Wysyła email ze zdjęciem spakowanej paczki do klienta.
 
@@ -1329,7 +1519,8 @@ def send_packing_photo_email(user_email, user_name, order_number, photo_path,
     app = current_app._get_current_object()
 
     msg = prepare_packing_photo_email(user_email, user_name, order_number, photo_path,
-                                      consolidation_note=consolidation_note)
+                                      consolidation_note=consolidation_note,
+                                      log_context=log_context)
     if msg is None:
         logger.error(f"[EMAIL] Packing photo email FAILED to={user_email}: brak wiadomości")
         return False
@@ -1337,7 +1528,7 @@ def send_packing_photo_email(user_email, user_name, order_number, photo_path,
     logger.info(f"[EMAIL] Queuing packing photo email to={user_email}, order={order_number}")
     Thread(
         target=send_async_email,
-        args=(app, msg),
+        args=(app, msg, getattr(msg, '_email_log_id', None)),
         name=f"email-packing-{user_email}"
     ).start()
 

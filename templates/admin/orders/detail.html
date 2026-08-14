@@ -1455,6 +1455,25 @@
                                 <span class="history-text">Zwrot {{ "%.2f"|format(event.amount) }} PLN - {{ event.status }}</span>
                                 <span class="history-date">{{ event.created_at|format_datetime }}</span>
                             </div>
+                            {% elif event.type == 'email' %}
+                            <div class="history-item">
+                                <span class="history-icon">{% if event.email.status == 'sent' %}📧{% elif event.email.status == 'failed' %}⚠️{% else %}⏳{% endif %}</span>
+                                <span class="history-text">
+                                    E-mail „{{ event.email.type_label }}" do {{ event.email.recipient }} — <span class="email-log-status email-log-status--{{ event.email.status }}">{{ event.email.status_label }}</span>
+                                    {%- if event.email.attempts > 1 %}
+                                    {# Druga próba znaczy, że klient MÓGŁ dostać duplikat: serwer bywa,
+                                       że przyjmie wiadomość i zerwie połączenie przed odpowiedzią. #}
+                                    <span class="email-log-warning">próby: {{ event.email.attempts }} — możliwy duplikat u klienta</span>
+                                    {%- endif %}
+                                    {%- if event.email.sent_at and (event.email.sent_at - event.email.created_at).total_seconds() > 300 %}
+                                    <span class="email-log-warning">opóźnienie: {{ ((event.email.sent_at - event.email.created_at).total_seconds() / 60)|round|int }} min</span>
+                                    {%- endif %}
+                                    {%- if event.email.error %}
+                                    <br><small class="email-log-error">{{ event.email.error }}</small>
+                                    {%- endif %}
+                                </span>
+                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                            </div>
                             {% elif event.type == 'activity' %}
                             <div class="history-item">
                                 {% if event.action == 'order_products_added' %}

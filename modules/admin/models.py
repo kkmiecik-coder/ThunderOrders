@@ -279,3 +279,94 @@ class ActivityLog(db.Model):
             'refund_issued': 'Wydanie zwrotu',
         }
         return action_names.get(self.action, self.action)
+
+
+class EmailLog(db.Model):
+    """Ślad po każdym mailu wychodzącym z systemu — od zakolejkowania po wynik SMTP.
+
+    Tabela: email_log
+
+    Osobno od ActivityLog, bo to nie jest zmiana danych zrobiona przez człowieka,
+    tylko przebieg techniczny: ma własne stany, licznik prób i czas trwania połączenia.
+    Upchnięcie tego w `activity_log.new_value` (JSON) uniemożliwiłoby filtrowanie po
+    statusie i mieszałoby maile systemowe (przypomnienia, broadcasty) z historią zamówień.
+
+    Zapis jest DWUFAZOWY: wiersz powstaje jako `queued` w wątku, który mail zleca, a
+    wątek wysyłkowy podmienia go na `sent`/`failed`. Bez tej drugiej fazy wpis mówiłby
+    tylko „próbowaliśmy" — a pytania, na które ta tabela ma odpowiadać, brzmią „czy
+    doszło", „ile to trwało" i „czy nie poszło dwa razy".
+    """
+    __tablename__ = 'email_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    recipient = db.Column(db.String(255), nullable=False, index=True)
+    subject = db.Column(db.String(500), nullable=True)
+    # Nazwa szablonu = typ maila ('order_status_change', 'payment_approved', ...).
+    # Bierze się wprost z wywołania send_email(), więc nie trzeba utrzymywać
+    # osobnego słownika typów, który i tak rozjechałby się z szablonami.
+    template = db.Column(db.String(100), nullable=True, index=True)
+
+    # Powiązanie z encją — te same nazwy co w ActivityLog ('order', 'shipping_request'),
+    # żeby historia zmian zamówienia mogła zestawić oba źródła bez tłumaczenia nazw.
+    # Nullable, bo maile systemowe (weryfikacja konta, broadcast) nie mają encji.
+    entity_type = db.Column(db.String(50), nullable=True)
+    entity_id = db.Column(db.Integer, nullable=True)
+
+    status = db.Column(db.String(20), nullable=False, default='queued', index=True)
+    # Numer próby, na której skończyła się wysyłka. >1 znaczy, że klient MÓGŁ dostać
+    # duplikat: serwer bywa, że przyjmie wiadomość i zerwie połączenie przed odpowiedzią,
+    # a taki błąd jest dla nas nieodróżnialny od „nie dotarło" (utils/email_sender.py).
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    error = db.Column(db.Text, nullable=True)
+    # Czas od startu wysyłki do wyniku, razem z drzemkami między próbami.
+    duration_ms = db.Column(db.Integer, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False, index=True)
+    sent_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.Index('ix_email_log_entity', 'entity_type', 'entity_id'),
+    )
+
+    def __repr__(self):
+        return f'<EmailLog {self.id}: {self.template} to={self.recipient} {self.status}>'
+
+    @property
+    def status_label(self):
+        """Etykieta statusu po polsku (panel admina)."""
+        return {
+            'queued': 'w kolejce',
+            'sent': 'wysłany',
+            'failed': 'błąd wysyłki',
+        }.get(self.status, self.status)
+
+    @property
+    def type_label(self):
+        """Czytelna nazwa typu maila; nieznany szablon zwraca własną nazwę."""
+        return EMAIL_TYPE_LABELS.get(self.template, self.template or 'e-mail')
+
+
+# Nazwy szablonów → opis dla człowieka. Świadomie niepełna: nieznany szablon
+# pokazuje się pod własną nazwą (type_label), więc nowy mail nigdy nie znika
+# z historii tylko dlatego, że ktoś zapomniał dopisać go tutaj.
+EMAIL_TYPE_LABELS = {
+    'order_confirmation': 'potwierdzenie zamówienia',
+    'admin_created_order': 'zamówienie dodane przez administratora',
+    'order_status_change': 'zmiana statusu',
+    'order_completed': 'zamówienie zrealizowane',
+    'order_cancelled': 'anulowanie zamówienia',
+    'order_supplier_ordered': 'zamówione u dostawcy',
+    'order_supplier_cancelled': 'anulowane u dostawcy',
+    'offer_closure': 'podsumowanie strony sprzedaży',
+    'tracking_added': 'numer przesyłki',
+    'shipment_sent': 'paczka wysłana',
+    'shipment_consolidated': 'paczka zbiorcza',
+    'shipping_request_created': 'zlecenie wysyłki utworzone',
+    'shipping_status_change': 'zmiana statusu zlecenia',
+    'packing_photo': 'zdjęcie paczki',
+    'delivery_confirmed': 'potwierdzenie dostawy',
+    'cost_added': 'dodany koszt',
+    'payment_approved': 'płatność zatwierdzona',
+    'payment_rejected': 'płatność odrzucona',
+    'payment_reminder': 'przypomnienie o płatności',
+}

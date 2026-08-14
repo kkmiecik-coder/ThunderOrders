@@ -54,6 +54,25 @@ import time
 from flask import current_app, url_for
 
 
+def kontekst_zamowienia(order):
+    """Powiązanie wpisu EmailLog z zamówieniem — do parametru `log_context`.
+
+    Dzięki temu mail pokazuje się w „Historii zmian" zamówienia w panelu admina.
+    Nazwy pól są te same co w ActivityLog, żeby oba źródła dało się zestawić
+    w jednej osi czasu bez tłumaczenia.
+    """
+    if order is None or getattr(order, 'id', None) is None:
+        return None
+    return {'entity_type': 'order', 'entity_id': order.id}
+
+
+def kontekst_zlecenia(shipping_request):
+    """Jak kontekst_zamowienia, ale dla zlecenia wysyłki."""
+    if shipping_request is None or getattr(shipping_request, 'id', None) is None:
+        return None
+    return {'entity_type': 'shipping_request', 'entity_id': shipping_request.id}
+
+
 class EmailManager:
     """Centralny dispatcher emailowy dla ThunderOrders."""
 
@@ -308,7 +327,8 @@ class EmailManager:
                 order_total=float(order.total_amount),
                 order_items=order_items,
                 is_offer=order.offer_page_id is not None,
-                payment_stages=order.payment_stages
+                payment_stages=order.payment_stages,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Order confirmation email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -375,6 +395,7 @@ class EmailManager:
                 order_items=order_items,
                 payment_stages=order.payment_stages,
                 payment_deadline=payment_deadline_str,
+                log_context=kontekst_zamowienia(order),
             )
             current_app.logger.info(
                 f"Admin-created order email sent for {order.order_number} to {email}"
@@ -419,6 +440,7 @@ class EmailManager:
                 order_number=order.order_number,
                 photo_path=order.packing_photo,
                 consolidation_note=consolidation_note,
+                log_context=kontekst_zamowienia(order),
             )
             current_app.logger.info(
                 f"Packing photo email sent for {order.order_number} to {email}"
@@ -513,6 +535,7 @@ class EmailManager:
                 order_number=order.order_number,
                 photo_path=order.packing_photo,
                 consolidation_note=notatka,
+                log_context=kontekst_zamowienia(order),
             ))
 
         if not wiadomosci:
@@ -564,7 +587,8 @@ class EmailManager:
                 user_name=order.customer_name,
                 order_number=order.order_number,
                 old_status=old_status,
-                new_status=new_status
+                new_status=new_status,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Status change email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -589,7 +613,8 @@ class EmailManager:
                 user_email=email,
                 user_name=order.customer_name,
                 order_number=order.order_number,
-                order_detail_url=order_detail_url
+                order_detail_url=order_detail_url,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Supplier ordered email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -614,7 +639,8 @@ class EmailManager:
                 user_email=email,
                 user_name=order.customer_name,
                 order_number=order.order_number,
-                order_detail_url=order_detail_url
+                order_detail_url=order_detail_url,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Supplier cancelled email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -670,7 +696,8 @@ class EmailManager:
                 customs_vat=customs_vat,
                 shipping_cost=shipping_cost,
                 grand_total=grand_total,
-                order_detail_url=order_detail_url
+                order_detail_url=order_detail_url,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Order completed email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -711,7 +738,8 @@ class EmailManager:
                 order_number=order.order_number,
                 tracking_number=tracking_number,
                 courier_name=courier_name,
-                tracking_url=tracking_url
+                tracking_url=tracking_url,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Tracking email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -766,7 +794,8 @@ class EmailManager:
                 grand_total=grand_total,
                 order_number=order.order_number,
                 payment_methods=payment_methods or [],
-                upload_payment_url=upload_payment_url
+                upload_payment_url=upload_payment_url,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Offer closure email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -802,7 +831,8 @@ class EmailManager:
                 order_number=order.order_number,
                 page_name=page.name,
                 cancelled_items=cancelled_items,
-                reason=reason
+                reason=reason,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Cancellation email sent for {order.order_number} to {email}")
         except Exception as e:
@@ -1006,7 +1036,8 @@ class EmailManager:
                 orders=shipping_request.orders,
                 delivery_method_display=delivery_method_display,
                 full_address=shipping_request.full_address,
-                shipping_requests_url=url_for('client.shipping_requests_list', _external=True)
+                shipping_requests_url=url_for('client.shipping_requests_list', _external=True),
+                log_context=kontekst_zlecenia(shipping_request)
             )
             current_app.logger.info(
                 f"Shipping request email sent for {shipping_request.request_number} to {email}"
@@ -1076,7 +1107,8 @@ class EmailManager:
                 orders=shipping_request.orders,
                 tracking_number=shipping_request.tracking_number,
                 courier_name=courier_name,
-                shipping_requests_url=url_for('client.shipping_requests_list', _external=True)
+                shipping_requests_url=url_for('client.shipping_requests_list', _external=True),
+                log_context=kontekst_zlecenia(shipping_request)
             )
             current_app.logger.info(
                 f"Shipping status change email sent for {shipping_request.request_number} to {user.email}"
@@ -1133,6 +1165,9 @@ class EmailManager:
                 tracking_number=sr.tracking_number,
                 courier_name=courier_name,
                 shipping_requests_url=requests_url,
+                # Zlecenie ŹRÓDŁOWE uczestnika, nie paczka zbiorcza — inaczej wszystkie
+                # maile wylądowałyby pod jedną encją, a uczestnik nie znalazłby swojego.
+                log_context=kontekst_zlecenia(uczestnik['source_request']),
             ))
 
         send_email_batch(wiadomosci)
@@ -1211,6 +1246,7 @@ class EmailManager:
                 courier_name=courier_name,
                 tracking_url=tracking_url,
                 shipping_requests_url=url_for('client.shipping_requests_list', _external=True),
+                log_context=kontekst_zlecenia(shipping_request),
             )
             current_app.logger.info(
                 f"Shipment email sent for {shipping_request.request_number} to {email}"
@@ -1292,6 +1328,7 @@ class EmailManager:
                 tracking_url=tracking_url,
                 shipping_requests_url=requests_url,
                 consolidation_note=nota,
+                log_context=kontekst_zlecenia(uczestnik['source_request']),
             ))
 
         send_email_batch(wiadomosci)
@@ -1341,6 +1378,7 @@ class EmailManager:
                 recipient_name=adresat,
                 is_recipient=uczestnik['source_request'].id == sr.lead_source_request_id,
                 shipping_requests_url=requests_url,
+                log_context=kontekst_zlecenia(uczestnik['source_request']),
             ))
 
         if not wiadomosci:
@@ -1387,7 +1425,8 @@ class EmailManager:
                 order_number=order.order_number,
                 cost_type=cost_type,
                 cost_amount=cost_amount,
-                order_detail_url=detail_url
+                order_detail_url=detail_url,
+                log_context=kontekst_zamowienia(order)
             )
             cost_labels = {'proxy_shipping': 'proxy shipping', 'customs_vat': 'customs/VAT', 'domestic_shipping': 'domestic shipping'}
             cost_label = cost_labels.get(cost_type, cost_type)
@@ -1431,6 +1470,7 @@ class EmailManager:
                 cost_type=cost_type,
                 cost_amount=cost_amount,
                 order_detail_url=url_for('orders.client_detail', order_id=order.id, _external=True),
+                log_context=kontekst_zamowienia(order),
             )
             if msg:
                 messages.append(msg)
@@ -1478,7 +1518,8 @@ class EmailManager:
                     customer_email=order.customer_email,
                     order_number=order.order_number,
                     stage_names=stage_names,
-                    review_url=review_url
+                    review_url=review_url,
+                    log_context=kontekst_zamowienia(order)
                 )
             except Exception as e:
                 current_app.logger.error(
@@ -1534,7 +1575,8 @@ class EmailManager:
                     items=items,
                     order_total=order_total,
                     order_detail_url=order_detail_url,
-                    created_at=created_at
+                    created_at=created_at,
+                    log_context=kontekst_zamowienia(order)
                 )
             except Exception as e:
                 current_app.logger.error(
@@ -1588,7 +1630,8 @@ class EmailManager:
                 unpaid_stages=unpaid_stages,
                 order_detail_url=confirmations_url,
                 payment_deadline=payment_deadline,
-                reminder_context=reminder_context
+                reminder_context=reminder_context,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(
                 f"Payment reminder sent for {order.order_number} to {email} "
@@ -1648,7 +1691,8 @@ class EmailManager:
             unpaid_stages=unpaid_stages,
             order_detail_url=confirmations_url,
             payment_deadline=payment_deadline,
-            reminder_context=reminder_context
+            reminder_context=reminder_context,
+            log_context=kontekst_zamowienia(order)
         )
 
     @staticmethod
@@ -1718,7 +1762,8 @@ class EmailManager:
                 order_number=order.order_number,
                 amount=float(confirmation.amount),
                 order_detail_url=order_detail_url,
-                stage_name=stage_name
+                stage_name=stage_name,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Payment approved email sent for {order.order_number} ({stage_name}) to {email}")
         except Exception as e:
@@ -1758,7 +1803,8 @@ class EmailManager:
                 amount=float(confirmation.amount),
                 rejection_reason=rejection_reason,
                 upload_url=upload_url,
-                stage_name=stage_name
+                stage_name=stage_name,
+                log_context=kontekst_zamowienia(order)
             )
             current_app.logger.info(f"Payment rejected email sent for {order.order_number} ({stage_name}) to {email}")
         except Exception as e:

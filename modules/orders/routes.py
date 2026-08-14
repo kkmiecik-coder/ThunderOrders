@@ -503,6 +503,38 @@ def admin_detail(order_id):
             'new_value': new_value_data
         })
 
+    # Maile wysłane w sprawie tego zamówienia (EmailLog). Osobne źródło od
+    # ActivityLog, bo to przebieg techniczny, nie zmiana danych — ale w historii
+    # zmian ląduje na tej samej osi czasu, żeby dało się zestawić „zmieniono
+    # status o 14:02" z „mail o statusie wyszedł o 17:05, w drugiej próbie".
+    from sqlalchemy import and_, or_
+    from modules.admin.models import EmailLog
+
+    # Maile wysyłkowe („paczka wysłana", „zmiana statusu zlecenia") logują się z
+    # kontekstem ZLECENIA, nie zamówienia — a admin szuka ich właśnie tutaj. Bierzemy
+    # zarówno zlecenie, w którym zamówienie fizycznie leży, jak i źródłowe: po
+    # konsolidacji to dwa różne zlecenia, a mail do klienta idzie z numerem źródłowego.
+    zlecenia_ids = set()
+    for ro in order.shipping_request_orders:
+        if ro.shipping_request_id:
+            zlecenia_ids.add(ro.shipping_request_id)
+        if ro.source_request_id:
+            zlecenia_ids.add(ro.source_request_id)
+
+    warunki = [and_(EmailLog.entity_type == 'order', EmailLog.entity_id == order.id)]
+    if zlecenia_ids:
+        warunki.append(and_(EmailLog.entity_type == 'shipping_request',
+                            EmailLog.entity_id.in_(zlecenia_ids)))
+
+    maile = EmailLog.query.filter(or_(*warunki)).order_by(EmailLog.created_at).all()
+
+    for wpis in maile:
+        timeline.append({
+            'type': 'email',
+            'created_at': wpis.created_at,
+            'email': wpis,
+        })
+
     # Sort timeline by date (oldest first, newest at bottom)
     timeline.sort(key=lambda x: x['created_at'], reverse=False)
 
@@ -1773,8 +1805,15 @@ def client_detail(order_id):
     ).order_by(ActivityLog.created_at.desc()).all()
 
     for log in activity_logs:
-        # Pobierz konfigurację akcji
-        config = ORDER_ACTION_CONFIG.get(log.action, {'label': log.action, 'icon': '📝'})
+        # Biała lista: klient ogląda tylko akcje, dla których mamy przygotowany
+        # polski opis. Nieznana akcja renderowała się dotąd surową nazwą z bazy
+        # ('order_status_auto_updated 📝'), więc każda nowa akcja techniczna
+        # wyciekała klientowi na stronę w chwili dodania. Admin nadal widzi
+        # wszystko — jego oś czasu buduje osobny kod (admin_detail).
+        if log.action not in ORDER_ACTION_CONFIG:
+            continue
+
+        config = ORDER_ACTION_CONFIG[log.action]
 
         # Podstawowe dane zdarzenia
         history_item = {
