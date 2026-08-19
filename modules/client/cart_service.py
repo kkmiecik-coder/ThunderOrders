@@ -16,7 +16,9 @@ from modules.orders.models import (
     Order, OrderItem,
     ShippingRequest, ShippingRequestOrder, ShippingRequestStatus,
 )
-from modules.orders.utils import generate_order_number
+from modules.orders.utils import (
+    assign_order_number, get_order_prefix, order_number_placeholder,
+)
 from modules.auth.models import Settings, ShippingAddress, User
 from utils.activity_logger import log_activity
 from modules.client.shop_service import slugify
@@ -255,7 +257,7 @@ def place_order_on_hand(user_id, create_shipping=False, address_id=None):
 
     # 4. Create order
     try:
-        order_number = generate_order_number('on_hand')
+        get_order_prefix('on_hand')  # numer nadajemy po flushu, z ID rekordu
         total = sum(
             (item.product.sale_price or Decimal('0')) * item.quantity
             for item in items
@@ -263,7 +265,7 @@ def place_order_on_hand(user_id, create_shipping=False, address_id=None):
         )
 
         order = Order(
-            order_number=order_number,
+            order_number=order_number_placeholder(),
             user_id=user_id,
             order_type='on_hand',
             status='nowe',
@@ -272,6 +274,7 @@ def place_order_on_hand(user_id, create_shipping=False, address_id=None):
         )
         db.session.add(order)
         db.session.flush()  # get order.id
+        order_number = assign_order_number(order, 'on_hand')
 
         # 5. Create order items, decrease stock, record interaction
         # Re-validate stock with row lock to prevent race conditions

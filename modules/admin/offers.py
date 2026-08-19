@@ -2562,7 +2562,9 @@ def offers_extra_order_create(page_id):
     from decimal import Decimal
     from modules.auth.models import User
     from modules.orders.models import Order, OrderItem
-    from modules.orders.utils import generate_order_number
+    from modules.orders.utils import (
+        assign_order_number, get_order_prefix, order_number_placeholder,
+    )
     from modules.products.models import Product
     from utils.activity_logger import log_activity
 
@@ -2619,12 +2621,12 @@ def offers_extra_order_create(page_id):
                         allowed_product_ids.add(p.id)
 
     try:
-        order_number = generate_order_number('pre_order')
+        get_order_prefix('pre_order')  # numer nadajemy po flushu, z ID rekordu
     except Exception as e:
         return jsonify({'error': 'order_number_failed', 'message': str(e)}), 500
 
     order = Order(
-        order_number=order_number,
+        order_number=order_number_placeholder(),
         order_type='pre_order',
         user_id=user.id,
         status='nowe',
@@ -2637,6 +2639,7 @@ def offers_extra_order_create(page_id):
     )
     db.session.add(order)
     db.session.flush()
+    assign_order_number(order, 'pre_order')
 
     total_amount = Decimal('0.00')
     total_items_count = 0

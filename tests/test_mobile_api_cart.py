@@ -34,7 +34,7 @@ def _onhand_type(db):
 
 
 def _onhand_order_type(db):
-    """Seed OrderType('on_hand') wymagany przez generate_order_number przy checkout."""
+    """Seed OrderType('on_hand') wymagany przez nadanie numeru zamówienia przy checkout."""
     from modules.orders.models import OrderType
     ot = OrderType.query.filter_by(slug='on_hand').first()
     if not ot:

@@ -302,7 +302,7 @@ def test_extend_requires_ownership(client, db, make_user, make_product):
 # ---------------------------------------------------------------------------
 
 def _ex_order_type(db):
-    """Tworzy OrderType slug='exclusive' (prefix EX) wymagany przez generate_order_number."""
+    """Tworzy OrderType slug='exclusive' (prefix EX) wymagany przy nadaniu numeru zamówienia."""
     from modules.orders.models import OrderType
     ot = OrderType.query.filter_by(slug='exclusive').first()
     if not ot:

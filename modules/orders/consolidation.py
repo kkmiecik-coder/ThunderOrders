@@ -97,14 +97,9 @@ def _kopiuj_adres(zbiorcze, lead):
 
 
 def _nowy_numer():
-    """Numer paczki zbiorczej. Generator czyta ostatni wiersz bez blokady, a admin
-    tworzy zlecenia równolegle do klientów — przy kolizji próbujemy ponownie."""
+    """Numer paczki zbiorczej — generator sam pomija numery już zajęte."""
     from modules.orders.models import ShippingRequest
-    for _ in range(5):
-        numer = ShippingRequest.generate_request_number()
-        if not ShippingRequest.query.filter_by(request_number=numer).first():
-            return numer
-    raise ConsolidationError('Nie udało się nadać numeru paczki — spróbuj ponownie.', 500)
+    return ShippingRequest.generate_request_number()
 
 
 def utworz_konsolidacje(request_ids, lead_request_id, user=None):

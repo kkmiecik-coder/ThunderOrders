@@ -3,13 +3,15 @@ Orders Module - Utility Functions
 ==================================
 
 Helper functions for orders management:
-- Order number generation
+- Order number generation (format: {PREFIX}/{ID}, bez zer wiodących)
 - Courier detection from tracking number
 - Tracking URL generation
 - Status badge classes
 """
 
 import re
+import uuid
+
 from extensions import db
 from modules.orders.models import Order, OrderType
 
@@ -18,45 +20,94 @@ from modules.orders.models import Order, OrderType
 # ORDER NUMBER GENERATION
 # ====================
 
-def generate_order_number(order_type_slug):
+def normalize_order_number(order_number):
     """
-    Generate unique order number based on order type.
+    Usuwa zera wiodące z części sekwencyjnej numeru.
 
-    Format: {PREFIX}/{SEQUENCE}
-    Examples: PO/00000001, OH/00000002, EX/00000003
-
-    Args:
-        order_type_slug (str): Order type slug ('pre_order', 'on_hand', 'exclusive')
-
-    Returns:
-        str: Formatted order number
+    Prefiks (także wieloczłonowy) zostaje nietknięty:
+    'EX/00001804' -> 'EX/1804', 'PRX/PL/00001' -> 'PRX/PL/1'.
+    Numery nieliczbowe (np. placeholder) wracają bez zmian.
     """
-    # Get order type to retrieve prefix
+    if not order_number or '/' not in order_number:
+        return order_number
+
+    prefix, _, sequence = order_number.rpartition('/')
+    if not sequence.isdigit():
+        return order_number
+
+    return f"{prefix}/{int(sequence)}"
+
+
+def order_number_placeholder():
+    """
+    Tymczasowy numer na czas INSERT-a, zanim rekord dostanie ID.
+
+    Musi być unikalny, bo `orders.order_number` ma UNIQUE — dwa równoległe
+    zamówienia nie mogą zderzyć się już na placeholderze. Żyje do najbliższego
+    `assign_order_number()` w tej samej transakcji.
+
+    Mieści się w VARCHAR(20): 'TMP/' + 12 znaków hex.
+    """
+    return f"TMP/{uuid.uuid4().hex[:12]}"
+
+
+def get_order_prefix(order_type_slug):
+    """
+    Prefiks numeru dla typu zamówienia ('PO', 'OH', 'EX').
+
+    Raises:
+        ValueError: gdy typ nie istnieje w słowniku OrderType.
+    """
     order_type = OrderType.query.filter_by(slug=order_type_slug).first()
     if not order_type:
         raise ValueError(f"Invalid order type: {order_type_slug}")
+    return order_type.prefix
 
-    prefix = order_type.prefix  # PO, OH, or EX
 
-    # Find the highest order number for this type
-    last_order = Order.query.filter(
-        Order.order_number.like(f"{prefix}/%")
-    ).order_by(
-        Order.id.desc()
-    ).first()
+def assign_order_number(order, order_type_slug):
+    """
+    Nadaje zamówieniu docelowy numer w formacie {PREFIX}/{ID}.
 
-    if last_order:
-        # Extract sequence number from last order
-        try:
-            last_sequence = int(last_order.order_number.split('/')[-1])
-            next_sequence = last_sequence + 1
-        except (ValueError, IndexError):
-            next_sequence = 1
-    else:
-        next_sequence = 1
+    Numer wynika z klucza głównego, więc kolizja jest niemożliwa nawet przy
+    równoległych zamówieniach z tej samej sekundy (ClickUp 869ekw4p0) — stary
+    generator czytał ostatni numer zwykłym SELECT-em i przy sprzedaży LIVE
+    nadawał ten sam numer kilku klientom.
 
-    # Format: PREFIX/00000001
-    return f"{prefix}/{next_sequence:08d}"
+    Wywołanie MUSI nastąpić po `db.session.flush()`, gdy rekord ma już ID.
+
+    Args:
+        order (Order): zamówienie po flushu (z nadanym ID)
+        order_type_slug (str): slug typu ('pre_order', 'on_hand', 'exclusive')
+
+    Returns:
+        str: nadany numer
+
+    Raises:
+        ValueError: nieznany typ zamówienia
+        RuntimeError: rekord nie ma jeszcze ID (brak flusha)
+    """
+    if order.id is None:
+        raise RuntimeError(
+            "assign_order_number wymaga ID — wywołaj po db.session.flush()"
+        )
+
+    prefix = get_order_prefix(order_type_slug)
+
+    # Numer historyczny (sprzed przejścia na ID) może przypadkiem zająć
+    # {PREFIX}/{ID} nowego rekordu — wtedy bierzemy pierwszy wolny.
+    sequence = order.id
+    while True:
+        candidate = f"{prefix}/{sequence}"
+        zajety = Order.query.filter(
+            Order.order_number == candidate,
+            Order.id != order.id
+        ).first()
+        if not zajety:
+            break
+        sequence += 1
+
+    order.order_number = candidate
+    return candidate
 
 
 # ====================
@@ -352,3 +403,88 @@ def zaloguj_blad_z_identyfikatorem(kontekst):
     blad_id = uuid.uuid4().hex[:8]
     current_app.logger.exception(f'[{blad_id}] {kontekst}')
     return blad_id
+
+
+def apply_order_sorting(query, sort_by, sort_order):
+    """
+    Dokłada sortowanie do zapytania o zamówienia.
+
+    Numer nie nadaje się do sortowania tekstowego, odkąd nie ma zer wiodących
+    ('EX/999' > 'EX/1804' leksykograficznie). Sekwencja rośnie razem z ID, więc
+    sortujemy po (typ, ID) — kolejność jak po numerze, a numery różnych typów
+    nadal trzymają się razem na liście.
+
+    Args:
+        query: zapytanie o Order
+        sort_by (str): 'order_number', 'total_amount' lub cokolwiek (created_at)
+        sort_order (str): 'asc' albo 'desc'
+
+    Returns:
+        Zapytanie z ORDER BY
+    """
+    malejaco = sort_order == 'desc'
+
+    if sort_by == 'order_number':
+        kolumny = (Order.order_type, Order.id)
+    elif sort_by == 'total_amount':
+        kolumny = (Order.total_amount,)
+    else:
+        kolumny = (Order.created_at,)
+
+    return query.order_by(*(k.desc() if malejaco else k.asc() for k in kolumny))
+
+
+def plan_number_normalization(rows):
+    """
+    Układa plan przenumerowania historii: obcięcie zer wiodących + rozbicie
+    duplikatów, które narosły przez race condition w starym generatorze
+    (ClickUp 869ekw4p0).
+
+    Zasady:
+    - numer zachowuje rekord z najniższym ID (to jego numer poszedł w mailach
+      jako pierwszy),
+    - pozostałe dostają kolejne numery ZA końcem swojej serii. Wciskanie ich
+      w luki po skasowanych zamówieniach dałoby lipcowemu zamówieniu numer
+      wyglądający na kwietniowy.
+
+    Args:
+        rows: iterable par (id, numer), dowolna kolejność
+
+    Returns:
+        dict: {id: nowy_numer} — tylko rekordy wymagające UPDATE-u
+    """
+    rows = sorted(rows, key=lambda r: r[0])
+
+    # Numery, które ktoś już „ma" po normalizacji — zastępczy numer duplikatu
+    # nie może zabrać numeru rekordowi, który dostałby go zgodnie z historią.
+    zarezerwowane = {normalize_order_number(number) for _, number in rows}
+
+    # Koniec każdej serii, od którego dokładamy numery zastępcze
+    nastepny_wolny = {}
+    for numer in zarezerwowane:
+        prefix, _, sekwencja = numer.rpartition('/')
+        if sekwencja.isdigit():
+            nastepny_wolny[prefix] = max(
+                nastepny_wolny.get(prefix, 0), int(sekwencja) + 1
+            )
+
+    plan = {}
+    zajete = set()
+
+    for record_id, number in rows:
+        docelowy = normalize_order_number(number)
+
+        if docelowy in zajete:
+            prefix, _, _ = docelowy.rpartition('/')
+            sequence = nastepny_wolny.get(prefix, 1)
+            while (f"{prefix}/{sequence}" in zajete
+                   or f"{prefix}/{sequence}" in zarezerwowane):
+                sequence += 1
+            docelowy = f"{prefix}/{sequence}"
+            nastepny_wolny[prefix] = sequence + 1
+
+        zajete.add(docelowy)
+        if docelowy != number:
+            plan[record_id] = docelowy
+
+    return plan

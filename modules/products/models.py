@@ -306,7 +306,7 @@ class ProxyOrder(db.Model):
     __tablename__ = 'proxy_orders'
 
     id = db.Column(db.Integer, primary_key=True)
-    order_number = db.Column(db.String(50), unique=True, nullable=False)  # Format: PRX/00001
+    order_number = db.Column(db.String(50), unique=True, nullable=False)  # Format: PRX/41
     order_type = db.Column(db.Enum('proxy', 'polska', name='stock_order_types'), nullable=False)
 
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
@@ -391,7 +391,7 @@ class PolandOrder(db.Model):
     __tablename__ = 'poland_orders'
 
     id = db.Column(db.Integer, primary_key=True)
-    order_number = db.Column(db.String(50), unique=True, nullable=False)  # PRX/PL/00001
+    order_number = db.Column(db.String(50), unique=True, nullable=False)  # PRX/PL/13
     proxy_order_id = db.Column(db.Integer, db.ForeignKey('proxy_orders.id'), nullable=False)
 
     status = db.Column(db.Enum(

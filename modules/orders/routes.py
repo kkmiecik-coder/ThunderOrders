@@ -31,7 +31,8 @@ from modules.orders.forms import (
     ShippingAddressForm, PickupPointForm
 )
 from modules.orders.utils import (
-    generate_order_number, detect_courier, get_tracking_url,
+    apply_order_sorting, assign_order_number, get_order_prefix,
+    order_number_placeholder, detect_courier, get_tracking_url,
     calculate_order_total, get_order_summary, zaloguj_blad_z_identyfikatorem
 )
 from modules.orders.wms_utils import COURIER_NAMES
@@ -177,12 +178,7 @@ def admin_list():
     sort_by = request.args.get('sort', 'created_at')
     sort_order = request.args.get('order', 'desc')
 
-    if sort_by == 'order_number':
-        query = query.order_by(Order.order_number.desc() if sort_order == 'desc' else Order.order_number.asc())
-    elif sort_by == 'total_amount':
-        query = query.order_by(Order.total_amount.desc() if sort_order == 'desc' else Order.total_amount.asc())
-    else:  # Default: created_at
-        query = query.order_by(Order.created_at.desc() if sort_order == 'desc' else Order.created_at.asc())
+    query = apply_order_sorting(query, sort_by, sort_order)
 
     # Pagination
     page = request.args.get('page', 1, type=int)
@@ -257,18 +253,20 @@ def api_create_order_for_client():
                 'message': 'Nie znaleziono klienta'
             }), 404
 
-        # Generate order number (use 'on_hand' type for manual orders)
-        order_number = generate_order_number('on_hand')
+        # Numer nadajemy po flushu, z ID rekordu
+        get_order_prefix('on_hand')
 
         # Create empty order
         new_order = Order(
-            order_number=order_number,
+            order_number=order_number_placeholder(),
             user_id=client.id,
             order_type='on_hand',  # Manual orders use on_hand type
             status='nowe',
             total_amount=0
         )
         db.session.add(new_order)
+        db.session.flush()  # Get order ID
+        order_number = assign_order_number(new_order, 'on_hand')
         db.session.commit()
 
         # Log activity
@@ -339,12 +337,12 @@ def admin_create_order():
                 flash('Dodaj przynajmniej jeden produkt', 'error')
                 return redirect(url_for('orders.admin_create_order', client_id=client.id))
 
-            # Generate order number (use 'on_hand' type for manual orders)
-            order_number = generate_order_number('on_hand')
+            # Numer nadajemy po flushu, z ID rekordu
+            get_order_prefix('on_hand')
 
             # Create order
             new_order = Order(
-                order_number=order_number,
+                order_number=order_number_placeholder(),
                 user_id=client.id,
                 order_type='on_hand',  # Manual orders use on_hand type
                 status='nowe',
@@ -352,6 +350,7 @@ def admin_create_order():
             )
             db.session.add(new_order)
             db.session.flush()  # Get order ID
+            order_number = assign_order_number(new_order, 'on_hand')
 
             # Add order items
             total = 0

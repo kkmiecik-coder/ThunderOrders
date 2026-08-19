@@ -160,7 +160,7 @@ class Order(db.Model):
     __tablename__ = 'orders'
 
     id = db.Column(db.Integer, primary_key=True)
-    order_number = db.Column(db.String(20), unique=True, nullable=False)  # Format: PO/00000001
+    order_number = db.Column(db.String(20), unique=True, nullable=False)  # Format: PO/1234 (numer = ID rekordu)
     order_type = db.Column(db.String(50), db.ForeignKey('order_types.slug'), default='on_hand')
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -1489,7 +1489,7 @@ class ShippingRequest(db.Model):
     __tablename__ = 'shipping_requests'
 
     id = db.Column(db.Integer, primary_key=True)
-    request_number = db.Column(db.String(20), unique=True, nullable=False)  # Format: WYS/000001
+    request_number = db.Column(db.String(20), unique=True, nullable=False)  # Format: WYS/123
 
     # User relationship (nullable - user can be deleted, request history preserved)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -1908,17 +1908,29 @@ class ShippingRequest(db.Model):
 
     @classmethod
     def generate_request_number(cls):
-        """Generates next request number in format WYS/000001"""
+        """
+        Kolejny wolny numer zlecenia w formacie WYS/{N}, bez zer wiodących.
+
+        Ostatni rekord nie zawsze trzyma najwyższy numer (konsolidacje, ręczne
+        korekty), a zlecenia zakładają równolegle klienci — dlatego zamiast
+        ślepego "ostatni + 1" pomijamy numery już zajęte. UNIQUE na kolumnie
+        zostaje ostatnim zabezpieczeniem przy równoczesnych transakcjach.
+
+        Radzi sobie z numerami sprzed migracji (WYS/000123 -> WYS/124).
+        """
         last_request = cls.query.order_by(cls.id.desc()).first()
         if last_request and last_request.request_number:
             try:
-                last_num = int(last_request.request_number.split('/')[1])
-                next_num = last_num + 1
+                next_num = int(last_request.request_number.split('/')[-1]) + 1
             except (IndexError, ValueError):
                 next_num = 1
         else:
             next_num = 1
-        return f"WYS/{next_num:06d}"
+
+        while cls.query.filter_by(request_number=f"WYS/{next_num}").first():
+            next_num += 1
+
+        return f"WYS/{next_num}"
 
 
 class ShippingRequestOrder(db.Model):

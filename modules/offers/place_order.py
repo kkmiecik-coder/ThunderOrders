@@ -13,7 +13,9 @@ from extensions import db
 from .models import OfferReservation, OfferPage, OfferSetBonus, OfferBonusRequiredProduct
 from .reservation import cleanup_expired_reservations
 from modules.orders.models import Order, OrderItem
-from modules.orders.utils import generate_order_number
+from modules.orders.utils import (
+    assign_order_number, get_order_prefix, order_number_placeholder,
+)
 from utils.activity_logger import log_activity
 from utils.offer_auto_increase import check_and_apply_auto_increase
 
@@ -140,8 +142,8 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None, us
 
     Bezpieczeństwo retry: deadlock zawsze powoduje pełny rollback w MySQL,
     więc poprzednia próba nie zostawia żadnych częściowo zapisanych danych.
-    generate_order_number to czysty SELECT — kolejny attempt może wygenerować
-    ten sam numer (bo poprzedni nigdy nie został scommitowany).
+    Numer zamówienia wynika z ID rekordu (nadawany po flushu), więc kolejny
+    attempt dostaje własny, świeży numer.
 
     Args:
         bind_user (bool): gdy True, konsumuje wyłącznie rezerwacje należące do
@@ -244,15 +246,15 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
     if not available:
         return False, error
 
-    # 5. Generate order number
+    # 5. Validate order type (numer nadajemy po flushu, z ID rekordu)
     try:
-        order_number = generate_order_number('exclusive')
+        get_order_prefix('exclusive')
     except Exception as e:
         return False, {'error': 'order_number_failed', 'message': str(e)}
 
     # 6. Create order
     order = Order(
-        order_number=order_number,
+        order_number=order_number_placeholder(),
         order_type='exclusive',
         user_id=user.id,
         status='nowe',
@@ -265,6 +267,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
 
     db.session.add(order)
     db.session.flush()  # Get order.id
+    order_number = assign_order_number(order, 'exclusive')
 
     # 7. Create order items (offer orders do NOT affect global stock)
     total_amount = Decimal('0.00')
@@ -823,15 +826,15 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
     if not cart_items:
         return False, {'error': 'empty_cart', 'message': 'Koszyk jest pusty'}
 
-    # 2. Generate order number
+    # 2. Validate order type (numer nadajemy po flushu, z ID rekordu)
     try:
-        order_number = generate_order_number('pre_order')
+        get_order_prefix('pre_order')
     except Exception as e:
         return False, {'error': 'order_number_failed', 'message': str(e)}
 
     # 3. Create order
     order = Order(
-        order_number=order_number,
+        order_number=order_number_placeholder(),
         order_type='pre_order',
         user_id=user.id,
         status='nowe',
@@ -844,6 +847,7 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
 
     db.session.add(order)
     db.session.flush()
+    order_number = assign_order_number(order, 'pre_order')
 
     # 4. Create order items
     total_amount = Decimal('0.00')

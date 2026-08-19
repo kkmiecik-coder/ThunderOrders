@@ -3816,7 +3816,17 @@ def move_stock_order(id):
 
 
 def _generate_order_number(model, prefix, exclude_prefix=None):
-    """Generate unique order number: prefix + 5-digit sequential number."""
+    """
+    Kolejny numer sekwencyjny dla zleceń zakładanych przez admina, bez zer
+    wiodących (PRX/42, PL/7, PRX/PL/13).
+
+    Zlecenia proxy/polskie zakłada ręcznie admin, a kolumna ma UNIQUE w bazie,
+    więc sekwencja zostaje (ciągła numeracja jest tu czytelniejsza niż numer
+    z ID) — inaczej niż w Order/ShippingRequest, gdzie zamówienia składają
+    równolegle klienci (ClickUp 869ekw4p0).
+
+    Radzi sobie z numerami sprzed migracji (PRX/00041 -> PRX/42).
+    """
     query = model.query.filter(model.order_number.like(f'{prefix}%'))
     if exclude_prefix:
         query = query.filter(~model.order_number.like(f'{exclude_prefix}%'))
@@ -3824,10 +3834,10 @@ def _generate_order_number(model, prefix, exclude_prefix=None):
     if last_order:
         try:
             last_num = int(last_order.order_number.split('/')[-1])
-            return f'{prefix}{last_num + 1:05d}'
+            return f'{prefix}{last_num + 1}'
         except ValueError:
             pass
-    return f'{prefix}{1:05d}'
+    return f'{prefix}1'
 
 
 def generate_proxy_order_number():
