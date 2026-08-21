@@ -635,7 +635,14 @@ def reopen_orders_for_wms(orders, mode, shipping_requests=()):
 
     for sr in shipping_requests:
         if sr.status == 'spakowane':
-            sr.status = 'oplacone'
+            # Status Z DANYCH, nie twarde 'oplacone'. Poprzednia wersja zakładała,
+            # że do „spakowane" dało się dojść WYŁĄCZNIE z „opłacone" — a pakowanie
+            # nie sprawdzało płatności, więc zlecenie, które weszło do WMS jako
+            # „czeka na opłacenie", wychodziło z niego jako „opłacone". Ten awans
+            # w górę jest nieodwracalny automatem: _check_sr_auto_oplacone wchodzi
+            # wyłącznie z „czeka na opłacenie". W paczce zbiorczej propagacja
+            # zjeżdżała fałszywy status na wszystkich uczestników.
+            sr.status = 'oplacone' if zlecenie_rozliczone(sr) else 'czeka_na_oplacenie'
             # Zbiorcza paczka cofnięta do WMS musi ściągnąć źródłowe z powrotem —
             # inaczej zostają ze statusem 'spakowane', mimo że paczka wróciła do pakowania.
             propaguj_na_zrodla(sr)

@@ -166,3 +166,53 @@ def test_zlecenie_bez_zamowien_nie_wyjezdza(db, make_user, make_order):
 
     with pytest.raises(ShippingRequestUnpaid):
         ship_shipping_request(sr, courier='inpost', tracking_number='PUSTE1')
+
+
+# ---------------------------------------------------------------------------
+# Cofnięcie do WMS nie stempluje statusu „opłacone" (BUG 1.2)
+#
+# `reopen_orders_for_wms` zakładało, że do „spakowane" można było dojść WYŁĄCZNIE
+# z „opłacone", i przy cofaniu przypisywało ten status na sztywno. W połączeniu
+# z BUG 1.1 (pakowanie nie sprawdzało płatności) dawało to AWANS W GÓRĘ:
+# zlecenie, które weszło do WMS jako „czeka na opłacenie", wychodziło jako
+# „opłacone" — a ten stan jest już nieodwracalny automatem, bo
+# `_check_sr_auto_oplacone` wchodzi wyłącznie z „czeka na opłacenie".
+# ---------------------------------------------------------------------------
+
+def test_cofniecie_do_wms_nie_awansuje_nieoplaconego(db, make_user, make_order):
+    from modules.orders.wms_utils import reopen_orders_for_wms
+
+    _seed_statuses(db)
+    sr, zamowienia = _zlecenie(db, make_user, make_order, koszty=[25])
+
+    reopen_orders_for_wms(zamowienia, 'repack', [sr])
+
+    assert sr.status == 'czeka_na_oplacenie', (
+        f'Zlecenie nieopłacone wyszło z WMS jako „{sr.status}" — ten stan jest '
+        f'nieodwracalny automatem i fałszywie mówi, że klient zapłacił'
+    )
+
+
+def test_cofniecie_do_wms_zachowuje_oplacone(db, make_user, make_order):
+    """Regresja: realnie opłacone zlecenie wraca jako „opłacone"."""
+    from modules.orders.wms_utils import reopen_orders_for_wms
+
+    _seed_statuses(db)
+    sr, (zamowienie,) = _zlecenie(db, make_user, make_order, koszty=[25])
+    _zatwierdz_e4(db, zamowienie, 25)
+
+    reopen_orders_for_wms([zamowienie], 'repack', [sr])
+
+    assert sr.status == 'oplacone'
+
+
+def test_cofniecie_do_wms_bez_naleznosci_daje_oplacone(db, make_user, make_order):
+    """0 zł = rozliczone, więc zlecenie wraca jako gotowe do wysyłki."""
+    from modules.orders.wms_utils import reopen_orders_for_wms
+
+    _seed_statuses(db)
+    sr, (zamowienie,) = _zlecenie(db, make_user, make_order, koszty=[0])
+
+    reopen_orders_for_wms([zamowienie], 'repack', [sr])
+
+    assert sr.status == 'oplacone'
