@@ -3970,8 +3970,6 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
     chwilą przez wywołującego" od „zlecenie historyczne, dostarczone dawno temu bez
     delivered_at" (patrz komentarz przy strażniku w wms_utils.py).
     """
-    from utils.email_manager import EmailManager
-    from utils.push_manager import PushManager
     from modules.orders.wms_utils import (
         ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
 
@@ -3992,19 +3990,25 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
         current_app.logger.warning("Order status 'wyslane' not found or inactive")
         return
 
+    # shipped_at ustawiane tak samo jak w ship_shipping_request() — bez niego
+    # zlecenie jest niewidoczne dla crona dostaw (filtruje shipped_at.isnot(None)),
+    # więc nie dostanie ani przypomnienia, ani automatycznego domknięcia, a backfill
+    # wpisze mu potem updated_at, zakłamując metrykę czasu dostawy.
+    if not shipping_request.shipped_at:
+        from modules.orders.models import get_local_now
+        shipping_request.shipped_at = get_local_now()
+
     for ro in shipping_request.request_orders:
         order = ro.order
         if not order or order.status == 'wyslane':
             continue
-
-        old_status_name = order.status_display_name
         order.status = 'wyslane'
 
-        try:
-            EmailManager.notify_status_change(order, old_status_name, order_status_obj.name)
-            PushManager.notify_status_change(order, old_status_name, order_status_obj.name)
-        except Exception as e:
-            current_app.logger.error(f'Status sync email error for {order.order_number}: {e}')
+    # Bez powiadomienia PER ZAMÓWIENIE: klient dostaje fizycznie jeden karton, więc
+    # trzy zamówienia w zleceniu oznaczały trzy maile o tej samej przesyłce. Jedna
+    # wiadomość na paczkę idzie wyżej w _zapisz_zlecenie_wysylki — notify_shipment_sent
+    # przy świeżo dopisanym numerze przesyłki, a bez numeru
+    # notify_shipping_status_change w sekcji zmiany statusu.
 
 
 def _status_logistyczny_dla_zrodla(sr, nowy_status):
