@@ -37,12 +37,16 @@ def release_order_lock(order):
     order.wms_session_id = None
 
 
-def update_sr_after_packing(order):
+def update_sr_after_packing(order, powiadomienie_ze_zdjeciem=False):
     """
     After packing an order, check if all orders in its ShippingRequest are packed.
     If so, change SR status to 'spakowane'.
     Also ensure 'spakowane' is in allowed shipping statuses.
     Returns dict with SR status info or None.
+
+    `powiadomienie_ze_zdjeciem=True` mówi, że wywołujący wyśle bogatsze
+    powiadomienie ze zdjęciem kartonu — wtedy pomijamy zwykły mail o zmianie
+    statusu, żeby klient nie dostał dwóch wiadomości o tym samym.
     """
     from modules.auth.models import Settings
 
@@ -65,6 +69,7 @@ def update_sr_after_packing(order):
     all_packed = bool(aktywne) and all(o.status == 'spakowane' for o in aktywne)
 
     sr_status_changed = False
+    poprzedni_status = sr.status
     if all_packed and sr.status != 'spakowane':
         sr.status = 'spakowane'
         sr_status_changed = True
@@ -91,6 +96,23 @@ def update_sr_after_packing(order):
             description='Lista statusów zamówień kwalifikujących się do zlecenia wysyłki'
         )
         db.session.add(setting)
+
+    # Klient ma się dowiedzieć, że paczka jest gotowa. Dotąd pakowanie w WMS nie
+    # wysyłało NIC: jedyną bramką było `if send_email and photo` niżej, a front
+    # bez zdjęcia w ogóle nie przekazuje tej flagi (przełącznik
+    # `notify_packing_photo` jest na produkcji wyłączony). Ręczne ustawienie tego
+    # samego statusu przez PUT mail wysyłało — to samo przejście raz powiadamiało,
+    # raz nie. Bogatsze powiadomienie ze zdjęciem (jeśli idzie) wysyła
+    # `pack_shipping_request_group` i wtedy tego pomijamy, żeby nie dublować.
+    if sr_status_changed and not powiadomienie_ze_zdjeciem:
+        try:
+            from utils.email_manager import EmailManager
+            from utils.push_manager import PushManager
+            EmailManager.notify_shipping_status_change(sr, poprzedni_status)
+            PushManager.notify_shipping_status_change(sr, sr.status_display_name)
+        except Exception as err:
+            current_app.logger.error(
+                f'Błąd powiadomienia o spakowaniu {sr.request_number}: {err}')
 
     return {
         'id': sr.id,
@@ -212,7 +234,8 @@ def pack_shipping_request_group(session, shipping_request, packaging_material_id
         },
     )
 
-    sr_info = update_sr_after_packing(group[0])
+    sr_info = update_sr_after_packing(
+        group[0], powiadomienie_ze_zdjeciem=bool(send_email and photo))
 
     if send_email and photo:
         try:

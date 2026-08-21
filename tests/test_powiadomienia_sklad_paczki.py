@@ -162,3 +162,72 @@ def test_wypiecie_uczestnika_powiadamia_wypietego(
         f'Wypięty uczestnik nie wie, że jedzie już osobno; '
         f'powiadomiono: {powiadomieni["rozwiazanie"]}'
     )
+
+
+# ---------------------------------------------------------------------------
+# P2 — spakowanie w WMS powiadamia tak samo jak ręczna zmiana statusu
+#
+# `update_sr_after_packing` nie wysyłało nic: jedyną bramką było
+# `if send_email and photo`, a front bez zdjęcia w ogóle nie wysyła flagi
+# (przełącznik `notify_packing_photo` jest na produkcji wyłączony).
+# Tymczasem ręczne ustawienie tego samego statusu przez PUT mail wysyłało —
+# to samo przejście raz powiadamiało, raz nie.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def maile_o_statusie(monkeypatch):
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    zebrane = []
+    monkeypatch.setattr(EmailManager, 'notify_shipping_status_change',
+                        staticmethod(lambda sr, old: zebrane.append((sr.id, old))))
+    monkeypatch.setattr(PushManager, 'notify_shipping_status_change',
+                        staticmethod(lambda *a, **kw: None))
+    return zebrane
+
+
+def _zlecenie_do_pakowania(db, make_user, make_order):
+    from modules.orders.models import (
+        OrderStatus, ShippingRequest, ShippingRequestOrder, ShippingRequestStatus)
+    for slug, name in [('spakowane', 'Spakowane'), ('dostarczone_gom', 'Dostarczone GOM')]:
+        if not OrderStatus.query.filter_by(slug=slug).first():
+            db.session.add(OrderStatus(slug=slug, name=name, is_active=True))
+    user = make_user()
+    sr = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=user.id, status='oplacone')
+    db.session.add(sr)
+    db.session.flush()
+    o = make_order(user=user, status='spakowane')
+    db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=o.id))
+    db.session.commit()
+    return sr, o
+
+
+def test_spakowanie_powiadamia_klienta(db, make_user, make_order, maile_o_statusie):
+    from modules.orders.wms_packing import update_sr_after_packing
+
+    _seed_sr_statuses(db)
+    sr, zamowienie = _zlecenie_do_pakowania(db, make_user, make_order)
+
+    update_sr_after_packing(zamowienie)
+
+    assert maile_o_statusie == [(sr.id, 'oplacone')], (
+        f'Klient nie dowiaduje się, że paczka jest spakowana; '
+        f'wysłano: {maile_o_statusie}'
+    )
+
+
+def test_spakowanie_bez_zmiany_statusu_nie_powiadamia(
+        db, make_user, make_order, maile_o_statusie):
+    """Regresja: powtórne wywołanie na już spakowanym zleceniu milczy."""
+    from modules.orders.wms_packing import update_sr_after_packing
+
+    _seed_sr_statuses(db)
+    sr, zamowienie = _zlecenie_do_pakowania(db, make_user, make_order)
+    sr.status = 'spakowane'
+    db.session.commit()
+
+    update_sr_after_packing(zamowienie)
+
+    assert maile_o_statusie == []

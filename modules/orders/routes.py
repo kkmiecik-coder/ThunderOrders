@@ -2582,10 +2582,34 @@ def update_shipping_request_status(status_id):
             'is_active': status.is_active
         }
 
+        from modules.orders.models import SLUGI_STATUSOW_W_KODZIE
+
+        nowy_aktywny = data.get('is_active', status.is_active)
+        # Dezaktywacja wyłącza status z automatów tak samo skutecznie jak
+        # skasowanie: _check_sr_auto_oplacone wymaga is_active=True i po cichu
+        # rezygnuje z awansu, a bramki wysyłki przestają rozpoznawać stan.
+        if (not nowy_aktywny and status.is_active
+                and status.slug in SLUGI_STATUSOW_W_KODZIE):
+            return jsonify({
+                'success': False,
+                'error': f'Status „{status.name}" jest częścią pipeline\'u zleceń '
+                         f'(slug: {status.slug}) — jego wyłączenie zatrzymałoby '
+                         f'automatyczne przejścia. Możesz zmienić nazwę i kolor.',
+            }), 400
+
         status.name = name
         status.badge_color = data.get('badge_color', status.badge_color)
-        status.is_initial = data.get('is_initial', status.is_initial)
-        status.is_active = data.get('is_active', status.is_active)
+        nowy_poczatkowy = data.get('is_initial', status.is_initial)
+        # Status początkowy musi być DOKŁADNIE jeden: get_initial_shipping_status
+        # bierze `filter_by(is_initial=True).first()` bez order_by, więc przy
+        # dwóch flagach status nowych zleceń stawał się niedeterministyczny.
+        if nowy_poczatkowy and not status.is_initial:
+            ShippingRequestStatus.query.filter(
+                ShippingRequestStatus.id != status.id,
+                ShippingRequestStatus.is_initial.is_(True),
+            ).update({'is_initial': False}, synchronize_session=False)
+        status.is_initial = nowy_poczatkowy
+        status.is_active = nowy_aktywny
         status.updated_at = datetime.now()
 
         db.session.commit()
@@ -2620,6 +2644,19 @@ def delete_shipping_request_status(status_id):
     status = ShippingRequestStatus.query.get_or_404(status_id)
 
     try:
+        from modules.orders.models import SLUGI_STATUSOW_W_KODZIE
+
+        # Pipeline zna te slugi wprost, a shipping_requests.status to FK na
+        # shipping_request_statuses.slug — status chwilowo pusty, ale
+        # zahardkodowany, po skasowaniu wywracał najbliższe przejście na
+        # IntegrityError. Sprawdzenie samego BIEŻĄCEGO użycia nie wystarcza.
+        if status.slug in SLUGI_STATUSOW_W_KODZIE:
+            return jsonify({
+                'success': False,
+                'error': f'Status „{status.name}" jest częścią pipeline\'u zleceń '
+                         f'(slug: {status.slug}) — nie można go usunąć.',
+            }), 400
+
         # Check if status is in use
         in_use_count = ShippingRequest.query.filter_by(status=status.slug).count()
         if in_use_count > 0:

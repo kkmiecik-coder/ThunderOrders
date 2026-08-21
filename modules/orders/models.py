@@ -1514,6 +1514,26 @@ class OrderShipment(db.Model):
 # ====================
 
 
+# Slugi statusów zleceń, na których OPIERA SIĘ KOD — nie wolno ich skasować ani
+# dezaktywować z panelu ustawień, choć słownik jest tam w pełni edytowalny.
+#
+# Strażnik przy DELETE sprawdzał wyłącznie BIEŻĄCE użycie (`count()` zleceń),
+# więc status chwilowo pusty, ale zahardkodowany, dawał się usunąć — a
+# `shipping_requests.status` to FK na `shipping_request_statuses.slug`, więc
+# najbliższe automatyczne przejście padało na IntegrityError. Dezaktywacja jest
+# równie skuteczna: `_check_sr_auto_oplacone` wymaga `is_active=True` i po cichu
+# rezygnuje z awansu, a bramki wysyłki przestają rozpoznawać stan.
+#
+# Miejsca, które czytają te slugi wprost: consolidation.STATUSY_ZAMKNIETE,
+# STATUS_SPAKOWANE, STATUSY_BEZ_EDYCJI, STATUSY_LOGISTYCZNE,
+# wms_utils.UNPAID_SR_STATUSES i ship_shipping_request, wms_packing,
+# payment_confirmations._check_sr_auto_oplacone, routes (kaskady statusów).
+SLUGI_STATUSOW_W_KODZIE = frozenset({
+    'czeka_na_wycene', 'czeka_na_oplacenie', 'oplacone',
+    'spakowane', 'wyslane', 'dostarczone',
+})
+
+
 class ShippingRequestStatus(db.Model):
     """
     Shipping request status lookup table.
