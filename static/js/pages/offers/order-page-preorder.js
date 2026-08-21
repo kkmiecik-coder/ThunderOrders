@@ -7,7 +7,7 @@
 // Google Analytics 4 — Ecommerce funnel helpers
 // ============================================
 function buildGaItemsFromCart() {
-    return cart.map(item => ({
+    return getOrderableItems().map(item => ({
         item_id: item.product_id,
         item_name: item.name,
         price: item.price,
@@ -65,6 +65,27 @@ function toggleSetImage(el) {
 }
 
 // ============================================
+// Niedostępność produktów (sekcje Sold-out / Ukryte)
+// ============================================
+// Mapa {product_id: 'sold_out'|'hidden'} z szablonu, aktualizowana po SocketIO.
+// Klient mógł dodać produkt do koszyka, zanim admin wyłączył sekcję — taka
+// pozycja zostaje widoczna w koszyku, ale wygaszona i wyłączona z zamówienia.
+window.unavailableProducts = window.unavailableProducts || {};
+
+function getUnavailableState(productId) {
+    // Klucze z JSON-a są stringami, product_id w koszyku bywa liczbą
+    return window.unavailableProducts[String(productId)] || null;
+}
+
+function isItemUnavailable(item) {
+    return !item.is_bonus && getUnavailableState(item.product_id) !== null;
+}
+
+function unavailableLabel(state) {
+    return state === 'sold_out' ? 'Sold-out' : 'Niedostępne';
+}
+
+// ============================================
 // Cart State
 // ============================================
 let cart = [];
@@ -94,6 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadCart();
     updateCartUI();
     initLightbox();
+    initSectionStateSocket();
 
     // GA4: view_item_list + view_offer_page
     trackPreorderPageViewed();
@@ -133,6 +155,16 @@ function adjustPreorderQty(btn, delta) {
 // Add to Cart
 // ============================================
 function addToPreorderCart(productId, productName, price, btn) {
+    // Sekcja wyłączona w międzyczasie (SocketIO) — karta mogła zostać kliknięta
+    // zanim przerysowaliśmy stronę
+    const unavailableState = getUnavailableState(productId);
+    if (unavailableState) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(`${productName} — ${unavailableLabel(unavailableState).toLowerCase()}.`, 'error');
+        }
+        return;
+    }
+
     // Size validation
     const sizeSelector = document.querySelector(`.size-selector[data-product-id="${productId}"]`);
     if (sizeSelector && !selectedProductSizes[productId]) {
@@ -204,12 +236,16 @@ function removeCartItem(productId) {
 // ============================================
 // Cart Calculations
 // ============================================
+function getOrderableItems() {
+    return cart.filter(i => !i.is_bonus && !isItemUnavailable(i));
+}
+
 function getCartTotal() {
-    return cart.filter(i => !i.is_bonus).reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return getOrderableItems().reduce((sum, item) => sum + (item.price * item.quantity), 0);
 }
 
 function getCartItemCount() {
-    return cart.filter(i => !i.is_bonus).reduce((sum, item) => sum + item.quantity, 0);
+    return getOrderableItems().reduce((sum, item) => sum + item.quantity, 0);
 }
 
 // ============================================
@@ -222,7 +258,7 @@ function evaluatePreorderBonuses() {
     const config = window.bonusesConfig;
     if (!config || typeof config !== 'object') return;
 
-    const regularItems = cart.filter(i => !i.is_bonus);
+    const regularItems = getOrderableItems();
     const totalAmount = regularItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
     const totalQty = regularItems.reduce((sum, i) => sum + i.quantity, 0);
 
@@ -321,6 +357,30 @@ function updateCartUI() {
                     `;
                 }
                 const sizeBadge = item.selected_size ? ` <span class="size-badge">${escapeHtml(item.selected_size)}</span>` : '';
+                const unavailableState = getUnavailableState(item.product_id);
+
+                // Pozycja z wyłączonej sekcji: zostaje widoczna (klient wie, co odpadło),
+                // ale z wyzerowaną ilością i kwotą oraz bez kontrolek ilości.
+                if (unavailableState) {
+                    return `
+                        <div class="cart-item is-unavailable">
+                            <div class="cart-item-info">
+                                <span class="cart-item-name">${escapeHtml(item.name)}${sizeBadge}</span>
+                                <span class="cart-item-price">0.00 PLN</span>
+                                <span class="cart-item-unavailable-note">${escapeHtml(unavailableLabel(unavailableState))}</span>
+                            </div>
+                            <div class="cart-item-controls">
+                                <span class="cart-item-qty">0 szt.</span>
+                                <button type="button" class="cart-item-remove" onclick="removeCartItem(${item.product_id})" aria-label="Usuń z koszyka">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 return `
                     <div class="cart-item">
                         <div class="cart-item-info">
@@ -360,13 +420,13 @@ function toggleMobileCart() {
 // Order Modal
 // ============================================
 function openOrderModal() {
-    if (cart.length === 0) return;
+    if (getOrderableItems().length === 0) return;
     const modal = document.getElementById('orderModal');
     if (modal) modal.classList.add('active');
 
     // GA4: begin_checkout
     if (typeof window.trackBeginCheckout === 'function') {
-        const value = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        const value = getOrderableItems().reduce((sum, item) => sum + (item.quantity * item.price), 0);
         window.trackBeginCheckout(buildGaItemsFromCart(), value);
     }
 }
@@ -381,6 +441,16 @@ function closeOrderModal() {
 // ============================================
 async function submitOrder() {
     if (cart.length === 0) return;
+
+    // Do zamówienia idą wyłącznie pozycje z sekcji aktywnych — pozycje sold-out
+    // zostają w koszyku widoczne, ale nie trafiają do payloadu
+    const orderableItems = getOrderableItems();
+    if (orderableItems.length === 0) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('Produkty w koszyku nie są już dostępne.', 'error');
+        }
+        return;
+    }
 
     const noteEl = document.getElementById('orderNote');
     const orderNote = noteEl ? noteEl.value.trim() : '';
@@ -400,7 +470,7 @@ async function submitOrder() {
                 'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({
-                cart_items: cart.map(item => ({
+                cart_items: orderableItems.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,
                     selected_size: item.selected_size || null
@@ -581,6 +651,109 @@ document.addEventListener('keydown', function(e) {
         if (successModal) successModal.classList.remove('active');
     }
 });
+
+// ============================================
+// Live update stanów sekcji (SocketIO)
+// ============================================
+// Admin przełącza sekcję w Page Builderze na Aktywna / Sold-out / Ukryta —
+// otwarte strony aktualizują się bez przeładowania.
+
+/**
+ * Buduje nakładkę "Sold-out". Markup musi odpowiadać
+ * templates/offers/_sold_out_overlay.html, żeby sekcja wyglądała identycznie
+ * niezależnie od tego, czy stan przyszedł z serwera przy renderze, czy live.
+ */
+function buildSoldOutOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'sold-out-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+
+    const badge = document.createElement('span');
+    badge.className = 'sold-out-badge';
+    badge.textContent = 'Sold-out';
+    overlay.appendChild(badge);
+
+    return overlay;
+}
+
+function applySectionState(sectionEl, state) {
+    if (sectionEl.dataset.displayState === state) return;
+    sectionEl.dataset.displayState = state;
+
+    if (state === 'hidden') {
+        sectionEl.remove();
+        return;
+    }
+
+    const isSoldOut = state === 'sold_out';
+    sectionEl.classList.toggle('is-sold-out', isSoldOut);
+
+    const existingOverlay = sectionEl.querySelector(':scope > .sold-out-overlay');
+    if (isSoldOut && !existingOverlay) {
+        sectionEl.prepend(buildSoldOutOverlay());
+    } else if (!isSoldOut && existingOverlay) {
+        existingOverlay.remove();
+    }
+}
+
+function handleSectionStatesUpdate(data) {
+    if (!data || !data.states) return;
+
+    // Sekcja, która wróciła z "Ukryta" do widocznych, nie istnieje w DOM —
+    // jej HTML trzeba pobrać z serwera, więc odświeżamy stronę.
+    const domSectionIds = new Set(
+        Array.from(document.querySelectorAll('.section[data-section-id]'))
+            .map(el => parseInt(el.dataset.sectionId))
+    );
+    const missingVisible = (data.visible_section_ids || [])
+        .some(id => !domSectionIds.has(id));
+
+    if (missingVisible) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('Oferta została zaktualizowana — odświeżam stronę.', 'info');
+        }
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+    }
+
+    Object.entries(data.states).forEach(([sectionId, state]) => {
+        const sectionEl = document.querySelector(`.section[data-section-id="${sectionId}"]`);
+        if (sectionEl) applySectionState(sectionEl, state);
+    });
+
+    // Koszyk: pozycje z wyłączonych sekcji zostają widoczne, ale przestają się liczyć
+    const previous = window.unavailableProducts || {};
+    window.unavailableProducts = data.unavailable_products || {};
+
+    const newlyUnavailable = cart.filter(
+        item => !item.is_bonus
+            && getUnavailableState(item.product_id)
+            && !previous[String(item.product_id)]
+    );
+
+    updateCartUI();
+
+    if (newlyUnavailable.length > 0 && typeof window.showToast === 'function') {
+        const names = newlyUnavailable.map(i => i.name).join(', ');
+        window.showToast(`${names} — produkt nie jest już dostępny.`, 'warning');
+    }
+}
+
+function initSectionStateSocket() {
+    const socket = window.offerSocket;
+    if (!socket || !window.offerPageId) return;
+
+    const joinRoom = () => socket.emit('join_offer', {
+        page_id: window.offerPageId,
+        page_type: 'order'
+    });
+
+    socket.on('connect', joinRoom);
+    socket.on('reconnect', joinRoom);
+    if (socket.connected) joinRoom();
+
+    socket.on('section_states_updated', handleSectionStatesUpdate);
+}
 
 // ============================================
 // Utility

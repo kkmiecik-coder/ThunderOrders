@@ -408,6 +408,59 @@ function addSection(type) {
     showToast('Sekcja dodana', 'success');
 }
 
+// ============================================
+// Nagłówek sekcji + przełącznik stanu (Aktywna / Sold-out / Ukryta)
+// ============================================
+
+// Typy sekcji, które mogą być oznaczone jako "Sold-out" — parytet z
+// SECTION_SOLD_OUT_TYPES w modules/admin/offers.py.
+const SOLD_OUT_SECTION_TYPES = ['product', 'set', 'variant_group', 'bonus'];
+
+/**
+ * Zwraca HTML nagłówka sekcji, klonując <template> wyrenderowany przez Jinja.
+ * Dzięki temu markup nagłówka istnieje w jednym miejscu (makro section_header)
+ * i nowe sekcje wyglądają dokładnie tak samo jak wczytane z bazy.
+ */
+function sectionHeaderHTML(sectionType, label) {
+    const templateId = SOLD_OUT_SECTION_TYPES.includes(sectionType)
+        ? 'sectionHeaderTemplateFull'
+        : 'sectionHeaderTemplateSimple';
+    const tpl = document.getElementById(templateId);
+    if (!tpl) return '';
+    return tpl.innerHTML.replace('__LABEL__', label);
+}
+
+/**
+ * Klik w jedną z pastylek przełącznika stanu sekcji.
+ * Stan trafia do bazy dopiero przy zapisie strony (markDirty), razem z resztą sekcji.
+ */
+function setSectionDisplayState(btn) {
+    const wrapper = btn.closest('.section-state-switch');
+    if (!wrapper) return;
+
+    const state = btn.dataset.state;
+    if (wrapper.dataset.state === state) return;
+
+    wrapper.dataset.state = state;
+    wrapper.querySelectorAll('.state-switch-option').forEach(opt => {
+        const isActive = opt === btn;
+        opt.classList.toggle('is-active', isActive);
+        opt.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+
+    const hidden = wrapper.querySelector('.section-display-state');
+    if (hidden) hidden.value = state;
+
+    // Podgląd w builderze — od razu widać, która sekcja jest wyłączona
+    const card = wrapper.closest('.section-card');
+    if (card) {
+        card.classList.toggle('section-state-sold-out', state === 'sold_out');
+        card.classList.toggle('section-state-hidden', state === 'hidden');
+    }
+
+    markDirty();
+}
+
 /**
  * Get HTML template for a section type
  */
@@ -417,20 +470,7 @@ function getSectionTemplate(type) {
     const templates = {
         heading: `
             <div class="section-card" data-section-type="heading">
-                <div class="section-header">
-                    <div class="section-drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <span class="section-type-label">Nagłówek</span>
-                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </button>
-                </div>
+                ${sectionHeaderHTML('heading', 'Nagłówek')}
                 <div class="section-body">
                     <input type="text" class="form-input section-content" placeholder="Treść nagłówka H2">
                 </div>
@@ -438,20 +478,7 @@ function getSectionTemplate(type) {
         `,
         paragraph: `
             <div class="section-card" data-section-type="paragraph">
-                <div class="section-header">
-                    <div class="section-drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <span class="section-type-label">Paragraf</span>
-                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </button>
-                </div>
+                ${sectionHeaderHTML('paragraph', 'Paragraf')}
                 <div class="section-body">
                     <textarea class="form-textarea section-content" rows="3" placeholder="Treść paragrafu"></textarea>
                 </div>
@@ -459,20 +486,7 @@ function getSectionTemplate(type) {
         `,
         image: `
             <div class="section-card" data-section-type="image">
-                <div class="section-header">
-                    <div class="section-drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <span class="section-type-label">Zdjęcie</span>
-                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </button>
-                </div>
+                ${sectionHeaderHTML('image', 'Zdjęcie')}
                 <div class="section-body">
                     <div class="image-section-editor is-empty">
                         <div class="image-section-thumbs"></div>
@@ -492,20 +506,7 @@ function getSectionTemplate(type) {
         `,
         product: `
             <div class="section-card" data-section-type="product">
-                <div class="section-header">
-                    <div class="section-drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <span class="section-type-label">Produkt</span>
-                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </button>
-                </div>
+                ${sectionHeaderHTML('product', 'Produkt')}
                 <div class="section-body">
                     <div class="product-section">
                         <div class="product-selection-row">
@@ -542,20 +543,7 @@ function getSectionTemplate(type) {
         `,
         set: `
             <div class="section-card" data-section-type="set">
-                <div class="section-header">
-                    <div class="section-drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <span class="section-type-label">Set produktów</span>
-                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </button>
-                </div>
+                ${sectionHeaderHTML('set', 'Set produktów')}
                 <div class="section-body">
                     <div class="set-section">
                         <!-- Top row - 4 columns: Nazwa | Tło button | Dodaj buttons (vertical) | Max counter -->
@@ -701,20 +689,7 @@ function getSectionTemplate(type) {
         `,
         bonus: `
             <div class="section-card" data-section-type="bonus">
-                <div class="section-header">
-                    <div class="section-drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <span class="section-type-label">Bonus (gratis)</span>
-                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </button>
-                </div>
+                ${sectionHeaderHTML('bonus', 'Bonus (gratis)')}
                 <div class="section-body">
                     <div class="standalone-bonus-section">
                         <div class="bonus-columns">
@@ -786,20 +761,7 @@ function getSectionTemplate(type) {
         `,
         variant_group: `
             <div class="section-card" data-section-type="variant_group">
-                <div class="section-header">
-                    <div class="section-drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <span class="section-type-label">Grupa wariantowa</span>
-                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </button>
-                </div>
+                ${sectionHeaderHTML('variant_group', 'Grupa wariantowa')}
                 <div class="section-body">
                     <div class="variant-group-section">
                         <div class="variant-group-selection-row">
@@ -1011,10 +973,13 @@ function collectPageData() {
     // Collect sections
     document.querySelectorAll('.section-card').forEach((section, index) => {
         const type = section.dataset.sectionType;
+        const stateInput = section.querySelector('.section-display-state');
         const sectionData = {
             id: section.dataset.sectionId ? parseInt(section.dataset.sectionId) : null,
             type: type,
-            sort_order: index
+            sort_order: index,
+            // Brak przełącznika (strona exclusive) => sekcja zawsze aktywna
+            display_state: stateInput ? stateInput.value : 'active'
         };
 
         if (type === 'heading' || type === 'paragraph') {

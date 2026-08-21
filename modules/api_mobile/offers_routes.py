@@ -130,7 +130,13 @@ def _serialize_bonus(b):
 
 
 def _serialize_section(s):
-    base = {'id': s.id, 'section_type': s.section_type, 'sort_order': s.sort_order}
+    base = {
+        'id': s.id,
+        'section_type': s.section_type,
+        'sort_order': s.sort_order,
+        # 'active' | 'sold_out' — sekcje 'hidden' nie trafiają do odpowiedzi
+        'display_state': s.display_state,
+    }
     if s.section_type in ('heading', 'paragraph'):
         base['content'] = s.content
     elif s.section_type == 'product':
@@ -186,7 +192,10 @@ def offer_page_detail(token):
         'description': page.description,
         'footer_content': page.footer_content,
         'payment_deadline': page.payment_deadline.isoformat() if page.payment_deadline else None,
-        'sections': [_serialize_section(s) for s in page.get_sections_ordered()],
+        # Parytet z webem (modules/offers/routes.py): sekcje ukryte nie są eksponowane
+        'sections': [
+            _serialize_section(s) for s in page.get_sections_ordered() if s.is_visible
+        ],
     })
 
 

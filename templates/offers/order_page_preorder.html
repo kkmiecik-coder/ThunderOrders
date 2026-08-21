@@ -94,19 +94,22 @@
         <main class="sections-list">
             {% for section in sections %}
                 {% if section.is_heading %}
-                <section class="section section-heading">
+                <section class="section section-heading{% if section.is_sold_out %} is-sold-out{% endif %}" data-section-id="{{ section.id }}" data-display-state="{{ section.display_state }}">
+                    {% if section.is_sold_out %}{% include 'offers/_sold_out_overlay.html' %}{% endif %}
                     <h2>{{ section.content }}</h2>
                 </section>
 
                 {% elif section.is_paragraph %}
-                <section class="section section-paragraph">
+                <section class="section section-paragraph{% if section.is_sold_out %} is-sold-out{% endif %}" data-section-id="{{ section.id }}" data-display-state="{{ section.display_state }}">
+                    {% if section.is_sold_out %}{% include 'offers/_sold_out_overlay.html' %}{% endif %}
                     <p>{{ section.content }}</p>
                 </section>
 
                 {% elif section.is_image %}
                 {% set _imgs = section.get_images_ordered() %}
                 {% if _imgs %}
-                <section class="section image-section" data-section-id="{{ section.id }}">
+                <section class="section image-section{% if section.is_sold_out %} is-sold-out{% endif %}" data-section-id="{{ section.id }}" data-display-state="{{ section.display_state }}">
+                    {% if section.is_sold_out %}{% include 'offers/_sold_out_overlay.html' %}{% endif %}
                     {% set _entries = [] %}
                     {% for img in _imgs %}
                         {% set _ = _entries.append({
@@ -122,7 +125,8 @@
                 {% endif %}
 
                 {% elif section.is_product %}
-                <section class="section section-product" data-section-id="{{ section.id }}" data-product-id="{{ section.product_id }}">
+                <section class="section section-product{% if section.is_sold_out %} is-sold-out{% endif %}" data-section-id="{{ section.id }}" data-display-state="{{ section.display_state }}" data-product-id="{{ section.product_id }}">
+                    {% if section.is_sold_out %}{% include 'offers/_sold_out_overlay.html' %}{% endif %}
                     {% if section.product %}
                     <!-- Header z nazwą produktu -->
                     <div class="product-header">
@@ -188,7 +192,8 @@
                 </section>
 
                 {% elif section.is_variant_group %}
-                <section class="section section-variant-group" data-section-id="{{ section.id }}">
+                <section class="section section-variant-group{% if section.is_sold_out %} is-sold-out{% endif %}" data-section-id="{{ section.id }}" data-display-state="{{ section.display_state }}">
+                    {% if section.is_sold_out %}{% include 'offers/_sold_out_overlay.html' %}{% endif %}
                     {% if section.variant_group %}
                     <div class="variant-group-card {% if section.set_image %}has-image{% endif %}">
                         <div class="set-header">
@@ -277,7 +282,8 @@
                 {% elif section.is_bonus %}
                 {% set bonus = section.bonuses.first() %}
                 {% if bonus and bonus.is_active and bonus.bonus_product %}
-                <section class="section section-bonus">
+                <section class="section section-bonus{% if section.is_sold_out %} is-sold-out{% endif %}" data-section-id="{{ section.id }}" data-display-state="{{ section.display_state }}">
+                    {% if section.is_sold_out %}{% include 'offers/_sold_out_overlay.html' %}{% endif %}
                     <div class="bonus-info-card">
                         <div class="bonus-info-icon">
                             <svg width="28" height="28" viewBox="0 0 16 16" fill="currentColor">
@@ -586,6 +592,10 @@ window.restoreCartUrl = '/offer/{{ page.token }}/restore';
 // Bonuses (gratisy) config
 window.bonusesConfig = {{ bonuses_config_json|safe }};
 
+// Produkty niedostępne (sekcja Sold-out/Ukryta) — {product_id: 'sold_out'|'hidden'}.
+// Koszyk w localStorage może zawierać pozycje sprzed zmiany stanu sekcji.
+window.unavailableProducts = {{ unavailable_products_json|default('{}')|safe }};
+
 // Redirect URL after order
 {% if current_user.is_authenticated %}
 window.redirectAfterOrderUrl = '{{ url_for("orders.client_list") }}';
@@ -611,6 +621,22 @@ window.redirectAfterOrderUrl = '#';
 })();
 {% endif %}
 </script>
+
+<!-- Socket.IO (ładowany PRZED order-page-preorder.js) — live zmiana stanu sekcji -->
+{% if not preview_mode %}
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script>
+try {
+    window.offerSocket = io({ transports: ['websocket', 'polling'] });
+} catch (e) {
+    console.log('[SocketIO] Niedostępne:', e);
+    window.offerSocket = null;
+}
+
+window.offerPageId = {{ page.id }};
+window.offerPageToken = '{{ page.token }}';
+</script>
+{% endif %}
 
 <!-- Load external JavaScript -->
 <script src="{{ url_for('static', filename='js/pages/offers/order-page-preorder.js') }}"></script>

@@ -4151,3 +4151,181 @@
 [data-theme="dark"] .image-section-thumb.dragging {
     opacity: 0.35;
 }
+
+/* ============================================
+   PRZEŁĄCZNIK STANU SEKCJI (Aktywna / Sold-out / Ukryta)
+   Segmented control z pastylką jadącą za zaznaczoną opcją.
+   Widoczny tylko na stronach pre-order.
+   ============================================ */
+
+.section-state-switch {
+    position: relative;
+    display: grid;
+    grid-auto-flow: column;
+    /* minmax(0, 1fr) — kolumna nie rozpycha się treścią, więc przełącznik
+       ma stałą szerokość niezależnie od tego, która opcja jest zaznaczona */
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: stretch;
+    margin-left: auto;
+    margin-right: var(--space-2);
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--bg-tertiary, rgba(0, 0, 0, 0.05));
+    border: 1px solid var(--border-color);
+}
+
+/* Pastylka pod tekstem — szerokość = jedna kolumna, pozycja z data-state */
+.state-switch-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    bottom: 3px;
+    width: calc((100% - 6px) / 3);
+    border-radius: 999px;
+    background: var(--primary-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.28s ease;
+    pointer-events: none;
+}
+
+.section-state-switch[data-options="2"] .state-switch-thumb {
+    width: calc((100% - 6px) / 2);
+}
+
+.section-state-switch[data-state="active"] .state-switch-thumb {
+    transform: translateX(0);
+    background: #22a06b;
+}
+
+.section-state-switch[data-state="sold_out"] .state-switch-thumb {
+    transform: translateX(100%);
+    background: #f5576c;
+}
+
+/* W wariancie 3-opcyjnym "Ukryta" jest trzecia, w 2-opcyjnym — druga */
+.section-state-switch[data-state="hidden"] .state-switch-thumb {
+    transform: translateX(200%);
+    background: #1976d2;
+}
+
+.section-state-switch[data-options="2"][data-state="hidden"] .state-switch-thumb {
+    transform: translateX(100%);
+}
+
+.state-switch-option {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    min-height: 28px;
+    padding: 0 12px;
+    border: none;
+    background: none;
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    white-space: nowrap;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+/* Niewidoczna kopia etykiety w wariancie bold rezerwuje szerokość, więc
+   zaznaczenie opcji nie przesuwa pozostałych pastylek ani kosza obok */
+.state-switch-option::after {
+    content: attr(data-label);
+    display: block;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    font-weight: var(--font-semibold, 600);
+    pointer-events: none;
+}
+
+.state-switch-option:hover {
+    color: var(--text-primary);
+}
+
+.state-switch-option.is-active {
+    color: #fff;
+    font-weight: var(--font-semibold, 600);
+}
+
+.state-switch-option:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Karta sekcji sygnalizuje stan także poza samym przełącznikiem */
+.section-card.section-state-sold-out .section-type-label {
+    color: #f5576c;
+}
+
+.section-card.section-state-hidden {
+    opacity: 0.72;
+}
+
+.section-card.section-state-hidden .section-body {
+    filter: grayscale(1);
+}
+
+/* --- Dark mode --- */
+[data-theme="dark"] .section-state-switch {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .state-switch-thumb {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .section-state-switch[data-state="active"] .state-switch-thumb {
+    background: #2ecc8f;
+}
+
+[data-theme="dark"] .section-state-switch[data-state="sold_out"] .state-switch-thumb {
+    background: #f5576c;
+}
+
+[data-theme="dark"] .section-state-switch[data-state="hidden"] .state-switch-thumb {
+    background: #1971c2;
+}
+
+/* Zielona i czerwona pastylka są jasne i niosą ciemny tekst; niebieska jest
+   nasycona, więc tylko dla niej wracamy do białego napisu */
+[data-theme="dark"] .section-state-switch[data-state="hidden"] .state-switch-option.is-active {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .state-switch-option {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .state-switch-option:hover {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .state-switch-option.is-active {
+    color: #0d0d12;
+}
+
+[data-theme="dark"] .section-card.section-state-sold-out .section-type-label {
+    color: #f093fb;
+}
+
+/* Na mobile pastylki muszą mieć sensowny cel dotyku */
+@media (max-width: 768px) {
+    .section-header {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+
+    .section-state-switch {
+        order: 3;
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .state-switch-option {
+        min-height: 44px;
+    }
+}

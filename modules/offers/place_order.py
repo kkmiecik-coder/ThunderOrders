@@ -766,7 +766,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
 # Pre-order: Place Order (no reservations)
 # ============================================
 
-def preorder_page_product_ids(page):
+def preorder_page_product_ids(page, only_purchasable=True):
     """Zbiór product_id zamawialnych na stronie pre-order (walidacja przynależności).
 
     Parytet z templatem order_page_preorder.html: zamawialne są wyłącznie sekcje
@@ -774,15 +774,24 @@ def preorder_page_product_ids(page):
     Sekcje 'set' nie są renderowane na pre-order, a produkt bonusowy dodaje serwis
     (is_bonus) — nie wchodzi przez koszyk. Bez filtra is_active: aktywność to
     osobna walidacja (validate-cart raportuje ją precyzyjnie jako 'inactive').
+
+    Args:
+        page: OfferPage
+        only_purchasable: True (domyślnie) — tylko sekcje w stanie 'active'.
+            False — wszystkie sekcje strony, niezależnie od display_state
+            (używane do odróżnienia "produktu spoza strony" od "wyprzedanego").
     """
     from .models import OfferSection
 
     allowed = set()
-    sections = OfferSection.query.filter(
+    query = OfferSection.query.filter(
         OfferSection.offer_page_id == page.id,
         OfferSection.section_type.in_(('product', 'variant_group')),
-    ).all()
-    for section in sections:
+    )
+    if only_purchasable:
+        query = query.filter(OfferSection.display_state == 'active')
+
+    for section in query.all():
         if section.section_type == 'product':
             if section.product_id:
                 allowed.add(section.product_id)
@@ -820,6 +829,26 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
     # Filter valid items (przynależność: pre-order tylko na produkty z sekcji strony —
     # obcy product_id traktowany jak nieistniejący; wszystkie obce -> empty_cart)
     allowed_product_ids = preorder_page_product_ids(page)
+    on_page_product_ids = preorder_page_product_ids(page, only_purchasable=False)
+
+    # Produkty z sekcji przełączonych na "Sold-out"/"Ukryta" — klient mógł mieć je
+    # w koszyku sprzed zmiany. Nie wycinamy ich po cichu, tylko mówimy wprost.
+    blocked_ids = {
+        item['product_id'] for item in cart_items
+        if item.get('product_id') and item.get('quantity', 0) > 0
+        and item['product_id'] in on_page_product_ids
+        and item['product_id'] not in allowed_product_ids
+    }
+    if blocked_ids:
+        blocked_names = [
+            p.name for p in Product.query.filter(Product.id.in_(blocked_ids)).all()
+        ]
+        return False, {
+            'error': 'items_unavailable',
+            'message': 'Te produkty nie są już dostępne: ' + ', '.join(blocked_names),
+            'product_ids': sorted(blocked_ids),
+        }
+
     cart_items = [item for item in cart_items
                   if item.get('product_id') and item.get('quantity', 0) > 0
                   and item['product_id'] in allowed_product_ids]
@@ -887,7 +916,8 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
     # 5. Evaluate bonuses from 'bonus' sections
     bonus_sections = OfferSection.query.filter_by(
         offer_page_id=page.id,
-        section_type='bonus'
+        section_type='bonus',
+        display_state='active'
     ).all()
 
     for section in bonus_sections:

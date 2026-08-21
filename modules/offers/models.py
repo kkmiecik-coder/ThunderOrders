@@ -445,6 +445,17 @@ class OfferSection(db.Model):
     # Dla variant_group
     variant_group_id = db.Column(db.Integer, db.ForeignKey('variant_groups.id'), nullable=True)
 
+    # Stan wyswietlania sekcji na stronie sprzedazy (tylko pre-order; exclusive zawsze 'active')
+    # active   - sekcja widoczna i zamawialna
+    # sold_out - sekcja widoczna, wyszarzona, z nakladka "Sold-out", NIE zamawialna
+    # hidden   - sekcja w ogole sie nie renderuje
+    display_state = db.Column(
+        db.Enum('active', 'sold_out', 'hidden', name='offer_section_display_state'),
+        nullable=False,
+        default='active',
+        server_default='active'
+    )
+
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
@@ -511,6 +522,25 @@ class OfferSection(db.Model):
     def is_orderable_section(self):
         """Czy to sekcja z możliwością zamówienia (product, set lub variant_group)"""
         return self.section_type in ('product', 'set', 'variant_group')
+
+    # ============================================
+    # Display State Helpers
+    # ============================================
+
+    @property
+    def is_visible(self):
+        """Czy sekcja renderuje się na stronie sprzedaży (aktywna lub sold-out)"""
+        return self.display_state != 'hidden'
+
+    @property
+    def is_sold_out(self):
+        """Czy sekcja jest oznaczona jako wyprzedana (widoczna, ale nie do zamówienia)"""
+        return self.display_state == 'sold_out'
+
+    @property
+    def is_purchasable(self):
+        """Czy z sekcji można kupować (nie sold-out, nie ukryta)"""
+        return self.display_state == 'active'
 
     # ============================================
     # Variant Group Helpers

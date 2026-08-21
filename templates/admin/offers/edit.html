@@ -1,4 +1,5 @@
 {% extends "admin/base_admin.html" %}
+{% from "admin/offers/_section_header.html" import section_header %}
 
 {% block title %}Edycja: {{ page.name }}{% endblock %}
 
@@ -334,32 +335,25 @@
             </div>
 
             <!-- Sections Container (sortable) -->
+            {% set SECTION_TYPE_LABELS = {
+                'heading': 'Nagłówek',
+                'paragraph': 'Paragraf',
+                'product': 'Produkt',
+                'set': 'Set produktów',
+                'variant_group': 'Grupa wariantowa',
+                'bonus': 'Bonus (gratis)',
+                'image': 'Zdjęcie'
+            } %}
+            {% set SOLD_OUT_SECTION_TYPES = ['product', 'set', 'variant_group', 'bonus'] %}
             <div class="sections-container" id="sectionsContainer">
                 {% for section in sections %}
-                <div class="section-card" data-section-id="{{ section.id }}" data-section-type="{{ section.section_type }}">
-                    <div class="section-header">
-                        <div class="section-drag-handle">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                            </svg>
-                        </div>
-                        <span class="section-type-label">
-                            {% if section.section_type == 'heading' %}Nagłówek
-                            {% elif section.section_type == 'paragraph' %}Paragraf
-                            {% elif section.section_type == 'product' %}Produkt
-                            {% elif section.section_type == 'set' %}Set produktów
-                            {% elif section.section_type == 'variant_group' %}Grupa wariantowa
-                            {% elif section.section_type == 'bonus' %}Bonus (gratis)
-                            {% elif section.section_type == 'image' %}Zdjęcie
-                            {% endif %}
-                        </span>
-                        <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                            </svg>
-                        </button>
-                    </div>
+                <div class="section-card{% if section.display_state == 'sold_out' %} section-state-sold-out{% elif section.display_state == 'hidden' %} section-state-hidden{% endif %}" data-section-id="{{ section.id }}" data-section-type="{{ section.section_type }}">
+                    {{ section_header(
+                        SECTION_TYPE_LABELS.get(section.section_type, 'Sekcja'),
+                        display_state=section.display_state,
+                        allow_sold_out=section.section_type in SOLD_OUT_SECTION_TYPES,
+                        show_state_switch=(page.page_type == 'preorder')
+                    ) }}
                     <div class="section-body">
                         {% if section.section_type == 'heading' %}
                         <input type="text" class="form-input section-content" value="{{ section.content or '' }}"
@@ -998,6 +992,16 @@
         </div>
     </div>
 </div>
+
+<!-- Section Header Templates (hidden) — klonowane przez offer-builder.js
+     przy dodawaniu nowej sekcji. Wariant "full" ma trzy stany, "simple" dwa
+     (nagłówek/paragraf/zdjęcie nie mogą być Sold-out). -->
+<template id="sectionHeaderTemplateFull">
+    {{ section_header('__LABEL__', allow_sold_out=true, show_state_switch=(page.page_type == 'preorder')) }}
+</template>
+<template id="sectionHeaderTemplateSimple">
+    {{ section_header('__LABEL__', allow_sold_out=false, show_state_switch=(page.page_type == 'preorder')) }}
+</template>
 
 <!-- Product Select Template (hidden) -->
 <template id="productOptionTemplate">

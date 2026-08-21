@@ -461,6 +461,18 @@ def offers_save(page_id):
 
         db.session.commit()
 
+        # Po commit: live update stanów sekcji u klientów z otwartą stroną pre-order
+        # (Aktywna / Sold-out / Ukryta). Best-effort — awaria socketa nie może
+        # wywrócić zapisu strony.
+        if page.page_type == 'preorder' and 'sections' in data:
+            try:
+                from modules.offers.socket_events import broadcast_section_states
+                broadcast_section_states(page.id)
+            except Exception:
+                current_app.logger.exception(
+                    f"broadcast_section_states failed for page={page.id}"
+                )
+
         # Po commit: powiadomienia dla sekcji ze zwiększonymi limitami (jak dotąd)
         if limit_changes:
             _send_notifications_for_limit_changes(page.id, limit_changes)
@@ -509,6 +521,13 @@ def offers_save(page_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Stany wyswietlania sekcji na stronie sprzedazy (kolumna OfferSection.display_state).
+# 'sold_out' ma sens tylko dla sekcji z produktami — nagłówek/paragraf/zdjęcie moga byc
+# wylacznie widoczne albo ukryte.
+SECTION_DISPLAY_STATES = ('active', 'sold_out', 'hidden')
+SECTION_SOLD_OUT_TYPES = ('product', 'set', 'variant_group', 'bonus')
+
+
 def _validate_section_data(section_data):
     """
     Waliduje dane sekcji przed zapisem
@@ -520,6 +539,14 @@ def _validate_section_data(section_data):
         tuple: (valid: bool, error: str or None)
     """
     section_type = section_data.get('type')
+
+    # Walidacja stanu wyswietlania sekcji (Aktywna / Sold-out / Ukryta)
+    display_state = section_data.get('display_state')
+    if display_state is not None:
+        if display_state not in SECTION_DISPLAY_STATES:
+            return False, 'Nieprawidlowy stan sekcji'
+        if display_state == 'sold_out' and section_type not in SECTION_SOLD_OUT_TYPES:
+            return False, 'Stan "Sold-out" jest dostepny tylko dla sekcji z produktami'
 
     # Walidacja sekcji "set"
     if section_type == 'set':
@@ -660,6 +687,13 @@ def _update_sections(page, sections_data):
         section.set_max_per_product = max_per_product if max_per_product and max_per_product > 0 else None
         section.variant_group_id = section_data.get('variant_group_id')
         section.set_product_id = section_data.get('set_product_id')  # NOWE: Produkt-komplet dla setu
+
+        # Stan wyswietlania: funkcja dotyczy wylacznie stron pre-order.
+        # Na exclusive sekcje zawsze pozostaja aktywne (tam dostepnoscia steruja limity).
+        if page.page_type == 'preorder':
+            section.display_state = section_data.get('display_state') or 'active'
+        else:
+            section.display_state = 'active'
 
         # Obsługa elementów setu
         if section.section_type == 'set' and 'set_items' in section_data:

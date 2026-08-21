@@ -3,6 +3,8 @@ Offers Module - Public Routes
 Publiczne endpointy dla stron ofertowych zamówień
 """
 
+import json
+
 from flask import render_template, abort, redirect, url_for, request, jsonify, session
 from flask_login import login_required, current_user
 from extensions import db, limiter, csrf
@@ -206,6 +208,26 @@ def _build_bonuses_config(page, sections):
     return json.dumps(config, ensure_ascii=False)
 
 
+def build_preorder_unavailable_map(sections):
+    """Mapa produktów niedostępnych na stronie pre-order — dla koszyka w localStorage.
+
+    Klient mógł dodać produkt do koszyka zanim sekcja zmieniła stan. Koszyk nadal
+    pokazuje taką pozycję (wyszarzoną), ale nie wlicza jej do sumy i nie wysyła
+    w zamówieniu. Zwraca {product_id: 'sold_out'|'hidden'}.
+    """
+    unavailable = {}
+    for section in sections:
+        if section.display_state == 'active':
+            continue
+        if section.section_type == 'product':
+            if section.product_id:
+                unavailable[section.product_id] = section.display_state
+        elif section.section_type == 'variant_group':
+            for product in section.get_variant_group_products():
+                unavailable[product.id] = section.display_state
+    return unavailable
+
+
 def should_show_preview(page, sections):
     """Czy pokazać przycisk podglądu oferty na countdownie.
 
@@ -299,8 +321,18 @@ def order_page(token):
 
         if page.page_type == 'preorder':
             # Pre-order: no reservations, no cleanup
-            bonuses_config = _build_bonuses_config(page, sections)
-            return render_template('offers/order_page_preorder.html', page=page, sections=sections, bonuses_config_json=bonuses_config)
+            # Sekcje 'hidden' w ogóle nie trafiają do HTML (żeby nie wyciekała ich treść),
+            # 'sold_out' renderują się wyszarzone. Gratisy tylko z sekcji aktywnych —
+            # parytet z place_preorder_order().
+            visible_sections = [s for s in sections if s.is_visible]
+            bonuses_config = _build_bonuses_config(page, [s for s in sections if s.is_purchasable])
+            return render_template(
+                'offers/order_page_preorder.html',
+                page=page,
+                sections=visible_sections,
+                bonuses_config_json=bonuses_config,
+                unavailable_products_json=json.dumps(build_preorder_unavailable_map(sections))
+            )
         else:
             # Exclusive: existing logic with reservations
             from .reservation import cleanup_expired_reservations
@@ -353,12 +385,21 @@ def preview_page(token):
         abort(404)
 
     sections = page.get_sections_ordered()
-    bonuses_config = _build_bonuses_config(page, sections)
 
     if page.page_type == 'preorder':
-        return render_template('offers/order_page_preorder.html', page=page, sections=sections, preview_mode=True, bonuses_config_json=bonuses_config)
-    else:
-        return render_template('offers/order_page.html', page=page, sections=sections, preview_mode=True, bonuses_config_json=bonuses_config)
+        visible_sections = [s for s in sections if s.is_visible]
+        bonuses_config = _build_bonuses_config(page, [s for s in sections if s.is_purchasable])
+        return render_template(
+            'offers/order_page_preorder.html',
+            page=page,
+            sections=visible_sections,
+            preview_mode=True,
+            bonuses_config_json=bonuses_config,
+            unavailable_products_json=json.dumps(build_preorder_unavailable_map(sections))
+        )
+
+    bonuses_config = _build_bonuses_config(page, sections)
+    return render_template('offers/order_page.html', page=page, sections=sections, preview_mode=True, bonuses_config_json=bonuses_config)
 
 
 @offers_bp.route('/<token>/status')

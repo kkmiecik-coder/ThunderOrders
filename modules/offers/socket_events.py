@@ -199,6 +199,36 @@ def broadcast_availability_update(page_id):
     _check_notification_subscriptions(page_id, products_data)
 
 
+def broadcast_section_states(page_id):
+    """Rozgłasza stany sekcji strony pre-order po zapisie w Page Builderze.
+
+    Klienci z otwartą stroną aktualizują sekcje w miejscu (wyszarzenie / ukrycie)
+    bez przeładowania. Sekcja, która z 'hidden' wróciła do widocznych, nie istnieje
+    w DOM klienta — dlatego wysyłamy komplet stanów i flagę `visible_section_ids`,
+    a strona sama decyduje, czy potrzebuje pełnego odświeżenia.
+    """
+    from .models import OfferPage, OfferSection
+    from .routes import build_preorder_unavailable_map
+
+    page = db.session.get(OfferPage, page_id)
+    if not page or page.page_type != 'preorder':
+        return
+
+    sections = OfferSection.query.filter_by(offer_page_id=page_id).all()
+
+    room = _get_visitor_room(page_id, 'order')
+    socketio.emit('section_states_updated', {
+        'page_id': page_id,
+        'states': {str(s.id): s.display_state for s in sections},
+        'visible_section_ids': [s.id for s in sections if s.is_visible],
+        'unavailable_products': {
+            str(pid): state
+            for pid, state in build_preorder_unavailable_map(sections).items()
+        },
+        'timestamp': int(time.time()),
+    }, to=room)
+
+
 def _check_notification_subscriptions(page_id, current_availability):
     """
     Sprawdza czy produkty, które były niedostępne, stały się ponownie dostępne.
