@@ -6,6 +6,7 @@ from sqlalchemy.engine import Engine
 
 from app import create_app
 from extensions import db as _db
+from modules.offers.redis_state import init_state
 
 
 @event.listens_for(Engine, 'connect')
@@ -98,6 +99,15 @@ def _zasiej_slowniki():
 @pytest.fixture
 def app():
     app = create_app('testing')
+    # Stan ofert hermetycznie in-memory, NIGDY Redis. `create_app` woła
+    # `init_state(REDIS_URL)`, więc na maszynie z lokalnym Redisem cała suita
+    # pisała do niego: stan rezerwacji (user_session/reservation_session, TTL 1h)
+    # przeżywał między testami ORAZ między kolejnymi uruchomieniami pytesta,
+    # przez co wynik zależał od tego, co zostało po poprzednim przebiegu.
+    # Backend jest wymienny (ten sam interfejs), więc logika jest identyczna —
+    # zmienia się wyłącznie izolacja. Dotąd obchodził to tylko
+    # tests/test_mobile_api_ws.py, we własnym zakresie.
+    init_state(None)
     with app.app_context():
         _db.create_all()
         _zasiej_slowniki()
