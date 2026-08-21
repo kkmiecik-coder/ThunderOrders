@@ -1616,6 +1616,27 @@ class ShippingRequest(db.Model):
         return [ro.order for ro in self.request_orders if ro.order]
 
     @property
+    def active_orders(self):
+        """Zamówienia, które jeszcze mają pojechać — bez anulowanych i zwrotów.
+
+        Bramki gotowości zlecenia (`all(spakowane)` przy pakowaniu, komplet
+        rozliczonych E4 przy opłaceniu) muszą liczyć po TEJ liście, nie po
+        `orders`. Zamówienie anulowane albo skierowane do zwrotu nigdy żadnej
+        z nich nie spełni i nie wejdzie już do sesji WMS, więc liczone razem
+        z resztą blokowało zlecenie na zawsze.
+
+        Filtrujemy zamiast wypinać wiersz junction: historia zlecenia zostaje
+        kompletna (`orders` nadal pokazuje wszystko), a `do_zwrotu` bywa cofane —
+        wypięcie jest nieodwracalne przez cascade delete-orphan.
+
+        Lista statusów pochodzi z consolidation.STATUSY_WYPINAJACE_Z_PACZKI, żeby
+        obie ścieżki — zwykłego zlecenia i paczki zbiorczej — miały jedną definicję
+        „zamówienia, które nie dojedzie".
+        """
+        from modules.orders.consolidation import STATUSY_WYPINAJACE_Z_PACZKI
+        return [o for o in self.orders if o.status not in STATUSY_WYPINAJACE_Z_PACZKI]
+
+    @property
     def is_consolidation(self):
         """Paczka zbiorcza: ma podpięte zlecenia źródłowe. Jedyne źródło prawdy —
         nie ma osobnej flagi w bazie, żeby stan nie mógł się rozjechać z relacją."""

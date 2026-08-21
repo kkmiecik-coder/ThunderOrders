@@ -285,9 +285,12 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
 
     changed_status_order_ids = set()
 
+    # active_orders, nie orders: anulowane zamówienie fizycznie nie jedzie w tym
+    # kartonie, więc nadanie mu statusu „wysłane" byłoby kłamstwem wobec klienta
+    # (i wobec statystyk).
     order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
     if order_status:
-        for o in sr.orders:
+        for o in sr.active_orders:
             if o.status != 'wyslane':
                 o.status = 'wyslane'
                 changed_status_order_ids.add(o.id)
@@ -299,7 +302,9 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     # identyczną wiadomość drugi raz przy "Oznacz jako wysłane".
     new_shipment_order_ids = set()
     if tracking_number:
-        for order in sr.orders:
+        # Jak wyżej — wpis przesyłki dla anulowanego zamówienia to ślad nadania
+        # czegoś, czego w paczce nie ma.
+        for order in sr.active_orders:
             existing = OrderShipment.query.filter_by(
                 order_id=order.id, tracking_number=tracking_number
             ).first()

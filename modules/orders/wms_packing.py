@@ -56,7 +56,13 @@ def update_sr_after_packing(order):
     if not sr or sr.is_consolidated_source:
         return None
 
-    all_packed = all(o.status == 'spakowane' for o in sr.orders)
+    # Po zamówieniach AKTYWNYCH: anulowane i zwroty nie wejdą już do sesji WMS
+    # (`_validate_orders_for_wms` wpuszcza tylko `dostarczone_gom`), więc nigdy nie
+    # osiągną statusu „spakowane" i liczone razem z resztą blokowały zlecenie na
+    # zawsze. Pusta lista nadal nie może przejść jako komplet — patrz komentarz
+    # o all([]) wyżej, tam chodzi o zlecenie źródłowe, tu o samo anulowanie.
+    aktywne = sr.active_orders
+    all_packed = bool(aktywne) and all(o.status == 'spakowane' for o in aktywne)
 
     sr_status_changed = False
     if all_packed and sr.status != 'spakowane':

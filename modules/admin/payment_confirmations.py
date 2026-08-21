@@ -59,11 +59,13 @@ def _check_sr_auto_oplacone(order):
     # przy uploadzie klienta), więc wymaganie go trzymało całe zlecenie w
     # „czeka na opłacenie" na zawsze. Predykat is_domestic_shipping_settled jest
     # jedyną definicją tego stanu — patrz Order w modules/orders/models.py.
-    all_paid = True
-    for ro in sr.request_orders:
-        if not ro.order or not ro.order.is_domestic_shipping_settled:
-            all_paid = False
-            break
+    # Po zamówieniach AKTYWNYCH: anulowane i zwroty nigdy nie dostaną potwierdzenia
+    # płatności, a liczone razem z resztą trzymały zlecenie w „czeka na opłacenie"
+    # na zawsze (patrz ShippingRequest.active_orders).
+    aktywne = sr.active_orders
+    # Pusta lista przeszłaby przez `all()` jako komplet — zlecenie bez żywych
+    # zamówień nie ma czego wysłać, więc nie awansuje.
+    all_paid = bool(aktywne) and all(o.is_domestic_shipping_settled for o in aktywne)
 
     if all_paid:
         # Verify 'oplacone' status exists and is active
