@@ -1106,6 +1106,26 @@ class Order(db.Model):
             return True
         return self.stage_3_status == 'approved'
 
+    @property
+    def is_domestic_shipping_settled(self):
+        """E4 Wysyłka PL rozliczona — warunek dopuszczenia zlecenia do „opłacone".
+
+        Symetryczne do is_customs_vat_settled, z jedną różnicą: shipping_cost jest
+        NOT NULL z domyślnym 0.00, więc nie ma tu stanu „nie ustalono" — cały moduł
+        traktuje zero jako brak kosztu.
+
+        0 (gratis / bez dopłaty) → True. Wiersz PaymentConfirmation powstaje w całym
+            repo wyłącznie przy uploadzie klienta, a `can_upload_stage_4` odmawia
+            uploadu przy kwocie 0 — takie zamówienie NIE MA JAK dostać potwierdzenia.
+            Wymaganie go zamykało pętlę: zlecenie z częścią pozycji na zerze nigdy
+            nie dochodziło do „opłacone", choć klient nic nie był winien.
+        > 0 → True dopiero gdy stage_4_status == 'approved'
+              ('pending'/'rejected'/'none' nie wystarczają).
+        """
+        if not self.shipping_cost or self.shipping_cost <= 0:
+            return True
+        return self.stage_4_status == 'approved'
+
     def get_product_deadline(self):
         """Get payment deadline for E1 (product) from the offer page.
 

@@ -1030,6 +1030,31 @@ def admin_update_order_field(order_id):
             response_data['is_partially_paid'] = order.is_partially_paid
             response_data['is_overpaid'] = order.is_overpaid
 
+        # Koszt E4 wpisany tutaj to ta sama należność, co z modalu wyceny zlecenia —
+        # więc i status zlecenia musi się przeliczyć. Bez tego klient dostawał maila
+        # „nowy koszt wysyłki", płacił, admin zatwierdzał, a zlecenie wisiało na
+        # „czeka na wycenę", bo bramka opłacenia wchodzi tylko z „czeka na opłacenie".
+        if field == 'shipping_cost':
+            sr_zamowienia = order.shipping_request
+            if sr_zamowienia:
+                zmienione_zlecenia = przelicz_status_finansowy_zlecenia(sr_zamowienia)
+                if zmienione_zlecenia:
+                    db.session.commit()
+                    from utils.email_manager import EmailManager as _EM
+                    from utils.push_manager import PushManager as _PM
+                    from modules.orders.models import ShippingRequestStatus
+                    for zlecenie, poprzedni in zmienione_zlecenia:
+                        try:
+                            _EM.notify_shipping_status_change(zlecenie, poprzedni)
+                            status_obj = ShippingRequestStatus.query.filter_by(
+                                slug=zlecenie.status).first()
+                            _PM.notify_shipping_status_change(
+                                zlecenie, status_obj.name if status_obj else zlecenie.status)
+                        except Exception as e:
+                            current_app.logger.error(
+                                f'Błąd powiadomienia o zmianie statusu zlecenia '
+                                f'{zlecenie.request_number}: {e}')
+
         # Email notification for cost fields
         if field in ('proxy_shipping_cost', 'customs_vat_sale_cost', 'shipping_cost') and value and float(value) > 0:
             from utils.email_manager import EmailManager
@@ -3954,6 +3979,45 @@ def admin_get_shipping_request(shipping_request_id):
     })
 
 
+def przelicz_status_finansowy_zlecenia(sr):
+    """Podnosi zlecenie na „czeka na opłacenie", gdy jest już cokolwiek do zapłaty.
+
+    Jedno miejsce na tę regułę dla WSZYSTKICH dróg zapisu kwoty E4 — modalu wyceny
+    zlecenia i inline edytora na karcie zamówienia. Wcześniej regułę miał tylko
+    modal, i to warunkowaną deltą kwoty, więc koszt wpisany drugą drogą zostawiał
+    zlecenie na „czeka na wycenę": klient płacił, admin zatwierdzał, a bramka
+    opłacenia (wchodzi wyłącznie z „czeka na opłacenie") nigdy się nie odpalała.
+
+    Funkcja jest IDEMPOTENTNA — liczy ze stanu zamówień, nie ze zmiany. Wolno ją
+    wołać po każdym zapisie i sama naprawia rozjechany stan.
+
+    Zwraca listę par (zlecenie, status_sprzed_zmiany) — jak
+    `przeprowadz_uczestnikow_na_oplacenie`, żeby wywołujący mógł wysłać
+    powiadomienie z przejściem właściwym dla KAŻDEGO zlecenia z osobna.
+    """
+    from modules.orders.consolidation import (
+        przeprowadz_uczestnikow_na_oplacenie, propaguj_na_zrodla)
+
+    if sr.is_consolidation:
+        return przeprowadz_uczestnikow_na_oplacenie(sr)
+
+    if sr.status != 'czeka_na_wycene':
+        return []
+
+    # `any`, nie `all` — klient ma zobaczyć „czeka na opłacenie", gdy jest już
+    # cokolwiek do zapłacenia, a nie dopiero po wycenie ostatniej pozycji.
+    if not any((ro.order.shipping_cost or 0) > 0
+               for ro in sr.request_orders if ro.order):
+        return []
+
+    poprzedni_status = sr.status
+    sr.status = 'czeka_na_oplacenie'
+    # Status finansowy, nie logistyczny — propaguj_na_zrodla świadomie NIE zjedzie
+    # z nim w dół, ale wołamy ją konsekwentnie z resztą miejsc zapisu.
+    propaguj_na_zrodla(sr)
+    return [(sr, poprzedni_status)]
+
+
 def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_slug):
     """
     Synchronizuje statusy zamówień klienta na podstawie zmiany statusu zlecenia wysyłki.
@@ -4234,32 +4298,24 @@ def _zapisz_zlecenie_wysylki(sr, data):
     # Zlecenia ŹRÓDŁOWE, którym wycena zmieniła status — powiadamiane osobno,
     # z ich własnym przejściem (patrz sekcja powiadomień niżej).
     zrodla_ze_zmiana = []
-    if orders_with_new_cost and sr.is_consolidation:
-        # Paczka zbiorcza nie ma własnego statusu finansowego — jej status to
-        # minimum ze statusów uczestników. Podniesienie samej paczki zostawiłoby
-        # źródła na „czeka na wycenę", a _sprawdz_oplacenie_konsolidacji podnosi
-        # uczestnika na „opłacone" tylko z „czeka na opłacenie" — paczka nigdy nie
-        # osiągała „opłacone" i WMS odrzucał wysyłkę (UNPAID_SR_STATUSES).
-        from modules.orders.consolidation import przeprowadz_uczestnikow_na_oplacenie
-        status_paczki_przed = sr.status
-        zrodla_ze_zmiana = przeprowadz_uczestnikow_na_oplacenie(sr)
-        if zrodla_ze_zmiana:
-            auto_status_changed = sr.status != status_paczki_przed
-            db.session.commit()
-    elif sr.status == 'czeka_na_wycene' and orders_with_new_cost:
-        has_any_cost = any(
-            (ro.order.shipping_cost or 0) > 0
-            for ro in sr.request_orders if ro.order
-        )
-        if has_any_cost:
-            old_status = sr.status
-            sr.status = 'czeka_na_oplacenie'
-            auto_status_changed = True
-            # Status finansowy, nie logistyczny — propaguj_na_zrodla świadomie NIE
-            # zjedzie z nim w dół (finanse zostają indywidualne), ale wołamy ją tu
-            # konsekwentnie z resztą miejsc zapisu, na wypadek zmiany trackingu/kuriera.
-            propaguj_na_zrodla(sr)
-            db.session.commit()
+    # Warunkiem jest STAN zamówień, nie wykryta zmiana kwoty. Wcześniej awans
+    # zależał od `orders_with_new_cost`, czyli od tego, czy kwota akurat drgnęła
+    # w tym zapisie — a koszt E4 da się ustawić także drugą drogą (inline edytor
+    # na karcie zamówienia, admin_update_order_field), która statusu zlecenia nie
+    # dotyka. Zlecenie w pełni zapłacone potrafiło więc widnieć jako „Czeka na
+    # wycenę". Obie funkcje niżej są idempotentne: pomijają zlecenia, które nie
+    # stoją na statusie wyjściowym, więc wołanie ich przy każdym zapisie jest
+    # bezpieczne i samo naprawia rozjechany stan.
+    # Ta sama funkcja obsługuje paczkę zbiorczą i zlecenie zwykłe, i ta sama
+    # obsługuje inline edytor kosztu na karcie zamówienia — jedno miejsce na regułę.
+    # Paczka zbiorcza nie ma własnego statusu finansowego (jej status to minimum ze
+    # statusów uczestników), więc `auto_status_changed` liczymy z ruchu na SAMEJ
+    # paczce, a powiadomienia i tak idą per zmienione źródło.
+    status_przed_przeliczeniem = sr.status
+    zrodla_ze_zmiana = przelicz_status_finansowy_zlecenia(sr)
+    if zrodla_ze_zmiana:
+        auto_status_changed = sr.status != status_przed_przeliczeniem
+        db.session.commit()
 
     # Sync order statuses based on SR status change
     if 'status' in data and data['status'] != old_status and not auto_status_changed:

@@ -545,11 +545,21 @@ def test_wyslanie_przez_wms_propaguje_na_zrodla(db, make_user, make_order):
 
 def test_oplacenie_przez_jednego_uczestnika_podnosi_tylko_jego_zlecenie(db, make_user, make_order):
     """Klient płaci za swoje zamówienia niezależnie — nie ma czekać, aż zapłacą inni,
-    żeby zobaczyć u siebie 'opłacone'. Paczka czeka na komplet."""
+    żeby zobaczyć u siebie 'opłacone'. Paczka czeka na komplet.
+
+    Obaj uczestnicy mają REALNĄ należność. Bez tego test nie mierzyłby tego, co
+    deklaruje: `is_domestic_shipping_settled` uznaje 0 zł za rozliczone (klient nie
+    ma jak wgrać potwierdzenia do zerowej kwoty — `can_upload_stage_4` odmawia),
+    więc uczestnik bez kosztu przeszedłby na „opłacone" nie dlatego, że zapłacił,
+    tylko dlatego, że nie miał czego płacić.
+    """
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
     for sr in (sr_a, sr_b, zbiorcze):
         sr.status = 'czeka_na_oplacenie'
+    for uczestnik in zbiorcze.consolidation_participants:
+        for o in uczestnik['orders']:
+            o.shipping_cost = 10
     db.session.commit()
 
     from decimal import Decimal

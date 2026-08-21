@@ -53,15 +53,15 @@ def _check_sr_auto_oplacone(order):
     if sr.status != 'czeka_na_oplacenie':
         return
 
-    # Check if ALL orders in this SR have an approved domestic_shipping confirmation
+    # Wszystkie zamówienia ROZLICZONE — nie „mają zatwierdzone potwierdzenie".
+    # Zamówienie z kosztem 0 zł nie ma jak takiego potwierdzenia dostać
+    # (can_upload_stage_4 odmawia uploadu przy zerze, a wiersz powstaje wyłącznie
+    # przy uploadzie klienta), więc wymaganie go trzymało całe zlecenie w
+    # „czeka na opłacenie" na zawsze. Predykat is_domestic_shipping_settled jest
+    # jedyną definicją tego stanu — patrz Order w modules/orders/models.py.
     all_paid = True
     for ro in sr.request_orders:
-        has_approved_e4 = PaymentConfirmation.query.filter_by(
-            order_id=ro.order_id,
-            payment_stage='domestic_shipping',
-            status='approved'
-        ).first()
-        if not has_approved_e4:
+        if not ro.order or not ro.order.is_domestic_shipping_settled:
             all_paid = False
             break
 
@@ -112,11 +112,11 @@ def _sprawdz_oplacenie_konsolidacji(zbiorcze):
         zrodlo = uczestnik['source_request']
         if zrodlo.status != 'czeka_na_oplacenie' or not uczestnik['orders']:
             continue
+        # Ten sam predykat co w _check_sr_auto_oplacone — uczestnik z zamówieniem
+        # na 0 zł (paczka zbiorcza, w której dołożenie osoby nie zmienia ceny
+        # kartonu) inaczej wisiałby na „czeka na opłacenie" bez możliwości zapłaty.
         wszystkie_oplacone = all(
-            PaymentConfirmation.query.filter_by(
-                order_id=o.id, payment_stage='domestic_shipping', status='approved'
-            ).first()
-            for o in uczestnik['orders']
+            o.is_domestic_shipping_settled for o in uczestnik['orders']
         )
         if wszystkie_oplacone:
             zrodlo.status = 'oplacone'
