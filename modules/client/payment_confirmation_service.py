@@ -35,13 +35,18 @@ def order_stage_keys(order):
 
 
 def stage_amount(order, stage):
-    """Autorytatywna kwota etapu (przeniesione 1:1 z webowej pętli, l. 351-358)."""
+    """Autorytatywna kwota etapu (przeniesione 1:1 z webowej pętli, l. 351-358).
+
+    E4 zwraca kwotę POZOSTAŁĄ do zapłaty, nie pełną należność: gdy koszt wysyłki
+    wzrósł po zaksięgowaniu wpłaty, klient dopłaca różnicę, a nie całość drugi
+    raz (inaczej `paid_amount` urósłby o zawyżoną kwotę). Pozostałe etapy mają
+    jedno potwierdzenie na całość i zostają bez zmian.
+    """
     return {
         'product': order.effective_total,
         'korean_shipping': order.proxy_shipping_total,
         'customs_vat': order.customs_vat_total,
-        'domestic_shipping': (Decimal(str(order.shipping_cost))
-                              if order.shipping_cost else Decimal('0.00')),
+        'domestic_shipping': order.stage_4_remaining,
     }[stage]
 
 
@@ -99,9 +104,19 @@ def record_bulk_payment_proofs(user, order_stages, saved_filename, payment_metho
         for stage in entry['stages']:
             amount = stage_amount(order, stage)
             existing = PaymentConfirmation.query.filter_by(
-                order_id=order.id, payment_stage=stage).first()
+                order_id=order.id, payment_stage=stage
+            ).order_by(PaymentConfirmation.id.desc()).first()
             if existing and existing.is_approved:
-                continue                                     # parytet: defensywny skip (P2)
+                # E4 dopuszcza DOPŁATĘ: należność potrafi wzrosnąć po
+                # zaksięgowaniu wpłaty (korekta wyceny, nowa droższa przesyłka),
+                # a klient nie ma wtedy jak dopłacić, jeśli traktujemy etap jako
+                # zamknięty. Powstaje NOWY wiersz na różnicę — nadpisanie
+                # zatwierdzonego skasowałoby dowód i zawyżyło paid_amount.
+                # Pozostałe etapy mają jedno potwierdzenie na całość: dla nich
+                # zostaje defensywny skip (P2).
+                if stage != 'domestic_shipping' or amount <= 0:
+                    continue
+                existing = None
             if existing:
                 existing.proof_file = saved_filename
                 existing.uploaded_at = now

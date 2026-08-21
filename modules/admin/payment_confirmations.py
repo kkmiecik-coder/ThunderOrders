@@ -692,16 +692,27 @@ def payment_confirmation_register(order_id):
     now = get_local_now()
 
     existing = PaymentConfirmation.query.filter_by(
-        order_id=order.id, payment_stage=stage).first()
+        order_id=order.id, payment_stage=stage
+    ).order_by(PaymentConfirmation.id.desc()).first()
 
     # Zatwierdzona płatność klienta jest nietykalna — jej nadpisanie skasowałoby
     # dowód wpłaty i podwoiło paid_amount. Korekta idzie ścieżką odrzucenia.
+    #
+    # Wyjątek: E4 dopuszcza DOPŁATĘ. Gdy koszt wysyłki wzrósł po zaksięgowaniu
+    # wpłaty, etap ma zatwierdzone potwierdzenie, a mimo to nie jest rozliczony —
+    # blokada po samym statusie zamykała wtedy jedyną drogę domknięcia zlecenia
+    # (klient też nie mógł dopłacić). Powstaje NOWY wiersz na różnicę, stary
+    # dowód zostaje nietknięty.
     if existing and existing.is_approved:
-        return jsonify({
-            'success': False,
-            'message': (f'Etap „{stage}" jest już opłacony. Aby skorygować, '
-                        f'najpierw odrzuć istniejące potwierdzenie.')
-        }), 409
+        doplata_e4 = (stage == 'domestic_shipping'
+                      and not order.is_domestic_shipping_settled)
+        if not doplata_e4:
+            return jsonify({
+                'success': False,
+                'message': (f'Etap „{stage}" jest już opłacony. Aby skorygować, '
+                            f'najpierw odrzuć istniejące potwierdzenie.')
+            }), 409
+        existing = None
 
     if existing:
         # Jedno gniazdo na etap — klient wgrał dowód, ale zapłacił inaczej.
@@ -783,16 +794,22 @@ def payment_confirmation_register_request(sr_id):
 
     zaksiegowane = []
     for order in zamowienia:
-        koszt = order.shipping_cost or 0
-        if koszt <= 0:
+        # Kwota POZOSTAŁA, nie pełna należność: gdy klient zapłacił część,
+        # księgujemy różnicę. `stage_4_remaining` daje 0 dla pozycji rozliczonych
+        # (także tych z kosztem 0 zł), więc jeden warunek zastępuje dwa.
+        kwota = order.stage_4_remaining
+        if kwota <= 0:
             continue
 
         existing = PaymentConfirmation.query.filter_by(
-            order_id=order.id, payment_stage='domestic_shipping').first()
+            order_id=order.id, payment_stage='domestic_shipping'
+        ).order_by(PaymentConfirmation.id.desc()).first()
+        # Zatwierdzone potwierdzenie zostaje nietknięte — dopłata to NOWY wiersz,
+        # inaczej skasowalibyśmy dowód klienta i zawyżyli paid_amount.
         if existing and existing.is_approved:
-            continue
+            existing = None
 
-        kwota = Decimal(str(koszt)).quantize(Decimal('0.01'))
+        kwota = kwota.quantize(Decimal('0.01'))
         if existing:
             existing.amount = kwota
             existing.status = 'approved'

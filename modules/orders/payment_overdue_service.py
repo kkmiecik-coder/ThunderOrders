@@ -124,7 +124,11 @@ def get_overdue_orders_summary():
             .all()
         )
         for conf in confirmations:
-            confirmations_by_order_id.setdefault(conf.order_id, {}).setdefault(conf.payment_stage, conf)
+            # Nadpisujemy, nie setdefault: przy rosnącym `id` wygrywa NAJNOWSZY
+            # wiersz etapu — parytet z `stage_4_confirmation`. E4 dopuszcza
+            # dopłatę, więc potwierdzeń bywa kilka, a setdefault zostawiał tu
+            # najstarsze i serwis zaległości pokazywałby stan sprzed korekty.
+            confirmations_by_order_id.setdefault(conf.order_id, {})[conf.payment_stage] = conf
 
     for order in orders:
         order._cached_poland_items = poland_items_by_order_id.get(order.id, [])

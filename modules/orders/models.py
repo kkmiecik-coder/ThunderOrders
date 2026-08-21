@@ -1005,10 +1005,13 @@ class Order(db.Model):
         """E4: Wysyłka lokalna PL — dla obu typów zamówień"""
         if hasattr(self, '_cached_payment_confirmations'):
             return self._get_cached_confirmation('domestic_shipping')
+        # NAJNOWSZY wiersz, nie pierwszy z brzegu: etap dopuszcza dopłatę, więc
+        # potwierdzeń może być kilka, a właściwości etapu (status, badge, kubełek
+        # na liście) mają pokazywać stan bieżący — nie ten sprzed korekty wyceny.
         return PaymentConfirmation.query.filter_by(
             order_id=self.id,
             payment_stage='domestic_shipping'
-        ).first()
+        ).order_by(PaymentConfirmation.id.desc()).first()
 
     @property
     def stage_4_name(self):
@@ -1048,13 +1051,45 @@ class Order(db.Model):
         return True
 
     @property
+    def stage_4_paid(self):
+        """Suma ZATWIERDZONYCH wpłat za E4 (wysyłka PL).
+
+        Etap może mieć więcej niż jedno potwierdzenie: gdy należność rośnie po
+        zaksięgowaniu wpłaty (korekta wyceny, nowa droższa przesyłka po
+        skasowaniu poprzedniego zlecenia), klient dopłaca RÓŻNICĘ osobnym
+        dowodem. Rozliczenie liczy się z sumy, nie z istnienia wiersza.
+        """
+        from decimal import Decimal
+        suma = db.session.query(func.coalesce(func.sum(PaymentConfirmation.amount), 0)).filter(
+            PaymentConfirmation.order_id == self.id,
+            PaymentConfirmation.payment_stage == 'domestic_shipping',
+            PaymentConfirmation.status == 'approved',
+        ).scalar()
+        return Decimal(str(suma or 0))
+
+    @property
+    def stage_4_remaining(self):
+        """Ile jeszcze zostało do zapłaty za E4. Nigdy ujemne (nadpłata = 0)."""
+        from decimal import Decimal
+        naleznosc = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
+        return max(Decimal('0.00'), naleznosc - self.stage_4_paid)
+
+    @property
     def can_upload_stage_4(self):
-        """Można wgrać E4? (kwota > 0, nie approved/pending)"""
-        if self.stage_4_status in ['approved', 'pending']:
+        """Można wgrać E4?
+
+        Blokujemy przy 'pending' (dowód czeka na weryfikację — drugi na tę samą
+        kwotę tylko zaśmieca kolejkę) oraz gdy etap jest w pełni rozliczony.
+        Przy NIEDOPŁACIE klient musi móc dopłacić: dotąd samo istnienie starego
+        potwierdzenia 'approved' zamykało drogę zapłaty, więc po podniesieniu
+        kosztu wysyłki klient dostawał mail o nowej kwocie i nie miał czego
+        kliknąć.
+        """
+        if self.stage_4_status == 'pending':
             return False
         if not self.shipping_cost or self.shipping_cost <= 0:
             return False
-        return True
+        return self.stage_4_remaining > 0
 
     @property
     def has_customs_vat_stage(self):
@@ -1119,12 +1154,19 @@ class Order(db.Model):
             uploadu przy kwocie 0 — takie zamówienie NIE MA JAK dostać potwierdzenia.
             Wymaganie go zamykało pętlę: zlecenie z częścią pozycji na zerze nigdy
             nie dochodziło do „opłacone", choć klient nic nie był winien.
-        > 0 → True dopiero gdy stage_4_status == 'approved'
-              ('pending'/'rejected'/'none' nie wystarczają).
+        > 0 → True dopiero gdy SUMA zatwierdzonych wpłat pokrywa należność.
+
+        Liczymy KWOTĘ, nie istnienie wiersza 'approved'. Potwierdzenie wiąże się
+        z zamówieniem, a zobowiązanie powstaje per zlecenie wysyłki — zamówienie
+        może więc mieć zatwierdzone 20 zł z poprzedniej, tańszej przesyłki przy
+        aktualnej należności 30 zł. Pytanie „czy jest approved" odpowiadało wtedy
+        TAK i paczka wychodziła bez dopłaty, a różnica przepadała bez śladu.
+        Ta sama awaria zachodzi bez kasowania czegokolwiek — wystarczy podnieść
+        `shipping_cost` po zatwierdzeniu płatności.
         """
         if not self.shipping_cost or self.shipping_cost <= 0:
             return True
-        return self.stage_4_status == 'approved'
+        return self.stage_4_remaining <= 0
 
     def get_product_deadline(self):
         """Get payment deadline for E1 (product) from the offer page.
