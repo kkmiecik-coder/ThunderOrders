@@ -390,7 +390,11 @@ def przeprowadz_uczestnikow_na_oplacenie(zbiorcze):
     wycenionej paczki nie dało się wysłać w ogóle. Dodatkowo klient widział u
     siebie „Czeka na wycenę" mimo maila o opłaceniu paczki.
 
-    Zwraca listę zleceń źródłowych, którym faktycznie zmienił się status.
+    Zwraca listę par `(zlecenie_źródłowe, status_sprzed_zmiany)` dla źródeł,
+    którym faktycznie zmienił się status. Stary status jest częścią kontraktu,
+    bo powiadomienie o przejściu musi iść z parametrami UCZESTNIKA — status
+    paczki to minimum ze źródeł i bywa inny niż przejście, które zaszło u
+    konkretnej osoby.
     """
     if not zbiorcze.is_consolidation:
         return []
@@ -405,14 +409,15 @@ def przeprowadz_uczestnikow_na_oplacenie(zbiorcze):
         # zobaczyć „czeka na opłacenie", gdy jest już cokolwiek do zapłacenia,
         # a nie dopiero po wycenie ostatniej pozycji.
         if any((o.shipping_cost or 0) > 0 for o in uczestnik['orders']):
+            poprzedni_status = zrodlo.status
             zrodlo.status = 'czeka_na_oplacenie'
-            zmienione.append(zrodlo)
+            zmienione.append((zrodlo, poprzedni_status))
 
     if zmienione:
         # Status paczki jest pochodną statusów uczestników — przeliczamy go tym
         # samym helperem, którego używa ścieżka płatnicza, żeby nie było dwóch
         # źródeł prawdy o „najmniej zaawansowanym".
-        przelicz_status_zbiorczego(zmienione[0])
+        przelicz_status_zbiorczego(zmienione[0][0])
     return zmienione
 
 

@@ -15,6 +15,11 @@ def przechwycone(monkeypatch):
                         lambda **kw: dane['email'].append(kw) or None)
     monkeypatch.setattr(es, 'prepare_shipping_status_change_email',
                         lambda **kw: dane['status_email'].append(kw) or None)
+    # Zlecenie POJEDYNCZE (także źródłowe wyjęte z paczki) idzie drugą drogą —
+    # send_..., nie prepare_... + batch. Zbieramy do tego samego klucza, bo to
+    # ten sam mail; ścieżki odróżnia batch_calls.
+    monkeypatch.setattr(es, 'send_shipping_status_change_email',
+                        lambda **kw: dane['status_email'].append(kw) or None)
     monkeypatch.setattr(es, 'send_email_batch',
                         lambda messages: dane['batch_calls'].append(len(messages)))
     monkeypatch.setattr(PushManager, '_fire_and_forget',
@@ -387,3 +392,85 @@ def test_szablon_scalenia_przezywa_brak_nazwy_adresata(app):
 
     assert 'None' not in html
     assert '<strong>osoby odbierającej paczkę</strong>.' in html
+
+
+# ---------------------------------------------------------------------------
+# Status w mailu należy do UCZESTNIKA, nie do paczki (BUG 3.3)
+#
+# `notify_shipping_status_change` dostawało paczkę zbiorczą, więc
+# `_status_change_consolidated` rozsyłało WSZYSTKIM uczestnikom przejście
+# PACZKI — mimo że każdy uczestnik ma własny `source_request.status`.
+# Uczestnik z „opłacone" dostawał mail „Czeka na opłacenie".
+# Przypadek lustrzany: gdy podniesienie uczestnika nie ruszyło minimum paczki,
+# nie szło nic do nikogo — także do tego, komu właśnie naliczono należność.
+# ---------------------------------------------------------------------------
+
+def _wyceny(zbiorcze, zrodlo, kwota):
+    """Ustawia koszt wysyłki na zamówieniach danego uczestnika paczki.
+
+    Po konsolidacji wiersze junction są przepięte na paczkę, więc
+    `zrodlo.request_orders` jest puste — zamówienia uczestnika trzeba brać
+    z `consolidation_participants`.
+    """
+    for uczestnik in zbiorcze.consolidation_participants:
+        if uczestnik['source_request'].id == zrodlo.id:
+            for o in uczestnik['orders']:
+                o.shipping_cost = kwota
+
+
+def test_mail_o_wycenie_idzie_tylko_do_wycenionego_uczestnika(
+        db, przechwycone, make_user, make_order):
+    """Uczestnik, którego status się nie zmienił, nie dostaje cudzego przejścia."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+
+    # sr_a jest już opłacone, sr_b czeka na wycenę i właśnie ją dostaje.
+    sr_a.status = 'oplacone'
+    sr_b.status = 'czeka_na_wycene'
+    _wyceny(zbiorcze, sr_b, 20)
+    db.session.commit()
+
+    from modules.orders.consolidation import przeprowadz_uczestnikow_na_oplacenie
+    zmienione = przeprowadz_uczestnikow_na_oplacenie(zbiorcze)
+    db.session.commit()
+
+    assert [z.id for z, _ in zmienione] == [sr_b.id], (
+        'Zmienić się miało tylko zlecenie, które dostało wycenę'
+    )
+    assert all(stary == 'czeka_na_wycene' for _, stary in zmienione), (
+        'Kontrakt: funkcja zwraca (zlecenie, status_sprzed_zmiany) — bez starego '
+        'statusu nie da się wysłać poprawnego maila o przejściu'
+    )
+
+
+def test_status_w_mailu_pochodzi_ze_zlecenia_zrodlowego(
+        app, db, przechwycone, make_user, make_order):
+    """Mail niesie status zlecenia uczestnika, nie minimum paczki."""
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+
+    sr_a.status = 'oplacone'
+    sr_b.status = 'czeka_na_oplacenie'
+    db.session.commit()
+
+    from utils.email_manager import EmailManager
+    # Kontekst żądania: ścieżka pojedynczego zlecenia buduje link przez url_for
+    # bez zabezpieczenia (w odróżnieniu od ścieżki konsolidacji).
+    with app.test_request_context('/'):
+        EmailManager.notify_shipping_status_change(sr_b, 'czeka_na_wycene')
+
+    assert len(przechwycone['status_email']) == 1, (
+        'Powiadomienie o przejściu uczestnika idzie do niego jednego'
+    )
+    mail = przechwycone['status_email'][0]
+    assert mail['user_email'] == sr_b.user.email
+    assert mail['request_number'] == sr_b.request_number
+    assert mail['new_status_name'] == 'Czeka na opłacenie'
+    assert mail['old_status_name'] == 'Czeka na wycenę'
+    # Zamówienia przez display_orders, nie orders: po konsolidacji wiersze
+    # junction wiszą przy paczce, więc `sr.orders` źródła jest puste i klient
+    # dostawał potwierdzenie z pustą tabelą „Zamówienia w zleceniu".
+    assert {o.order_number for o in mail['orders']} == {
+        o.order_number for o in sr_b.display_orders
+    }
+    assert mail['orders'], 'Lista zamówień w mailu nie może być pusta'

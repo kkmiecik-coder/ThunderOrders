@@ -4227,6 +4227,9 @@ def _zapisz_zlecenie_wysylki(sr, data):
 
     # Auto-status: czeka_na_wycene → czeka_na_oplacenie after pricing
     auto_status_changed = False
+    # Zlecenia ŹRÓDŁOWE, którym wycena zmieniła status — powiadamiane osobno,
+    # z ich własnym przejściem (patrz sekcja powiadomień niżej).
+    zrodla_ze_zmiana = []
     if orders_with_new_cost and sr.is_consolidation:
         # Paczka zbiorcza nie ma własnego statusu finansowego — jej status to
         # minimum ze statusów uczestników. Podniesienie samej paczki zostawiłoby
@@ -4235,7 +4238,8 @@ def _zapisz_zlecenie_wysylki(sr, data):
         # osiągała „opłacone" i WMS odrzucał wysyłkę (UNPAID_SR_STATUSES).
         from modules.orders.consolidation import przeprowadz_uczestnikow_na_oplacenie
         status_paczki_przed = sr.status
-        if przeprowadz_uczestnikow_na_oplacenie(sr):
+        zrodla_ze_zmiana = przeprowadz_uczestnikow_na_oplacenie(sr)
+        if zrodla_ze_zmiana:
             auto_status_changed = sr.status != status_paczki_przed
             db.session.commit()
     elif sr.status == 'czeka_na_wycene' and orders_with_new_cost:
@@ -4323,7 +4327,29 @@ def _zapisz_zlecenie_wysylki(sr, data):
 
     # Send status change email + push (skip if tracking was just added - that email already covers it)
     status_actually_changed = ('status' in data and data['status'] != old_status) or auto_status_changed
-    if status_actually_changed and not tracking_just_added:
+
+    if zrodla_ze_zmiana and not tracking_just_added:
+        # Wycena paczki zbiorczej zmienia status POJEDYNCZYCH uczestników, nie
+        # wszystkich naraz. Powiadomienie wysłane na paczce rozeszłoby przejście
+        # PACZKI do każdego — także do tego, kto ma u siebie „opłacone" i dostałby
+        # mail „Czeka na opłacenie". Odwrotnie, gdy podniesienie uczestnika nie
+        # ruszyło minimum paczki, `auto_status_changed` było False i nie szło nic
+        # do nikogo — również do tego, komu właśnie naliczono należność.
+        # Dlatego iterujemy po źródłach, którym status faktycznie się zmienił.
+        from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        from modules.orders.models import ShippingRequestStatus
+        for zrodlo, poprzedni_status in zrodla_ze_zmiana:
+            try:
+                EmailManager.notify_shipping_status_change(zrodlo, poprzedni_status)
+                status_obj = ShippingRequestStatus.query.filter_by(slug=zrodlo.status).first()
+                PushManager.notify_shipping_status_change(
+                    zrodlo, status_obj.name if status_obj else zrodlo.status)
+            except Exception as e:
+                current_app.logger.error(
+                    f'Błąd powiadomienia o zmianie statusu zlecenia '
+                    f'{zrodlo.request_number}: {e}')
+    elif status_actually_changed and not tracking_just_added:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         from modules.orders.models import ShippingRequestStatus

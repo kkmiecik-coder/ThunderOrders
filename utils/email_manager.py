@@ -1104,7 +1104,11 @@ class EmailManager:
                 old_status_name=old_status_name,
                 new_status_name=new_status_name,
                 new_status_color=new_status_color,
-                orders=shipping_request.orders,
+                # display_orders, nie orders: gdy zlecenie jest źródłem paczki
+                # zbiorczej, jego wiersze junction wiszą przy paczce, więc
+                # `orders` jest puste — klient dostawał mail z pustą tabelą
+                # „Zamówienia w zleceniu".
+                orders=shipping_request.display_orders,
                 tracking_number=shipping_request.tracking_number,
                 courier_name=courier_name,
                 shipping_requests_url=url_for('client.shipping_requests_list', _external=True),
