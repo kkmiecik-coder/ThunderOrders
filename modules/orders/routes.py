@@ -4350,15 +4350,28 @@ def _zapisz_zlecenie_wysylki(sr, data):
         })
     )
 
-    # Auto-create OrderShipment + JEDNO powiadomienie na paczkę, gdy numer właśnie doszedł.
-    # Wpisy przesyłki powstają nadal per zamówienie — jedna jest tylko wiadomość
-    # do klienta, bo fizycznie dostaje jeden karton.
-    tracking_just_added = sr.tracking_number and not old_tracking
-    if tracking_just_added:
+    # Auto-create OrderShipment + JEDNO powiadomienie na paczkę.
+    #
+    # Sam numer przesyłki NIE jest nadaniem: pole renderuje się w modalu także
+    # w trybie „Dodaj koszty", więc dopisanie go z pustego wysyłało klientowi
+    # „paczka w drodze" dla przesyłki, której system nie uważa za nadaną —
+    # zlecenie zostawało w swoim statusie, z pustym shipped_at, czyli poza
+    # zasięgiem crona przypomnień i automatycznego domknięcia dostawy.
+    # Powiadomienie o nadaniu należy wyłącznie do przejścia w „wysłane”; numer
+    # wolno zapisać na dowolnym etapie, po cichu.
+    #
+    # Bramka na `sr.status` (nie na old_status) jest celowa: status z payloadu
+    # jest już zapisany wyżej, więc PUT {'status':'wyslane','tracking_number':…}
+    # nadal działa jak dotąd — jednym żądaniem.
+    tracking_just_added = bool(sr.tracking_number) and not old_tracking
+    powiadom_o_nadaniu = tracking_just_added and sr.status == 'wyslane'
+    if powiadom_o_nadaniu:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         from modules.orders.models import OrderShipment
-        for order in sr.orders:
+        # active_orders — parytet z ship_shipping_request: anulowane zamówienie
+        # nie jedzie w kartonie, więc nie dostaje wpisu przesyłki.
+        for order in sr.active_orders:
             existing = OrderShipment.query.filter_by(
                 order_id=order.id,
                 tracking_number=sr.tracking_number
@@ -4388,7 +4401,7 @@ def _zapisz_zlecenie_wysylki(sr, data):
     # Send status change email + push (skip if tracking was just added - that email already covers it)
     status_actually_changed = ('status' in data and data['status'] != old_status) or auto_status_changed
 
-    if zrodla_ze_zmiana and not tracking_just_added:
+    if zrodla_ze_zmiana and not powiadom_o_nadaniu:
         # Wycena paczki zbiorczej zmienia status POJEDYNCZYCH uczestników, nie
         # wszystkich naraz. Powiadomienie wysłane na paczce rozeszłoby przejście
         # PACZKI do każdego — także do tego, kto ma u siebie „opłacone" i dostałby
@@ -4409,7 +4422,7 @@ def _zapisz_zlecenie_wysylki(sr, data):
                 current_app.logger.error(
                     f'Błąd powiadomienia o zmianie statusu zlecenia '
                     f'{zrodlo.request_number}: {e}')
-    elif status_actually_changed and not tracking_just_added:
+    elif status_actually_changed and not powiadom_o_nadaniu:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         from modules.orders.models import ShippingRequestStatus

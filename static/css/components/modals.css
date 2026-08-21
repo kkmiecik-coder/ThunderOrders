@@ -5161,3 +5161,17 @@
     background: rgba(110, 231, 183, 0.12);
     border-color: rgba(110, 231, 183, 0.5);
 }
+
+/* Podpowiedź pod polem numeru przesyłki w modalu wyceny zlecenia: sam numer
+   nie jest nadaniem, więc admin musi wiedzieć, że klient nie dostanie jeszcze
+   powiadomienia (patrz shipping-request-modal.js). */
+.sr-tracking-note {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: #6b7280;
+}
+
+[data-theme="dark"] .sr-tracking-note {
+    color: rgba(255, 255, 255, 0.55);
+}

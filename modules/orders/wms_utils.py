@@ -252,7 +252,12 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
         )
 
     old_status = sr.status
-    tracking_number = (tracking_number or '').strip()
+    # Fallback na numer zapisany wcześniej: numer wolno dopisać na dowolnym
+    # etapie (modal „Dodaj koszty" zapisuje go po cichu, bez powiadomienia), więc
+    # przejście w „wysłane" może przyjść już bez numeru w żądaniu. Bez tego
+    # fallbacku klient nie dostawałby NIC: ani maila przy zapisie numeru, ani
+    # maila z numerem przy nadaniu.
+    tracking_number = (tracking_number or sr.tracking_number or '').strip()
 
     # Puste pole nie kasuje tego, co już jest na zleceniu.
     if courier:

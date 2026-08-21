@@ -472,6 +472,11 @@
                     <div class="form-group">
                         <label class="form-label" for="srTracking">Numer przesyłki</label>
                         <input type="text" id="srTracking" class="form-control" placeholder="Numer przesyłki" value="">
+                        ${state.mode === 'ship' ? '' : `
+                        <p class="sr-tracking-note">
+                            Numer zapiszemy od razu, ale klient dostanie powiadomienie
+                            o nadaniu dopiero po oznaczeniu zlecenia jako wysłane.
+                        </p>`}
                     </div>
                 </div>
                 ${blockNote}
