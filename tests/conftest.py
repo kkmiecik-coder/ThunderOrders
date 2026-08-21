@@ -88,6 +88,10 @@ def _zasiej_slowniki():
         ('spakowane', 'Spakowane', '#8B5CF6', 5, False),
         ('wyslane', 'Wysłane', '#3B82F6', 6, False),
         ('dostarczone', 'Dostarczone', '#059669', 7, False),
+        # Terminalny status negatywny — zastępuje fizyczny DELETE zlecenia
+        # (migracja a7f4c2b91e08). Sieje się globalnie, bo `shipping_requests.status`
+        # to FK: bez tego wiersza każde anulowanie pada na kluczu obcym.
+        ('anulowane', 'Anulowane', '#9E9E9E', 9, False),
     ):
         _db.session.add(ShippingRequestStatus(
             slug=slug, name=nazwa, badge_color=kolor, sort_order=kolejnosc,

@@ -248,7 +248,21 @@ def cancel_request(user_id, request_id):
         return False, {'code': 'consolidated'}
     if not req.can_cancel:
         return False, {'code': 'cannot_cancel'}
-    db.session.delete(req)
+
+    # ANULUJEMY, nie kasujemy — ta sama semantyka co po stronie admina.
+    #
+    # Twardy DELETE miał dwie wady. Po pierwsze kasował historię i robił dziurę
+    # w numeracji WYS/N. Po drugie — w odróżnieniu od tras admina — nie czyścił
+    # wiersza `WmsSessionShippingRequest`, a FK `shipping_request_id` nie ma
+    # `ondelete`, więc skasowanie zlecenia, które trafiło już do sesji WMS,
+    # wywracało się na ograniczeniu klucza obcego (u klienta: błąd zamiast
+    # anulowania).
+    #
+    # Zamówienia zwalniamy przez relację, żeby wróciły do puli i mogły trafić
+    # do nowego zlecenia — inaczej zostałyby uwięzione w anulowanym rekordzie.
+    for ro in list(req.request_orders):
+        req.request_orders.remove(ro)
+    req.status = 'anulowane'
     db.session.commit()
     return True, None
 

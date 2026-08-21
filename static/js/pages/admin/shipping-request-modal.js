@@ -234,7 +234,7 @@
         // właścicielom; na zwykłym zleceniu kasuje zlecenie.
         cancelBtn.textContent = isConsolidation(state.activeId)
             ? 'Rozwiąż paczkę'
-            : 'Usuń zlecenie';
+            : 'Anuluj zlecenie';
 
         // W trybie wysyłki termin płatności nigdzie nie jest wysyłany — samo pole
         // tylko myli, więc znika z paska "Ustaw we wszystkich" (nie sam input,
@@ -866,19 +866,28 @@
             ? `Rozwiązać paczkę zbiorczą ${sr.request_number}?\n\n`
               + 'Zamówienia wrócą do zleceń swoich właścicieli, a sama paczka zniknie. '
               + 'Zleceń klientów to nie anuluje.'
-            : `Usunąć zlecenie ${sr.request_number}?\n\n`
-              + 'Wszystkie zamówienia zostaną odłączone od tego zlecenia i wrócą do puli '
-              + 'dostępnych zamówień klienta.';
+            : `Anulować zlecenie ${sr.request_number}?\n\n`
+              + 'Zamówienia wrócą do puli dostępnych zamówień klienta, a zlecenie '
+              + 'zostanie w historii ze statusem „Anulowane" — numer nie przepadnie.';
         if (!confirm(pytanie)) return;
 
         const czynnosc = paczka
             ? `Nie rozwiązano paczki ${sr.request_number}`
-            : `Nie usunięto zlecenia ${sr.request_number}`;
+            : `Nie anulowano zlecenia ${sr.request_number}`;
         try {
-            const resp = await fetch(`/admin/orders/shipping-requests/${sr.id}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
-            });
+            // Zwykłe zlecenie ANULUJEMY (zostaje w historii, numer nie przepada);
+            // paczkę zbiorczą nadal kasujemy, bo ona sama jest tylko opakowaniem
+            // na zlecenia klientów i po rozwiązaniu nie ma czego archiwizować.
+            const resp = paczka
+                ? await fetch(`/admin/orders/shipping-requests/${sr.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+                })
+                : await fetch(`/admin/orders/shipping-requests/${sr.id}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+                    body: JSON.stringify({}),
+                });
             // Odpowiedź błędu nie musi być JSON-em (np. 502 z proxy) — stąd fallback
             // na status HTTP zamiast wysypania się na parsowaniu.
             let data = null;

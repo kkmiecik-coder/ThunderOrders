@@ -276,6 +276,11 @@ def build_shipping_requests_query(status_filter=None, order_type_filter=None, se
 
     if status_filter:
         query = query.filter(ShippingRequest.status == status_filter)
+    else:
+        # Anulowane zlecenia to ślad historyczny — nie mają czego wysłać ani
+        # spakować, więc nie zaśmiecają kolejki roboczej magazynu. Widać je po
+        # jawnym wybraniu statusu „Anulowane" w filtrze.
+        query = query.filter(ShippingRequest.status != 'anulowane')
 
     if order_type_filter:
         # Zlecenie źródłowe straciło własne wiersze junction — przeniosły się do
@@ -1789,4 +1794,96 @@ def admin_unship_shipping_request(sr_id):
         'success': True,
         'message': (f'Cofnięto wysyłkę zlecenia {sr.request_number} — '
                     f'wróciło do stanu „Spakowane”.'),
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:sr_id>/cancel', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_cancel_shipping_request(sr_id):
+    """Anuluje zlecenie wysyłki, zachowując je jako ślad w historii.
+
+    Zastępuje fizyczny DELETE dla zleceń PRZED wysyłką: kasowanie zabierało
+    informację, kto i kiedy anulował, i robiło dziury w numeracji WYS/N.
+    Zlecenia już wysłane chroni osobny strażnik przy kasowaniu — tam anulowanie
+    też nie ma sensu, bo paczka fizycznie pojechała.
+
+    Zamówienia są ZWALNIANE (znikają wiersze junction), żeby klient mógł włożyć
+    je do nowego zlecenia — inaczej zostałyby uwięzione w anulowanym rekordzie.
+    Paczka zbiorcza jest najpierw rozwiązywana, więc uczestnicy odzyskują swoje
+    zamówienia razem ze swoimi zleceniami.
+    """
+    from modules.orders.consolidation import (
+        ConsolidationError, rozwiaz_konsolidacje)
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    from utils.activity_logger import log_activity
+
+    sr = ShippingRequest.query.get_or_404(sr_id)
+    data = request.get_json() or {}
+    powod = (data.get('reason') or '').strip() or None
+
+    if sr.status == 'anulowane':
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} jest już anulowane.',
+        }), 409
+
+    if sr.status in ('wyslane', 'dostarczone'):
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} zostało już wysłane — '
+                        f'nie można go anulować. Jeśli to pomyłka, cofnij '
+                        f'najpierw wysyłkę.'),
+        }), 409
+
+    if sr.is_consolidated_source:
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} jedzie w paczce zbiorczej '
+                        f'{sr.consolidated_into.request_number} — najpierw wypnij '
+                        f'je z paczki.'),
+        }), 409
+
+    stary_status = sr.status
+    zwolnione_zrodla = []
+
+    if sr.is_consolidation:
+        try:
+            zwolnione_zrodla = rozwiaz_konsolidacje(sr)
+        except ConsolidationError as e:
+            return jsonify({'success': False, 'message': e.message}), e.status_code
+
+    # Zwalniamy zamówienia — przez relację, nie surowym DELETE, żeby kolekcja
+    # w pamięci sesji od razu widziała zmianę (ten sam wzorzec co w konsolidacji).
+    liczba_zamowien = len(sr.request_orders)
+    for ro in list(sr.request_orders):
+        sr.request_orders.remove(ro)
+
+    sr.status = 'anulowane'
+    db.session.commit()
+
+    log_activity(
+        user=current_user,
+        action='shipping_request_cancelled',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        old_value={'status': stary_status},
+        new_value={
+            'status': 'anulowane',
+            'reason': powod,
+            'zwolnionych_zamowien': liczba_zamowien,
+            'rozwiazana_paczka': bool(zwolnione_zrodla),
+        },
+    )
+
+    if zwolnione_zrodla:
+        # Uczestnicy rozwiązanej paczki wracają do samodzielnej wysyłki — ich mail
+        # „jedziesz w paczce zbiorczej" przestaje obowiązywać.
+        from modules.orders.routes import _powiadom_o_wyjsciu_z_paczki
+        _powiadom_o_wyjsciu_z_paczki(zwolnione_zrodla)
+
+    return jsonify({
+        'success': True,
+        'message': (f'Zlecenie {sr.request_number} anulowane — '
+                    f'{liczba_zamowien} zam. wróciło do puli.'),
     })
