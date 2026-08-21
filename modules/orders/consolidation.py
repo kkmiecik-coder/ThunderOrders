@@ -21,6 +21,18 @@ class ConsolidationError(Exception):
 # Paczka, która już pojechała, nie podlega scalaniu ani rozmontowaniu.
 STATUSY_ZAMKNIETE = ('wyslane', 'dostarczone')
 
+# Stan po spakowaniu to blokada FIZYCZNA, nie tylko statusowa — dlatego osobno,
+# a nie przez dopisanie do STATUSY_ZAMKNIETE (którego nazwa i komentarz mówią
+# o paczce już wysłanej). Przy pakowaniu materiał opakowaniowy schodzi ze stanu
+# i zostaje przypięty do zlecenia, a klient dostaje maila ze zdjęciem kartonu.
+# Konsolidacja żadnego z tych skutków nie cofa — robi to wyłącznie
+# `reopen_orders_for_wms` („Zabierz do WMS”). Bez tej bramki materiał schodził
+# drugi raz, a klient miał w skrzynce zdjęcie kartonu, którego już nie ma.
+# Sama sesja WMS nie wystarczy jako zabezpieczenie: `_sesja_wms_blokujaca` łapie
+# tylko sesje aktywne/wstrzymane, a po normalnym zakończeniu pakowania sesja ma
+# status 'completed'.
+STATUS_SPAKOWANE = 'spakowane'
+
 
 def _sesja_wms_blokujaca(sr):
     """Zwraca aktywną/wstrzymaną sesję WMS trzymającą to zlecenie, albo None."""
@@ -58,6 +70,17 @@ def waliduj_do_konsolidacji(requests, target=None):
         raise ConsolidationError('Wybierz co najmniej 2 zlecenia do konsolidacji.')
 
     for sr in requests:
+        # Przed bramką „już pojechało”: spakowane zlecenie wymaga innej akcji
+        # naprawczej niż wysłane, więc i komunikat musi być inny — ma kierować
+        # do jedynej operacji, która cofa skutki fizyczne pakowania.
+        if sr.status == STATUS_SPAKOWANE:
+            raise ConsolidationError(
+                f'Zlecenie {sr.request_number} jest już spakowane — materiał opakowaniowy '
+                f'zszedł ze stanu, a klient dostał zdjęcie kartonu. Cofnij je najpierw '
+                f'do WMS („Zabierz do WMS” na karcie zlecenia), zanim scalisz je '
+                f'w paczkę zbiorczą.',
+                status_code=409,
+            )
         if sr.status in STATUSY_ZAMKNIETE:
             raise ConsolidationError(
                 f'Zlecenie {sr.request_number} zostało już wysłane — nie można go konsolidować.',

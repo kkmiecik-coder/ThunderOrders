@@ -1170,3 +1170,59 @@ def test_wycena_powiadamia_nawet_gdy_minimum_paczki_bez_zmian(
         f'Wyceniony uczestnik musi dostać powiadomienie mimo braku ruchu na '
         f'paczce; zebrano: {zebrane_statusy}'
     )
+
+
+# ---------------------------------------------------------------------------
+# Spakowany karton odrzucany także przez API (BUG 1.4)
+# ---------------------------------------------------------------------------
+
+def test_konsolidacja_odrzuca_spakowane(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    sr_a, _oa = _sr(db, make_user(), make_order, status='spakowane')
+    sr_b, _ob = _sr(db, make_user(), make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, sr_b.id], 'lead_request_id': sr_b.id,
+    })
+
+    assert r.status_code == 409, r.get_json()
+    blad = r.get_json()['error']
+    assert sr_a.request_number in blad
+    assert 'spakowane' in blad.lower()
+    db.session.expire_all()
+    assert sr_a.consolidated_into_id is None
+    assert sr_b.consolidated_into_id is None
+
+
+def test_preview_blokuje_spakowane(db, client, login, make_user, make_order):
+    """Warstwa, która realnie wyłącza przycisk w modalu."""
+    _seed_sr_statuses(db)
+    sr_a, _oa = _sr(db, make_user(), make_order, status='spakowane')
+    sr_b, _ob = _sr(db, make_user(), make_order)
+    login(_admin(make_user))
+
+    r = client.get('/admin/orders/shipping-requests/consolidation-preview'
+                   f'?ids={sr_a.id},{sr_b.id}')
+
+    assert r.status_code == 200
+    dane = r.get_json()
+    assert dane['blocked'], 'Spakowane zlecenie musi trafić na listę blokad'
+    assert any(sr_a.request_number in str(b) for b in dane['blocked'])
+
+
+def test_konsolidacja_odrzuca_dopiecie_spakowanego_endpointem(
+        db, client, login, make_user, make_order):
+    """Gałąź target_id ma osobny kod w routes.py."""
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order)
+    sr_c, _oc = _sr(db, make_user(), make_order, status='spakowane')
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_c.id], 'target_id': zbiorcze.id,
+    })
+
+    assert r.status_code == 409, r.get_json()
+    db.session.expire_all()
+    assert sr_c.consolidated_into_id is None
