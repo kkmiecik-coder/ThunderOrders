@@ -73,6 +73,10 @@
             packagingMaterialId: sr.packaging_material_id || '',
             courier: sr.courier || '',
             trackingNumber: sr.tracking_number || '',
+            // Status bieżący + wartość początkowa: payload leci tylko przy realnej
+            // zmianie (patrz payloadFor).
+            status: sr.status || '',
+            statusPoczatkowy: sr.status || '',
             // Ręcznie wpisana kwota całkowita; null = pole pochodne (suma kosztów zamówień).
             totalDraft: null,
         };
@@ -230,7 +234,7 @@
         // właścicielom; na zwykłym zleceniu kasuje zlecenie.
         cancelBtn.textContent = isConsolidation(state.activeId)
             ? 'Rozwiąż paczkę'
-            : 'Usuń zlecenie';
+            : 'Anuluj zlecenie';
 
         // W trybie wysyłki termin płatności nigdzie nie jest wysyłany — samo pole
         // tylko myli, więc znika z paska "Ustaw we wszystkich" (nie sam input,
@@ -412,7 +416,14 @@
         container.innerHTML = `
             <header class="sr-detail-head">
                 <span class="sr-detail-number">${escapeHtml(sr.request_number)}</span>
-                <span class="sr-detail-status badge">${escapeHtml(sr.status_display_name || sr.status)}</span>
+                ${(sr.available_statuses && sr.available_statuses.length > 1) ? `
+                <select class="sr-detail-status-select" data-sr-id="${sr.id}"
+                        title="Zmiana statusu wykonuje komplet skutków: znaczniki czasu, kaskadę na zamówienia i powiadomienie do klienta">
+                    ${sr.available_statuses.map(st => `
+                        <option value="${escapeHtml(st.slug)}"${st.slug === sr.status ? ' selected' : ''}>${escapeHtml(st.name)}</option>
+                    `).join('')}
+                </select>` : `
+                <span class="sr-detail-status badge">${escapeHtml(sr.status_display_name || sr.status)}</span>`}
                 ${sr.addressee_name ? `<span class="sr-detail-client">${escapeHtml(sr.addressee_name)}</span>` : ''}
             </header>
 
@@ -472,6 +483,11 @@
                     <div class="form-group">
                         <label class="form-label" for="srTracking">Numer przesyłki</label>
                         <input type="text" id="srTracking" class="form-control" placeholder="Numer przesyłki" value="">
+                        ${state.mode === 'ship' ? '' : `
+                        <p class="sr-tracking-note">
+                            Numer zapiszemy od razu, ale klient dostanie powiadomienie
+                            o nadaniu dopiero po oznaczeniu zlecenia jako wysłane.
+                        </p>`}
                     </div>
                 </div>
                 ${blockNote}
@@ -586,6 +602,10 @@
                     refreshStatus();
                     clearFixedFieldErrors(state.activeId);
                 }
+                return;
+            }
+            if (e.target.classList.contains('sr-detail-status-select')) {
+                edits.status = e.target.value;
                 return;
             }
             if (e.target.id === 'srCourier') { edits.courier = e.target.value; return; }
@@ -720,6 +740,12 @@
         if (edits.deadline) {
             payload.payment_deadline = edits.deadline;
         }
+        // Tylko gdy admin FAKTYCZNIE zmienil status. Modal wysyla caly payload,
+        // wiec niezmieniony status w zadaniu nie moze uruchamiac przejscia
+        // (a dla zlecenia zrodlowego paczki — konczyc sie odmowa zapisu kosztow).
+        if (edits.status && edits.status !== edits.statusPoczatkowy) {
+            payload.status = edits.status;
+        }
         // Klucz obecny = "ustaw albo wyczyść", więc pusty wybór nie może zerować przypisania.
         if (edits.packagingMaterialId) {
             payload.packaging_material_id = parseInt(edits.packagingMaterialId, 10);
@@ -840,19 +866,28 @@
             ? `Rozwiązać paczkę zbiorczą ${sr.request_number}?\n\n`
               + 'Zamówienia wrócą do zleceń swoich właścicieli, a sama paczka zniknie. '
               + 'Zleceń klientów to nie anuluje.'
-            : `Usunąć zlecenie ${sr.request_number}?\n\n`
-              + 'Wszystkie zamówienia zostaną odłączone od tego zlecenia i wrócą do puli '
-              + 'dostępnych zamówień klienta.';
+            : `Anulować zlecenie ${sr.request_number}?\n\n`
+              + 'Zamówienia wrócą do puli dostępnych zamówień klienta, a zlecenie '
+              + 'zostanie w historii ze statusem „Anulowane" — numer nie przepadnie.';
         if (!confirm(pytanie)) return;
 
         const czynnosc = paczka
             ? `Nie rozwiązano paczki ${sr.request_number}`
-            : `Nie usunięto zlecenia ${sr.request_number}`;
+            : `Nie anulowano zlecenia ${sr.request_number}`;
         try {
-            const resp = await fetch(`/admin/orders/shipping-requests/${sr.id}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
-            });
+            // Zwykłe zlecenie ANULUJEMY (zostaje w historii, numer nie przepada);
+            // paczkę zbiorczą nadal kasujemy, bo ona sama jest tylko opakowaniem
+            // na zlecenia klientów i po rozwiązaniu nie ma czego archiwizować.
+            const resp = paczka
+                ? await fetch(`/admin/orders/shipping-requests/${sr.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+                })
+                : await fetch(`/admin/orders/shipping-requests/${sr.id}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+                    body: JSON.stringify({}),
+                });
             // Odpowiedź błędu nie musi być JSON-em (np. 502 z proxy) — stąd fallback
             // na status HTTP zamiast wysypania się na parsowaniu.
             let data = null;

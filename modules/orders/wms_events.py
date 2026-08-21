@@ -73,8 +73,13 @@ def handle_join_session(data):
     """
     Client joins a WMS session room.
 
-    Desktop: authenticated via flask_login (current_user).
+    Desktop: authenticated via flask_login (current_user), role admin/mod.
     Mobile: authenticated via session_token.
+
+    Wejście tutaj jest jedynym miejscem zapisu do `connected_clients`, a handlery
+    mutujące (`update_item_status`, `mark_shipping_request_packed`,
+    `navigate_order`) ufają samej obecności sid w tym słowniku — autoryzacja musi
+    więc pozostać PRZED rejestracją klienta.
 
     Data: {session_id, role: "desktop"|"mobile", token (mobile only)}
     """
@@ -109,9 +114,18 @@ def handle_join_session(data):
         db.session.commit()
 
     else:
-        # Desktop — require flask_login
+        # Desktop — parytet z `@role_required('admin', 'mod')` na trasach HTTP
+        # (`wms_session_page`, `wms_session_data`). Bez sprawdzenia roli każdy
+        # zalogowany klient dostawał `session_state`, a w nim `session_token`
+        # (pełny dostęp mobilny bez logowania) oraz nazwiska i adresy wszystkich
+        # klientów w sesji — i lądował w `connected_clients`, czyli za bramką,
+        # której ufają handlery mutujące.
         if not current_user or not current_user.is_authenticated:
             emit('error', {'message': 'Wymagane zalogowanie'})
+            return
+
+        if current_user.role not in ('admin', 'mod'):
+            emit('error', {'message': 'Brak uprawnień do sesji WMS'})
             return
 
     # Join the room

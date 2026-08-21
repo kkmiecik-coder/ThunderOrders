@@ -1,0 +1,393 @@
+"""Rejestracja wpłaty offline przez admina (BRAK 3.4 z audytu).
+
+Do tej pory nie istniała ŻADNA ścieżka, którą admin oznaczyłby etap płatności
+jako opłacony. `PaymentConfirmation(` występowało w kodzie produkcyjnym dokładnie
+dwa razy: definicja modelu i upload klienta. Trasy admina mutowały wyłącznie
+istniejący wiersz i tylko w statusie 'pending'.
+
+`admin_update_payment` ustawia `order.paid_amount`, ale obie bramki opłacenia
+zlecenia pytają o PaymentConfirmation, nigdy o paid_amount — ręczne wpisanie
+kwoty nie ruszało statusu zlecenia ani o milimetr.
+
+Obejścia, które istniały, to nie funkcje: odrzucić zatwierdzone potwierdzenie
+i prosić klienta o ponowne wgranie, albo spakować zlecenie mimo braku zapłaty.
+
+Wariant A z audytu: admin tworzy PaymentConfirmation „za klienta" (gotówka,
+przelew poza systemem), a bramki `all(settled)` zaczynają działać same — bez
+wyjątków w regule opłacenia.
+"""
+
+import pytest
+
+
+def _seed_sr_statuses(db):
+    from modules.orders.models import ShippingRequestStatus
+    for i, (slug, name) in enumerate([
+        ('czeka_na_wycene', 'Czeka na wycenę'),
+        ('czeka_na_oplacenie', 'Czeka na opłacenie'),
+        ('oplacone', 'Opłacone'),
+        ('spakowane', 'Spakowane'),
+        ('wyslane', 'Wysłane'),
+        ('dostarczone', 'Dostarczone'),
+    ]):
+        if ShippingRequestStatus.query.filter_by(slug=slug).first():
+            continue
+        db.session.add(ShippingRequestStatus(
+            slug=slug, name=name, sort_order=i, is_active=True,
+            is_initial=(slug == 'czeka_na_wycene')))
+    db.session.commit()
+
+
+def _admin(make_user):
+    return make_user(role='admin', profile_completed=True)
+
+
+@pytest.fixture
+def bez_powiadomien(monkeypatch):
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    for nazwa in ('notify_payment_approved', 'notify_shipping_status_change'):
+        monkeypatch.setattr(EmailManager, nazwa, staticmethod(lambda *a, **kw: None))
+        monkeypatch.setattr(PushManager, nazwa, staticmethod(lambda *a, **kw: None))
+
+
+def _zlecenie(db, user, make_order, koszt):
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    sr = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=user.id, status='czeka_na_oplacenie')
+    db.session.add(sr)
+    db.session.flush()
+    o = make_order(user=user, status='dostarczone_gom')
+    o.shipping_cost = koszt
+    db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=o.id))
+    db.session.commit()
+    return sr, o
+
+
+URL = '/admin/payment-confirmations/register/{}'
+
+
+def test_rejestracja_wplaty_tworzy_zatwierdzone_potwierdzenie(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    login(_admin(make_user))
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping',
+        'amount': 30,
+        'note': 'Gotówka przy odbiorze',
+    })
+
+    assert r.status_code == 200, r.get_json()
+    conf = PaymentConfirmation.query.filter_by(
+        order_id=zamowienie.id, payment_stage='domestic_shipping').first()
+    assert conf is not None
+    assert conf.status == 'approved'
+    assert float(conf.amount) == 30
+    assert conf.proof_file is None, 'Wpłata offline nie ma załącznika'
+
+
+def test_rejestracja_wplaty_podnosi_saldo_zamowienia(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    login(_admin(make_user))
+
+    client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': 30})
+
+    db.session.expire_all()
+    assert float(zamowienie.paid_amount) == 30, (
+        'Parytet z payment_confirmation_approve — saldo rośnie o zaksięgowaną kwotę'
+    )
+
+
+def test_rejestracja_wplaty_domyka_zlecenie(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Sedno: bramka all(settled) ma zadziałać sama, bez wyjątków w regule."""
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    login(_admin(make_user))
+
+    client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': 30})
+
+    db.session.expire_all()
+    assert sr.status == 'oplacone'
+
+
+def test_nie_nadpisuje_zatwierdzonej_platnosci(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Klient już zapłacił — rejestracja drugiej wpłaty to pomyłka, nie korekta."""
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie.id, payment_stage='domestic_shipping',
+        amount=30, status='approved', proof_file='dowod.jpg'))
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': 30})
+
+    assert r.status_code == 409, r.get_json()
+    db.session.expire_all()
+    conf = PaymentConfirmation.query.filter_by(order_id=zamowienie.id).first()
+    assert conf.proof_file == 'dowod.jpg', 'Dowód klienta nie może zniknąć'
+
+
+def test_zastepuje_oczekujace_potwierdzenie(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Klient wgrał dowód, ale zapłacił gotówką — admin księguje i zamyka temat."""
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie.id, payment_stage='domestic_shipping',
+        amount=30, status='pending', proof_file='dowod.jpg'))
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': 30})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    confs = PaymentConfirmation.query.filter_by(
+        order_id=zamowienie.id, payment_stage='domestic_shipping').all()
+    assert len(confs) == 1, 'Jedno gniazdo na etap — bez duplikatów'
+    assert confs[0].status == 'approved'
+
+
+def test_odrzuca_ujemna_kwote(db, client, login, make_user, make_order, bez_powiadomien):
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    login(_admin(make_user))
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': -5})
+
+    assert r.status_code == 400
+
+
+def test_odrzuca_nieznany_etap(db, client, login, make_user, make_order, bez_powiadomien):
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    login(_admin(make_user))
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'nie_ma_takiego', 'amount': 10})
+
+    assert r.status_code == 400
+
+
+def test_klient_nie_zarejestruje_wplaty(db, client, login, make_user, make_order):
+    """Rejestracja wpłaty to uprawnienie magazynowo-księgowe, nie klienckie."""
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    login(user)
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': 30})
+
+    assert r.status_code in (302, 403)
+
+
+# ---------------------------------------------------------------------------
+# Wariant zbiorczy — księgowanie E4 dla całego zlecenia
+#
+# Klient płaci jedną kwotę za przesyłkę, a nie osobno za każde zamówienie
+# w kartonie. Modal konsolidacji operuje na zleceniach uczestników, więc
+# potrzebuje jednostki „zlecenie", nie „zamówienie".
+# ---------------------------------------------------------------------------
+
+URL_SR = '/admin/payment-confirmations/register-request/{}'
+
+
+def _zlecenie_wiele(db, user, make_order, koszty):
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    sr = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=user.id, status='czeka_na_oplacenie')
+    db.session.add(sr)
+    db.session.flush()
+    zamowienia = []
+    for koszt in koszty:
+        o = make_order(user=user, status='dostarczone_gom')
+        o.shipping_cost = koszt
+        db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=o.id))
+        zamowienia.append(o)
+    db.session.commit()
+    return sr, zamowienia
+
+
+def test_ksiegowanie_zlecenia_domyka_wszystkie_zamowienia(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienia = _zlecenie_wiele(db, user, make_order, koszty=[10, 15])
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={'note': 'gotówka'})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert all(o.is_domestic_shipping_settled for o in zamowienia)
+    assert sr.status == 'oplacone'
+
+
+def test_ksiegowanie_zlecenia_pomija_zamowienia_bez_kosztu(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """0 zł jest już rozliczone — nie tworzymy pustych potwierdzeń."""
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, (platne, gratis) = _zlecenie_wiele(db, user, make_order, koszty=[10, 0])
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert PaymentConfirmation.query.filter_by(order_id=gratis.id).count() == 0
+    assert PaymentConfirmation.query.filter_by(order_id=platne.id).count() == 1
+    assert sr.status == 'oplacone'
+
+
+def test_ksiegowanie_zlecenia_pomija_juz_oplacone(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Częściowo opłacone zlecenie: nie dubluj tego, co klient już zapłacił."""
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, (oplacone_juz, do_zaksiegowania) = _zlecenie_wiele(db, user, make_order, koszty=[10, 15])
+    db.session.add(PaymentConfirmation(
+        order_id=oplacone_juz.id, payment_stage='domestic_shipping',
+        amount=10, status='approved', proof_file='dowod.jpg'))
+    oplacone_juz.paid_amount = 10
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert float(oplacone_juz.paid_amount) == 10, 'Saldo opłaconego nie może urosnąć'
+    conf = PaymentConfirmation.query.filter_by(order_id=oplacone_juz.id).first()
+    assert conf.proof_file == 'dowod.jpg', 'Dowód klienta nietknięty'
+    assert sr.status == 'oplacone'
+
+
+def test_ksiegowanie_zlecenia_bez_naleznosci_odmawia(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, _z = _zlecenie_wiele(db, user, make_order, koszty=[0, 0])
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={})
+
+    assert r.status_code == 400, r.get_json()
+
+
+# ---------------------------------------------------------------------------
+# Dopłata przez admina (K1)
+#
+# Blokada "etap już opłacony" patrzyła na sam status potwierdzenia, więc przy
+# niedopłacie (koszt podniesiony po zaksięgowaniu) admin dostawał 409, a klient
+# nie miał jak zapłacić — zlecenie zostawało zakleszczone.
+# ---------------------------------------------------------------------------
+
+def test_admin_moze_zaksiegowac_doplate(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    from decimal import Decimal
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=20)
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie.id, payment_stage='domestic_shipping',
+        amount=Decimal('20.00'), status='approved', proof_file='dowod.jpg'))
+    zamowienie.paid_amount = Decimal('20.00')
+    zamowienie.shipping_cost = Decimal('35.00')
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': 15, 'note': 'dopłata gotówką'})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert zamowienie.is_domestic_shipping_settled is True
+    assert sr.status == 'oplacone'
+    # Dowód klienta za pierwszą wpłatę zostaje nietknięty.
+    stary = PaymentConfirmation.query.filter_by(
+        order_id=zamowienie.id, proof_file='dowod.jpg').first()
+    assert stary is not None and stary.status == 'approved'
+
+
+def test_admin_nie_ksieguje_gdy_juz_rozliczone(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Regresja: w pełni rozliczony etap nadal odmawia (409)."""
+    from decimal import Decimal
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienie = _zlecenie(db, user, make_order, koszt=30)
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie.id, payment_stage='domestic_shipping',
+        amount=Decimal('30.00'), status='approved', proof_file='dowod.jpg'))
+    zamowienie.paid_amount = Decimal('30.00')
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post(URL.format(zamowienie.id), json={
+        'payment_stage': 'domestic_shipping', 'amount': 30})
+
+    assert r.status_code == 409, r.get_json()
+
+
+def test_ksiegowanie_zlecenia_dolicza_doplate(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Wariant zbiorczy też musi umieć dopłacić różnicę, nie tylko pomijać."""
+    from decimal import Decimal
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienia = _zlecenie_wiele(db, user, make_order, koszty=[20])
+    zamowienie = zamowienia[0]
+    db.session.add(PaymentConfirmation(
+        order_id=zamowienie.id, payment_stage='domestic_shipping',
+        amount=Decimal('20.00'), status='approved', proof_file='dowod.jpg'))
+    zamowienie.paid_amount = Decimal('20.00')
+    zamowienie.shipping_cost = Decimal('35.00')
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={'note': 'dopłata'})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert zamowienie.is_domestic_shipping_settled is True
+    assert float(zamowienie.paid_amount) == 35.0, 'Saldo rośnie o RÓŻNICĘ, nie o całość'
+    assert sr.status == 'oplacone'

@@ -276,6 +276,11 @@ def build_shipping_requests_query(status_filter=None, order_type_filter=None, se
 
     if status_filter:
         query = query.filter(ShippingRequest.status == status_filter)
+    else:
+        # Anulowane zlecenia to ślad historyczny — nie mają czego wysłać ani
+        # spakować, więc nie zaśmiecają kolejki roboczej magazynu. Widać je po
+        # jawnym wybraniu statusu „Anulowane" w filtrze.
+        query = query.filter(ShippingRequest.status != 'anulowane')
 
     if order_type_filter:
         # Zlecenie źródłowe straciło własne wiersze junction — przeniosły się do
@@ -1712,3 +1717,173 @@ def packaging_materials_reorder():
         db.session.rollback()
         current_app.logger.error(f'Packaging materials reorder error: {e}')
         return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:sr_id>/unship', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_unship_shipping_request(sr_id):
+    """Cofa pomyłkowe oznaczenie zlecenia jako wysłane.
+
+    Kasowanie zlecenia po wysyłce jest zablokowane (zabierało numer przesyłki,
+    daty i opinię o dostawie), więc pomyłkowe nadanie musi mieć własne, odwracalne
+    wyjście — inaczej „wyslane" zostaje ślepą uliczką.
+
+    Cofamy WYŁĄCZNIE ze statusu „wyslane". „Dostarczone" oznacza, że paczka
+    dotarła do klienta, a istniejąca opinia o dostawie jest dowodem, że ją
+    odebrał — w obu przypadkach cofnięcie byłoby kłamstwem wobec jego historii.
+
+    Zlecenie wraca do „spakowane" (karton fizycznie istnieje — materiał zszedł ze
+    stanu), a nie do stanu sprzed pakowania. Zwrot materiału i cofnięcie do
+    zbierania robi osobno „Zabierz do WMS”.
+    """
+    from modules.orders.models import OrderShipment, OrderStatus, ShippingRequest
+    from utils.activity_logger import log_activity
+
+    sr = ShippingRequest.query.get_or_404(sr_id)
+
+    if sr.status != 'wyslane':
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} nie jest w statusie „Wysłane” '
+                        f'(jest: „{sr.status_display_name}”) — nie ma czego cofać.'),
+        }), 409
+
+    if sr.review:
+        return jsonify({
+            'success': False,
+            'message': (f'Klient wystawił już opinię o dostawie zlecenia '
+                        f'{sr.request_number} — paczka do niego dotarła.'),
+        }), 409
+
+    stary_numer = sr.tracking_number
+    sr.status = 'spakowane'
+    sr.shipped_at = None
+    sr.tracking_number = None
+
+    # Wpisy przesyłki to ślad nadania — po cofnięciu nie mają czego dotyczyć.
+    if stary_numer:
+        OrderShipment.query.filter(
+            OrderShipment.order_id.in_([o.id for o in sr.orders]),
+            OrderShipment.tracking_number == stary_numer,
+        ).delete(synchronize_session=False)
+
+    status_spakowane = OrderStatus.query.filter_by(slug='spakowane', is_active=True).first()
+    if status_spakowane:
+        for order in sr.active_orders:
+            if order.status == 'wyslane':
+                order.status = 'spakowane'
+
+    # Paczka zbiorcza: cofnięcie musi zjechać na zlecenia źródłowe razem z tym
+    # samym commitem, inaczej ich klienci zostaną ze statusem „wysłane”.
+    from modules.orders.consolidation import propaguj_na_zrodla
+    propaguj_na_zrodla(sr)
+
+    db.session.commit()
+
+    log_activity(
+        user=current_user,
+        action='shipping_request_unshipped',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        old_value={'status': 'wyslane', 'tracking_number': stary_numer},
+        new_value={'status': 'spakowane'},
+    )
+
+    return jsonify({
+        'success': True,
+        'message': (f'Cofnięto wysyłkę zlecenia {sr.request_number} — '
+                    f'wróciło do stanu „Spakowane”.'),
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:sr_id>/cancel', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_cancel_shipping_request(sr_id):
+    """Anuluje zlecenie wysyłki, zachowując je jako ślad w historii.
+
+    Zastępuje fizyczny DELETE dla zleceń PRZED wysyłką: kasowanie zabierało
+    informację, kto i kiedy anulował, i robiło dziury w numeracji WYS/N.
+    Zlecenia już wysłane chroni osobny strażnik przy kasowaniu — tam anulowanie
+    też nie ma sensu, bo paczka fizycznie pojechała.
+
+    Zamówienia są ZWALNIANE (znikają wiersze junction), żeby klient mógł włożyć
+    je do nowego zlecenia — inaczej zostałyby uwięzione w anulowanym rekordzie.
+    Paczka zbiorcza jest najpierw rozwiązywana, więc uczestnicy odzyskują swoje
+    zamówienia razem ze swoimi zleceniami.
+    """
+    from modules.orders.consolidation import (
+        ConsolidationError, rozwiaz_konsolidacje)
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    from utils.activity_logger import log_activity
+
+    sr = ShippingRequest.query.get_or_404(sr_id)
+    data = request.get_json() or {}
+    powod = (data.get('reason') or '').strip() or None
+
+    if sr.status == 'anulowane':
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} jest już anulowane.',
+        }), 409
+
+    if sr.status in ('wyslane', 'dostarczone'):
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} zostało już wysłane — '
+                        f'nie można go anulować. Jeśli to pomyłka, cofnij '
+                        f'najpierw wysyłkę.'),
+        }), 409
+
+    if sr.is_consolidated_source:
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} jedzie w paczce zbiorczej '
+                        f'{sr.consolidated_into.request_number} — najpierw wypnij '
+                        f'je z paczki.'),
+        }), 409
+
+    stary_status = sr.status
+    zwolnione_zrodla = []
+
+    if sr.is_consolidation:
+        try:
+            zwolnione_zrodla = rozwiaz_konsolidacje(sr)
+        except ConsolidationError as e:
+            return jsonify({'success': False, 'message': e.message}), e.status_code
+
+    # Zwalniamy zamówienia — przez relację, nie surowym DELETE, żeby kolekcja
+    # w pamięci sesji od razu widziała zmianę (ten sam wzorzec co w konsolidacji).
+    liczba_zamowien = len(sr.request_orders)
+    for ro in list(sr.request_orders):
+        sr.request_orders.remove(ro)
+
+    sr.status = 'anulowane'
+    db.session.commit()
+
+    log_activity(
+        user=current_user,
+        action='shipping_request_cancelled',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        old_value={'status': stary_status},
+        new_value={
+            'status': 'anulowane',
+            'reason': powod,
+            'zwolnionych_zamowien': liczba_zamowien,
+            'rozwiazana_paczka': bool(zwolnione_zrodla),
+        },
+    )
+
+    if zwolnione_zrodla:
+        # Uczestnicy rozwiązanej paczki wracają do samodzielnej wysyłki — ich mail
+        # „jedziesz w paczce zbiorczej" przestaje obowiązywać.
+        from modules.orders.routes import _powiadom_o_wyjsciu_z_paczki
+        _powiadom_o_wyjsciu_z_paczki(zwolnione_zrodla)
+
+    return jsonify({
+        'success': True,
+        'message': (f'Zlecenie {sr.request_number} anulowane — '
+                    f'{liczba_zamowien} zam. wróciło do puli.'),
+    })

@@ -426,13 +426,21 @@ def test_ship_mixed_package_notifies_once(client, db, make_user, make_order, log
 
 def test_update_sr_with_tracking_notifies_once(client, db, make_user, make_order, login,
                                                package_notifications):
-    """Dopisanie numeru przy edycji zlecenia = jeden mail i jeden push na paczkę."""
+    """Nadanie paczki jednym żądaniem = jeden mail i jeden push na paczkę.
+
+    Żądanie niesie `status: 'wyslane'`, bo od naprawy K2 sam numer przesyłki nie
+    jest nadaniem — powiadomienie „w drodze" należy do przejścia w „wysłane",
+    inaczej klient dostawał informację o przesyłce, której system nie uważał za
+    nadaną (zlecenie bez shipped_at, poza zasięgiem crona dostaw).
+    Cichy zapis numeru pokrywa tests/test_k2_tracking_bez_nadania.py.
+    """
     login(make_user(role='admin'))
     _seed_statuses(db)
     sr, orders = _sr_packed(db, make_user, make_order, orders_count=3)
 
     r = client.put(f'/admin/orders/shipping-requests/{sr.id}',
-                   json={'tracking_number': 'EDYCJA1', 'courier': 'inpost'})
+                   json={'tracking_number': 'EDYCJA1', 'courier': 'inpost',
+                         'status': 'wyslane'})
 
     assert r.status_code == 200
     assert package_notifications['email'] == ['EDYCJA1']
@@ -450,7 +458,8 @@ def test_update_sr_creates_shipment_per_order(client, db, make_user, make_order,
     sr, orders = _sr_packed(db, make_user, make_order, orders_count=3)
 
     r = client.put(f'/admin/orders/shipping-requests/{sr.id}',
-                   json={'tracking_number': 'WPISY1', 'courier': 'dpd'})
+                   json={'tracking_number': 'WPISY1', 'courier': 'dpd',
+                         'status': 'wyslane'})
 
     assert r.status_code == 200
     assert OrderShipment.query.filter_by(tracking_number='WPISY1').count() == 3
@@ -483,7 +492,8 @@ def test_update_sr_pocztex_courier_name_capitalized(client, db, make_user, make_
         staticmethod(lambda sr, **kw: captured_push_kwargs.update(kw)))
 
     r = client.put(f'/admin/orders/shipping-requests/{sr.id}',
-                   json={'tracking_number': 'POCZTEX1', 'courier': 'pocztex'})
+                   json={'tracking_number': 'POCZTEX1', 'courier': 'pocztex',
+                         'status': 'wyslane'})
 
     assert r.status_code == 200
     assert captured_email_kwargs.get('courier_name') == 'Pocztex'

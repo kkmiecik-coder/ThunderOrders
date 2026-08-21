@@ -1030,6 +1030,31 @@ def admin_update_order_field(order_id):
             response_data['is_partially_paid'] = order.is_partially_paid
             response_data['is_overpaid'] = order.is_overpaid
 
+        # Koszt E4 wpisany tutaj to ta sama należność, co z modalu wyceny zlecenia —
+        # więc i status zlecenia musi się przeliczyć. Bez tego klient dostawał maila
+        # „nowy koszt wysyłki", płacił, admin zatwierdzał, a zlecenie wisiało na
+        # „czeka na wycenę", bo bramka opłacenia wchodzi tylko z „czeka na opłacenie".
+        if field == 'shipping_cost':
+            sr_zamowienia = order.shipping_request
+            if sr_zamowienia:
+                zmienione_zlecenia = przelicz_status_finansowy_zlecenia(sr_zamowienia)
+                if zmienione_zlecenia:
+                    db.session.commit()
+                    from utils.email_manager import EmailManager as _EM
+                    from utils.push_manager import PushManager as _PM
+                    from modules.orders.models import ShippingRequestStatus
+                    for zlecenie, poprzedni in zmienione_zlecenia:
+                        try:
+                            _EM.notify_shipping_status_change(zlecenie, poprzedni)
+                            status_obj = ShippingRequestStatus.query.filter_by(
+                                slug=zlecenie.status).first()
+                            _PM.notify_shipping_status_change(
+                                zlecenie, status_obj.name if status_obj else zlecenie.status)
+                        except Exception as e:
+                            current_app.logger.error(
+                                f'Błąd powiadomienia o zmianie statusu zlecenia '
+                                f'{zlecenie.request_number}: {e}')
+
         # Email notification for cost fields
         if field in ('proxy_shipping_cost', 'customs_vat_sale_cost', 'shipping_cost') and value and float(value) > 0:
             from utils.email_manager import EmailManager
@@ -2557,10 +2582,34 @@ def update_shipping_request_status(status_id):
             'is_active': status.is_active
         }
 
+        from modules.orders.models import SLUGI_STATUSOW_W_KODZIE
+
+        nowy_aktywny = data.get('is_active', status.is_active)
+        # Dezaktywacja wyłącza status z automatów tak samo skutecznie jak
+        # skasowanie: _check_sr_auto_oplacone wymaga is_active=True i po cichu
+        # rezygnuje z awansu, a bramki wysyłki przestają rozpoznawać stan.
+        if (not nowy_aktywny and status.is_active
+                and status.slug in SLUGI_STATUSOW_W_KODZIE):
+            return jsonify({
+                'success': False,
+                'error': f'Status „{status.name}" jest częścią pipeline\'u zleceń '
+                         f'(slug: {status.slug}) — jego wyłączenie zatrzymałoby '
+                         f'automatyczne przejścia. Możesz zmienić nazwę i kolor.',
+            }), 400
+
         status.name = name
         status.badge_color = data.get('badge_color', status.badge_color)
-        status.is_initial = data.get('is_initial', status.is_initial)
-        status.is_active = data.get('is_active', status.is_active)
+        nowy_poczatkowy = data.get('is_initial', status.is_initial)
+        # Status początkowy musi być DOKŁADNIE jeden: get_initial_shipping_status
+        # bierze `filter_by(is_initial=True).first()` bez order_by, więc przy
+        # dwóch flagach status nowych zleceń stawał się niedeterministyczny.
+        if nowy_poczatkowy and not status.is_initial:
+            ShippingRequestStatus.query.filter(
+                ShippingRequestStatus.id != status.id,
+                ShippingRequestStatus.is_initial.is_(True),
+            ).update({'is_initial': False}, synchronize_session=False)
+        status.is_initial = nowy_poczatkowy
+        status.is_active = nowy_aktywny
         status.updated_at = datetime.now()
 
         db.session.commit()
@@ -2595,6 +2644,19 @@ def delete_shipping_request_status(status_id):
     status = ShippingRequestStatus.query.get_or_404(status_id)
 
     try:
+        from modules.orders.models import SLUGI_STATUSOW_W_KODZIE
+
+        # Pipeline zna te slugi wprost, a shipping_requests.status to FK na
+        # shipping_request_statuses.slug — status chwilowo pusty, ale
+        # zahardkodowany, po skasowaniu wywracał najbliższe przejście na
+        # IntegrityError. Sprawdzenie samego BIEŻĄCEGO użycia nie wystarcza.
+        if status.slug in SLUGI_STATUSOW_W_KODZIE:
+            return jsonify({
+                'success': False,
+                'error': f'Status „{status.name}" jest częścią pipeline\'u zleceń '
+                         f'(slug: {status.slug}) — nie można go usunąć.',
+            }), 400
+
         # Check if status is in use
         in_use_count = ShippingRequest.query.filter_by(status=status.slug).count()
         if in_use_count > 0:
@@ -3902,11 +3964,30 @@ def admin_get_shipping_request(shipping_request_id):
                 'shipping_cost': float(ro.order.shipping_cost or 0)
             })
 
+    # Statusy, które WOLNO ustawić temu zleceniu — reguły zna backend, więc to on
+    # je podaje, zamiast pozwalać frontowi zgadywać (i rozjechać się przy zmianie
+    # słownika). Ta sama para warunków co przy zapisie niżej.
+    from modules.orders.consolidation import STATUSY_LOGISTYCZNE
+    dostepne_statusy = []
+    for st in (ShippingRequestStatus.query
+               .filter_by(is_active=True)
+               .order_by(ShippingRequestStatus.sort_order).all()):
+        if _status_logistyczny_dla_zrodla(sr, st.slug):
+            continue
+        if sr.is_consolidation and st.slug not in STATUSY_LOGISTYCZNE:
+            continue
+        dostepne_statusy.append({
+            'slug': st.slug,
+            'name': st.name,
+            'badge_color': st.badge_color,
+        })
+
     return jsonify({
         'id': sr.id,
         'request_number': sr.request_number,
         'status': sr.status,
         'status_display_name': sr.status_display_name,
+        'available_statuses': dostepne_statusy,
         'courier': sr.courier,
         'tracking_number': sr.tracking_number,
         'parcel_size': sr.parcel_size,
@@ -3954,6 +4035,45 @@ def admin_get_shipping_request(shipping_request_id):
     })
 
 
+def przelicz_status_finansowy_zlecenia(sr):
+    """Podnosi zlecenie na „czeka na opłacenie", gdy jest już cokolwiek do zapłaty.
+
+    Jedno miejsce na tę regułę dla WSZYSTKICH dróg zapisu kwoty E4 — modalu wyceny
+    zlecenia i inline edytora na karcie zamówienia. Wcześniej regułę miał tylko
+    modal, i to warunkowaną deltą kwoty, więc koszt wpisany drugą drogą zostawiał
+    zlecenie na „czeka na wycenę": klient płacił, admin zatwierdzał, a bramka
+    opłacenia (wchodzi wyłącznie z „czeka na opłacenie") nigdy się nie odpalała.
+
+    Funkcja jest IDEMPOTENTNA — liczy ze stanu zamówień, nie ze zmiany. Wolno ją
+    wołać po każdym zapisie i sama naprawia rozjechany stan.
+
+    Zwraca listę par (zlecenie, status_sprzed_zmiany) — jak
+    `przeprowadz_uczestnikow_na_oplacenie`, żeby wywołujący mógł wysłać
+    powiadomienie z przejściem właściwym dla KAŻDEGO zlecenia z osobna.
+    """
+    from modules.orders.consolidation import (
+        przeprowadz_uczestnikow_na_oplacenie, propaguj_na_zrodla)
+
+    if sr.is_consolidation:
+        return przeprowadz_uczestnikow_na_oplacenie(sr)
+
+    if sr.status != 'czeka_na_wycene':
+        return []
+
+    # `any`, nie `all` — klient ma zobaczyć „czeka na opłacenie", gdy jest już
+    # cokolwiek do zapłacenia, a nie dopiero po wycenie ostatniej pozycji.
+    if not any((ro.order.shipping_cost or 0) > 0
+               for ro in sr.request_orders if ro.order):
+        return []
+
+    poprzedni_status = sr.status
+    sr.status = 'czeka_na_oplacenie'
+    # Status finansowy, nie logistyczny — propaguj_na_zrodla świadomie NIE zjedzie
+    # z nim w dół, ale wołamy ją konsekwentnie z resztą miejsc zapisu.
+    propaguj_na_zrodla(sr)
+    return [(sr, poprzedni_status)]
+
+
 def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_slug):
     """
     Synchronizuje statusy zamówień klienta na podstawie zmiany statusu zlecenia wysyłki.
@@ -3970,8 +4090,6 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
     chwilą przez wywołującego" od „zlecenie historyczne, dostarczone dawno temu bez
     delivered_at" (patrz komentarz przy strażniku w wms_utils.py).
     """
-    from utils.email_manager import EmailManager
-    from utils.push_manager import PushManager
     from modules.orders.wms_utils import (
         ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
 
@@ -3987,24 +4105,26 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
     if new_sr_status_slug != 'wyslane':
         return
 
-    order_status_obj = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
-    if not order_status_obj:
-        current_app.logger.warning("Order status 'wyslane' not found or inactive")
-        return
+    # Delegacja do JEDYNEJ implementacji przejścia — dokładnie tak, jak gałąź
+    # 'dostarczone' wyżej deleguje do dostarcz_zlecenie(). Wcześniej ta funkcja
+    # miała własną, uboższą kopię (statusy zamówień + shipped_at), a wpisy
+    # przesyłki i mail robił osobny blok w _zapisz_zlecenie_wysylki — trzy
+    # nakładające się ścieżki tego samego przejścia, każda po swojemu.
+    #
+    # status_juz_ustawiony=True, bo wywołujący zapisał sr.status='wyslane'
+    # i zacommitował ZANIM tu trafił (patrz komentarz przy strażniku
+    # w wms_utils.ship_shipping_request).
+    from modules.orders.wms_utils import (
+        ShippingRequestAlreadyShipped, ShippingRequestUnpaid, ship_shipping_request)
 
-    for ro in shipping_request.request_orders:
-        order = ro.order
-        if not order or order.status == 'wyslane':
-            continue
-
-        old_status_name = order.status_display_name
-        order.status = 'wyslane'
-
-        try:
-            EmailManager.notify_status_change(order, old_status_name, order_status_obj.name)
-            PushManager.notify_status_change(order, old_status_name, order_status_obj.name)
-        except Exception as e:
-            current_app.logger.error(f'Status sync email error for {order.order_number}: {e}')
+    try:
+        ship_shipping_request(
+            shipping_request,
+            user=current_user,
+            status_juz_ustawiony=True,
+        )
+    except (ShippingRequestAlreadyShipped, ShippingRequestUnpaid) as err:
+        current_app.logger.info(f'Pominięto nadanie zlecenia: {err}')
 
 
 def _status_logistyczny_dla_zrodla(sr, nowy_status):
@@ -4141,6 +4261,34 @@ def _zapisz_zlecenie_wysylki(sr, data):
             raise _odmowa_zapisu(
                 sr, f'jedzie w paczce zbiorczej {paczka} — status logistyczny '
                     f'ustaw na samej paczce, zjedzie na nie propagacją')
+
+        if data['status'] != sr.status:
+            # Status musi istnieć i być aktywny. Bez tej walidacji nieznany slug
+            # leciał wprost do kolumny z FK na shipping_request_statuses.slug
+            # i kończył się surowym 500 zamiast czytelnym komunikatem, a slug
+            # dezaktywowany w ustawieniach dawał się przypisać mimo że zniknął
+            # z interfejsu.
+            from modules.orders.models import ShippingRequestStatus
+            nowy_status = ShippingRequestStatus.query.filter_by(
+                slug=data['status'], is_active=True).first()
+            if not nowy_status:
+                raise _odmowa_zapisu(
+                    sr, f'status „{data["status"]}" nie istnieje albo został '
+                        f'wyłączony w ustawieniach')
+
+            # Paczka zbiorcza nie ma WŁASNEGO stanu finansowego — jej status to
+            # minimum ze statusów uczestników (status_najmniej_zaawansowany).
+            # Ręczne „opłacone" przy niezapłaconych uczestnikach byłoby kłamstwem,
+            # a pierwsze zdarzenie płatnicze przeliczyłoby minimum i cofnęło zapis
+            # — admin zobaczyłby, że jego zmiana „zniknęła". Logistykę paczki
+            # ustawia się natomiast właśnie na niej i zjeżdża propagacją.
+            from modules.orders.consolidation import STATUSY_LOGISTYCZNE
+            if sr.is_consolidation and data['status'] not in STATUSY_LOGISTYCZNE:
+                raise _odmowa_zapisu(
+                    sr, f'jest paczką zbiorczą — status „{nowy_status.name}" '
+                        f'wynika ze stanu uczestników i nie ustawia się go ręcznie. '
+                        f'Zmień status na zleceniu uczestnika albo zaksięguj wpłatę.')
+
         sr.status = data['status']
     if 'courier' in data:
         sr.courier = data['courier'] or None
@@ -4227,38 +4375,42 @@ def _zapisz_zlecenie_wysylki(sr, data):
 
     # Auto-status: czeka_na_wycene → czeka_na_oplacenie after pricing
     auto_status_changed = False
-    if orders_with_new_cost and sr.is_consolidation:
-        # Paczka zbiorcza nie ma własnego statusu finansowego — jej status to
-        # minimum ze statusów uczestników. Podniesienie samej paczki zostawiłoby
-        # źródła na „czeka na wycenę", a _sprawdz_oplacenie_konsolidacji podnosi
-        # uczestnika na „opłacone" tylko z „czeka na opłacenie" — paczka nigdy nie
-        # osiągała „opłacone" i WMS odrzucał wysyłkę (UNPAID_SR_STATUSES).
-        from modules.orders.consolidation import przeprowadz_uczestnikow_na_oplacenie
-        status_paczki_przed = sr.status
-        if przeprowadz_uczestnikow_na_oplacenie(sr):
-            auto_status_changed = sr.status != status_paczki_przed
-            db.session.commit()
-    elif sr.status == 'czeka_na_wycene' and orders_with_new_cost:
-        has_any_cost = any(
-            (ro.order.shipping_cost or 0) > 0
-            for ro in sr.request_orders if ro.order
-        )
-        if has_any_cost:
-            old_status = sr.status
-            sr.status = 'czeka_na_oplacenie'
-            auto_status_changed = True
-            # Status finansowy, nie logistyczny — propaguj_na_zrodla świadomie NIE
-            # zjedzie z nim w dół (finanse zostają indywidualne), ale wołamy ją tu
-            # konsekwentnie z resztą miejsc zapisu, na wypadek zmiany trackingu/kuriera.
-            propaguj_na_zrodla(sr)
-            db.session.commit()
+    # Zlecenia ŹRÓDŁOWE, którym wycena zmieniła status — powiadamiane osobno,
+    # z ich własnym przejściem (patrz sekcja powiadomień niżej).
+    zrodla_ze_zmiana = []
+    # Warunkiem jest STAN zamówień, nie wykryta zmiana kwoty. Wcześniej awans
+    # zależał od `orders_with_new_cost`, czyli od tego, czy kwota akurat drgnęła
+    # w tym zapisie — a koszt E4 da się ustawić także drugą drogą (inline edytor
+    # na karcie zamówienia, admin_update_order_field), która statusu zlecenia nie
+    # dotyka. Zlecenie w pełni zapłacone potrafiło więc widnieć jako „Czeka na
+    # wycenę". Obie funkcje niżej są idempotentne: pomijają zlecenia, które nie
+    # stoją na statusie wyjściowym, więc wołanie ich przy każdym zapisie jest
+    # bezpieczne i samo naprawia rozjechany stan.
+    # Ta sama funkcja obsługuje paczkę zbiorczą i zlecenie zwykłe, i ta sama
+    # obsługuje inline edytor kosztu na karcie zamówienia — jedno miejsce na regułę.
+    # Paczka zbiorcza nie ma własnego statusu finansowego (jej status to minimum ze
+    # statusów uczestników), więc `auto_status_changed` liczymy z ruchu na SAMEJ
+    # paczce, a powiadomienia i tak idą per zmienione źródło.
+    status_przed_przeliczeniem = sr.status
+    zrodla_ze_zmiana = przelicz_status_finansowy_zlecenia(sr)
+    if zrodla_ze_zmiana:
+        auto_status_changed = sr.status != status_przed_przeliczeniem
+        db.session.commit()
 
     # Sync order statuses based on SR status change
+    #
+    # Dla przejścia w „wysłane" ta synchronizacja deleguje do
+    # ship_shipping_request(), które SAMO tworzy wpisy przesyłki i wysyła jedno
+    # powiadomienie na paczkę. Zapamiętujemy to, żeby blok niżej nie wysłał
+    # drugiego maila o tej samej przesyłce.
+    nadanie_przez_sync = False
     if 'status' in data and data['status'] != old_status and not auto_status_changed:
         _sync_order_statuses_from_shipping_request(sr, data['status'])
+        nadanie_przez_sync = data['status'] == 'wyslane'
         db.session.commit()
     elif auto_status_changed:
         _sync_order_statuses_from_shipping_request(sr, sr.status)
+        nadanie_przez_sync = sr.status == 'wyslane'
         db.session.commit()
 
     # Email + push notification for new domestic shipping costs
@@ -4286,15 +4438,33 @@ def _zapisz_zlecenie_wysylki(sr, data):
         })
     )
 
-    # Auto-create OrderShipment + JEDNO powiadomienie na paczkę, gdy numer właśnie doszedł.
-    # Wpisy przesyłki powstają nadal per zamówienie — jedna jest tylko wiadomość
-    # do klienta, bo fizycznie dostaje jeden karton.
-    tracking_just_added = sr.tracking_number and not old_tracking
-    if tracking_just_added:
+    # Auto-create OrderShipment + JEDNO powiadomienie na paczkę.
+    #
+    # Sam numer przesyłki NIE jest nadaniem: pole renderuje się w modalu także
+    # w trybie „Dodaj koszty", więc dopisanie go z pustego wysyłało klientowi
+    # „paczka w drodze" dla przesyłki, której system nie uważa za nadaną —
+    # zlecenie zostawało w swoim statusie, z pustym shipped_at, czyli poza
+    # zasięgiem crona przypomnień i automatycznego domknięcia dostawy.
+    # Powiadomienie o nadaniu należy wyłącznie do przejścia w „wysłane”; numer
+    # wolno zapisać na dowolnym etapie, po cichu.
+    #
+    # Bramka na `sr.status` (nie na old_status) jest celowa: status z payloadu
+    # jest już zapisany wyżej, więc PUT {'status':'wyslane','tracking_number':…}
+    # nadal działa jak dotąd — jednym żądaniem.
+    tracking_just_added = bool(sr.tracking_number) and not old_tracking
+    # `not nadanie_przez_sync` — gdy przejście w „wysłane" właśnie zaszło,
+    # ship_shipping_request() już utworzyło wpisy przesyłki i wysłało mail.
+    # Ten blok obsługuje wyłącznie przypadek pozostały: dopisanie numeru do
+    # zlecenia, które BYŁO już wysłane (np. nadanie w panelu kuriera po fakcie).
+    powiadom_o_nadaniu = (tracking_just_added and sr.status == 'wyslane'
+                          and not nadanie_przez_sync)
+    if powiadom_o_nadaniu:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         from modules.orders.models import OrderShipment
-        for order in sr.orders:
+        # active_orders — parytet z ship_shipping_request: anulowane zamówienie
+        # nie jedzie w kartonie, więc nie dostaje wpisu przesyłki.
+        for order in sr.active_orders:
             existing = OrderShipment.query.filter_by(
                 order_id=order.id,
                 tracking_number=sr.tracking_number
@@ -4323,7 +4493,29 @@ def _zapisz_zlecenie_wysylki(sr, data):
 
     # Send status change email + push (skip if tracking was just added - that email already covers it)
     status_actually_changed = ('status' in data and data['status'] != old_status) or auto_status_changed
-    if status_actually_changed and not tracking_just_added:
+
+    if zrodla_ze_zmiana and not powiadom_o_nadaniu:
+        # Wycena paczki zbiorczej zmienia status POJEDYNCZYCH uczestników, nie
+        # wszystkich naraz. Powiadomienie wysłane na paczce rozeszłoby przejście
+        # PACZKI do każdego — także do tego, kto ma u siebie „opłacone" i dostałby
+        # mail „Czeka na opłacenie". Odwrotnie, gdy podniesienie uczestnika nie
+        # ruszyło minimum paczki, `auto_status_changed` było False i nie szło nic
+        # do nikogo — również do tego, komu właśnie naliczono należność.
+        # Dlatego iterujemy po źródłach, którym status faktycznie się zmienił.
+        from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        from modules.orders.models import ShippingRequestStatus
+        for zrodlo, poprzedni_status in zrodla_ze_zmiana:
+            try:
+                EmailManager.notify_shipping_status_change(zrodlo, poprzedni_status)
+                status_obj = ShippingRequestStatus.query.filter_by(slug=zrodlo.status).first()
+                PushManager.notify_shipping_status_change(
+                    zrodlo, status_obj.name if status_obj else zrodlo.status)
+            except Exception as e:
+                current_app.logger.error(
+                    f'Błąd powiadomienia o zmianie statusu zlecenia '
+                    f'{zrodlo.request_number}: {e}')
+    elif status_actually_changed and not powiadom_o_nadaniu:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         from modules.orders.models import ShippingRequestStatus
@@ -4350,6 +4542,20 @@ def admin_delete_shipping_request(shipping_request_id):
 
     sr = ShippingRequest.query.get_or_404(shipping_request_id)
     request_number = sr.request_number
+
+    # Zlecenie, które pojechało, jest historią — nie pomyłką do sprzątnięcia.
+    # Słownik statusów nie ma „anulowane", więc jedyną operacją destrukcyjną jest
+    # ten DELETE, a on zabiera numer przesyłki, shipped_at, delivered_at ORAZ
+    # opinię o dostawie (DeliveryReview: cascade delete-orphan + FK CASCADE) —
+    # dane nieodtwarzalne, zasilające statystyki dostaw. Dotąd strażnik statusu
+    # obowiązywał wyłącznie w gałęzi paczki zbiorczej niżej.
+    if sr.status in ('wyslane', 'dostarczone'):
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} zostało już wysłane — '
+                       f'skasowanie zabrałoby numer przesyłki, daty i opinię '
+                       f'o dostawie. Jeśli to pomyłka, cofnij najpierw wysyłkę.',
+        }), 409
 
     # Zlecenie źródłowe nie ma własnych zamówień i jest tylko widokiem dla klienta —
     # skasowanie go zostawiłoby paczkę z uczestnikiem, którego nie ma.
@@ -4504,6 +4710,17 @@ def admin_bulk_cancel_shipping_requests():
             pozostale.append(sr)
 
     for sr in pozostale:
+        # Ta sama bramka co przy kasowaniu pojedynczym: zlecenie, które pojechało,
+        # jest historią. Przy zaznaczeniu „wszystkie na wszystkich stronach" brak
+        # tego warunku czyścił numery przesyłek, daty i opinie o dostawie.
+        if sr.status in ('wyslane', 'dostarczone'):
+            skipped.append((
+                sr.request_number,
+                'zostało już wysłane — skasowanie zabrałoby numer przesyłki, '
+                'daty i opinię o dostawie',
+            ))
+            continue
+
         # Źródło, którego paczka NIE była (albo była, ale nie dała się rozwiązać)
         # w tym zaznaczeniu — nadal nie ma własnych zamówień, nie kasujemy.
         if sr.is_consolidated_source:
@@ -4612,13 +4829,46 @@ def admin_consolidation_preview():
     return jsonify({'success': True, 'requests': pozycje, 'blocked': blokady})
 
 
-def _powiadom_o_konsolidacji(zbiorcze):
-    """Powiadomienia dla uczestników paczki. Pełna implementacja w utils/email_manager.py."""
+def _powiadom_o_wyjsciu_z_paczki(zrodla):
+    """Uczestnicy wracają do samodzielnej wysyłki — ich mail o paczce zbiorczej
+    przestaje obowiązywać. Wołane po rozwiązaniu paczki i po wypięciu."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    if not zrodla:
+        return
+    try:
+        EmailManager.notify_consolidation_dissolved(None, zrodla)
+        PushManager.notify_consolidation_dissolved(None, zrodla)
+    except Exception as e:
+        current_app.logger.error(f'Błąd powiadomienia o wyjściu z paczki zbiorczej: {e}')
+
+
+def _powiadom_o_zmianie_adresu_paczki(zbiorcze):
+    """Adres odbioru paczki się zmienił — uczestnik pojechałby po przesyłkę
+    w złe miejsce."""
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
     try:
-        EmailManager.notify_shipment_consolidated(zbiorcze)
-        PushManager.notify_shipment_consolidated(zbiorcze)
+        EmailManager.notify_consolidation_address_changed(zbiorcze)
+        PushManager.notify_consolidation_address_changed(zbiorcze)
+    except Exception as e:
+        current_app.logger.error(f'Błąd powiadomienia o zmianie adresu paczki: {e}')
+
+
+def _powiadom_o_konsolidacji(zbiorcze, nowi_uczestnicy=None):
+    """Powiadomienia dla uczestników paczki. Pełna implementacja w utils/email_manager.py.
+
+    `nowi_uczestnicy` podaje DOPIĘCIE do istniejącej paczki: bez tego mail
+    „Twoja wysyłka została połączona w paczkę zbiorczą" szedł ponownie do
+    wszystkich dotychczasowych uczestników, więc paczka budowana etapami przez
+    kilka dni oznaczała tyle maili, ile było dopięć. None = tworzenie paczki,
+    czyli powiadom wszystkich.
+    """
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    try:
+        EmailManager.notify_shipment_consolidated(zbiorcze, nowi_uczestnicy)
+        PushManager.notify_shipment_consolidated(zbiorcze, nowi_uczestnicy)
     except Exception as e:
         current_app.logger.error(
             f'Błąd powiadomienia o konsolidacji {zbiorcze.request_number}: {e}')
@@ -4649,12 +4899,22 @@ def admin_consolidate_shipping_requests():
             target = db.session.get(ShippingRequest, target_id)
             if not target:
                 return jsonify({'error': 'Nie znaleziono paczki zbiorczej'}), 404
-            dopnij_do_konsolidacji(target, [i for i in ids if i != target.id])
+            dopinane_ids = [i for i in ids if i != target.id]
+            dopnij_do_konsolidacji(target, dopinane_ids)
             zbiorcze = target
+            # Powiadamiamy TYLKO świeżo dopiętych — patrz _powiadom_o_konsolidacji.
+            # Zapytanie do bazy, NIE target.consolidated_sources: backref raz
+            # załadowany w tej sesji nie widzi wierszy dopiętych przed chwilą
+            # (ten sam powód, dla którego moduł konsolidacji ma _uczestnicy_z_bazy).
+            nowi = ShippingRequest.query.filter(
+                ShippingRequest.id.in_(dopinane_ids),
+                ShippingRequest.consolidated_into_id == target.id,
+            ).all() if dopinane_ids else []
         else:
             if not lead_id:
                 return jsonify({'error': 'Wskaż zlecenie wiodące'}), 400
             zbiorcze = utworz_konsolidacje(ids, lead_id)
+            nowi = None            # nowa paczka: powiadom wszystkich uczestników
         db.session.commit()
     except ConsolidationError as e:
         db.session.rollback()
@@ -4671,7 +4931,7 @@ def admin_consolidate_shipping_requests():
                      f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
         }), 500
 
-    _powiadom_o_konsolidacji(zbiorcze)
+    _powiadom_o_konsolidacji(zbiorcze, nowi)
 
     log_activity(
         user=current_user, action='shipping_requests_consolidated',
@@ -4725,6 +4985,8 @@ def admin_consolidation_change_lead(shipping_request_id):
                      f'podaj go przy zgłoszeniu.',
         }), 500
 
+    _powiadom_o_zmianie_adresu_paczki(target)
+
     log_activity(
         user=current_user, action='shipping_request_consolidation_lead_changed',
         entity_type='shipping_request', entity_id=target.id,
@@ -4760,6 +5022,12 @@ def admin_consolidation_detach(shipping_request_id):
     except (ValueError, TypeError):
         return jsonify({'error': 'Nieprawidłowy identyfikator zlecenia do wypięcia — oczekiwano liczby całkowitej'}), 400
 
+    # Uczestnicy PRZED wypięciem: gdy operacja rozwiąże paczkę (zejście do
+    # jednego), z paczki wychodzą wszyscy, a po commicie relacje są już zerwane
+    # i nie da się ich odczytać z paczki.
+    uczestnicy_przed = [z.id for z in ShippingRequest.query.filter(
+        ShippingRequest.consolidated_into_id == target.id).all()]
+
     try:
         rozwiazana = wypnij_zlecenie(target, source_id)
         db.session.commit()
@@ -4774,6 +5042,14 @@ def admin_consolidation_detach(shipping_request_id):
             'error': f'Nie wypięto zlecenia z paczki {numer} — nieoczekiwany błąd serwera. '
                      f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
         }), 500
+
+    # Wypięty klient wraca do samodzielnej wysyłki, a przy rozwiązaniu paczki
+    # wracają wszyscy — w obu przypadkach ich mail o paczce zbiorczej przestaje
+    # obowiązywać. Odczyt z bazy, bo relacje zostały właśnie zerwane.
+    do_powiadomienia = [source_id] if not rozwiazana else uczestnicy_przed
+    wypiete = ShippingRequest.query.filter(
+        ShippingRequest.id.in_(do_powiadomienia)).all() if do_powiadomienia else []
+    _powiadom_o_wyjsciu_z_paczki(wypiete)
 
     log_activity(
         user=current_user, action='shipping_request_consolidation_detached',
@@ -4805,6 +5081,7 @@ def admin_consolidation_dissolve(shipping_request_id):
         zrodla = rozwiaz_konsolidacje(target)
         numery = [s.request_number for s in zrodla]
         db.session.commit()
+        _powiadom_o_wyjsciu_z_paczki(zrodla)
     except ConsolidationError as e:
         db.session.rollback()
         return jsonify({'error': e.message}), e.status_code

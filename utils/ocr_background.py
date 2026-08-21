@@ -76,7 +76,14 @@ def process_ocr_verification(task_data):
     from app import create_app
     app = create_app()
 
-    with app.app_context():
+    # test_request_context, nie sam app_context — parytet z komendami CLI
+    # (`_with_request_context` w app.py). Ta ścieżka kończy się powiadomieniami
+    # (auto-zatwierdzenie E4 → _check_sr_auto_oplacone → mail i push o zmianie
+    # statusu zlecenia), a te budują linki przez url_for(_external=True), co bez
+    # kontekstu żądania wywala RuntimeError brakiem SERVER_NAME. Sam app_context
+    # dawał klientowi w najlepszym razie mail bez linku.
+    base_url = os.getenv('APP_BASE_URL', 'https://thunderorders.cloud')
+    with app.test_request_context(base_url=base_url):
         _process_ocr_internal(task_data)
 
 

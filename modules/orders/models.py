@@ -1005,10 +1005,13 @@ class Order(db.Model):
         """E4: Wysyłka lokalna PL — dla obu typów zamówień"""
         if hasattr(self, '_cached_payment_confirmations'):
             return self._get_cached_confirmation('domestic_shipping')
+        # NAJNOWSZY wiersz, nie pierwszy z brzegu: etap dopuszcza dopłatę, więc
+        # potwierdzeń może być kilka, a właściwości etapu (status, badge, kubełek
+        # na liście) mają pokazywać stan bieżący — nie ten sprzed korekty wyceny.
         return PaymentConfirmation.query.filter_by(
             order_id=self.id,
             payment_stage='domestic_shipping'
-        ).first()
+        ).order_by(PaymentConfirmation.id.desc()).first()
 
     @property
     def stage_4_name(self):
@@ -1048,13 +1051,45 @@ class Order(db.Model):
         return True
 
     @property
+    def stage_4_paid(self):
+        """Suma ZATWIERDZONYCH wpłat za E4 (wysyłka PL).
+
+        Etap może mieć więcej niż jedno potwierdzenie: gdy należność rośnie po
+        zaksięgowaniu wpłaty (korekta wyceny, nowa droższa przesyłka po
+        skasowaniu poprzedniego zlecenia), klient dopłaca RÓŻNICĘ osobnym
+        dowodem. Rozliczenie liczy się z sumy, nie z istnienia wiersza.
+        """
+        from decimal import Decimal
+        suma = db.session.query(func.coalesce(func.sum(PaymentConfirmation.amount), 0)).filter(
+            PaymentConfirmation.order_id == self.id,
+            PaymentConfirmation.payment_stage == 'domestic_shipping',
+            PaymentConfirmation.status == 'approved',
+        ).scalar()
+        return Decimal(str(suma or 0))
+
+    @property
+    def stage_4_remaining(self):
+        """Ile jeszcze zostało do zapłaty za E4. Nigdy ujemne (nadpłata = 0)."""
+        from decimal import Decimal
+        naleznosc = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
+        return max(Decimal('0.00'), naleznosc - self.stage_4_paid)
+
+    @property
     def can_upload_stage_4(self):
-        """Można wgrać E4? (kwota > 0, nie approved/pending)"""
-        if self.stage_4_status in ['approved', 'pending']:
+        """Można wgrać E4?
+
+        Blokujemy przy 'pending' (dowód czeka na weryfikację — drugi na tę samą
+        kwotę tylko zaśmieca kolejkę) oraz gdy etap jest w pełni rozliczony.
+        Przy NIEDOPŁACIE klient musi móc dopłacić: dotąd samo istnienie starego
+        potwierdzenia 'approved' zamykało drogę zapłaty, więc po podniesieniu
+        kosztu wysyłki klient dostawał mail o nowej kwocie i nie miał czego
+        kliknąć.
+        """
+        if self.stage_4_status == 'pending':
             return False
         if not self.shipping_cost or self.shipping_cost <= 0:
             return False
-        return True
+        return self.stage_4_remaining > 0
 
     @property
     def has_customs_vat_stage(self):
@@ -1105,6 +1140,33 @@ class Order(db.Model):
         if self.customs_vat_sale_cost <= 0:
             return True
         return self.stage_3_status == 'approved'
+
+    @property
+    def is_domestic_shipping_settled(self):
+        """E4 Wysyłka PL rozliczona — warunek dopuszczenia zlecenia do „opłacone".
+
+        Symetryczne do is_customs_vat_settled, z jedną różnicą: shipping_cost jest
+        NOT NULL z domyślnym 0.00, więc nie ma tu stanu „nie ustalono" — cały moduł
+        traktuje zero jako brak kosztu.
+
+        0 (gratis / bez dopłaty) → True. Wiersz PaymentConfirmation powstaje w całym
+            repo wyłącznie przy uploadzie klienta, a `can_upload_stage_4` odmawia
+            uploadu przy kwocie 0 — takie zamówienie NIE MA JAK dostać potwierdzenia.
+            Wymaganie go zamykało pętlę: zlecenie z częścią pozycji na zerze nigdy
+            nie dochodziło do „opłacone", choć klient nic nie był winien.
+        > 0 → True dopiero gdy SUMA zatwierdzonych wpłat pokrywa należność.
+
+        Liczymy KWOTĘ, nie istnienie wiersza 'approved'. Potwierdzenie wiąże się
+        z zamówieniem, a zobowiązanie powstaje per zlecenie wysyłki — zamówienie
+        może więc mieć zatwierdzone 20 zł z poprzedniej, tańszej przesyłki przy
+        aktualnej należności 30 zł. Pytanie „czy jest approved" odpowiadało wtedy
+        TAK i paczka wychodziła bez dopłaty, a różnica przepadała bez śladu.
+        Ta sama awaria zachodzi bez kasowania czegokolwiek — wystarczy podnieść
+        `shipping_cost` po zatwierdzeniu płatności.
+        """
+        if not self.shipping_cost or self.shipping_cost <= 0:
+            return True
+        return self.stage_4_remaining <= 0
 
     def get_product_deadline(self):
         """Get payment deadline for E1 (product) from the offer page.
@@ -1452,6 +1514,26 @@ class OrderShipment(db.Model):
 # ====================
 
 
+# Slugi statusów zleceń, na których OPIERA SIĘ KOD — nie wolno ich skasować ani
+# dezaktywować z panelu ustawień, choć słownik jest tam w pełni edytowalny.
+#
+# Strażnik przy DELETE sprawdzał wyłącznie BIEŻĄCE użycie (`count()` zleceń),
+# więc status chwilowo pusty, ale zahardkodowany, dawał się usunąć — a
+# `shipping_requests.status` to FK na `shipping_request_statuses.slug`, więc
+# najbliższe automatyczne przejście padało na IntegrityError. Dezaktywacja jest
+# równie skuteczna: `_check_sr_auto_oplacone` wymaga `is_active=True` i po cichu
+# rezygnuje z awansu, a bramki wysyłki przestają rozpoznawać stan.
+#
+# Miejsca, które czytają te slugi wprost: consolidation.STATUSY_ZAMKNIETE,
+# STATUS_SPAKOWANE, STATUSY_BEZ_EDYCJI, STATUSY_LOGISTYCZNE,
+# wms_utils.UNPAID_SR_STATUSES i ship_shipping_request, wms_packing,
+# payment_confirmations._check_sr_auto_oplacone, routes (kaskady statusów).
+SLUGI_STATUSOW_W_KODZIE = frozenset({
+    'czeka_na_wycene', 'czeka_na_oplacenie', 'oplacone',
+    'spakowane', 'wyslane', 'dostarczone',
+})
+
+
 class ShippingRequestStatus(db.Model):
     """
     Shipping request status lookup table.
@@ -1594,6 +1676,27 @@ class ShippingRequest(db.Model):
     def orders(self):
         """Returns list of Order objects in this shipping request"""
         return [ro.order for ro in self.request_orders if ro.order]
+
+    @property
+    def active_orders(self):
+        """Zamówienia, które jeszcze mają pojechać — bez anulowanych i zwrotów.
+
+        Bramki gotowości zlecenia (`all(spakowane)` przy pakowaniu, komplet
+        rozliczonych E4 przy opłaceniu) muszą liczyć po TEJ liście, nie po
+        `orders`. Zamówienie anulowane albo skierowane do zwrotu nigdy żadnej
+        z nich nie spełni i nie wejdzie już do sesji WMS, więc liczone razem
+        z resztą blokowało zlecenie na zawsze.
+
+        Filtrujemy zamiast wypinać wiersz junction: historia zlecenia zostaje
+        kompletna (`orders` nadal pokazuje wszystko), a `do_zwrotu` bywa cofane —
+        wypięcie jest nieodwracalne przez cascade delete-orphan.
+
+        Lista statusów pochodzi z consolidation.STATUSY_WYPINAJACE_Z_PACZKI, żeby
+        obie ścieżki — zwykłego zlecenia i paczki zbiorczej — miały jedną definicję
+        „zamówienia, które nie dojedzie".
+        """
+        from modules.orders.consolidation import STATUSY_WYPINAJACE_Z_PACZKI
+        return [o for o in self.orders if o.status not in STATUSY_WYPINAJACE_Z_PACZKI]
 
     @property
     def is_consolidation(self):

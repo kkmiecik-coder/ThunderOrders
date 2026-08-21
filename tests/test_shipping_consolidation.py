@@ -545,11 +545,21 @@ def test_wyslanie_przez_wms_propaguje_na_zrodla(db, make_user, make_order):
 
 def test_oplacenie_przez_jednego_uczestnika_podnosi_tylko_jego_zlecenie(db, make_user, make_order):
     """Klient płaci za swoje zamówienia niezależnie — nie ma czekać, aż zapłacą inni,
-    żeby zobaczyć u siebie 'opłacone'. Paczka czeka na komplet."""
+    żeby zobaczyć u siebie 'opłacone'. Paczka czeka na komplet.
+
+    Obaj uczestnicy mają REALNĄ należność. Bez tego test nie mierzyłby tego, co
+    deklaruje: `is_domestic_shipping_settled` uznaje 0 zł za rozliczone (klient nie
+    ma jak wgrać potwierdzenia do zerowej kwoty — `can_upload_stage_4` odmawia),
+    więc uczestnik bez kosztu przeszedłby na „opłacone" nie dlatego, że zapłacił,
+    tylko dlatego, że nie miał czego płacić.
+    """
     _seed_sr_statuses(db)
     zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
     for sr in (sr_a, sr_b, zbiorcze):
         sr.status = 'czeka_na_oplacenie'
+    for uczestnik in zbiorcze.consolidation_participants:
+        for o in uczestnik['orders']:
+            o.shipping_cost = 10
     db.session.commit()
 
     from decimal import Decimal
@@ -1182,3 +1192,153 @@ def test_zwykle_zlecenie_nie_ma_zdania(db, make_user, make_order):
 
     assert sr.is_consolidation is False
     assert sr.consolidation_block_note is None
+
+
+# ---------------------------------------------------------------------------
+# Spakowany karton nie wchodzi do paczki zbiorczej (BUG 1.4)
+#
+# `waliduj_do_konsolidacji` sprawdzała tylko STATUSY_ZAMKNIETE = ('wyslane',
+# 'dostarczone'), a 'spakowane' do tej krotki nie należy. Zlecenie z ZAMKNIĘTĄ
+# sesją WMS przechodziło więc bramkę — mimo że karton fizycznie istnieje:
+# materiał opakowaniowy zszedł ze stanu (wms_packing.py), a klient dostał maila
+# ze zdjęciem. Konsolidacja tego nie cofa; zwrot materiału robi wyłącznie
+# `reopen_orders_for_wms`. Efekt: materiał schodzi drugi raz, a klient ma
+# w skrzynce zdjęcie kartonu, którego już nie ma.
+# ---------------------------------------------------------------------------
+
+def test_odmowa_konsolidacji_spakowanego_zlecenia(db, make_user, make_order):
+    from modules.orders.consolidation import ConsolidationError, utworz_konsolidacje
+
+    _seed_sr_statuses(db)
+    sr_a, _oa = _sr(db, make_user(), make_order, status='spakowane')
+    sr_b, _ob = _sr(db, make_user(), make_order)
+
+    with pytest.raises(ConsolidationError) as e:
+        utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_b.id)
+
+    assert e.value.status_code == 409
+    assert sr_a.request_number in e.value.message
+    assert 'spakowane' in e.value.message.lower()
+    # Walidacja przed jakąkolwiek mutacją — nic nie zostało przepięte.
+    assert sr_a.consolidated_into_id is None
+    assert sr_b.consolidated_into_id is None
+    assert len(sr_a.request_orders) == 1
+
+
+def test_odmowa_dopiecia_spakowanego_zlecenia(db, make_user, make_order):
+    """Osobna ścieżka niż utworz_konsolidacje — własny endpoint i własny kod."""
+    from modules.orders.consolidation import ConsolidationError, dopnij_do_konsolidacji
+
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order)
+    sr_c, _oc = _sr(db, make_user(), make_order, status='spakowane')
+
+    with pytest.raises(ConsolidationError) as e:
+        dopnij_do_konsolidacji(zbiorcze, [sr_c.id])
+
+    assert e.value.status_code == 409
+    assert sr_c.consolidated_into_id is None
+    assert len(zbiorcze.request_orders) == 2
+
+
+def test_spakowane_z_zamknieta_sesja_wms_tez_odrzucone(db, make_user, make_order):
+    """Dokładna dziura ze zgłoszenia: sesja WMS zakończona, więc
+    `_sesja_wms_blokujaca` zwraca None i dotąd nic nie broniło wejścia.
+
+    Komunikat NIE może mówić o sesji WMS — inaczej ktoś „naprawi" buga
+    zaostrzając `_sesja_wms_blokujaca` na wszystkie statusy sesji i zablokuje
+    legalne scalanie zleceń po zakończonych sesjach.
+    """
+    from modules.orders.consolidation import ConsolidationError, utworz_konsolidacje
+    from modules.orders.wms_models import WmsSession, WmsSessionShippingRequest
+
+    _seed_sr_statuses(db)
+    operator = make_user(role='admin', email='operator-wms-1-4@example.com')
+    sr_a, _oa = _sr(db, make_user(), make_order, status='spakowane')
+    sr_b, _ob = _sr(db, make_user(), make_order)
+
+    sesja = WmsSession(session_token='token-zakonczonej-sesji',
+                       user_id=operator.id, status='completed')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionShippingRequest(
+        session_id=sesja.id, shipping_request_id=sr_a.id))
+    db.session.commit()
+
+    with pytest.raises(ConsolidationError) as e:
+        utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_b.id)
+
+    assert e.value.status_code == 409
+    assert 'sesji WMS' not in e.value.message
+    assert 'spakowane' in e.value.message.lower()
+
+
+def test_wyslane_ma_wlasny_komunikat_nie_o_pakowaniu(db, make_user, make_order):
+    """Przypina kontrakt komunikatu — dwa różne stany świata, dwa różne teksty."""
+    from modules.orders.consolidation import ConsolidationError, utworz_konsolidacje
+
+    _seed_sr_statuses(db)
+    sr_a, _oa = _sr(db, make_user(), make_order)
+    sr_b, _ob = _sr(db, make_user(), make_order, status='wyslane')
+
+    with pytest.raises(ConsolidationError) as e:
+        utworz_konsolidacje([sr_a.id, sr_b.id], lead_request_id=sr_a.id)
+
+    assert 'wysłane' in e.value.message
+    assert 'spakowane' not in e.value.message.lower()
+
+
+def test_anulowanie_ostatniego_uczestnika_przy_aktywnej_sesji_nie_zostawia_widma(
+        db, make_user, make_order):
+    """Paczka bez ŻADNEGO uczestnika ma zniknąć, nawet przy aktywnej sesji WMS.
+
+    Odroczenie rozwiązania („nie kasuj paczki, którą magazyn ma otwartą")
+    nie rozróżniało `pozostale == [jeden]` od `pozostale == []`. Przy pustej
+    liście wykonywała się gałąź „zostaw paczkę" i powstawał rekord-widmo:
+    zero źródeł (`is_consolidation == False`), `lead_source_request_id`
+    wskazujący na odpięte już zlecenie i status przeliczony z pustej listy na
+    „czeka na wycenę" — mimo że rekord leżał w sesji WMS.
+
+    Od tej chwili `_sprawdz_edytowalnosc` odrzucał go pierwszym warunkiem
+    („nie jest paczką zbiorczą”), więc dissolve i detach były zamknięte,
+    a rekord trafiał do panelu klienta wiodącego.
+
+    Odroczenie ma sens tylko wtedy, gdy w paczce zostaje realny uczestnik —
+    pustą kasujemy, bo nie ma czego chronić. Wiersze WmsSessionShippingRequest
+    sprząta `_rozwiaz_konsolidacje_bez_walidacji`.
+    """
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    from modules.orders.models import ShippingRequest
+    from modules.orders.wms_models import WmsSession, WmsSessionShippingRequest
+
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze_id = zbiorcze.id
+    operator = make_user(role='admin', email='operator-widmo@example.com')
+
+    sesja = WmsSession(session_token='token-aktywnej-sesji-widmo',
+                       user_id=operator.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionShippingRequest(
+        session_id=sesja.id, shipping_request_id=zbiorcze_id))
+    db.session.commit()
+
+    # Anulujemy zamówienia OBU uczestników — paczka zostaje bez nikogo.
+    for zrodlo in (sr_a, sr_b):
+        zamowienie = zrodlo.display_orders[0]
+        zamowienie.status = 'anulowane'
+        odepnij_anulowane_zamowienie(zamowienie)
+        db.session.commit()
+    db.session.expire_all()
+
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None, (
+        'Paczka bez uczestników została jako rekord-widmo: nieusuwalny przez '
+        'API konsolidacji i widoczny w panelu klienta wiodącego'
+    )
+    assert WmsSessionShippingRequest.query.filter_by(
+        shipping_request_id=zbiorcze_id).count() == 0, (
+        'Wiersz sesji WMS wskazujący na skasowaną paczkę zostałby sierotą'
+    )
+    assert sr_a.consolidated_into_id is None
+    assert sr_b.consolidated_into_id is None

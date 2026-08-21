@@ -1562,3 +1562,47 @@ def send_achievement_granted_email(user_email, user_name, achievement_name,
         achievement_slug=achievement_slug,
         gallery_url=gallery_url,
     )
+
+
+def prepare_shipment_unconsolidated_email(user_email, user_name, request_number,
+                                          order_numbers, shipping_requests_url=None,
+                                          log_context=None):
+    """Mail o wyjściu zlecenia z paczki zbiorczej — wersja wsadowa.
+
+    Wysyłany przy rozwiązaniu paczki i przy wypięciu pojedynczego uczestnika.
+    Bez niego klient zostaje z jedyną, nieaktualną wersją prawdy w skrzynce:
+    „Twoje zamówienia jadą w paczce zbiorczej wysłanej na adres X".
+    """
+    return prepare_email(
+        to=user_email,
+        subject=f'Twoja wysyłka {request_number} jedzie osobno',
+        template='shipment_unconsolidated',
+        log_context=log_context,
+        user_name=user_name,
+        request_number=request_number,
+        order_numbers=order_numbers,
+        shipping_requests_url=shipping_requests_url,
+    )
+
+
+def prepare_consolidation_address_changed_email(user_email, user_name, request_number,
+                                                order_numbers, recipient_name, is_recipient,
+                                                shipping_requests_url=None, log_context=None):
+    """Mail o zmianie adresu odbioru paczki zbiorczej — wersja wsadowa.
+
+    Zmiana zlecenia wiodącego realnie nadpisuje adres paczki (`_kopiuj_adres`),
+    więc bez tego maila uczestnik ma w skrzynce STARY adres i pojedzie po
+    przesyłkę w złe miejsce.
+    """
+    return prepare_email(
+        to=user_email,
+        subject=f'Zmiana adresu odbioru paczki — {request_number}',
+        template='consolidation_address_changed',
+        log_context=log_context,
+        user_name=user_name,
+        request_number=request_number,
+        order_numbers=order_numbers,
+        recipient_name=recipient_name,
+        is_recipient=is_recipient,
+        shipping_requests_url=shipping_requests_url,
+    )

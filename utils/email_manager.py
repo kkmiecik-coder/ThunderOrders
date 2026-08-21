@@ -1096,6 +1096,18 @@ class EmailManager:
             )
             return
 
+        # Poza kontekstem żądania url_for(_external=True) wywala RuntimeError
+        # brakiem SERVER_NAME (nie jest ustawiany nigdzie w projekcie). Ta ścieżka
+        # jest osiągalna z wątku tła: OCR auto-zatwierdza E4 (utils/ocr_background.py
+        # — app_context bez request contextu) i przez _check_sr_auto_oplacone woła
+        # to powiadomienie. Bez tego zabezpieczenia wyjątek leciał do except niżej
+        # i klient nie dostawał maila o przejściu na „opłacone". Degradujemy do
+        # braku linku — jak w ścieżkach konsolidacji w tym samym pliku.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+
         try:
             send_shipping_status_change_email(
                 user_email=user.email,
@@ -1104,10 +1116,14 @@ class EmailManager:
                 old_status_name=old_status_name,
                 new_status_name=new_status_name,
                 new_status_color=new_status_color,
-                orders=shipping_request.orders,
+                # display_orders, nie orders: gdy zlecenie jest źródłem paczki
+                # zbiorczej, jego wiersze junction wiszą przy paczce, więc
+                # `orders` jest puste — klient dostawał mail z pustą tabelą
+                # „Zamówienia w zleceniu".
+                orders=shipping_request.display_orders,
                 tracking_number=shipping_request.tracking_number,
                 courier_name=courier_name,
-                shipping_requests_url=url_for('client.shipping_requests_list', _external=True),
+                shipping_requests_url=requests_url,
                 log_context=kontekst_zlecenia(shipping_request)
             )
             current_app.logger.info(
@@ -1336,13 +1352,20 @@ class EmailManager:
             f'Wysłano {len(wiadomosci)} maili o paczce zbiorczej {sr.request_number}')
 
     @staticmethod
-    def notify_shipment_consolidated(sr):
+    def notify_shipment_consolidated(sr, nowi_uczestnicy=None):
         """Informuje uczestników, że ich wysyłki pojechały do jednej paczki.
 
         Bez tego klient dowiaduje się o zmianie dopiero z maila o wysyłce, gdzie
         nagle pojawia się cudzy adres. Świadomie korzysta z istniejącego klucza
         przełącznika ('notify_status_change') zamiast dokładać nowy — patrz
         komentarz w notify_shipment_sent.
+
+        Args:
+            nowi_uczestnicy: zlecenia źródłowe, które WŁAŚNIE dopięto. Podaje je
+                dopięcie do istniejącej paczki — bez tego mail szedł ponownie do
+                wszystkich dotychczasowych uczestników, więc paczka budowana
+                etapami przez kilka dni oznaczała tyle maili, ile było dopięć.
+                None (tworzenie paczki) = powiadom wszystkich.
         """
         if not EmailManager.is_email_enabled('notify_status_change'):
             current_app.logger.info(
@@ -1363,8 +1386,13 @@ class EmailManager:
             requests_url = None
         adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
 
+        tylko_id = ({z.id for z in nowi_uczestnicy}
+                    if nowi_uczestnicy is not None else None)
+
         wiadomosci = []
         for uczestnik in sr.consolidation_participants:
+            if tylko_id is not None and uczestnik['source_request'].id not in tylko_id:
+                continue
             user = uczestnik['user']
             if not user or not user.email:
                 current_app.logger.warning(
@@ -1389,6 +1417,108 @@ class EmailManager:
         send_email_batch(wiadomosci)
         current_app.logger.info(
             f'Wysłano {len(wiadomosci)} maili o konsolidacji {sr.request_number}')
+
+    @staticmethod
+    def notify_consolidation_dissolved(sr, zrodla):
+        """Uczestnicy wychodzą z paczki — ich wysyłki jadą znów osobno.
+
+        Wołane przy rozwiązaniu paczki i przy wypięciu pojedynczego uczestnika.
+        Bez tego klient zostaje z jedyną, nieaktualną wersją prawdy w skrzynce:
+        „Twoje zamówienia jadą w paczce zbiorczej wysłanej na adres X".
+
+        `zrodla` podaje wywołujący, bo w chwili wysyłki powiadomienia zlecenia
+        NIE są już uczestnikami paczki (relacja została zerwana) — nie da się
+        ich odczytać z `sr.consolidation_participants`.
+
+        Ten sam klucz przełącznika co reszta powiadomień o składzie paczki.
+        """
+        if not EmailManager.is_email_enabled('notify_status_change'):
+            current_app.logger.info(
+                "Email notification 'notify_status_change' is disabled, skipping")
+            return
+        if not zrodla:
+            return
+
+        from flask import url_for
+        from utils.email_sender import (
+            prepare_shipment_unconsolidated_email, send_email_batch)
+
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+
+        wiadomosci = []
+        for zrodlo in zrodla:
+            user = zrodlo.user
+            if not user or not user.email:
+                current_app.logger.warning(
+                    f'Zlecenie {zrodlo.request_number} bez adresu e-mail — pomijam')
+                continue
+            wiadomosci.append(prepare_shipment_unconsolidated_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=zrodlo.request_number,
+                # display_orders, nie orders: wiersze junction mogły dopiero co
+                # wrócić do zlecenia, a przy wypięciu z niespakowanej paczki
+                # kolekcja w pamięci sesji bywa nieodświeżona.
+                order_numbers=[o.order_number for o in zrodlo.display_orders],
+                shipping_requests_url=requests_url,
+                log_context=kontekst_zlecenia(zrodlo),
+            ))
+
+        if not wiadomosci:
+            return
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o wyjściu z paczki zbiorczej')
+
+    @staticmethod
+    def notify_consolidation_address_changed(sr, zrodla=None):
+        """Zmienił się adresat paczki — przesyłka pojedzie gdzie indziej.
+
+        `zmien_wiodace` nadpisuje adres paczki adresem nowego lidera
+        (`_kopiuj_adres`), więc uczestnik ma w skrzynce STARY adres i pojechałby
+        po przesyłkę w złe miejsce.
+        """
+        if not EmailManager.is_email_enabled('notify_status_change'):
+            current_app.logger.info(
+                "Email notification 'notify_status_change' is disabled, skipping")
+            return
+        if not sr.is_consolidation:
+            return
+
+        from flask import url_for
+        from utils.email_sender import (
+            prepare_consolidation_address_changed_email, send_email_batch)
+
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+        adresat = sr.short_addressee_name or 'osoby odbierającej paczkę'
+
+        wiadomosci = []
+        for uczestnik in sr.consolidation_participants:
+            user = uczestnik['user']
+            if not user or not user.email:
+                continue
+            wiadomosci.append(prepare_consolidation_address_changed_email(
+                user_email=user.email,
+                user_name=user.first_name or 'Kliencie',
+                request_number=uczestnik['source_request'].request_number,
+                order_numbers=[o.order_number for o in uczestnik['orders']],
+                recipient_name=adresat,
+                is_recipient=uczestnik['source_request'].id == sr.lead_source_request_id,
+                shipping_requests_url=requests_url,
+                log_context=kontekst_zlecenia(uczestnik['source_request']),
+            ))
+
+        if not wiadomosci:
+            return
+        send_email_batch(wiadomosci)
+        current_app.logger.info(
+            f'Wysłano {len(wiadomosci)} maili o zmianie adresu paczki {sr.request_number}')
 
     # ========================================
     # COST NOTIFICATION EMAILS

@@ -21,6 +21,18 @@ class ConsolidationError(Exception):
 # Paczka, która już pojechała, nie podlega scalaniu ani rozmontowaniu.
 STATUSY_ZAMKNIETE = ('wyslane', 'dostarczone')
 
+# Stan po spakowaniu to blokada FIZYCZNA, nie tylko statusowa — dlatego osobno,
+# a nie przez dopisanie do STATUSY_ZAMKNIETE (którego nazwa i komentarz mówią
+# o paczce już wysłanej). Przy pakowaniu materiał opakowaniowy schodzi ze stanu
+# i zostaje przypięty do zlecenia, a klient dostaje maila ze zdjęciem kartonu.
+# Konsolidacja żadnego z tych skutków nie cofa — robi to wyłącznie
+# `reopen_orders_for_wms` („Zabierz do WMS”). Bez tej bramki materiał schodził
+# drugi raz, a klient miał w skrzynce zdjęcie kartonu, którego już nie ma.
+# Sama sesja WMS nie wystarczy jako zabezpieczenie: `_sesja_wms_blokujaca` łapie
+# tylko sesje aktywne/wstrzymane, a po normalnym zakończeniu pakowania sesja ma
+# status 'completed'.
+STATUS_SPAKOWANE = 'spakowane'
+
 
 def _sesja_wms_blokujaca(sr):
     """Zwraca aktywną/wstrzymaną sesję WMS trzymającą to zlecenie, albo None."""
@@ -58,6 +70,17 @@ def waliduj_do_konsolidacji(requests, target=None):
         raise ConsolidationError('Wybierz co najmniej 2 zlecenia do konsolidacji.')
 
     for sr in requests:
+        # Przed bramką „już pojechało”: spakowane zlecenie wymaga innej akcji
+        # naprawczej niż wysłane, więc i komunikat musi być inny — ma kierować
+        # do jedynej operacji, która cofa skutki fizyczne pakowania.
+        if sr.status == STATUS_SPAKOWANE:
+            raise ConsolidationError(
+                f'Zlecenie {sr.request_number} jest już spakowane — materiał opakowaniowy '
+                f'zszedł ze stanu, a klient dostał zdjęcie kartonu. Cofnij je najpierw '
+                f'do WMS („Zabierz do WMS” na karcie zlecenia), zanim scalisz je '
+                f'w paczkę zbiorczą.',
+                status_code=409,
+            )
         if sr.status in STATUSY_ZAMKNIETE:
             raise ConsolidationError(
                 f'Zlecenie {sr.request_number} zostało już wysłane — nie można go konsolidować.',
@@ -277,6 +300,14 @@ def _rozwiaz_konsolidacje_bez_walidacji(target):
     publiczne rozwiaz_konsolidacje (przez _sprawdz_edytowalnosc, więc: jawne
     „Rozwiąż paczkę" z Task 7 i wypnij_zlecenie przy zejściu do 1 uczestnika).
     Poprawka poniżej obowiązuje więc obie ścieżki naraz.
+
+    UWAGA: nie zakładaj, że przy wejściu tutaj sesja WMS jest już zamknięta.
+    `_po_odpieciu_zrodla` odracza rozwiązanie przy aktywnej sesji tylko wtedy,
+    gdy w paczce został jeszcze realny uczestnik — paczka PUSTA trafia tu mimo
+    otwartej sesji (nie ma czego chronić, a zostawiona byłaby rekordem-widmem
+    nieusuwalnym przez API konsolidacji). Sprzątanie wierszy
+    WmsSessionShippingRequest niżej jest więc obowiązkowe także dla sesji
+    aktywnej, nie tylko zakończonej — i to ono czyni delete bezpiecznym.
     """
     from modules.orders.wms_models import WmsSessionShippingRequest
 
@@ -390,7 +421,11 @@ def przeprowadz_uczestnikow_na_oplacenie(zbiorcze):
     wycenionej paczki nie dało się wysłać w ogóle. Dodatkowo klient widział u
     siebie „Czeka na wycenę" mimo maila o opłaceniu paczki.
 
-    Zwraca listę zleceń źródłowych, którym faktycznie zmienił się status.
+    Zwraca listę par `(zlecenie_źródłowe, status_sprzed_zmiany)` dla źródeł,
+    którym faktycznie zmienił się status. Stary status jest częścią kontraktu,
+    bo powiadomienie o przejściu musi iść z parametrami UCZESTNIKA — status
+    paczki to minimum ze źródeł i bywa inny niż przejście, które zaszło u
+    konkretnej osoby.
     """
     if not zbiorcze.is_consolidation:
         return []
@@ -405,14 +440,15 @@ def przeprowadz_uczestnikow_na_oplacenie(zbiorcze):
         # zobaczyć „czeka na opłacenie", gdy jest już cokolwiek do zapłacenia,
         # a nie dopiero po wycenie ostatniej pozycji.
         if any((o.shipping_cost or 0) > 0 for o in uczestnik['orders']):
+            poprzedni_status = zrodlo.status
             zrodlo.status = 'czeka_na_oplacenie'
-            zmienione.append(zrodlo)
+            zmienione.append((zrodlo, poprzedni_status))
 
     if zmienione:
         # Status paczki jest pochodną statusów uczestników — przeliczamy go tym
         # samym helperem, którego używa ścieżka płatnicza, żeby nie było dwóch
         # źródeł prawdy o „najmniej zaawansowanym".
-        przelicz_status_zbiorczego(zmienione[0])
+        przelicz_status_zbiorczego(zmienione[0][0])
     return zmienione
 
 
@@ -451,10 +487,22 @@ def _po_odpieciu_zrodla(target, source_id, *, bez_walidacji=False):
     to ono realnie odblokowuje bramki gotowości dla pozostałych uczestników, więc
     cel Task 13 jest spełniony nawet gdy pełne rozwiązanie paczki poczeka do
     zamknięcia sesji.
+
+    WYJĄTEK OD WYJĄTKU: odroczenie dotyczy wyłącznie paczki, w której został
+    jeszcze REALNY uczestnik. Paczkę PUSTĄ (zero źródeł) kasujemy mimo aktywnej
+    sesji, bo nie ma już czego chronić — magazynier nie ma co skanować, a
+    zostawiona zostaje rekordem-widmem: `is_consolidation` daje False, więc
+    `_sprawdz_edytowalnosc` odrzuca ją jako „nie paczkę zbiorczą" i zamyka
+    zarówno dissolve, jak i detach; status przeliczony z pustej listy spada na
+    „czeka na wycenę", a rekord trafia do panelu klienta wiodącego. Wiersz
+    `wms_session_shipping_requests` nie osieroci się przy tym mimo braku
+    `ondelete=CASCADE`, bo `_rozwiaz_konsolidacje_bez_walidacji` kasuje go jawnie
+    PRZED `delete(target)` — i to właśnie ten krok czyni tu delete bezpiecznym
+    także przy sesji aktywnej.
     """
     pozostale = _uczestnicy_z_bazy(target)
     rozwiazac = len(pozostale) <= 1
-    if rozwiazac and bez_walidacji and _sesja_wms_blokujaca(target):
+    if rozwiazac and bez_walidacji and pozostale and _sesja_wms_blokujaca(target):
         rozwiazac = False
 
     if rozwiazac:

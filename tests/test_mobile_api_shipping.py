@@ -259,9 +259,11 @@ def test_cancel_request(client, db, make_user, make_order):
                       ).get_json()['data']['request_id']
     r = client.post(f'/api/mobile/v1/shipping/requests/{rid}/cancel', headers=h)
     assert r.status_code == 200 and r.get_json()['data']['cancelled'] is True
-    # powtórny cancel → 404 (już usunięte)
+    # Zlecenie ZOSTAJE w historii ze statusem „anulowane" — nie jest kasowane
+    # (numer WYS/N nie przepada). Powtórny cancel dostaje więc 409 „nie można
+    # anulować", a nie 404 „nie ma": `can_cancel` wymaga statusu początkowego.
     assert client.post(f'/api/mobile/v1/shipping/requests/{rid}/cancel',
-                       headers=h).status_code == 404
+                       headers=h).status_code == 409
 
 
 def test_cancel_request_foreign_404(client, db, make_user, make_order):

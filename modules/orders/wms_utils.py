@@ -8,6 +8,8 @@ Jedno zlecenie wysyłki jedzie w jednej paczce, więc dopasowanie liczymy po
 sumie wagi i objętości wszystkich zamówień z paczki.
 """
 
+from decimal import Decimal
+
 from modules.orders.wms_models import PackagingMaterial
 
 
@@ -212,11 +214,37 @@ class ShippingRequestUnpaid(Exception):
 # zlecenia może pakować się w innej, wciąż otwartej sesji WMS, więc samo
 # zlecenie nie ma jeszcze statusu 'spakowane' — twardy warunek "tylko
 # spakowane" zablokowałby wysyłkę takiego (już opłaconego) zlecenia całkowicie.
+#
+# UWAGA: ta lista NIE jest już jedyną bramką finansową — patrz
+# `zlecenie_rozliczone()` niżej. Sam status nie wystarcza, bo pakowanie
+# podnosi zlecenie na 'spakowane' bez sprawdzania płatności, a 'spakowane'
+# do tej krotki nie należy: nieopłacona paczka wyjeżdżała.
 UNPAID_SR_STATUSES = ('czeka_na_wycene', 'czeka_na_oplacenie')
 
 
+def zlecenie_rozliczone(sr):
+    """Czy za wysyłkę tego zlecenia zapłacono — liczone z DANYCH, nie ze statusu.
+
+    Status jest tylko odbiciem stanu i daje się nadpisać po drodze: pakowanie
+    podnosi zlecenie na 'spakowane' na podstawie samych statusów zamówień, więc
+    informacja „nieopłacone" znikała, a bramka oparta o UNPAID_SR_STATUSES
+    przepuszczała paczkę bez opłaty E4.
+
+    Liczymy po zamówieniach AKTYWNYCH (anulowane nie jedzie w kartonie, więc nie
+    ma za co płacić) i przez `is_domestic_shipping_settled`, czyli tę samą
+    definicję rozliczenia, której używają bramki opłacenia zlecenia — 0 zł jest
+    rozliczone, a kwota > 0 wymaga pokrycia SUMĄ zatwierdzonych wpłat.
+
+    Pusty zbiór aktywnych zamówień to NIE jest rozliczenie: `all([])` byłoby
+    prawdą, a zlecenie bez czego wysłać nie ma czego wysyłać.
+    """
+    aktywne = sr.active_orders
+    return bool(aktywne) and all(o.is_domestic_shipping_settled for o in aktywne)
+
+
 def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size=None,
-                          shipping_cost=None, order_costs=None, user=None, wms_session=None):
+                          shipping_cost=None, order_costs=None, user=None, wms_session=None,
+                          status_juz_ustawiony=False):
     """Oznacza zlecenie wysyłki jako wysłane.
 
     Wspólne dla panelu w sesji WMS i dla listy zleceń — jedno miejsce, w którym
@@ -242,8 +270,27 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
 
-    if sr.status == 'wyslane':
+    # Dwa niezależne sygnały „już wysłane", symetrycznie do dostarcz_zlecenie():
+    # `shipped_at` ustawiamy WYŁĄCZNIE tutaj, więc jego obecność zawsze znaczy
+    # „to wywołanie już tu było". Sam status nie wystarcza, bo jedna ścieżka —
+    # synchronizacja statusów w adminie — zapisuje sr.status='wyslane' i
+    # commituje ZANIM zawoła tę funkcję; bez `status_juz_ustawiony` strażnik
+    # odrzucałby ją zawsze i przejście z panelu nigdy by tu nie dotarło.
+    if sr.shipped_at or (sr.status == 'wyslane' and not status_juz_ustawiony):
         raise ShippingRequestAlreadyShipped(f'Zlecenie {sr.request_number} jest już wysłane')
+
+    # Bramka z DANYCH — odporna na każdą ścieżkę zapisu statusu, także tę,
+    # która dopiero powstanie. Sprawdzamy ją PRZED bramką statusową, żeby
+    # komunikat mówił o pieniądzach, a nie o etapie pipeline'u.
+    if not zlecenie_rozliczone(sr):
+        aktywne = sr.active_orders
+        do_zaplaty = sum((o.stage_4_remaining for o in aktywne), Decimal('0.00'))
+        powod = (f'brakuje {do_zaplaty} zł za wysyłkę' if do_zaplaty > 0
+                 else 'nie ma w nim żadnego aktywnego zamówienia')
+        raise ShippingRequestUnpaid(
+            f'Zlecenie {sr.request_number} nie zostało jeszcze opłacone '
+            f'({powod}) — nie można go wysłać'
+        )
 
     if sr.status in UNPAID_SR_STATUSES:
         raise ShippingRequestUnpaid(
@@ -252,7 +299,12 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
         )
 
     old_status = sr.status
-    tracking_number = (tracking_number or '').strip()
+    # Fallback na numer zapisany wcześniej: numer wolno dopisać na dowolnym
+    # etapie (modal „Dodaj koszty" zapisuje go po cichu, bez powiadomienia), więc
+    # przejście w „wysłane" może przyjść już bez numeru w żądaniu. Bez tego
+    # fallbacku klient nie dostawałby NIC: ani maila przy zapisie numeru, ani
+    # maila z numerem przy nadaniu.
+    tracking_number = (tracking_number or sr.tracking_number or '').strip()
 
     # Puste pole nie kasuje tego, co już jest na zleceniu.
     if courier:
@@ -285,9 +337,12 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
 
     changed_status_order_ids = set()
 
+    # active_orders, nie orders: anulowane zamówienie fizycznie nie jedzie w tym
+    # kartonie, więc nadanie mu statusu „wysłane" byłoby kłamstwem wobec klienta
+    # (i wobec statystyk).
     order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
     if order_status:
-        for o in sr.orders:
+        for o in sr.active_orders:
             if o.status != 'wyslane':
                 o.status = 'wyslane'
                 changed_status_order_ids.add(o.id)
@@ -299,7 +354,9 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     # identyczną wiadomość drugi raz przy "Oznacz jako wysłane".
     new_shipment_order_ids = set()
     if tracking_number:
-        for order in sr.orders:
+        # Jak wyżej — wpis przesyłki dla anulowanego zamówienia to ślad nadania
+        # czegoś, czego w paczce nie ma.
+        for order in sr.active_orders:
             existing = OrderShipment.query.filter_by(
                 order_id=order.id, tracking_number=tracking_number
             ).first()
@@ -578,7 +635,14 @@ def reopen_orders_for_wms(orders, mode, shipping_requests=()):
 
     for sr in shipping_requests:
         if sr.status == 'spakowane':
-            sr.status = 'oplacone'
+            # Status Z DANYCH, nie twarde 'oplacone'. Poprzednia wersja zakładała,
+            # że do „spakowane" dało się dojść WYŁĄCZNIE z „opłacone" — a pakowanie
+            # nie sprawdzało płatności, więc zlecenie, które weszło do WMS jako
+            # „czeka na opłacenie", wychodziło z niego jako „opłacone". Ten awans
+            # w górę jest nieodwracalny automatem: _check_sr_auto_oplacone wchodzi
+            # wyłącznie z „czeka na opłacenie". W paczce zbiorczej propagacja
+            # zjeżdżała fałszywy status na wszystkich uczestników.
+            sr.status = 'oplacone' if zlecenie_rozliczone(sr) else 'czeka_na_oplacenie'
             # Zbiorcza paczka cofnięta do WMS musi ściągnąć źródłowe z powrotem —
             # inaczej zostają ze statusem 'spakowane', mimo że paczka wróciła do pakowania.
             propaguj_na_zrodla(sr)

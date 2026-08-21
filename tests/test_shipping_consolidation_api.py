@@ -1088,3 +1088,141 @@ def test_zdanie_nie_chowa_sie_razem_z_zamowieniami(db, client, login, make_user,
     assert zdanie, 'zdanie renderuje się z gołą klasą, bez sr-order-extra'
     # …i za przyciskiem rozwijania, czyli poza grupami uczestników.
     assert tresc.index('Pokaż więcej (3)') < zdanie.start()
+
+
+# ---------------------------------------------------------------------------
+# Powiadomienie o wycenie idzie do wycenionego uczestnika (BUG 3.3)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def zebrane_statusy(monkeypatch):
+    """Zbiera (numer_zlecenia, stary_status) z powiadomień o zmianie statusu."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    zebrane = []
+    monkeypatch.setattr(
+        EmailManager, 'notify_shipping_status_change',
+        staticmethod(lambda sr, old: zebrane.append((sr.request_number, old))))
+    monkeypatch.setattr(
+        PushManager, 'notify_shipping_status_change',
+        staticmethod(lambda sr, name: None))
+    return zebrane
+
+
+def test_wycena_uczestnika_powiadamia_jego_a_nie_cala_paczke(
+        db, client, login, make_user, make_order, bez_powiadomien_o_koszcie, zebrane_statusy):
+    """Uczestnik z „opłacone" nie może dostać maila o cudzym „czeka na opłacenie".
+
+    Status paczki to minimum ze źródeł, więc powiadomienie wysłane na paczce
+    rozeszłoby jej przejście do wszystkich uczestników.
+    """
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    sr_a.status = 'oplacone'
+    sr_b.status = 'czeka_na_wycene'
+    db.session.commit()
+    login(_admin(make_user))
+
+    zamowienie_b = sr_b.display_orders[0]
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': zamowienie_b.id, 'shipping_cost': 15}],
+    })
+
+    assert r.status_code == 200, r.get_json()
+    assert zebrane_statusy == [(sr_b.request_number, 'czeka_na_wycene')], (
+        f'Powiadomienie ma iść do wycenionego uczestnika z JEGO przejściem; '
+        f'zebrano: {zebrane_statusy}'
+    )
+
+
+def test_wycena_powiadamia_nawet_gdy_minimum_paczki_bez_zmian(
+        db, client, login, make_user, make_order, bez_powiadomien_o_koszcie, zebrane_statusy):
+    """Przypadek lustrzany: gdy status paczki się nie rusza, uczestnik i tak musi
+    dostać informację o naliczonej należności.
+
+    Wcześniej powiadomienie zależało od zmiany statusu PACZKI — a ta jest
+    minimum ze źródeł, więc podniesienie jednego uczestnika przy innym stojącym
+    niżej nie ruszało minimum i nie szło nic do nikogo.
+    """
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    # sr_a zostaje na „czeka na wycenę" i trzyma minimum paczki w miejscu.
+    # Status paczki musi być spójny z uczestnikami już na starcie — inaczej
+    # zmieni się przez samo przeliczenie minimum, a nie przez wycenę.
+    sr_a.status = 'czeka_na_wycene'
+    sr_b.status = 'czeka_na_wycene'
+    zbiorcze.status = 'czeka_na_wycene'
+    db.session.commit()
+    status_paczki_przed = zbiorcze.status
+
+    login(_admin(make_user))
+    zamowienie_b = sr_b.display_orders[0]
+    r = client.put(f'/admin/orders/shipping-requests/{zbiorcze.id}', json={
+        'order_costs': [{'order_id': zamowienie_b.id, 'shipping_cost': 15}],
+    })
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert zbiorcze.status == status_paczki_przed, (
+        'Założenie testu: minimum paczki trzyma nadal sr_a'
+    )
+    assert zebrane_statusy == [(sr_b.request_number, 'czeka_na_wycene')], (
+        f'Wyceniony uczestnik musi dostać powiadomienie mimo braku ruchu na '
+        f'paczce; zebrano: {zebrane_statusy}'
+    )
+
+
+# ---------------------------------------------------------------------------
+# Spakowany karton odrzucany także przez API (BUG 1.4)
+# ---------------------------------------------------------------------------
+
+def test_konsolidacja_odrzuca_spakowane(db, client, login, make_user, make_order):
+    _seed_sr_statuses(db)
+    sr_a, _oa = _sr(db, make_user(), make_order, status='spakowane')
+    sr_b, _ob = _sr(db, make_user(), make_order)
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_a.id, sr_b.id], 'lead_request_id': sr_b.id,
+    })
+
+    assert r.status_code == 409, r.get_json()
+    blad = r.get_json()['error']
+    assert sr_a.request_number in blad
+    assert 'spakowane' in blad.lower()
+    db.session.expire_all()
+    assert sr_a.consolidated_into_id is None
+    assert sr_b.consolidated_into_id is None
+
+
+def test_preview_blokuje_spakowane(db, client, login, make_user, make_order):
+    """Warstwa, która realnie wyłącza przycisk w modalu."""
+    _seed_sr_statuses(db)
+    sr_a, _oa = _sr(db, make_user(), make_order, status='spakowane')
+    sr_b, _ob = _sr(db, make_user(), make_order)
+    login(_admin(make_user))
+
+    r = client.get('/admin/orders/shipping-requests/consolidation-preview'
+                   f'?ids={sr_a.id},{sr_b.id}')
+
+    assert r.status_code == 200
+    dane = r.get_json()
+    assert dane['blocked'], 'Spakowane zlecenie musi trafić na listę blokad'
+    assert any(sr_a.request_number in str(b) for b in dane['blocked'])
+
+
+def test_konsolidacja_odrzuca_dopiecie_spakowanego_endpointem(
+        db, client, login, make_user, make_order):
+    """Gałąź target_id ma osobny kod w routes.py."""
+    _seed_sr_statuses(db)
+    zbiorcze, _zrodla = _konsolidacja(db, make_user, make_order)
+    sr_c, _oc = _sr(db, make_user(), make_order, status='spakowane')
+    login(_admin(make_user))
+
+    r = client.post('/admin/orders/shipping-requests/consolidate', json={
+        'ids': [sr_c.id], 'target_id': zbiorcze.id,
+    })
+
+    assert r.status_code == 409, r.get_json()
+    db.session.expire_all()
+    assert sr_c.consolidated_into_id is None

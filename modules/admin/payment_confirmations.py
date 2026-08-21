@@ -11,7 +11,7 @@ from utils.decorators import role_required
 from extensions import db
 from modules.orders.models import PaymentConfirmation, Order
 from modules.orders.models import get_local_now
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import logging
 logger = logging.getLogger(__name__)
@@ -53,17 +53,19 @@ def _check_sr_auto_oplacone(order):
     if sr.status != 'czeka_na_oplacenie':
         return
 
-    # Check if ALL orders in this SR have an approved domestic_shipping confirmation
-    all_paid = True
-    for ro in sr.request_orders:
-        has_approved_e4 = PaymentConfirmation.query.filter_by(
-            order_id=ro.order_id,
-            payment_stage='domestic_shipping',
-            status='approved'
-        ).first()
-        if not has_approved_e4:
-            all_paid = False
-            break
+    # Wszystkie zamówienia ROZLICZONE — nie „mają zatwierdzone potwierdzenie".
+    # Zamówienie z kosztem 0 zł nie ma jak takiego potwierdzenia dostać
+    # (can_upload_stage_4 odmawia uploadu przy zerze, a wiersz powstaje wyłącznie
+    # przy uploadzie klienta), więc wymaganie go trzymało całe zlecenie w
+    # „czeka na opłacenie" na zawsze. Predykat is_domestic_shipping_settled jest
+    # jedyną definicją tego stanu — patrz Order w modules/orders/models.py.
+    # Po zamówieniach AKTYWNYCH: anulowane i zwroty nigdy nie dostaną potwierdzenia
+    # płatności, a liczone razem z resztą trzymały zlecenie w „czeka na opłacenie"
+    # na zawsze (patrz ShippingRequest.active_orders).
+    aktywne = sr.active_orders
+    # Pusta lista przeszłaby przez `all()` jako komplet — zlecenie bez żywych
+    # zamówień nie ma czego wysłać, więc nie awansuje.
+    all_paid = bool(aktywne) and all(o.is_domestic_shipping_settled for o in aktywne)
 
     if all_paid:
         # Verify 'oplacone' status exists and is active
@@ -112,11 +114,11 @@ def _sprawdz_oplacenie_konsolidacji(zbiorcze):
         zrodlo = uczestnik['source_request']
         if zrodlo.status != 'czeka_na_oplacenie' or not uczestnik['orders']:
             continue
+        # Ten sam predykat co w _check_sr_auto_oplacone — uczestnik z zamówieniem
+        # na 0 zł (paczka zbiorcza, w której dołożenie osoby nie zmienia ceny
+        # kartonu) inaczej wisiałby na „czeka na opłacenie" bez możliwości zapłaty.
         wszystkie_oplacone = all(
-            PaymentConfirmation.query.filter_by(
-                order_id=o.id, payment_stage='domestic_shipping', status='approved'
-            ).first()
-            for o in uczestnik['orders']
+            o.is_domestic_shipping_settled for o in uczestnik['orders']
         )
         if wszystkie_oplacone:
             zrodlo.status = 'oplacone'
@@ -636,4 +638,228 @@ def payment_confirmation_reject(confirmation_id):
         'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało odrzucone.',
         'new_status': 'rejected',
         'old_status': old_status
+    })
+
+
+# Etapy płatności — te same slugi, których używa PaymentConfirmation.payment_stage.
+ETAPY_PLATNOSCI = ('product', 'korean_shipping', 'customs_vat', 'domestic_shipping')
+
+
+@admin_bp.route('/payment-confirmations/register/<int:order_id>', methods=['POST'])
+@login_required
+@role_required('admin')
+def payment_confirmation_register(order_id):
+    """Rejestruje wpłatę przyjętą poza systemem (gotówka, przelew na konto).
+
+    Do tej pory admin nie miał ŻADNEJ ścieżki, którą oznaczyłby etap jako
+    opłacony: PaymentConfirmation powstawał wyłącznie przy uploadzie klienta,
+    a `admin_update_payment` ustawia `order.paid_amount`, o które bramki
+    opłacenia zlecenia nigdy nie pytają. Zostawały dwa obejścia i żadne nie było
+    funkcją — odrzucić zatwierdzone potwierdzenie i prosić klienta o ponowne
+    wgranie, albo spakować zlecenie mimo braku zapłaty.
+
+    Tworzymy zwykły wiersz potwierdzenia (bez `proof_file` — wpłata offline nie
+    ma załącznika), dzięki czemu bramki `all(is_..._settled)` działają dalej bez
+    wyjątków w regule, a w historii zostaje ślad kto i kiedy zaksięgował.
+    """
+    from utils.activity_logger import log_activity
+
+    order = Order.query.get_or_404(order_id)
+    data = request.get_json() or {}
+
+    stage = (data.get('payment_stage') or '').strip()
+    if stage not in ETAPY_PLATNOSCI:
+        return jsonify({
+            'success': False,
+            'message': f'Nieznany etap płatności: „{stage}".'
+        }), 400
+
+    try:
+        amount = Decimal(str(data.get('amount'))).quantize(Decimal('0.01'))
+    except (InvalidOperation, ValueError, TypeError):
+        return jsonify({
+            'success': False,
+            'message': 'Kwota wpłaty musi być liczbą.'
+        }), 400
+
+    if amount <= 0:
+        return jsonify({
+            'success': False,
+            'message': 'Kwota wpłaty musi być większa od zera.'
+        }), 400
+
+    note = (data.get('note') or '').strip() or None
+    now = get_local_now()
+
+    existing = PaymentConfirmation.query.filter_by(
+        order_id=order.id, payment_stage=stage
+    ).order_by(PaymentConfirmation.id.desc()).first()
+
+    # Zatwierdzona płatność klienta jest nietykalna — jej nadpisanie skasowałoby
+    # dowód wpłaty i podwoiło paid_amount. Korekta idzie ścieżką odrzucenia.
+    #
+    # Wyjątek: E4 dopuszcza DOPŁATĘ. Gdy koszt wysyłki wzrósł po zaksięgowaniu
+    # wpłaty, etap ma zatwierdzone potwierdzenie, a mimo to nie jest rozliczony —
+    # blokada po samym statusie zamykała wtedy jedyną drogę domknięcia zlecenia
+    # (klient też nie mógł dopłacić). Powstaje NOWY wiersz na różnicę, stary
+    # dowód zostaje nietknięty.
+    if existing and existing.is_approved:
+        doplata_e4 = (stage == 'domestic_shipping'
+                      and not order.is_domestic_shipping_settled)
+        if not doplata_e4:
+            return jsonify({
+                'success': False,
+                'message': (f'Etap „{stage}" jest już opłacony. Aby skorygować, '
+                            f'najpierw odrzuć istniejące potwierdzenie.')
+            }), 409
+        existing = None
+
+    if existing:
+        # Jedno gniazdo na etap — klient wgrał dowód, ale zapłacił inaczej.
+        existing.amount = amount
+        existing.status = 'approved'
+        existing.rejection_reason = None
+        existing.updated_at = now
+        confirmation = existing
+        akcja = 'payment_confirmation_registered_over_pending'
+    else:
+        confirmation = PaymentConfirmation(
+            order_id=order.id,
+            payment_stage=stage,
+            amount=amount,
+            status='approved',
+            proof_file=None,
+            uploaded_at=None,
+        )
+        db.session.add(confirmation)
+        akcja = 'payment_confirmation_registered_offline'
+
+    current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
+    order.paid_amount = current_paid + amount
+
+    db.session.commit()
+
+    log_activity(
+        user=current_user,
+        action=akcja,
+        entity_type='order',
+        entity_id=order.id,
+        new_value={
+            'order_number': order.order_number,
+            'payment_stage': stage,
+            'amount': float(amount),
+            'note': note,
+        },
+    )
+
+    # Ta sama kaskada co po zatwierdzeniu potwierdzenia klienta — bez niej
+    # zlecenie zostałoby na „czeka na opłacenie" mimo zaksięgowanej wpłaty.
+    if stage == 'domestic_shipping':
+        _check_sr_auto_oplacone(order)
+
+    return jsonify({
+        'success': True,
+        'message': f'Zaksięgowano {amount} zł dla zamówienia {order.order_number}.',
+        'confirmation_id': confirmation.id,
+        'paid_amount': float(order.paid_amount),
+    })
+
+
+@admin_bp.route('/payment-confirmations/register-request/<int:sr_id>', methods=['POST'])
+@login_required
+@role_required('admin')
+def payment_confirmation_register_request(sr_id):
+    """Księguje wpłatę offline za wysyłkę CAŁEGO zlecenia.
+
+    Klient płaci jedną kwotę za przesyłkę, nie osobno za każde zamówienie
+    w kartonie — a modal konsolidacji operuje właśnie na zleceniach uczestników.
+    Wariant per zamówienie (`payment_confirmation_register`) zostaje dla korekt
+    pojedynczych pozycji z karty zamówienia.
+
+    Pomijamy zamówienia bez należności (0 zł jest już rozliczone — patrz
+    `Order.is_domestic_shipping_settled`) oraz te z zatwierdzoną płatnością
+    klienta, żeby nie dublować salda ani nie kasować jego dowodu wpłaty.
+    """
+    from utils.activity_logger import log_activity
+    from modules.orders.models import ShippingRequest
+
+    sr = ShippingRequest.query.get_or_404(sr_id)
+    data = request.get_json() or {}
+    note = (data.get('note') or '').strip() or None
+    now = get_local_now()
+
+    # Zamówienia uczestnika, nie surowe request_orders: dla zlecenia źródłowego
+    # wiersze junction wiszą przy paczce zbiorczej.
+    zamowienia = sr.display_orders
+
+    zaksiegowane = []
+    for order in zamowienia:
+        # Kwota POZOSTAŁA, nie pełna należność: gdy klient zapłacił część,
+        # księgujemy różnicę. `stage_4_remaining` daje 0 dla pozycji rozliczonych
+        # (także tych z kosztem 0 zł), więc jeden warunek zastępuje dwa.
+        kwota = order.stage_4_remaining
+        if kwota <= 0:
+            continue
+
+        existing = PaymentConfirmation.query.filter_by(
+            order_id=order.id, payment_stage='domestic_shipping'
+        ).order_by(PaymentConfirmation.id.desc()).first()
+        # Zatwierdzone potwierdzenie zostaje nietknięte — dopłata to NOWY wiersz,
+        # inaczej skasowalibyśmy dowód klienta i zawyżyli paid_amount.
+        if existing and existing.is_approved:
+            existing = None
+
+        kwota = kwota.quantize(Decimal('0.01'))
+        if existing:
+            existing.amount = kwota
+            existing.status = 'approved'
+            existing.rejection_reason = None
+            existing.updated_at = now
+        else:
+            db.session.add(PaymentConfirmation(
+                order_id=order.id,
+                payment_stage='domestic_shipping',
+                amount=kwota,
+                status='approved',
+                proof_file=None,
+                uploaded_at=None,
+            ))
+
+        current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
+        order.paid_amount = current_paid + kwota
+        zaksiegowane.append((order, kwota))
+
+    if not zaksiegowane:
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} nie ma nic do zaksięgowania — '
+                        f'wszystkie pozycje są rozliczone albo mają zerowy koszt.')
+        }), 400
+
+    db.session.commit()
+
+    suma = sum(kwota for _o, kwota in zaksiegowane)
+    log_activity(
+        user=current_user,
+        action='payment_confirmation_registered_offline_request',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        new_value={
+            'request_number': sr.request_number,
+            'amount': float(suma),
+            'orders': [o.order_number for o, _k in zaksiegowane],
+            'note': note,
+        },
+    )
+
+    # Kaskada z DOWOLNEGO zaksięgowanego zamówienia — _check_sr_auto_oplacone
+    # sam odnajduje zlecenie i rozgałęzia na paczkę zbiorczą.
+    _check_sr_auto_oplacone(zaksiegowane[0][0])
+
+    return jsonify({
+        'success': True,
+        'message': (f'Zaksięgowano {suma} zł za wysyłkę zlecenia '
+                    f'{sr.request_number} ({len(zaksiegowane)} zam.).'),
+        'amount': float(suma),
+        'orders_count': len(zaksiegowane),
     })

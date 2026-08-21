@@ -240,3 +240,114 @@ def test_export_endpoint_rejects_client(client, db, make_user, login):
     login(user)
     resp = client.post('/admin/orders/shipping-requests/export-inpost', json={'ids': [sr.id]})
     assert resp.status_code in (302, 403)
+
+
+# ---------------------------------------------------------------------------
+# Kurier punktu odbioru (K3)
+#
+# Plik jest szablonem masowego nadania InPost — przesyłki do Orlen Paczki nie
+# da się przez niego nadać. Wcześniej `build_inpost_csv` czytał wyłącznie
+# `address_type`, więc kod Orlenu lądował w kolumnie `paczkomat` z typem
+# 'paczkomat', a pola adresowe były zerowane: wiersz nie do zaimportowania,
+# a adres zapasowy przepadał.
+# ---------------------------------------------------------------------------
+
+def test_orlen_paczka_pomijana_z_ostrzezeniem(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    sr = _sr(db, user, pickup_courier='Orlen Paczka', pickup_point_id='PL1234')
+
+    csv_text, warnings = build_inpost_csv([sr])
+
+    assert _rows(csv_text) == [], 'Orlen Paczki nie da się nadać przez InPost'
+    assert any('Orlen' in w for w in warnings), (
+        f'Eksportujący musi wiedzieć, czego brakuje w pliku; ostrzeżenia: {warnings}'
+    )
+
+
+def test_orlen_nie_blokuje_pozostalych_zlecen(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    orlen = _sr(db, user, pickup_courier='Orlen Paczka', pickup_point_id='PL1234')
+    inpost = _sr(db, user, pickup_courier='InPost', pickup_point_id='KRA128')
+
+    csv_text, warnings = build_inpost_csv([orlen, inpost])
+    wiersze = _rows(csv_text)
+
+    assert len(wiersze) == 1
+    assert wiersze[0].split(';')[3] == 'KRA128'
+
+
+def test_dostawa_kurierem_nie_patrzy_na_kuriera_punktu(db, make_user):
+    """Adres domowy jedzie kurierem — `pickup_courier` bywa resztką po zmianie adresu."""
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    sr = _sr(db, user, address_type='home', pickup_courier='Orlen Paczka',
+             shipping_address='Kwiatowa 1', shipping_postal_code='30-001',
+             shipping_city='Kraków', shipping_name='Jan Kowalski')
+
+    csv_text, warnings = build_inpost_csv([sr])
+    wiersze = _rows(csv_text)
+
+    assert len(wiersze) == 1, 'Przesyłka kurierska nie jest zależna od pickup_courier'
+    assert wiersze[0].split(';')[12] == 'kurier'
+
+
+def test_brak_kuriera_punktu_traktowany_jak_inpost(db, make_user):
+    """Historyczne zlecenia bez `pickup_courier` — domyślnie InPost, jak dotąd."""
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    sr = _sr(db, user, pickup_courier=None, pickup_point_id='KRA128')
+
+    csv_text, warnings = build_inpost_csv([sr])
+
+    assert len(_rows(csv_text)) == 1
+    assert _rows(csv_text)[0].split(';')[3] == 'KRA128'
+
+
+# ---------------------------------------------------------------------------
+# Ponowne nadanie (K4)
+#
+# Eksport nie zostawia śladu na rekordzie, więc nic nie wykrywa powtórzenia:
+# admin, który zaznaczył „wszystkie na wszystkich stronach" i wyeksportował
+# drugi raz (bo import w panelu InPost częściowo padł), nadawał ponownie
+# przesyłki już wysłane — realny koszt u kuriera.
+# ---------------------------------------------------------------------------
+
+def test_zlecenie_z_numerem_przesylki_pomijane(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    sr = _sr(db, user, tracking_number='6200000000001')
+
+    csv_text, warnings = build_inpost_csv([sr])
+
+    assert _rows(csv_text) == [], 'Zlecenie z numerem przesyłki jest już nadane'
+    # Asercja na treść informacyjną, nie na brzmienie komunikatu: eksportujący
+    # musi zobaczyć, którego zlecenia brakuje i dlaczego.
+    assert len(warnings) == 1
+    assert sr.request_number in warnings[0]
+    assert '6200000000001' in warnings[0]
+
+
+@pytest.mark.parametrize('status', ['wyslane', 'dostarczone'])
+def test_zlecenie_juz_wyslane_pomijane(db, make_user, status):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    sr = _sr(db, user, status=status)
+
+    csv_text, warnings = build_inpost_csv([sr])
+
+    assert _rows(csv_text) == [], f'Zlecenie w statusie {status} już pojechało'
+    assert warnings
+
+
+def test_swieze_zlecenie_bez_trackingu_eksportowane(db, make_user):
+    """Regresja: normalna ścieżka nadania nie może zostać zablokowana."""
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    sr = _sr(db, user, status='spakowane', tracking_number=None)
+
+    csv_text, warnings = build_inpost_csv([sr])
+
+    assert len(_rows(csv_text)) == 1
+    assert warnings == []

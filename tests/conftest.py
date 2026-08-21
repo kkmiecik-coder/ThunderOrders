@@ -6,6 +6,7 @@ from sqlalchemy.engine import Engine
 
 from app import create_app
 from extensions import db as _db
+from modules.offers.redis_state import init_state
 
 
 @event.listens_for(Engine, 'connect')
@@ -87,6 +88,10 @@ def _zasiej_slowniki():
         ('spakowane', 'Spakowane', '#8B5CF6', 5, False),
         ('wyslane', 'Wysłane', '#3B82F6', 6, False),
         ('dostarczone', 'Dostarczone', '#059669', 7, False),
+        # Terminalny status negatywny — zastępuje fizyczny DELETE zlecenia
+        # (migracja a7f4c2b91e08). Sieje się globalnie, bo `shipping_requests.status`
+        # to FK: bez tego wiersza każde anulowanie pada na kluczu obcym.
+        ('anulowane', 'Anulowane', '#9E9E9E', 9, False),
     ):
         _db.session.add(ShippingRequestStatus(
             slug=slug, name=nazwa, badge_color=kolor, sort_order=kolejnosc,
@@ -98,6 +103,15 @@ def _zasiej_slowniki():
 @pytest.fixture
 def app():
     app = create_app('testing')
+    # Stan ofert hermetycznie in-memory, NIGDY Redis. `create_app` woła
+    # `init_state(REDIS_URL)`, więc na maszynie z lokalnym Redisem cała suita
+    # pisała do niego: stan rezerwacji (user_session/reservation_session, TTL 1h)
+    # przeżywał między testami ORAZ między kolejnymi uruchomieniami pytesta,
+    # przez co wynik zależał od tego, co zostało po poprzednim przebiegu.
+    # Backend jest wymienny (ten sam interfejs), więc logika jest identyczna —
+    # zmienia się wyłącznie izolacja. Dotąd obchodził to tylko
+    # tests/test_mobile_api_ws.py, we własnym zakresie.
+    init_state(None)
     with app.app_context():
         _db.create_all()
         _zasiej_slowniki()

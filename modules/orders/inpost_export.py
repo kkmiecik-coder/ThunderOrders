@@ -17,6 +17,20 @@ INPOST_COLUMNS = [
 # więc takie zlecenia wypadają z pliku (decyzja: 2026-08-03).
 EXPORTABLE_SIZES = {'A', 'B', 'C'}
 
+# Punkt odbioru obsługiwany przez ten plik. Klient może wybrać także Orlen
+# Paczkę — tamtej przesyłki nie da się nadać przez masowe nadanie InPost,
+# więc takie zlecenia wypadają z pliku (jak gabaryt mini) zamiast trafiać do
+# niego z kodem Orlenu w kolumnie `paczkomat`. Zlecenia sprzed wprowadzenia
+# `pickup_courier` mają tam NULL — historycznie był to zawsze InPost.
+INPOST_PICKUP_COURIER = 'inpost'
+
+# Zlecenia, które już pojechały. Eksport nie zostawia śladu na rekordzie, więc
+# nic nie wykrywa powtórnego nadania — a ponowny eksport (po nieudanym imporcie
+# w panelu InPost, przy zaznaczeniu „wszystkie na wszystkich stronach") tworzy
+# drugą, płatną przesyłkę. Sam `tracking_number` jest mocniejszym sygnałem niż
+# status: numer pojawia się w chwili nadania, status bywa uzupełniany później.
+ALREADY_SHIPPED_STATUSES = {'wyslane', 'dostarczone'}
+
 
 def recipient_name(sr):
     """Kto odbiera paczkę.
@@ -68,6 +82,21 @@ def build_inpost_csv(shipping_requests):
     writer.writerow(INPOST_COLUMNS)
 
     for sr in shipping_requests:
+        tracking = (sr.tracking_number or '').strip()
+        if tracking:
+            warnings.append(
+                f'{sr.request_number} — ma już numer przesyłki {tracking}, '
+                f'pominięto (ponowny eksport nadałby drugą paczkę)'
+            )
+            continue
+
+        if sr.status in ALREADY_SHIPPED_STATUSES:
+            warnings.append(
+                f'{sr.request_number} — zlecenie jest w statusie '
+                f'„{sr.status_display_name}", pominięto (już nadane)'
+            )
+            continue
+
         size = (sr.parcel_size or '').strip()
 
         if not size:
@@ -90,10 +119,23 @@ def build_inpost_csv(shipping_requests):
                 f'{sr.request_number} — brak telefonu klienta, uzupełnij przed nadaniem'
             )
 
+        to_pickup = sr.address_type == 'pickup_point'
+
+        # Kurier punktu odbioru sprawdzany tylko przy paczkomacie — przy dostawie
+        # pod adres `pickup_courier` bywa resztką po wcześniejszym wyborze klienta.
+        if to_pickup:
+            pickup_courier = (sr.pickup_courier or 'InPost').strip()
+            if pickup_courier.lower() != INPOST_PICKUP_COURIER:
+                warnings.append(
+                    f'{sr.request_number} — punkt odbioru „{pickup_courier}" nie jest '
+                    f'obsługiwany przez masowe nadanie InPost, pominięto '
+                    f'(nadaj u tego przewoźnika osobno)'
+                )
+                continue
+
         name = recipient_name(sr)
         # Referencja wraca w rozliczeniach InPostu — samo WYS/000006 nic nie mówi
         reference = f'{name} {sr.request_number}'.strip()
-        to_pickup = sr.address_type == 'pickup_point'
 
         writer.writerow([
             email,
