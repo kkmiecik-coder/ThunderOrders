@@ -206,3 +206,102 @@ def test_klient_nie_zarejestruje_wplaty(db, client, login, make_user, make_order
         'payment_stage': 'domestic_shipping', 'amount': 30})
 
     assert r.status_code in (302, 403)
+
+
+# ---------------------------------------------------------------------------
+# Wariant zbiorczy — księgowanie E4 dla całego zlecenia
+#
+# Klient płaci jedną kwotę za przesyłkę, a nie osobno za każde zamówienie
+# w kartonie. Modal konsolidacji operuje na zleceniach uczestników, więc
+# potrzebuje jednostki „zlecenie", nie „zamówienie".
+# ---------------------------------------------------------------------------
+
+URL_SR = '/admin/payment-confirmations/register-request/{}'
+
+
+def _zlecenie_wiele(db, user, make_order, koszty):
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+    sr = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=user.id, status='czeka_na_oplacenie')
+    db.session.add(sr)
+    db.session.flush()
+    zamowienia = []
+    for koszt in koszty:
+        o = make_order(user=user, status='dostarczone_gom')
+        o.shipping_cost = koszt
+        db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=o.id))
+        zamowienia.append(o)
+    db.session.commit()
+    return sr, zamowienia
+
+
+def test_ksiegowanie_zlecenia_domyka_wszystkie_zamowienia(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, zamowienia = _zlecenie_wiele(db, user, make_order, koszty=[10, 15])
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={'note': 'gotówka'})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert all(o.is_domestic_shipping_settled for o in zamowienia)
+    assert sr.status == 'oplacone'
+
+
+def test_ksiegowanie_zlecenia_pomija_zamowienia_bez_kosztu(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """0 zł jest już rozliczone — nie tworzymy pustych potwierdzeń."""
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, (platne, gratis) = _zlecenie_wiele(db, user, make_order, koszty=[10, 0])
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert PaymentConfirmation.query.filter_by(order_id=gratis.id).count() == 0
+    assert PaymentConfirmation.query.filter_by(order_id=platne.id).count() == 1
+    assert sr.status == 'oplacone'
+
+
+def test_ksiegowanie_zlecenia_pomija_juz_oplacone(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    """Częściowo opłacone zlecenie: nie dubluj tego, co klient już zapłacił."""
+    from modules.orders.models import PaymentConfirmation
+
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, (oplacone_juz, do_zaksiegowania) = _zlecenie_wiele(db, user, make_order, koszty=[10, 15])
+    db.session.add(PaymentConfirmation(
+        order_id=oplacone_juz.id, payment_stage='domestic_shipping',
+        amount=10, status='approved', proof_file='dowod.jpg'))
+    oplacone_juz.paid_amount = 10
+    db.session.commit()
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={})
+
+    assert r.status_code == 200, r.get_json()
+    db.session.expire_all()
+    assert float(oplacone_juz.paid_amount) == 10, 'Saldo opłaconego nie może urosnąć'
+    conf = PaymentConfirmation.query.filter_by(order_id=oplacone_juz.id).first()
+    assert conf.proof_file == 'dowod.jpg', 'Dowód klienta nietknięty'
+    assert sr.status == 'oplacone'
+
+
+def test_ksiegowanie_zlecenia_bez_naleznosci_odmawia(
+        db, client, login, make_user, make_order, bez_powiadomien):
+    _seed_sr_statuses(db)
+    user = make_user()
+    sr, _z = _zlecenie_wiele(db, user, make_order, koszty=[0, 0])
+    login(_admin(make_user))
+
+    r = client.post(URL_SR.format(sr.id), json={})
+
+    assert r.status_code == 400, r.get_json()

@@ -791,5 +791,103 @@
         }
     };
 
+    // ==========================================
+    // Rejestracja wpłaty przyjętej poza systemem
+    //
+    // Etapy płatności domykały się wyłącznie przez upload klienta — admin nie
+    // miał jak zaksięgować gotówki ani przelewu spoza systemu. Backend tworzy
+    // zwykłe PaymentConfirmation (bez załącznika), więc bramki opłacenia
+    // działają dalej bez wyjątków w regule.
+    //
+    // Event delegation po data-*, nie inline onclick: escapeHtml w tym projekcie
+    // nie escapuje apostrofów, więc dane w atrybucie onclick potrafią wywalić
+    // parser JS.
+    // ==========================================
+    (function initRegisterPayment() {
+        const modal = document.getElementById('registerPaymentModal');
+        if (!modal) return;
+
+        const poleKwota = document.getElementById('registerPaymentAmount');
+        const poleNotatka = document.getElementById('registerPaymentNote');
+        const etykietaEtapu = document.getElementById('registerPaymentStageLabel');
+        const blokBledu = document.getElementById('registerPaymentError');
+        const przyciskZapisz = document.getElementById('registerPaymentSubmit');
+        let aktywnyEtap = null;
+
+        function pokazBlad(tekst) {
+            blokBledu.textContent = tekst;
+            blokBledu.hidden = false;
+        }
+
+        function zamknij() {
+            modal.classList.remove('active');
+            aktywnyEtap = null;
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.js-register-payment');
+            if (!btn) return;
+            aktywnyEtap = btn.dataset.stage;
+            etykietaEtapu.textContent = btn.dataset.stageLabel || '';
+            poleKwota.value = btn.dataset.amount || '';
+            poleNotatka.value = '';
+            blokBledu.hidden = true;
+            modal.classList.add('active');
+            poleKwota.focus();
+        });
+
+        document.getElementById('registerPaymentClose').addEventListener('click', zamknij);
+        document.getElementById('registerPaymentCancel').addEventListener('click', zamknij);
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) zamknij();
+        });
+
+        przyciskZapisz.addEventListener('click', async function () {
+            if (!aktywnyEtap) return;
+            const kwota = parseFloat(poleKwota.value);
+            if (!kwota || kwota <= 0) {
+                pokazBlad('Podaj kwotę większą od zera.');
+                return;
+            }
+
+            const orderId = modal.dataset.orderId;
+            if (!orderId) {
+                pokazBlad('Brak identyfikatora zamówienia — odśwież stronę.');
+                return;
+            }
+
+            przyciskZapisz.disabled = true;
+            try {
+                const res = await fetch(`/admin/payment-confirmations/register/${orderId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        payment_stage: aktywnyEtap,
+                        amount: kwota,
+                        note: poleNotatka.value.trim() || null
+                    })
+                });
+                const dane = await res.json();
+                if (!res.ok || !dane.success) {
+                    pokazBlad(dane.message || 'Nie udało się zaksięgować wpłaty.');
+                    return;
+                }
+                // Toast to window.showToast (toast.js) — window.Toast nie istnieje.
+                if (typeof window.showToast === 'function') {
+                    window.showToast(dane.message, 'success');
+                }
+                zamknij();
+                window.location.reload();
+            } catch (err) {
+                pokazBlad('Błąd połączenia. Spróbuj ponownie.');
+            } finally {
+                przyciskZapisz.disabled = false;
+            }
+        });
+    })();
+
     console.log('Order detail JavaScript initialized');
 })();

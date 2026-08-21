@@ -1024,6 +1024,15 @@
                         {% if pc_status == 'none' %}Brak{% elif pc_status == 'pending' %}Weryfikacja{% elif pc_status == 'approved' %}Zatwierdzona{% elif pc_status == 'rejected' %}Odrzucona{% endif %}
                     </span>
                     <span class="admin-pay__amount">{{ "%.2f"|format(order.effective_total) }} PLN</span>
+                                        {%- if pc_status != 'approved' and order.effective_total > 0 %}
+                    <button type="button" class="admin-pay__register js-register-payment"
+                            data-stage="product"
+                            data-stage-label="Produkty"
+                            data-amount="{{ "%.2f"|format(order.effective_total) }}"
+                            title="Zarejestruj wpłatę przyjętą poza systemem (gotówka, przelew)">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </button>
+                    {%- endif %}
                     {% if pc %}
                     <a href="{{ url_for('admin.payment_confirmations_list') }}?highlight={{ pc.id }}" class="admin-pay__link" title="Zobacz potwierdzenie">
                         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -1050,6 +1059,15 @@
                             <em class="admin-pay__tbd">Wkrótce</em>
                         {% endif %}
                     </span>
+                                        {%- if s2_status != 'approved' and order.proxy_shipping_total > 0 %}
+                    <button type="button" class="admin-pay__register js-register-payment"
+                            data-stage="korean_shipping"
+                            data-stage-label="Dostawa Proxy"
+                            data-amount="{{ "%.2f"|format(order.proxy_shipping_total) }}"
+                            title="Zarejestruj wpłatę przyjętą poza systemem (gotówka, przelew)">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </button>
+                    {%- endif %}
                     {% if s2_conf %}
                     <a href="{{ url_for('admin.payment_confirmations_list') }}?highlight={{ s2_conf.id }}" class="admin-pay__link" title="Zobacz potwierdzenie">
                         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -1075,6 +1093,15 @@
                             <em class="admin-pay__tbd">Wkrótce</em>
                         {% endif %}
                     </span>
+                                        {%- if s3_status != 'approved' and order.customs_vat_total > 0 %}
+                    <button type="button" class="admin-pay__register js-register-payment"
+                            data-stage="customs_vat"
+                            data-stage-label="CŁO/VAT"
+                            data-amount="{{ "%.2f"|format(order.customs_vat_total) }}"
+                            title="Zarejestruj wpłatę przyjętą poza systemem (gotówka, przelew)">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </button>
+                    {%- endif %}
                     {% if s3_conf %}
                     <a href="{{ url_for('admin.payment_confirmations_list') }}?highlight={{ s3_conf.id }}" class="admin-pay__link" title="Zobacz potwierdzenie">
                         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -1099,6 +1126,15 @@
                             <em class="admin-pay__tbd">Wkrótce</em>
                         {% endif %}
                     </span>
+                                        {%- if s4_status != 'approved' and order.shipping_cost and order.shipping_cost > 0 %}
+                    <button type="button" class="admin-pay__register js-register-payment"
+                            data-stage="domestic_shipping"
+                            data-stage-label="Dostawa PL"
+                            data-amount="{{ "%.2f"|format(order.shipping_cost) }}"
+                            title="Zarejestruj wpłatę przyjętą poza systemem (gotówka, przelew)">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </button>
+                    {%- endif %}
                     {% if s4_conf %}
                     <a href="{{ url_for('admin.payment_confirmations_list') }}?highlight={{ s4_conf.id }}" class="admin-pay__link" title="Zobacz potwierdzenie">
                         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -1574,6 +1610,41 @@
                 </div>
             </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Zarejestruj wpłatę przyjętą poza systemem -->
+<div class="modal-overlay" id="registerPaymentModal" data-order-id="{{ order.id }}">
+    <div class="modal-container modal-sm">
+        <div class="modal-header">
+            <h2>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                Zarejestruj wpłatę
+            </h2>
+            <button type="button" class="modal-close" id="registerPaymentClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="register-pay__intro">
+                Wpłata przyjęta poza systemem — gotówka albo przelew, do którego klient
+                nie wgrywa potwierdzenia. Etap zostanie oznaczony jako opłacony,
+                a w historii zamówienia zapiszemy, kto go zaksięgował.
+            </p>
+            <div class="register-pay__stage">
+                Etap: <strong id="registerPaymentStageLabel"></strong>
+            </div>
+            <label class="form-label" for="registerPaymentAmount">Kwota (PLN)</label>
+            <input type="number" step="0.01" min="0.01" class="form-input" id="registerPaymentAmount">
+            <label class="form-label" for="registerPaymentNote">Notatka (opcjonalna)</label>
+            <input type="text" class="form-input" id="registerPaymentNote"
+                   placeholder="np. gotówka przy odbiorze, przelew 21.08">
+            <div class="register-pay__error" id="registerPaymentError" hidden></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="registerPaymentCancel">Anuluj</button>
+            <button type="button" class="btn btn-primary" id="registerPaymentSubmit">Zaksięguj</button>
         </div>
     </div>
 </div>

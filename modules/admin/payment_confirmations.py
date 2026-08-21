@@ -750,3 +750,97 @@ def payment_confirmation_register(order_id):
         'confirmation_id': confirmation.id,
         'paid_amount': float(order.paid_amount),
     })
+
+
+@admin_bp.route('/payment-confirmations/register-request/<int:sr_id>', methods=['POST'])
+@login_required
+@role_required('admin')
+def payment_confirmation_register_request(sr_id):
+    """Księguje wpłatę offline za wysyłkę CAŁEGO zlecenia.
+
+    Klient płaci jedną kwotę za przesyłkę, nie osobno za każde zamówienie
+    w kartonie — a modal konsolidacji operuje właśnie na zleceniach uczestników.
+    Wariant per zamówienie (`payment_confirmation_register`) zostaje dla korekt
+    pojedynczych pozycji z karty zamówienia.
+
+    Pomijamy zamówienia bez należności (0 zł jest już rozliczone — patrz
+    `Order.is_domestic_shipping_settled`) oraz te z zatwierdzoną płatnością
+    klienta, żeby nie dublować salda ani nie kasować jego dowodu wpłaty.
+    """
+    from utils.activity_logger import log_activity
+    from modules.orders.models import ShippingRequest
+
+    sr = ShippingRequest.query.get_or_404(sr_id)
+    data = request.get_json() or {}
+    note = (data.get('note') or '').strip() or None
+    now = get_local_now()
+
+    # Zamówienia uczestnika, nie surowe request_orders: dla zlecenia źródłowego
+    # wiersze junction wiszą przy paczce zbiorczej.
+    zamowienia = sr.display_orders
+
+    zaksiegowane = []
+    for order in zamowienia:
+        koszt = order.shipping_cost or 0
+        if koszt <= 0:
+            continue
+
+        existing = PaymentConfirmation.query.filter_by(
+            order_id=order.id, payment_stage='domestic_shipping').first()
+        if existing and existing.is_approved:
+            continue
+
+        kwota = Decimal(str(koszt)).quantize(Decimal('0.01'))
+        if existing:
+            existing.amount = kwota
+            existing.status = 'approved'
+            existing.rejection_reason = None
+            existing.updated_at = now
+        else:
+            db.session.add(PaymentConfirmation(
+                order_id=order.id,
+                payment_stage='domestic_shipping',
+                amount=kwota,
+                status='approved',
+                proof_file=None,
+                uploaded_at=None,
+            ))
+
+        current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
+        order.paid_amount = current_paid + kwota
+        zaksiegowane.append((order, kwota))
+
+    if not zaksiegowane:
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} nie ma nic do zaksięgowania — '
+                        f'wszystkie pozycje są rozliczone albo mają zerowy koszt.')
+        }), 400
+
+    db.session.commit()
+
+    suma = sum(kwota for _o, kwota in zaksiegowane)
+    log_activity(
+        user=current_user,
+        action='payment_confirmation_registered_offline_request',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        new_value={
+            'request_number': sr.request_number,
+            'amount': float(suma),
+            'orders': [o.order_number for o, _k in zaksiegowane],
+            'note': note,
+        },
+    )
+
+    # Kaskada z DOWOLNEGO zaksięgowanego zamówienia — _check_sr_auto_oplacone
+    # sam odnajduje zlecenie i rozgałęzia na paczkę zbiorczą.
+    _check_sr_auto_oplacone(zaksiegowane[0][0])
+
+    return jsonify({
+        'success': True,
+        'message': (f'Zaksięgowano {suma} zł za wysyłkę zlecenia '
+                    f'{sr.request_number} ({len(zaksiegowane)} zam.).'),
+        'amount': float(suma),
+        'orders_count': len(zaksiegowane),
+    })

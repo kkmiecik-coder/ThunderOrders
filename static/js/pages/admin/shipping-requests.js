@@ -921,6 +921,18 @@ function renderConsolidation(blokady) {
             // zarządzania) — w trybie dopięcia wiersze to dopiero kandydaci do dopięcia,
             // detach na nich zawsze skończyłby się błędem 404 z backendu.
             if (consolidationState.mode === 'manage') {
+                // Zaksięgowanie wpłaty offline ma sens tylko dla uczestnika, który
+                // jeszcze nie jest opłacony — po opłaceniu przycisk znika sam.
+                if (r.status === 'czeka_na_oplacenie' || r.status === 'czeka_na_wycene') {
+                    const wplata = document.createElement('button');
+                    wplata.type = 'button';
+                    wplata.className = 'consolidation-register-pay';
+                    wplata.textContent = 'Zaksięguj wpłatę';
+                    wplata.title = 'Wpłata przyjęta poza systemem (gotówka, przelew)';
+                    wplata.dataset.registerPay = r.id;
+                    wplata.dataset.requestNumber = r.request_number;
+                    row.appendChild(wplata);
+                }
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'consolidation-detach';
@@ -934,6 +946,12 @@ function renderConsolidation(blokady) {
     // Event delegation — escapeHtml nie escapuje apostrofów, więc żadnych inline onclick
     // z danymi klienta. Klik w wiersz ustawia wiodące, klik w „Wypnij" wypina.
     lista.onclick = (e) => {
+        const wplata = e.target.closest('[data-register-pay]');
+        if (wplata) {
+            zaksiegujWplateZlecenia(parseInt(wplata.dataset.registerPay, 10),
+                                    wplata.dataset.requestNumber);
+            return;
+        }
         const detach = e.target.closest('[data-detach]');
         if (detach) {
             detachFromConsolidation(parseInt(detach.dataset.detach, 10));
@@ -1063,6 +1081,34 @@ async function openConsolidationManageModal(consolidationId) {
     // faktycznej zmiany i tak robi docelowy endpoint /consolidation/lead przy zapisie.
     renderConsolidation([]);
     document.getElementById('consolidationModal').classList.add('active');
+}
+
+async function zaksiegujWplateZlecenia(sourceId, requestNumber) {
+    // Wpłata przyjęta poza systemem (gotówka, przelew bez potwierdzenia od
+    // klienta). Backend księguje E4 wszystkich zamówień tego zlecenia, pomijając
+    // pozycje bez należności i te, które klient już opłacił.
+    const nazwa = requestNumber || 'to zlecenie';
+    if (!confirm(
+        `Zaksięgować wpłatę za wysyłkę zlecenia ${nazwa}?\n\n` +
+        'Użyj, gdy klient zapłacił poza systemem — gotówką albo przelewem, ' +
+        'do którego nie wgrywa potwierdzenia.')) return;
+    try {
+        const r = await fetch(`/admin/payment-confirmations/register-request/${sourceId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+            body: JSON.stringify({ note: 'Zaksięgowano z modala paczki zbiorczej' }),
+        });
+        const dane = await r.json();
+        if (!r.ok || !dane.success) {
+            window.showToast(dane.message || 'Nie udało się zaksięgować wpłaty', 'error');
+            return;
+        }
+        window.showToast(dane.message, 'success');
+        window.location.reload();
+    } catch (error) {
+        console.error('Register payment error:', error);
+        window.showToast('Nie udało się zaksięgować wpłaty', 'error');
+    }
 }
 
 async function detachFromConsolidation(sourceId) {

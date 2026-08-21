@@ -5065,3 +5065,99 @@
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.8);
 }
+
+/* ===================================================================
+   Rejestracja wpłaty przyjętej poza systemem (modal #registerPaymentModal)
+   =================================================================== */
+
+.register-pay__intro {
+    margin: 0 0 16px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
+[data-theme="dark"] .register-pay__intro {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.register-pay__stage {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    font-size: 0.85rem;
+    color: #333333;
+}
+
+.register-pay__stage strong {
+    font-weight: 600;
+}
+
+[data-theme="dark"] .register-pay__stage {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+
+#registerPaymentModal .form-label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #333333;
+}
+
+[data-theme="dark"] #registerPaymentModal .form-label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.register-pay__error {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    font-size: 0.82rem;
+}
+
+[data-theme="dark"] .register-pay__error {
+    background: rgba(245, 87, 108, 0.1);
+    border-color: rgba(245, 87, 108, 0.3);
+    color: #f5576c;
+}
+
+/* Przycisk „Zaksięguj wpłatę" przy uczestniku paczki zbiorczej — pokazywany
+   tylko dla zleceń jeszcze nieopłaconych (patrz shipping-requests.js). */
+.consolidation-register-pay {
+    padding: 4px 10px;
+    margin-right: 6px;
+    border: 1px solid #6ee7b7;
+    border-radius: 6px;
+    background: #ecfdf5;
+    color: #047857;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.consolidation-register-pay:hover,
+.consolidation-register-pay:focus-visible {
+    background: #d1fae5;
+    border-color: #34d399;
+}
+
+[data-theme="dark"] .consolidation-register-pay {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(110, 231, 183, 0.3);
+    color: #6ee7b7;
+}
+
+[data-theme="dark"] .consolidation-register-pay:hover,
+[data-theme="dark"] .consolidation-register-pay:focus-visible {
+    background: rgba(110, 231, 183, 0.12);
+    border-color: rgba(110, 231, 183, 0.5);
+}

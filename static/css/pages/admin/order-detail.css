@@ -5235,3 +5235,39 @@ code {
         grid-template-columns: 1fr;
     }
 }
+
+/* Przycisk „Zarejestruj wpłatę" przy etapie płatności — widoczny tylko dla
+   etapów niezatwierdzonych z kwotą > 0 (patrz detail.html). */
+.admin-pay__register {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-pay__register:hover,
+.admin-pay__register:focus-visible {
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+    color: #047857;
+}
+
+[data-theme="dark"] .admin-pay__register {
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .admin-pay__register:hover,
+[data-theme="dark"] .admin-pay__register:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #ffffff;
+}
