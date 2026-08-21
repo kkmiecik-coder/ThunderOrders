@@ -216,7 +216,8 @@ UNPAID_SR_STATUSES = ('czeka_na_wycene', 'czeka_na_oplacenie')
 
 
 def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size=None,
-                          shipping_cost=None, order_costs=None, user=None, wms_session=None):
+                          shipping_cost=None, order_costs=None, user=None, wms_session=None,
+                          status_juz_ustawiony=False):
     """Oznacza zlecenie wysyłki jako wysłane.
 
     Wspólne dla panelu w sesji WMS i dla listy zleceń — jedno miejsce, w którym
@@ -242,7 +243,13 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
 
-    if sr.status == 'wyslane':
+    # Dwa niezależne sygnały „już wysłane", symetrycznie do dostarcz_zlecenie():
+    # `shipped_at` ustawiamy WYŁĄCZNIE tutaj, więc jego obecność zawsze znaczy
+    # „to wywołanie już tu było". Sam status nie wystarcza, bo jedna ścieżka —
+    # synchronizacja statusów w adminie — zapisuje sr.status='wyslane' i
+    # commituje ZANIM zawoła tę funkcję; bez `status_juz_ustawiony` strażnik
+    # odrzucałby ją zawsze i przejście z panelu nigdy by tu nie dotarło.
+    if sr.shipped_at or (sr.status == 'wyslane' and not status_juz_ustawiony):
         raise ShippingRequestAlreadyShipped(f'Zlecenie {sr.request_number} jest już wysłane')
 
     if sr.status in UNPAID_SR_STATUSES:

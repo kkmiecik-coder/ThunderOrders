@@ -4049,30 +4049,26 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
     if new_sr_status_slug != 'wyslane':
         return
 
-    order_status_obj = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
-    if not order_status_obj:
-        current_app.logger.warning("Order status 'wyslane' not found or inactive")
-        return
+    # Delegacja do JEDYNEJ implementacji przejścia — dokładnie tak, jak gałąź
+    # 'dostarczone' wyżej deleguje do dostarcz_zlecenie(). Wcześniej ta funkcja
+    # miała własną, uboższą kopię (statusy zamówień + shipped_at), a wpisy
+    # przesyłki i mail robił osobny blok w _zapisz_zlecenie_wysylki — trzy
+    # nakładające się ścieżki tego samego przejścia, każda po swojemu.
+    #
+    # status_juz_ustawiony=True, bo wywołujący zapisał sr.status='wyslane'
+    # i zacommitował ZANIM tu trafił (patrz komentarz przy strażniku
+    # w wms_utils.ship_shipping_request).
+    from modules.orders.wms_utils import (
+        ShippingRequestAlreadyShipped, ShippingRequestUnpaid, ship_shipping_request)
 
-    # shipped_at ustawiane tak samo jak w ship_shipping_request() — bez niego
-    # zlecenie jest niewidoczne dla crona dostaw (filtruje shipped_at.isnot(None)),
-    # więc nie dostanie ani przypomnienia, ani automatycznego domknięcia, a backfill
-    # wpisze mu potem updated_at, zakłamując metrykę czasu dostawy.
-    if not shipping_request.shipped_at:
-        from modules.orders.models import get_local_now
-        shipping_request.shipped_at = get_local_now()
-
-    for ro in shipping_request.request_orders:
-        order = ro.order
-        if not order or order.status == 'wyslane':
-            continue
-        order.status = 'wyslane'
-
-    # Bez powiadomienia PER ZAMÓWIENIE: klient dostaje fizycznie jeden karton, więc
-    # trzy zamówienia w zleceniu oznaczały trzy maile o tej samej przesyłce. Jedna
-    # wiadomość na paczkę idzie wyżej w _zapisz_zlecenie_wysylki — notify_shipment_sent
-    # przy świeżo dopisanym numerze przesyłki, a bez numeru
-    # notify_shipping_status_change w sekcji zmiany statusu.
+    try:
+        ship_shipping_request(
+            shipping_request,
+            user=current_user,
+            status_juz_ustawiony=True,
+        )
+    except (ShippingRequestAlreadyShipped, ShippingRequestUnpaid) as err:
+        current_app.logger.info(f'Pominięto nadanie zlecenia: {err}')
 
 
 def _status_logistyczny_dla_zrodla(sr, nowy_status):
@@ -4318,11 +4314,19 @@ def _zapisz_zlecenie_wysylki(sr, data):
         db.session.commit()
 
     # Sync order statuses based on SR status change
+    #
+    # Dla przejścia w „wysłane" ta synchronizacja deleguje do
+    # ship_shipping_request(), które SAMO tworzy wpisy przesyłki i wysyła jedno
+    # powiadomienie na paczkę. Zapamiętujemy to, żeby blok niżej nie wysłał
+    # drugiego maila o tej samej przesyłce.
+    nadanie_przez_sync = False
     if 'status' in data and data['status'] != old_status and not auto_status_changed:
         _sync_order_statuses_from_shipping_request(sr, data['status'])
+        nadanie_przez_sync = data['status'] == 'wyslane'
         db.session.commit()
     elif auto_status_changed:
         _sync_order_statuses_from_shipping_request(sr, sr.status)
+        nadanie_przez_sync = sr.status == 'wyslane'
         db.session.commit()
 
     # Email + push notification for new domestic shipping costs
@@ -4364,7 +4368,12 @@ def _zapisz_zlecenie_wysylki(sr, data):
     # jest już zapisany wyżej, więc PUT {'status':'wyslane','tracking_number':…}
     # nadal działa jak dotąd — jednym żądaniem.
     tracking_just_added = bool(sr.tracking_number) and not old_tracking
-    powiadom_o_nadaniu = tracking_just_added and sr.status == 'wyslane'
+    # `not nadanie_przez_sync` — gdy przejście w „wysłane" właśnie zaszło,
+    # ship_shipping_request() już utworzyło wpisy przesyłki i wysłało mail.
+    # Ten blok obsługuje wyłącznie przypadek pozostały: dopisanie numeru do
+    # zlecenia, które BYŁO już wysłane (np. nadanie w panelu kuriera po fakcie).
+    powiadom_o_nadaniu = (tracking_just_added and sr.status == 'wyslane'
+                          and not nadanie_przez_sync)
     if powiadom_o_nadaniu:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
