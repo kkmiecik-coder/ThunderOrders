@@ -300,6 +300,14 @@ def _rozwiaz_konsolidacje_bez_walidacji(target):
     publiczne rozwiaz_konsolidacje (przez _sprawdz_edytowalnosc, więc: jawne
     „Rozwiąż paczkę" z Task 7 i wypnij_zlecenie przy zejściu do 1 uczestnika).
     Poprawka poniżej obowiązuje więc obie ścieżki naraz.
+
+    UWAGA: nie zakładaj, że przy wejściu tutaj sesja WMS jest już zamknięta.
+    `_po_odpieciu_zrodla` odracza rozwiązanie przy aktywnej sesji tylko wtedy,
+    gdy w paczce został jeszcze realny uczestnik — paczka PUSTA trafia tu mimo
+    otwartej sesji (nie ma czego chronić, a zostawiona byłaby rekordem-widmem
+    nieusuwalnym przez API konsolidacji). Sprzątanie wierszy
+    WmsSessionShippingRequest niżej jest więc obowiązkowe także dla sesji
+    aktywnej, nie tylko zakończonej — i to ono czyni delete bezpiecznym.
     """
     from modules.orders.wms_models import WmsSessionShippingRequest
 
@@ -479,10 +487,22 @@ def _po_odpieciu_zrodla(target, source_id, *, bez_walidacji=False):
     to ono realnie odblokowuje bramki gotowości dla pozostałych uczestników, więc
     cel Task 13 jest spełniony nawet gdy pełne rozwiązanie paczki poczeka do
     zamknięcia sesji.
+
+    WYJĄTEK OD WYJĄTKU: odroczenie dotyczy wyłącznie paczki, w której został
+    jeszcze REALNY uczestnik. Paczkę PUSTĄ (zero źródeł) kasujemy mimo aktywnej
+    sesji, bo nie ma już czego chronić — magazynier nie ma co skanować, a
+    zostawiona zostaje rekordem-widmem: `is_consolidation` daje False, więc
+    `_sprawdz_edytowalnosc` odrzuca ją jako „nie paczkę zbiorczą" i zamyka
+    zarówno dissolve, jak i detach; status przeliczony z pustej listy spada na
+    „czeka na wycenę", a rekord trafia do panelu klienta wiodącego. Wiersz
+    `wms_session_shipping_requests` nie osieroci się przy tym mimo braku
+    `ondelete=CASCADE`, bo `_rozwiaz_konsolidacje_bez_walidacji` kasuje go jawnie
+    PRZED `delete(target)` — i to właśnie ten krok czyni tu delete bezpiecznym
+    także przy sesji aktywnej.
     """
     pozostale = _uczestnicy_z_bazy(target)
     rozwiazac = len(pozostale) <= 1
-    if rozwiazac and bez_walidacji and _sesja_wms_blokujaca(target):
+    if rozwiazac and bez_walidacji and pozostale and _sesja_wms_blokujaca(target):
         rozwiazac = False
 
     if rozwiazac:

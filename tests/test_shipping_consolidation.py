@@ -1286,3 +1286,59 @@ def test_wyslane_ma_wlasny_komunikat_nie_o_pakowaniu(db, make_user, make_order):
 
     assert 'wysłane' in e.value.message
     assert 'spakowane' not in e.value.message.lower()
+
+
+def test_anulowanie_ostatniego_uczestnika_przy_aktywnej_sesji_nie_zostawia_widma(
+        db, make_user, make_order):
+    """Paczka bez ŻADNEGO uczestnika ma zniknąć, nawet przy aktywnej sesji WMS.
+
+    Odroczenie rozwiązania („nie kasuj paczki, którą magazyn ma otwartą")
+    nie rozróżniało `pozostale == [jeden]` od `pozostale == []`. Przy pustej
+    liście wykonywała się gałąź „zostaw paczkę" i powstawał rekord-widmo:
+    zero źródeł (`is_consolidation == False`), `lead_source_request_id`
+    wskazujący na odpięte już zlecenie i status przeliczony z pustej listy na
+    „czeka na wycenę" — mimo że rekord leżał w sesji WMS.
+
+    Od tej chwili `_sprawdz_edytowalnosc` odrzucał go pierwszym warunkiem
+    („nie jest paczką zbiorczą”), więc dissolve i detach były zamknięte,
+    a rekord trafiał do panelu klienta wiodącego.
+
+    Odroczenie ma sens tylko wtedy, gdy w paczce zostaje realny uczestnik —
+    pustą kasujemy, bo nie ma czego chronić. Wiersze WmsSessionShippingRequest
+    sprząta `_rozwiaz_konsolidacje_bez_walidacji`.
+    """
+    from modules.orders.consolidation import odepnij_anulowane_zamowienie
+    from modules.orders.models import ShippingRequest
+    from modules.orders.wms_models import WmsSession, WmsSessionShippingRequest
+
+    _seed_sr_statuses(db)
+    zbiorcze, (sr_a, sr_b) = _konsolidacja(db, make_user, make_order)
+    zbiorcze_id = zbiorcze.id
+    operator = make_user(role='admin', email='operator-widmo@example.com')
+
+    sesja = WmsSession(session_token='token-aktywnej-sesji-widmo',
+                       user_id=operator.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionShippingRequest(
+        session_id=sesja.id, shipping_request_id=zbiorcze_id))
+    db.session.commit()
+
+    # Anulujemy zamówienia OBU uczestników — paczka zostaje bez nikogo.
+    for zrodlo in (sr_a, sr_b):
+        zamowienie = zrodlo.display_orders[0]
+        zamowienie.status = 'anulowane'
+        odepnij_anulowane_zamowienie(zamowienie)
+        db.session.commit()
+    db.session.expire_all()
+
+    assert db.session.get(ShippingRequest, zbiorcze_id) is None, (
+        'Paczka bez uczestników została jako rekord-widmo: nieusuwalny przez '
+        'API konsolidacji i widoczny w panelu klienta wiodącego'
+    )
+    assert WmsSessionShippingRequest.query.filter_by(
+        shipping_request_id=zbiorcze_id).count() == 0, (
+        'Wiersz sesji WMS wskazujący na skasowaną paczkę zostałby sierotą'
+    )
+    assert sr_a.consolidated_into_id is None
+    assert sr_b.consolidated_into_id is None
