@@ -8,6 +8,8 @@ Jedno zlecenie wysyłki jedzie w jednej paczce, więc dopasowanie liczymy po
 sumie wagi i objętości wszystkich zamówień z paczki.
 """
 
+from decimal import Decimal
+
 from modules.orders.wms_models import PackagingMaterial
 
 
@@ -212,7 +214,32 @@ class ShippingRequestUnpaid(Exception):
 # zlecenia może pakować się w innej, wciąż otwartej sesji WMS, więc samo
 # zlecenie nie ma jeszcze statusu 'spakowane' — twardy warunek "tylko
 # spakowane" zablokowałby wysyłkę takiego (już opłaconego) zlecenia całkowicie.
+#
+# UWAGA: ta lista NIE jest już jedyną bramką finansową — patrz
+# `zlecenie_rozliczone()` niżej. Sam status nie wystarcza, bo pakowanie
+# podnosi zlecenie na 'spakowane' bez sprawdzania płatności, a 'spakowane'
+# do tej krotki nie należy: nieopłacona paczka wyjeżdżała.
 UNPAID_SR_STATUSES = ('czeka_na_wycene', 'czeka_na_oplacenie')
+
+
+def zlecenie_rozliczone(sr):
+    """Czy za wysyłkę tego zlecenia zapłacono — liczone z DANYCH, nie ze statusu.
+
+    Status jest tylko odbiciem stanu i daje się nadpisać po drodze: pakowanie
+    podnosi zlecenie na 'spakowane' na podstawie samych statusów zamówień, więc
+    informacja „nieopłacone" znikała, a bramka oparta o UNPAID_SR_STATUSES
+    przepuszczała paczkę bez opłaty E4.
+
+    Liczymy po zamówieniach AKTYWNYCH (anulowane nie jedzie w kartonie, więc nie
+    ma za co płacić) i przez `is_domestic_shipping_settled`, czyli tę samą
+    definicję rozliczenia, której używają bramki opłacenia zlecenia — 0 zł jest
+    rozliczone, a kwota > 0 wymaga pokrycia SUMĄ zatwierdzonych wpłat.
+
+    Pusty zbiór aktywnych zamówień to NIE jest rozliczenie: `all([])` byłoby
+    prawdą, a zlecenie bez czego wysłać nie ma czego wysyłać.
+    """
+    aktywne = sr.active_orders
+    return bool(aktywne) and all(o.is_domestic_shipping_settled for o in aktywne)
 
 
 def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size=None,
@@ -251,6 +278,19 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     # odrzucałby ją zawsze i przejście z panelu nigdy by tu nie dotarło.
     if sr.shipped_at or (sr.status == 'wyslane' and not status_juz_ustawiony):
         raise ShippingRequestAlreadyShipped(f'Zlecenie {sr.request_number} jest już wysłane')
+
+    # Bramka z DANYCH — odporna na każdą ścieżkę zapisu statusu, także tę,
+    # która dopiero powstanie. Sprawdzamy ją PRZED bramką statusową, żeby
+    # komunikat mówił o pieniądzach, a nie o etapie pipeline'u.
+    if not zlecenie_rozliczone(sr):
+        aktywne = sr.active_orders
+        do_zaplaty = sum((o.stage_4_remaining for o in aktywne), Decimal('0.00'))
+        powod = (f'brakuje {do_zaplaty} zł za wysyłkę' if do_zaplaty > 0
+                 else 'nie ma w nim żadnego aktywnego zamówienia')
+        raise ShippingRequestUnpaid(
+            f'Zlecenie {sr.request_number} nie zostało jeszcze opłacone '
+            f'({powod}) — nie można go wysłać'
+        )
 
     if sr.status in UNPAID_SR_STATUSES:
         raise ShippingRequestUnpaid(

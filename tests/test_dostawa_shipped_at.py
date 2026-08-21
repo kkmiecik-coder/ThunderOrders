@@ -36,11 +36,19 @@ def _zlecenie(db, user, status='spakowane'):
     return sr
 
 
-def test_wysylka_zapisuje_shipped_at(app, db, make_user):
+def test_wysylka_zapisuje_shipped_at(app, db, make_user, make_order):
+    from modules.orders.models import ShippingRequestOrder
     from modules.orders.wms_utils import ship_shipping_request
 
     user = make_user()
     sr = _zlecenie(db, user)
+    # Zlecenie musi mieć co wysłać: bramka płatności liczy z danych i odrzuca
+    # zlecenie bez aktywnych zamówień (`all([])` byłoby fałszywym „rozliczone").
+    # Zamówienie bez kosztu wysyłki jest rozliczone (0 zł = nie ma czego płacić).
+    zamowienie = make_order(user=user, status='spakowane')
+    db.session.add(ShippingRequestOrder(
+        shipping_request_id=sr.id, order_id=zamowienie.id))
+    db.session.commit()
 
     przed = datetime.now() - timedelta(seconds=5)
     ship_shipping_request(sr, courier='inpost', tracking_number='123456789')

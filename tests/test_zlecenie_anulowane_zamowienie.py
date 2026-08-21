@@ -200,6 +200,10 @@ def test_wysylka_nie_oznacza_anulowanego_jako_wyslane(app, db, make_user, make_o
     user = make_user()
     sr, (zywe, anulowane) = _zlecenie(
         db, user, make_order, ['spakowane', 'anulowane'], status_sr='spakowane')
+    # Zlecenie gotowe do wysyłki jest opłacone — bramka płatności liczy z danych
+    # (patrz tests/test_bramka_platnosci_wysylki.py). Anulowane zamówienie nie
+    # wymaga zapłaty, bo nie jedzie w kartonie.
+    _zatwierdz_e4(db, zywe)
 
     ship_shipping_request(sr, courier='inpost', tracking_number='6200000000009')
 
@@ -218,6 +222,7 @@ def test_wysylka_nie_tworzy_wpisu_przesylki_dla_anulowanego(app, db, make_user, 
     user = make_user()
     sr, (zywe, anulowane) = _zlecenie(
         db, user, make_order, ['spakowane', 'anulowane'], status_sr='spakowane')
+    _zatwierdz_e4(db, zywe)
 
     ship_shipping_request(sr, courier='inpost', tracking_number='6200000000010')
 
