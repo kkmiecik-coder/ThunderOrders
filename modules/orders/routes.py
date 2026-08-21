@@ -4450,6 +4450,20 @@ def admin_delete_shipping_request(shipping_request_id):
     sr = ShippingRequest.query.get_or_404(shipping_request_id)
     request_number = sr.request_number
 
+    # Zlecenie, które pojechało, jest historią — nie pomyłką do sprzątnięcia.
+    # Słownik statusów nie ma „anulowane", więc jedyną operacją destrukcyjną jest
+    # ten DELETE, a on zabiera numer przesyłki, shipped_at, delivered_at ORAZ
+    # opinię o dostawie (DeliveryReview: cascade delete-orphan + FK CASCADE) —
+    # dane nieodtwarzalne, zasilające statystyki dostaw. Dotąd strażnik statusu
+    # obowiązywał wyłącznie w gałęzi paczki zbiorczej niżej.
+    if sr.status in ('wyslane', 'dostarczone'):
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {sr.request_number} zostało już wysłane — '
+                       f'skasowanie zabrałoby numer przesyłki, daty i opinię '
+                       f'o dostawie. Jeśli to pomyłka, cofnij najpierw wysyłkę.',
+        }), 409
+
     # Zlecenie źródłowe nie ma własnych zamówień i jest tylko widokiem dla klienta —
     # skasowanie go zostawiłoby paczkę z uczestnikiem, którego nie ma.
     if sr.is_consolidated_source:
@@ -4603,6 +4617,17 @@ def admin_bulk_cancel_shipping_requests():
             pozostale.append(sr)
 
     for sr in pozostale:
+        # Ta sama bramka co przy kasowaniu pojedynczym: zlecenie, które pojechało,
+        # jest historią. Przy zaznaczeniu „wszystkie na wszystkich stronach" brak
+        # tego warunku czyścił numery przesyłek, daty i opinie o dostawie.
+        if sr.status in ('wyslane', 'dostarczone'):
+            skipped.append((
+                sr.request_number,
+                'zostało już wysłane — skasowanie zabrałoby numer przesyłki, '
+                'daty i opinię o dostawie',
+            ))
+            continue
+
         # Źródło, którego paczka NIE była (albo była, ale nie dała się rozwiązać)
         # w tym zaznaczeniu — nadal nie ma własnych zamówień, nie kasujemy.
         if sr.is_consolidated_source:

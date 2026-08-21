@@ -1712,3 +1712,81 @@ def packaging_materials_reorder():
         db.session.rollback()
         current_app.logger.error(f'Packaging materials reorder error: {e}')
         return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:sr_id>/unship', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_unship_shipping_request(sr_id):
+    """Cofa pomyłkowe oznaczenie zlecenia jako wysłane.
+
+    Kasowanie zlecenia po wysyłce jest zablokowane (zabierało numer przesyłki,
+    daty i opinię o dostawie), więc pomyłkowe nadanie musi mieć własne, odwracalne
+    wyjście — inaczej „wyslane" zostaje ślepą uliczką.
+
+    Cofamy WYŁĄCZNIE ze statusu „wyslane". „Dostarczone" oznacza, że paczka
+    dotarła do klienta, a istniejąca opinia o dostawie jest dowodem, że ją
+    odebrał — w obu przypadkach cofnięcie byłoby kłamstwem wobec jego historii.
+
+    Zlecenie wraca do „spakowane" (karton fizycznie istnieje — materiał zszedł ze
+    stanu), a nie do stanu sprzed pakowania. Zwrot materiału i cofnięcie do
+    zbierania robi osobno „Zabierz do WMS”.
+    """
+    from modules.orders.models import OrderShipment, OrderStatus, ShippingRequest
+    from utils.activity_logger import log_activity
+
+    sr = ShippingRequest.query.get_or_404(sr_id)
+
+    if sr.status != 'wyslane':
+        return jsonify({
+            'success': False,
+            'message': (f'Zlecenie {sr.request_number} nie jest w statusie „Wysłane” '
+                        f'(jest: „{sr.status_display_name}”) — nie ma czego cofać.'),
+        }), 409
+
+    if sr.review:
+        return jsonify({
+            'success': False,
+            'message': (f'Klient wystawił już opinię o dostawie zlecenia '
+                        f'{sr.request_number} — paczka do niego dotarła.'),
+        }), 409
+
+    stary_numer = sr.tracking_number
+    sr.status = 'spakowane'
+    sr.shipped_at = None
+    sr.tracking_number = None
+
+    # Wpisy przesyłki to ślad nadania — po cofnięciu nie mają czego dotyczyć.
+    if stary_numer:
+        OrderShipment.query.filter(
+            OrderShipment.order_id.in_([o.id for o in sr.orders]),
+            OrderShipment.tracking_number == stary_numer,
+        ).delete(synchronize_session=False)
+
+    status_spakowane = OrderStatus.query.filter_by(slug='spakowane', is_active=True).first()
+    if status_spakowane:
+        for order in sr.active_orders:
+            if order.status == 'wyslane':
+                order.status = 'spakowane'
+
+    # Paczka zbiorcza: cofnięcie musi zjechać na zlecenia źródłowe razem z tym
+    # samym commitem, inaczej ich klienci zostaną ze statusem „wysłane”.
+    from modules.orders.consolidation import propaguj_na_zrodla
+    propaguj_na_zrodla(sr)
+
+    db.session.commit()
+
+    log_activity(
+        user=current_user,
+        action='shipping_request_unshipped',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        old_value={'status': 'wyslane', 'tracking_number': stary_numer},
+        new_value={'status': 'spakowane'},
+    )
+
+    return jsonify({
+        'success': True,
+        'message': (f'Cofnięto wysyłkę zlecenia {sr.request_number} — '
+                    f'wróciło do stanu „Spakowane”.'),
+    })

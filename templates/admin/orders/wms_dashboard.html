@@ -434,6 +434,17 @@
                                 Wysłane
                             </button>
                             {% endif %}
+                            {% if sr.status == 'wyslane' and not sr.review %}
+                            <button type="button" class="btn btn-sm btn-secondary js-unship"
+                                    data-sr-id="{{ sr.id }}" data-sr-number="{{ sr.request_number }}"
+                                    title="Cofnij pomyłkowe oznaczenie jako wysłane">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="9 14 4 9 9 4"></polyline>
+                                    <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+                                </svg>
+                                Cofnij wysyłkę
+                            </button>
+                            {% endif %}
                             {% if sr.status not in ['wyslane', 'dostarczone'] %}
                             <button type="button" class="btn btn-sm btn-wms" onclick="event.stopPropagation(); handleGoToWMS({{ sr.id }}, '{{ sr.status }}', '{{ sr.request_number }}');" title="Zabierz do WMS">
                                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">

@@ -1242,3 +1242,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initNotesClamp();
 });
+
+// Cofnięcie pomyłkowego oznaczenia jako wysłane. Kasowanie zlecenia po wysyłce
+// jest zablokowane (zabierało tracking, daty i opinię o dostawie), więc pomyłka
+// musi mieć własne, odwracalne wyjście. Event delegation po data-* — bez inline
+// onclick z danymi (escapeHtml nie escapuje apostrofów).
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.js-unship');
+    if (!btn) return;
+    e.stopPropagation();
+
+    const numer = btn.dataset.srNumber || 'to zlecenie';
+    if (!confirm(
+        `Cofnąć wysyłkę zlecenia ${numer}?\n\n` +
+        'Zlecenie wróci do stanu „Spakowane", a numer przesyłki i wpisy nadania ' +
+        'zostaną usunięte. Klient nie dostanie o tym powiadomienia.')) return;
+
+    try {
+        const r = await fetch(`/admin/orders/shipping-requests/${btn.dataset.srId}/unship`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+        });
+        const dane = await r.json();
+        if (!r.ok || !dane.success) {
+            window.showToast(dane.message || 'Nie udało się cofnąć wysyłki', 'error');
+            return;
+        }
+        window.showToast(dane.message, 'success');
+        window.location.reload();
+    } catch (error) {
+        console.error('Unship error:', error);
+        window.showToast('Nie udało się cofnąć wysyłki', 'error');
+    }
+});
