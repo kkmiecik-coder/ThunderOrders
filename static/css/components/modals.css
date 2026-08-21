@@ -5175,3 +5175,40 @@
 [data-theme="dark"] .sr-tracking-note {
     color: rgba(255, 255, 255, 0.55);
 }
+
+/* Wybór statusu w nagłówku modalu zlecenia. Zastępuje sam badge — zmiana
+   statusu wykonuje komplet skutków przejścia (patrz shipping-request-modal.js).
+   Backend podaje listę dopuszczalnych wartości w `available_statuses`. */
+.sr-detail-status-select {
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 20px;
+    background: #ffffff;
+    color: #333333;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+}
+
+.sr-detail-status-select:hover,
+.sr-detail-status-select:focus-visible {
+    border-color: #9ca3af;
+}
+
+[data-theme="dark"] .sr-detail-status-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .sr-detail-status-select:hover,
+[data-theme="dark"] .sr-detail-status-select:focus-visible {
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .sr-detail-status-select option {
+    background: #201e1b;
+    color: #ffffff;
+}

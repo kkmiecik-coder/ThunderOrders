@@ -73,6 +73,10 @@
             packagingMaterialId: sr.packaging_material_id || '',
             courier: sr.courier || '',
             trackingNumber: sr.tracking_number || '',
+            // Status bieżący + wartość początkowa: payload leci tylko przy realnej
+            // zmianie (patrz payloadFor).
+            status: sr.status || '',
+            statusPoczatkowy: sr.status || '',
             // Ręcznie wpisana kwota całkowita; null = pole pochodne (suma kosztów zamówień).
             totalDraft: null,
         };
@@ -412,7 +416,14 @@
         container.innerHTML = `
             <header class="sr-detail-head">
                 <span class="sr-detail-number">${escapeHtml(sr.request_number)}</span>
-                <span class="sr-detail-status badge">${escapeHtml(sr.status_display_name || sr.status)}</span>
+                ${(sr.available_statuses && sr.available_statuses.length > 1) ? `
+                <select class="sr-detail-status-select" data-sr-id="${sr.id}"
+                        title="Zmiana statusu wykonuje komplet skutków: znaczniki czasu, kaskadę na zamówienia i powiadomienie do klienta">
+                    ${sr.available_statuses.map(st => `
+                        <option value="${escapeHtml(st.slug)}"${st.slug === sr.status ? ' selected' : ''}>${escapeHtml(st.name)}</option>
+                    `).join('')}
+                </select>` : `
+                <span class="sr-detail-status badge">${escapeHtml(sr.status_display_name || sr.status)}</span>`}
                 ${sr.addressee_name ? `<span class="sr-detail-client">${escapeHtml(sr.addressee_name)}</span>` : ''}
             </header>
 
@@ -593,6 +604,10 @@
                 }
                 return;
             }
+            if (e.target.classList.contains('sr-detail-status-select')) {
+                edits.status = e.target.value;
+                return;
+            }
             if (e.target.id === 'srCourier') { edits.courier = e.target.value; return; }
             if (e.target.id === 'srPackagingMaterial') {
                 applyMaterial(state.activeId, e.target.options[e.target.selectedIndex]);
@@ -724,6 +739,12 @@
         };
         if (edits.deadline) {
             payload.payment_deadline = edits.deadline;
+        }
+        // Tylko gdy admin FAKTYCZNIE zmienil status. Modal wysyla caly payload,
+        // wiec niezmieniony status w zadaniu nie moze uruchamiac przejscia
+        // (a dla zlecenia zrodlowego paczki — konczyc sie odmowa zapisu kosztow).
+        if (edits.status && edits.status !== edits.statusPoczatkowy) {
+            payload.status = edits.status;
         }
         // Klucz obecny = "ustaw albo wyczyść", więc pusty wybór nie może zerować przypisania.
         if (edits.packagingMaterialId) {

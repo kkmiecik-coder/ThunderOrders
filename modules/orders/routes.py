@@ -3927,11 +3927,30 @@ def admin_get_shipping_request(shipping_request_id):
                 'shipping_cost': float(ro.order.shipping_cost or 0)
             })
 
+    # Statusy, które WOLNO ustawić temu zleceniu — reguły zna backend, więc to on
+    # je podaje, zamiast pozwalać frontowi zgadywać (i rozjechać się przy zmianie
+    # słownika). Ta sama para warunków co przy zapisie niżej.
+    from modules.orders.consolidation import STATUSY_LOGISTYCZNE
+    dostepne_statusy = []
+    for st in (ShippingRequestStatus.query
+               .filter_by(is_active=True)
+               .order_by(ShippingRequestStatus.sort_order).all()):
+        if _status_logistyczny_dla_zrodla(sr, st.slug):
+            continue
+        if sr.is_consolidation and st.slug not in STATUSY_LOGISTYCZNE:
+            continue
+        dostepne_statusy.append({
+            'slug': st.slug,
+            'name': st.name,
+            'badge_color': st.badge_color,
+        })
+
     return jsonify({
         'id': sr.id,
         'request_number': sr.request_number,
         'status': sr.status,
         'status_display_name': sr.status_display_name,
+        'available_statuses': dostepne_statusy,
         'courier': sr.courier,
         'tracking_number': sr.tracking_number,
         'parcel_size': sr.parcel_size,
@@ -4205,6 +4224,34 @@ def _zapisz_zlecenie_wysylki(sr, data):
             raise _odmowa_zapisu(
                 sr, f'jedzie w paczce zbiorczej {paczka} — status logistyczny '
                     f'ustaw na samej paczce, zjedzie na nie propagacją')
+
+        if data['status'] != sr.status:
+            # Status musi istnieć i być aktywny. Bez tej walidacji nieznany slug
+            # leciał wprost do kolumny z FK na shipping_request_statuses.slug
+            # i kończył się surowym 500 zamiast czytelnym komunikatem, a slug
+            # dezaktywowany w ustawieniach dawał się przypisać mimo że zniknął
+            # z interfejsu.
+            from modules.orders.models import ShippingRequestStatus
+            nowy_status = ShippingRequestStatus.query.filter_by(
+                slug=data['status'], is_active=True).first()
+            if not nowy_status:
+                raise _odmowa_zapisu(
+                    sr, f'status „{data["status"]}" nie istnieje albo został '
+                        f'wyłączony w ustawieniach')
+
+            # Paczka zbiorcza nie ma WŁASNEGO stanu finansowego — jej status to
+            # minimum ze statusów uczestników (status_najmniej_zaawansowany).
+            # Ręczne „opłacone" przy niezapłaconych uczestnikach byłoby kłamstwem,
+            # a pierwsze zdarzenie płatnicze przeliczyłoby minimum i cofnęło zapis
+            # — admin zobaczyłby, że jego zmiana „zniknęła". Logistykę paczki
+            # ustawia się natomiast właśnie na niej i zjeżdża propagacją.
+            from modules.orders.consolidation import STATUSY_LOGISTYCZNE
+            if sr.is_consolidation and data['status'] not in STATUSY_LOGISTYCZNE:
+                raise _odmowa_zapisu(
+                    sr, f'jest paczką zbiorczą — status „{nowy_status.name}" '
+                        f'wynika ze stanu uczestników i nie ustawia się go ręcznie. '
+                        f'Zmień status na zleceniu uczestnika albo zaksięguj wpłatę.')
+
         sr.status = data['status']
     if 'courier' in data:
         sr.courier = data['courier'] or None
