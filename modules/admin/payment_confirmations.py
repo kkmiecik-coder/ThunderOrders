@@ -11,7 +11,7 @@ from utils.decorators import role_required
 from extensions import db
 from modules.orders.models import PaymentConfirmation, Order
 from modules.orders.models import get_local_now
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import logging
 logger = logging.getLogger(__name__)
@@ -636,4 +636,117 @@ def payment_confirmation_reject(confirmation_id):
         'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało odrzucone.',
         'new_status': 'rejected',
         'old_status': old_status
+    })
+
+
+# Etapy płatności — te same slugi, których używa PaymentConfirmation.payment_stage.
+ETAPY_PLATNOSCI = ('product', 'korean_shipping', 'customs_vat', 'domestic_shipping')
+
+
+@admin_bp.route('/payment-confirmations/register/<int:order_id>', methods=['POST'])
+@login_required
+@role_required('admin')
+def payment_confirmation_register(order_id):
+    """Rejestruje wpłatę przyjętą poza systemem (gotówka, przelew na konto).
+
+    Do tej pory admin nie miał ŻADNEJ ścieżki, którą oznaczyłby etap jako
+    opłacony: PaymentConfirmation powstawał wyłącznie przy uploadzie klienta,
+    a `admin_update_payment` ustawia `order.paid_amount`, o które bramki
+    opłacenia zlecenia nigdy nie pytają. Zostawały dwa obejścia i żadne nie było
+    funkcją — odrzucić zatwierdzone potwierdzenie i prosić klienta o ponowne
+    wgranie, albo spakować zlecenie mimo braku zapłaty.
+
+    Tworzymy zwykły wiersz potwierdzenia (bez `proof_file` — wpłata offline nie
+    ma załącznika), dzięki czemu bramki `all(is_..._settled)` działają dalej bez
+    wyjątków w regule, a w historii zostaje ślad kto i kiedy zaksięgował.
+    """
+    from utils.activity_logger import log_activity
+
+    order = Order.query.get_or_404(order_id)
+    data = request.get_json() or {}
+
+    stage = (data.get('payment_stage') or '').strip()
+    if stage not in ETAPY_PLATNOSCI:
+        return jsonify({
+            'success': False,
+            'message': f'Nieznany etap płatności: „{stage}".'
+        }), 400
+
+    try:
+        amount = Decimal(str(data.get('amount'))).quantize(Decimal('0.01'))
+    except (InvalidOperation, ValueError, TypeError):
+        return jsonify({
+            'success': False,
+            'message': 'Kwota wpłaty musi być liczbą.'
+        }), 400
+
+    if amount <= 0:
+        return jsonify({
+            'success': False,
+            'message': 'Kwota wpłaty musi być większa od zera.'
+        }), 400
+
+    note = (data.get('note') or '').strip() or None
+    now = get_local_now()
+
+    existing = PaymentConfirmation.query.filter_by(
+        order_id=order.id, payment_stage=stage).first()
+
+    # Zatwierdzona płatność klienta jest nietykalna — jej nadpisanie skasowałoby
+    # dowód wpłaty i podwoiło paid_amount. Korekta idzie ścieżką odrzucenia.
+    if existing and existing.is_approved:
+        return jsonify({
+            'success': False,
+            'message': (f'Etap „{stage}" jest już opłacony. Aby skorygować, '
+                        f'najpierw odrzuć istniejące potwierdzenie.')
+        }), 409
+
+    if existing:
+        # Jedno gniazdo na etap — klient wgrał dowód, ale zapłacił inaczej.
+        existing.amount = amount
+        existing.status = 'approved'
+        existing.rejection_reason = None
+        existing.updated_at = now
+        confirmation = existing
+        akcja = 'payment_confirmation_registered_over_pending'
+    else:
+        confirmation = PaymentConfirmation(
+            order_id=order.id,
+            payment_stage=stage,
+            amount=amount,
+            status='approved',
+            proof_file=None,
+            uploaded_at=None,
+        )
+        db.session.add(confirmation)
+        akcja = 'payment_confirmation_registered_offline'
+
+    current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
+    order.paid_amount = current_paid + amount
+
+    db.session.commit()
+
+    log_activity(
+        user=current_user,
+        action=akcja,
+        entity_type='order',
+        entity_id=order.id,
+        new_value={
+            'order_number': order.order_number,
+            'payment_stage': stage,
+            'amount': float(amount),
+            'note': note,
+        },
+    )
+
+    # Ta sama kaskada co po zatwierdzeniu potwierdzenia klienta — bez niej
+    # zlecenie zostałoby na „czeka na opłacenie" mimo zaksięgowanej wpłaty.
+    if stage == 'domestic_shipping':
+        _check_sr_auto_oplacone(order)
+
+    return jsonify({
+        'success': True,
+        'message': f'Zaksięgowano {amount} zł dla zamówienia {order.order_number}.',
+        'confirmation_id': confirmation.id,
+        'paid_amount': float(order.paid_amount),
     })
