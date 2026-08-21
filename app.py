@@ -1592,6 +1592,15 @@ def register_error_handlers(app):
 
     @app.errorhandler(403)
     def forbidden(error):
+        # Żądania z panelu lecą fetch-em z Content-Type: application/json i czytają
+        # odpowiedź przez res.json(). Strona HTML wywracała je w bloku catch, więc
+        # brak uprawnień docierał do użytkownika jako „Błąd połączenia". Klucze
+        # `success` i `message` — te same, których szuka front przy każdej akcji.
+        if request.is_json or request.path.startswith('/api/mobile/'):
+            return jsonify({
+                'success': False,
+                'message': 'Nie masz uprawnień do tej operacji.',
+            }), 403
         return render_template('errors/403.html'), 403
 
     @app.errorhandler(404)

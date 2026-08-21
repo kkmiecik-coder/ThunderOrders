@@ -1024,7 +1024,7 @@
                         {% if pc_status == 'none' %}Brak{% elif pc_status == 'pending' %}Weryfikacja{% elif pc_status == 'approved' %}Zatwierdzona{% elif pc_status == 'rejected' %}Odrzucona{% endif %}
                     </span>
                     <span class="admin-pay__amount">{{ "%.2f"|format(order.effective_total) }} PLN</span>
-                                        {%- if pc_status != 'approved' and order.effective_total > 0 %}
+                                        {%- if pc_status != 'approved' and order.effective_total > 0 and current_user.role == 'admin' %}
                     <button type="button" class="admin-pay__register js-register-payment"
                             data-stage="product"
                             data-stage-label="Produkty"
@@ -1059,7 +1059,7 @@
                             <em class="admin-pay__tbd">Wkrótce</em>
                         {% endif %}
                     </span>
-                                        {%- if s2_status != 'approved' and order.proxy_shipping_total > 0 %}
+                                        {%- if s2_status != 'approved' and order.proxy_shipping_total > 0 and current_user.role == 'admin' %}
                     <button type="button" class="admin-pay__register js-register-payment"
                             data-stage="korean_shipping"
                             data-stage-label="Dostawa Proxy"
@@ -1093,7 +1093,7 @@
                             <em class="admin-pay__tbd">Wkrótce</em>
                         {% endif %}
                     </span>
-                                        {%- if s3_status != 'approved' and order.customs_vat_total > 0 %}
+                                        {%- if s3_status != 'approved' and order.customs_vat_total > 0 and current_user.role == 'admin' %}
                     <button type="button" class="admin-pay__register js-register-payment"
                             data-stage="customs_vat"
                             data-stage-label="CŁO/VAT"
@@ -1126,7 +1126,7 @@
                             <em class="admin-pay__tbd">Wkrótce</em>
                         {% endif %}
                     </span>
-                                        {%- if s4_status != 'approved' and order.shipping_cost and order.shipping_cost > 0 %}
+                                        {%- if s4_status != 'approved' and order.shipping_cost and order.shipping_cost > 0 and current_user.role == 'admin' %}
                     <button type="button" class="admin-pay__register js-register-payment"
                             data-stage="domestic_shipping"
                             data-stage-label="Dostawa PL"
@@ -1615,6 +1615,7 @@
 </div>
 
 <!-- Modal: Zarejestruj wpłatę przyjętą poza systemem -->
+{% if current_user.role == 'admin' %}
 <div class="modal-overlay" id="registerPaymentModal" data-order-id="{{ order.id }}">
     <div class="modal-container modal-sm">
         <div class="modal-header">
@@ -1648,6 +1649,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Modal: Dodaj produkt gratisowy -->
 <div class="modal-overlay" id="gratisModal">

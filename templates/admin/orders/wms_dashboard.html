@@ -22,7 +22,10 @@
 
 {% macro sr_pagination_nav(pagination, compact=false) %}{{ pagination_nav(pagination, sr_page_url, 'Strony zleceń wysyłki', compact, sr_per_page_url, sr_per_page) }}{% endmacro %}
 
-<div class="wms-dashboard-page">
+{# Księgowanie wpłaty uczestnikowi paczki zbiorczej rysuje JavaScript, a trasa
+   ma @role_required('admin') — front musi wiedzieć, czy wolno pokazać przycisk,
+   inaczej moderator dostaje po kliknięciu „Błąd połączenia" zamiast powodu. #}
+<div class="wms-dashboard-page" data-can-register-payment="{{ 'true' if current_user.role == 'admin' else 'false' }}">
 
     <!-- Tabs Navigation -->
     <div class="tabs-navigation">
@@ -434,7 +437,7 @@
                                 Wysłane
                             </button>
                             {% endif %}
-                            {% if sr.status == 'wyslane' and not sr.review %}
+                            {% if sr.status == 'wyslane' and not sr.review and current_user.role == 'admin' %}
                             <button type="button" class="btn btn-sm btn-secondary js-unship"
                                     data-sr-id="{{ sr.id }}" data-sr-number="{{ sr.request_number }}"
                                     title="Cofnij pomyłkowe oznaczenie jako wysłane">

@@ -6,6 +6,15 @@
 // CARD SELECTION SYSTEM
 // ============================================
 
+// Czy zalogowany użytkownik może księgować wpłaty przyjęte poza systemem.
+// Przyciski renderowane po stronie serwera mają własny warunek roli w szablonie;
+// ten helper obsługuje te, które rysuje JavaScript (uczestnicy paczki zbiorczej).
+// Domyślnie false — brak flagi ma ukrywać akcję, nie odsłaniać jej.
+function mozeKsiegowacWplaty() {
+    const strona = document.querySelector('.wms-dashboard-page');
+    return strona ? strona.dataset.canRegisterPayment === 'true' : false;
+}
+
 // Store selected shipping request IDs
 let selectedRequests = new Set();
 // Status zleceń zaznaczonych przez "zaznacz na wszystkich stronach" — te zlecenia
@@ -923,7 +932,11 @@ function renderConsolidation(blokady) {
             if (consolidationState.mode === 'manage') {
                 // Zaksięgowanie wpłaty offline ma sens tylko dla uczestnika, który
                 // jeszcze nie jest opłacony — po opłaceniu przycisk znika sam.
-                if (r.status === 'czeka_na_oplacenie' || r.status === 'czeka_na_wycene') {
+                // Trasa księgowania ma @role_required('admin'), więc moderatorowi
+                // przycisku nie rysujemy: kliknięcie kończyłoby się odmową pokazaną
+                // jako „Błąd połączenia", bez słowa o uprawnieniach.
+                if (mozeKsiegowacWplaty() &&
+                    (r.status === 'czeka_na_oplacenie' || r.status === 'czeka_na_wycene')) {
                     const wplata = document.createElement('button');
                     wplata.type = 'button';
                     wplata.className = 'consolidation-register-pay';
