@@ -1096,6 +1096,18 @@ class EmailManager:
             )
             return
 
+        # Poza kontekstem żądania url_for(_external=True) wywala RuntimeError
+        # brakiem SERVER_NAME (nie jest ustawiany nigdzie w projekcie). Ta ścieżka
+        # jest osiągalna z wątku tła: OCR auto-zatwierdza E4 (utils/ocr_background.py
+        # — app_context bez request contextu) i przez _check_sr_auto_oplacone woła
+        # to powiadomienie. Bez tego zabezpieczenia wyjątek leciał do except niżej
+        # i klient nie dostawał maila o przejściu na „opłacone". Degradujemy do
+        # braku linku — jak w ścieżkach konsolidacji w tym samym pliku.
+        try:
+            requests_url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            requests_url = None
+
         try:
             send_shipping_status_change_email(
                 user_email=user.email,
@@ -1111,7 +1123,7 @@ class EmailManager:
                 orders=shipping_request.display_orders,
                 tracking_number=shipping_request.tracking_number,
                 courier_name=courier_name,
-                shipping_requests_url=url_for('client.shipping_requests_list', _external=True),
+                shipping_requests_url=requests_url,
                 log_context=kontekst_zlecenia(shipping_request)
             )
             current_app.logger.info(

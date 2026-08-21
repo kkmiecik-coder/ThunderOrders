@@ -474,3 +474,33 @@ def test_status_w_mailu_pochodzi_ze_zlecenia_zrodlowego(
         o.order_number for o in sr_b.display_orders
     }
     assert mail['orders'], 'Lista zamówień w mailu nie może być pusta'
+
+
+# ---------------------------------------------------------------------------
+# Powiadomienie nie może przepaść poza kontekstem żądania
+#
+# OCR auto-zatwierdza E4 w wątku tła (utils/ocr_background.py → app_context,
+# ale BEZ request contextu) i woła _check_sr_auto_oplacone, a ta —
+# notify_shipping_status_change. Ścieżka pojedynczego zlecenia budowała link
+# przez url_for(_external=True) wewnątrz try/except Exception: bez SERVER_NAME
+# (nie jest ustawiany nigdzie w projekcie) leciał RuntimeError, był cicho
+# łykany i klient nie dostawał maila o przejściu na „opłacone".
+# Ścieżki konsolidacji łapią ten wyjątek jawnie od dawna.
+# ---------------------------------------------------------------------------
+
+def test_mail_o_statusie_wychodzi_bez_kontekstu_zadania(
+        app, db, przechwycone, make_user, make_order):
+    _seed_sr_statuses(db)
+    sr, _orders = _sr(db, make_user(), make_order)
+    sr.status = 'oplacone'
+    db.session.commit()
+
+    from utils.email_manager import EmailManager
+    # Sam app_context, jak w wątku OCR — bez test_request_context.
+    with app.app_context():
+        EmailManager.notify_shipping_status_change(sr, 'czeka_na_oplacenie')
+
+    assert len(przechwycone['status_email']) == 1, (
+        'Brak linku nie może kosztować całego powiadomienia'
+    )
+    assert przechwycone['status_email'][0]['shipping_requests_url'] is None
