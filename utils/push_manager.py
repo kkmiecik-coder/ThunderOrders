@@ -866,8 +866,15 @@ class PushManager:
         )
 
     @staticmethod
-    def notify_shipment_consolidated(sr):
-        """Push o połączeniu wysyłek — po jednym na uczestnika paczki."""
+    def notify_shipment_consolidated(sr, nowi_uczestnicy=None):
+        """Push o połączeniu wysyłek — po jednym na uczestnika paczki.
+
+        `nowi_uczestnicy` (jak w EmailManager): przy dopięciu do istniejącej
+        paczki powiadamiamy tylko świeżo dopiętych. Push ma tag
+        `consolidation-{id}`, więc na urządzeniu podmieniłby się w miejscu —
+        ale dotychczasowi uczestnicy dostawaliby powiadomienie o zdarzeniu,
+        które ich nie dotyczy.
+        """
         from flask import url_for
         if not sr.is_consolidation:
             return
@@ -879,7 +886,11 @@ class PushManager:
         except RuntimeError:
             url = '/'
         adresat = sr.short_addressee_name or 'innej osoby'
+        tylko_id = ({z.id for z in nowi_uczestnicy}
+                    if nowi_uczestnicy is not None else None)
         for uczestnik in sr.consolidation_participants:
+            if tylko_id is not None and uczestnik['source_request'].id not in tylko_id:
+                continue
             user = uczestnik['user']
             if not user:
                 continue
@@ -892,6 +903,56 @@ class PushManager:
                       f'Twoje zamówienia pojadą w jednej paczce na adres: {adresat}'),
                 url=url,
                 tag=f'consolidation-{sr.id}',
+                notification_type='shipping_updates',
+            )
+
+    @staticmethod
+    def notify_consolidation_dissolved(sr, zrodla):
+        """Push o wyjściu z paczki zbiorczej — po jednym na zlecenie."""
+        from flask import url_for
+        if not zrodla:
+            return
+        try:
+            url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
+        for zrodlo in zrodla:
+            if not zrodlo.user_id:
+                continue
+            PushManager._fire_and_forget(
+                user_id=zrodlo.user_id,
+                title='Wysyłka jedzie osobno',
+                body='Twoje zamówienia nie jadą już w paczce zbiorczej — '
+                     'przesyłka pojedzie na Twój adres.',
+                url=url,
+                tag=f'unconsolidation-{zrodlo.id}',
+                notification_type='shipping_updates',
+            )
+
+    @staticmethod
+    def notify_consolidation_address_changed(sr, zrodla=None):
+        """Push o zmianie adresu odbioru paczki zbiorczej."""
+        from flask import url_for
+        if not sr.is_consolidation:
+            return
+        try:
+            url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
+        adresat = sr.short_addressee_name or 'innej osoby'
+        for uczestnik in sr.consolidation_participants:
+            user = uczestnik['user']
+            if not user:
+                continue
+            czy_adresat = uczestnik['source_request'].id == sr.lead_source_request_id
+            PushManager._fire_and_forget(
+                user_id=user.id,
+                title='Zmiana adresu paczki',
+                body=('Paczka zbiorcza pojedzie teraz na Twój adres'
+                      if czy_adresat else
+                      f'Paczka zbiorcza pojedzie teraz na adres: {adresat}'),
+                url=url,
+                tag=f'consolidation-address-{sr.id}',
                 notification_type='shipping_updates',
             )
 

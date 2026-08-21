@@ -4792,13 +4792,46 @@ def admin_consolidation_preview():
     return jsonify({'success': True, 'requests': pozycje, 'blocked': blokady})
 
 
-def _powiadom_o_konsolidacji(zbiorcze):
-    """Powiadomienia dla uczestników paczki. Pełna implementacja w utils/email_manager.py."""
+def _powiadom_o_wyjsciu_z_paczki(zrodla):
+    """Uczestnicy wracają do samodzielnej wysyłki — ich mail o paczce zbiorczej
+    przestaje obowiązywać. Wołane po rozwiązaniu paczki i po wypięciu."""
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    if not zrodla:
+        return
+    try:
+        EmailManager.notify_consolidation_dissolved(None, zrodla)
+        PushManager.notify_consolidation_dissolved(None, zrodla)
+    except Exception as e:
+        current_app.logger.error(f'Błąd powiadomienia o wyjściu z paczki zbiorczej: {e}')
+
+
+def _powiadom_o_zmianie_adresu_paczki(zbiorcze):
+    """Adres odbioru paczki się zmienił — uczestnik pojechałby po przesyłkę
+    w złe miejsce."""
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
     try:
-        EmailManager.notify_shipment_consolidated(zbiorcze)
-        PushManager.notify_shipment_consolidated(zbiorcze)
+        EmailManager.notify_consolidation_address_changed(zbiorcze)
+        PushManager.notify_consolidation_address_changed(zbiorcze)
+    except Exception as e:
+        current_app.logger.error(f'Błąd powiadomienia o zmianie adresu paczki: {e}')
+
+
+def _powiadom_o_konsolidacji(zbiorcze, nowi_uczestnicy=None):
+    """Powiadomienia dla uczestników paczki. Pełna implementacja w utils/email_manager.py.
+
+    `nowi_uczestnicy` podaje DOPIĘCIE do istniejącej paczki: bez tego mail
+    „Twoja wysyłka została połączona w paczkę zbiorczą" szedł ponownie do
+    wszystkich dotychczasowych uczestników, więc paczka budowana etapami przez
+    kilka dni oznaczała tyle maili, ile było dopięć. None = tworzenie paczki,
+    czyli powiadom wszystkich.
+    """
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+    try:
+        EmailManager.notify_shipment_consolidated(zbiorcze, nowi_uczestnicy)
+        PushManager.notify_shipment_consolidated(zbiorcze, nowi_uczestnicy)
     except Exception as e:
         current_app.logger.error(
             f'Błąd powiadomienia o konsolidacji {zbiorcze.request_number}: {e}')
@@ -4829,12 +4862,22 @@ def admin_consolidate_shipping_requests():
             target = db.session.get(ShippingRequest, target_id)
             if not target:
                 return jsonify({'error': 'Nie znaleziono paczki zbiorczej'}), 404
-            dopnij_do_konsolidacji(target, [i for i in ids if i != target.id])
+            dopinane_ids = [i for i in ids if i != target.id]
+            dopnij_do_konsolidacji(target, dopinane_ids)
             zbiorcze = target
+            # Powiadamiamy TYLKO świeżo dopiętych — patrz _powiadom_o_konsolidacji.
+            # Zapytanie do bazy, NIE target.consolidated_sources: backref raz
+            # załadowany w tej sesji nie widzi wierszy dopiętych przed chwilą
+            # (ten sam powód, dla którego moduł konsolidacji ma _uczestnicy_z_bazy).
+            nowi = ShippingRequest.query.filter(
+                ShippingRequest.id.in_(dopinane_ids),
+                ShippingRequest.consolidated_into_id == target.id,
+            ).all() if dopinane_ids else []
         else:
             if not lead_id:
                 return jsonify({'error': 'Wskaż zlecenie wiodące'}), 400
             zbiorcze = utworz_konsolidacje(ids, lead_id)
+            nowi = None            # nowa paczka: powiadom wszystkich uczestników
         db.session.commit()
     except ConsolidationError as e:
         db.session.rollback()
@@ -4851,7 +4894,7 @@ def admin_consolidate_shipping_requests():
                      f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
         }), 500
 
-    _powiadom_o_konsolidacji(zbiorcze)
+    _powiadom_o_konsolidacji(zbiorcze, nowi)
 
     log_activity(
         user=current_user, action='shipping_requests_consolidated',
@@ -4905,6 +4948,8 @@ def admin_consolidation_change_lead(shipping_request_id):
                      f'podaj go przy zgłoszeniu.',
         }), 500
 
+    _powiadom_o_zmianie_adresu_paczki(target)
+
     log_activity(
         user=current_user, action='shipping_request_consolidation_lead_changed',
         entity_type='shipping_request', entity_id=target.id,
@@ -4940,6 +4985,12 @@ def admin_consolidation_detach(shipping_request_id):
     except (ValueError, TypeError):
         return jsonify({'error': 'Nieprawidłowy identyfikator zlecenia do wypięcia — oczekiwano liczby całkowitej'}), 400
 
+    # Uczestnicy PRZED wypięciem: gdy operacja rozwiąże paczkę (zejście do
+    # jednego), z paczki wychodzą wszyscy, a po commicie relacje są już zerwane
+    # i nie da się ich odczytać z paczki.
+    uczestnicy_przed = [z.id for z in ShippingRequest.query.filter(
+        ShippingRequest.consolidated_into_id == target.id).all()]
+
     try:
         rozwiazana = wypnij_zlecenie(target, source_id)
         db.session.commit()
@@ -4954,6 +5005,14 @@ def admin_consolidation_detach(shipping_request_id):
             'error': f'Nie wypięto zlecenia z paczki {numer} — nieoczekiwany błąd serwera. '
                      f'Identyfikator błędu: {blad_id} — podaj go przy zgłoszeniu.',
         }), 500
+
+    # Wypięty klient wraca do samodzielnej wysyłki, a przy rozwiązaniu paczki
+    # wracają wszyscy — w obu przypadkach ich mail o paczce zbiorczej przestaje
+    # obowiązywać. Odczyt z bazy, bo relacje zostały właśnie zerwane.
+    do_powiadomienia = [source_id] if not rozwiazana else uczestnicy_przed
+    wypiete = ShippingRequest.query.filter(
+        ShippingRequest.id.in_(do_powiadomienia)).all() if do_powiadomienia else []
+    _powiadom_o_wyjsciu_z_paczki(wypiete)
 
     log_activity(
         user=current_user, action='shipping_request_consolidation_detached',
@@ -4985,6 +5044,7 @@ def admin_consolidation_dissolve(shipping_request_id):
         zrodla = rozwiaz_konsolidacje(target)
         numery = [s.request_number for s in zrodla]
         db.session.commit()
+        _powiadom_o_wyjsciu_z_paczki(zrodla)
     except ConsolidationError as e:
         db.session.rollback()
         return jsonify({'error': e.message}), e.status_code
