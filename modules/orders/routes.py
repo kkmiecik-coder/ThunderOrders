@@ -3976,6 +3976,8 @@ def admin_get_shipping_request(shipping_request_id):
             continue
         if sr.is_consolidation and st.slug not in STATUSY_LOGISTYCZNE:
             continue
+        if _wyslane_bez_pokrycia(sr, st.slug):
+            continue
         dostepne_statusy.append({
             'slug': st.slug,
             'name': st.name,
@@ -4148,6 +4150,33 @@ def _status_logistyczny_dla_zrodla(sr, nowy_status):
     return sr.is_consolidated_source and nowy_status in STATUSY_LOGISTYCZNE
 
 
+def _wyslane_bez_pokrycia(sr, nowy_status):
+    """Powód, dla którego zlecenia NIE wolno ręcznie oznaczyć „wysłane" — albo None.
+
+    Bramka „nieopłacona paczka nie wyjedzie" stoi w `ship_shipping_request`, ale
+    ta ścieżka zapisuje `sr.status` i commituje ZANIM tam trafi, a odmowę łapie
+    `_sync_order_statuses_from_shipping_request` i tylko loguje. Bez tego
+    sprawdzenia nieopłacone zlecenie dostawało etykietę „Wysłane" bez nadania:
+    pusty `shipped_at`, brak wpisów przesyłki, brak maila — paczka stoi, a
+    zlecenie wypada z kolejki roboczej magazynu.
+
+    Liczone z DANYCH (`zlecenie_rozliczone`), nie ze statusu — ta sama reguła,
+    którą stosuje bramka wysyłki, więc oba wejścia mówią to samo.
+    """
+    if nowy_status != 'wyslane':
+        return None
+
+    from modules.orders.wms_utils import zlecenie_rozliczone
+
+    if zlecenie_rozliczone(sr):
+        return None
+
+    aktywne = sr.active_orders
+    do_zaplaty = sum((o.stage_4_remaining for o in aktywne), Decimal('0.00'))
+    return (f'brakuje {do_zaplaty} zł za wysyłkę' if do_zaplaty > 0
+            else 'nie ma w nim żadnego aktywnego zamówienia')
+
+
 class BladZapisuZlecenia(Exception):
     """Odmowa zapisu zlecenia wysyłki z powodem nadającym się do pokazania adminowi.
 
@@ -4288,6 +4317,15 @@ def _zapisz_zlecenie_wysylki(sr, data):
                     sr, f'jest paczką zbiorczą — status „{nowy_status.name}" '
                         f'wynika ze stanu uczestników i nie ustawia się go ręcznie. '
                         f'Zmień status na zleceniu uczestnika albo zaksięguj wpłatę.')
+
+            # Drugie sprawdzenie tej samej reguły co przy budowaniu listy wyżej:
+            # stara karta może wysłać status, którego dzisiejsza lista już nie podaje.
+            powod = _wyslane_bez_pokrycia(sr, data['status'])
+            if powod:
+                raise _odmowa_zapisu(
+                    sr, f'nie zostało jeszcze opłacone ({powod}) — nie można go '
+                        f'oznaczyć jako wysłane. Zaksięguj wpłatę albo poczekaj '
+                        f'na potwierdzenie od klienta.')
 
         sr.status = data['status']
     if 'courier' in data:
