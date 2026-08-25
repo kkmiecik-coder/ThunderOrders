@@ -266,7 +266,7 @@
         socket.on('session_ended', function(data) {
             showToast(data.message || 'Sesja WMS została zakończona', 'info');
             setTimeout(function() {
-                window.location.href = '/admin/orders';
+                window.location.href = '/admin/orders/wms';
             }, 1500);
         });
 

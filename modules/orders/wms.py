@@ -1036,7 +1036,7 @@ def wms_complete_session(session_id):
         return jsonify({
             'success': True,
             'message': f'Sesja WMS zakończona — spakowano {session.packed_orders_count}/{session.orders_count} zamówień',
-            'redirect_url': url_for('orders.admin_list'),
+            'redirect_url': url_for('orders.wms_dashboard'),
         })
 
     except Exception as e:
