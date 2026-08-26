@@ -2019,12 +2019,6 @@ def settings():
         setting = Settings.query.filter_by(key=key).first()
         return setting.value if setting else default
 
-    offer_closure_settings = {
-        'fully_fulfilled': get_setting_value('offer_closure_status_fully_fulfilled', 'oczekujace'),
-        'partially_fulfilled': get_setting_value('offer_closure_status_partially_fulfilled', 'oczekujace'),
-        'not_fulfilled': get_setting_value('offer_closure_status_not_fulfilled', 'anulowane')
-    }
-
     # Load shipping request statuses
     shipping_request_statuses = ShippingRequestStatus.query.order_by(ShippingRequestStatus.sort_order).all()
 
@@ -2069,7 +2063,6 @@ def settings():
         statuses=statuses,
         wms_statuses=wms_statuses,
         payment_methods=payment_methods,
-        offer_closure_settings=offer_closure_settings,
         shipping_request_statuses=shipping_request_statuses,
         shipping_request_allowed_statuses=shipping_request_allowed_statuses,
         shipping_request_default_status=shipping_request_default_status,
@@ -2124,88 +2117,6 @@ def update_ocr_settings():
 
     flash('Ustawienia OCR zostały zapisane.', 'success')
     return redirect(url_for('orders.settings') + '#tab-payment-methods')
-
-
-@orders_bp.route('/admin/orders/settings/offer-closure', methods=['POST'])
-@login_required
-@role_required('admin')
-def update_offer_closure_settings():
-    """
-    Update offer closure settings - configure automatic status changes after offer page closure.
-    Only accessible to admins.
-    """
-    from modules.auth.models import Settings
-
-    try:
-        # Get form data
-        status_fully = request.form.get('offer_closure_status_fully_fulfilled', '').strip()
-        status_partially = request.form.get('offer_closure_status_partially_fulfilled', '').strip()
-        status_not = request.form.get('offer_closure_status_not_fulfilled', '').strip()
-
-        # Validate required fields
-        if not status_fully or not status_partially or not status_not:
-            flash('Wszystkie pola są wymagane', 'error')
-            return redirect(url_for('orders.settings'))
-
-        # Validate that statuses exist
-        valid_statuses = [s.slug for s in OrderStatus.query.filter_by(is_active=True).all()]
-
-        if status_fully not in valid_statuses:
-            flash(f'Status "{status_fully}" nie istnieje lub jest nieaktywny', 'error')
-            return redirect(url_for('orders.settings'))
-
-        if status_partially not in valid_statuses:
-            flash(f'Status "{status_partially}" nie istnieje lub jest nieaktywny', 'error')
-            return redirect(url_for('orders.settings'))
-
-        if status_not not in valid_statuses:
-            flash(f'Status "{status_not}" nie istnieje lub jest nieaktywny', 'error')
-            return redirect(url_for('orders.settings'))
-
-        # Update or create settings
-        def update_or_create_setting(key, value):
-            setting = Settings.query.filter_by(key=key).first()
-            if setting:
-                setting.value = value
-                setting.updated_at = datetime.now()
-            else:
-                # Create new setting if it doesn't exist
-                setting = Settings(
-                    key=key,
-                    value=value,
-                    type='string',
-                    description=f'Auto-generated setting for {key}'
-                )
-                db.session.add(setting)
-
-        update_or_create_setting('offer_closure_status_fully_fulfilled', status_fully)
-        update_or_create_setting('offer_closure_status_partially_fulfilled', status_partially)
-        update_or_create_setting('offer_closure_status_not_fulfilled', status_not)
-
-        db.session.commit()
-
-        # Activity log
-        from utils.activity_logger import log_activity
-        log_activity(
-            user=current_user,
-            action='settings_updated',
-            entity_type='settings',
-            entity_id=None,
-            old_value=None,
-            new_value={
-                'fully_fulfilled': status_fully,
-                'partially_fulfilled': status_partially,
-                'not_fulfilled': status_not
-            }
-        )
-
-        flash('Ustawienia zostały zapisane', 'success')
-        return redirect(url_for('orders.settings') + '#tab-offer-closure')
-
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
-        return redirect(url_for('orders.settings'))
 
 
 # ============================================
