@@ -277,50 +277,56 @@
                     <div class="wms-packing-warnings" id="wmsPackingWarnings"></div>
                 </div>
 
-                <!-- Suggestions (top 3 cards) -->
-                <div class="packing-suggestions" id="wmsPackingSuggestions">
-                    <div class="packing-suggestions-loading" id="wmsPackingSuggestionsLoading">
-                        <span>Ładowanie sugestii...</span>
+                <!-- Przewijana zawartość — nie może przykryć paska akcji poniżej -->
+                <div class="wms-packing-body">
+                    <!-- Suggestions (top 3 cards) -->
+                    <div class="packing-suggestions" id="wmsPackingSuggestions">
+                        <div class="packing-suggestions-loading" id="wmsPackingSuggestionsLoading">
+                            <span>Ładowanie sugestii...</span>
+                        </div>
+                    </div>
+
+                    <!-- Manual material dropdown -->
+                    <div class="wms-packing-manual">
+                        <label for="wmsPackingMaterialSelect">Lub wybierz ręcznie:</label>
+                        <select id="wmsPackingMaterialSelect" class="wms-packing-select">
+                            <option value="">— brak opakowania —</option>
+                        </select>
+                    </div>
+
+                    <!-- Weight input -->
+                    <div class="wms-packing-weight">
+                        <label for="wmsPackingWeight">Waga całej paczki (kg):</label>
+                        <input type="number" id="wmsPackingWeight" class="wms-packing-weight-input"
+                               step="0.01" min="0" placeholder="0.00">
+                    </div>
+
+                    <!-- Packing photo -->
+                    <div class="wms-packing-photo" id="wmsPackingPhoto" style="display: none;">
+                        <div class="wms-packing-photo-label">Zdjęcie paczki:</div>
+                        <a class="wms-packing-photo-thumb" id="wmsPackingPhotoThumb" href="#" target="_blank" rel="noopener">
+                            <img id="wmsPackingPhotoImg" src="" alt="Zdjęcie paczki">
+                        </a>
                     </div>
                 </div>
 
-                <!-- Manual material dropdown -->
-                <div class="wms-packing-manual">
-                    <label for="wmsPackingMaterialSelect">Lub wybierz ręcznie:</label>
-                    <select id="wmsPackingMaterialSelect" class="wms-packing-select">
-                        <option value="">— brak opakowania —</option>
-                    </select>
+                <!-- Pasek akcji — zawsze widoczny, poza obszarem przewijania -->
+                <div class="wms-packing-footer">
+                    <!-- Send email checkbox -->
+                    <label class="wms-email-checkbox" id="wmsEmailLabel">
+                        <input type="checkbox" id="wmsSendEmailCheckbox" checked>
+                        <span>Wyślij zdjęcie do klienta</span>
+                    </label>
+
+                    <!-- Confirm button -->
+                    <button class="btn btn-lg btn-success wms-pack-btn" id="btnPackOrder" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 11 12 14 22 4"></polyline>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                        </svg>
+                        Spakuj zlecenie
+                    </button>
                 </div>
-
-                <!-- Weight input -->
-                <div class="wms-packing-weight">
-                    <label for="wmsPackingWeight">Waga całej paczki (kg):</label>
-                    <input type="number" id="wmsPackingWeight" class="wms-packing-weight-input"
-                           step="0.01" min="0" placeholder="0.00">
-                </div>
-
-                <!-- Packing photo -->
-                <div class="wms-packing-photo" id="wmsPackingPhoto" style="display: none;">
-                    <div class="wms-packing-photo-label">Zdjęcie paczki:</div>
-                    <a class="wms-packing-photo-thumb" id="wmsPackingPhotoThumb" href="#" target="_blank" rel="noopener">
-                        <img id="wmsPackingPhotoImg" src="" alt="Zdjęcie paczki">
-                    </a>
-                </div>
-
-                <!-- Send email checkbox -->
-                <label class="wms-email-checkbox" id="wmsEmailLabel">
-                    <input type="checkbox" id="wmsSendEmailCheckbox" checked>
-                    <span>Wyślij zdjęcie do klienta</span>
-                </label>
-
-                <!-- Confirm button -->
-                <button class="btn btn-lg btn-success wms-pack-btn" id="btnPackOrder" disabled>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="9 11 12 14 22 4"></polyline>
-                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                    </svg>
-                    Spakuj zlecenie
-                </button>
             </div>
         </div>
     </div>

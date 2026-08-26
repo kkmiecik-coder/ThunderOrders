@@ -631,7 +631,9 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-height: 0;
+    /* Lista nigdy nie schodzi do zera — dolne sekcje (pakowanie, wysyłka)
+       potrafiły zjeść całą kolumnę i lista pozycji znikała z ekranu. */
+    min-height: 140px;
     overflow-y: auto;
     padding-bottom: 8px;
 }
@@ -914,8 +916,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 0;
-    margin-bottom: 8px;
+    padding: 4px 0;
+    margin-bottom: 6px;
     font-size: 13px;
     color: #4b5563;
     cursor: pointer;
@@ -1988,17 +1990,43 @@
    ============================================ */
 
 .wms-packing-section {
-    padding: 20px 24px;
+    padding: 14px 20px;
     border-top: 2px solid #e5e7eb;
     background: #f8f9fa;
+    /* Nagłówek i pasek akcji stoją w miejscu, przewija się tylko środek.
+       Bez tego wysoka zawartość ściskała sekcję i ucinała przycisk na dole.
+       max-height trzyma dół w ryzach, żeby lista pozycji miała gdzie być. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 45%;
 }
 
 .wms-packing-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+/* Przewijana zawartość sekcji pakowania (sugestie, wybór ręczny, waga, zdjęcie) */
+.wms-packing-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* zapas na pasek przewijania, bez przesuwania treści */
+    padding-right: 4px;
+    margin-right: -4px;
+}
+
+/* Pasek akcji — zawsze widoczny, nigdy nie przewijany */
+.wms-packing-footer {
+    flex-shrink: 0;
+    padding-top: 10px;
+    margin-top: 10px;
+    border-top: 1px solid #e5e7eb;
 }
 
 .wms-packing-header h3 {
@@ -2177,6 +2205,10 @@
 
 [data-theme="dark"] .wms-packing-section {
     background: rgba(255, 255, 255, 0.03);
+    border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .wms-packing-footer {
     border-top-color: rgba(240, 147, 251, 0.15);
 }
 
@@ -2411,9 +2443,16 @@
     background: #ffffff;
     border: 2px solid #10B981;
     border-radius: 12px;
-    margin-top: 16px;
+    margin-top: 12px;
     overflow: hidden;
     animation: slideInUp 0.3s ease;
+    /* Nagłówek i stopka z przyciskami zostają na miejscu, przewija się tylko
+       środek panelu — inaczej wysoka lista kosztów ucinała "Oznacz jako wysłane".
+       max-height trzyma panel w ryzach, żeby lista pozycji miała gdzie być. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 50%;
 }
 
 @keyframes slideInUp {
@@ -2431,18 +2470,22 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 16px;
+    padding: 9px 16px;
     background: linear-gradient(135deg, #10B981, #059669);
     color: #fff;
     font-weight: 600;
     font-size: 0.95rem;
+    flex-shrink: 0;
 }
 
 .wms-shipping-panel-body {
-    padding: 16px;
+    padding: 12px 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .shipping-panel-section {
@@ -2529,9 +2572,10 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding: 12px 16px;
+    padding: 10px 16px;
     border-top: 1px solid #E5E7EB;
     background: #F9FAFB;
+    flex-shrink: 0;
 }
 
 /* ============================================
