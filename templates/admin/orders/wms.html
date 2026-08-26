@@ -7,6 +7,8 @@
     <title>WMS — Sesja #{{ wms_session.id }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    {# Szablon samodzielny (nie dziedziczy base.html), więc styl toastów trzeba dociągnąć jawnie #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toasts.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/wms.css') }}">
 </head>
 <body>

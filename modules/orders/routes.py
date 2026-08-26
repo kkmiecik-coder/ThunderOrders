@@ -690,7 +690,6 @@ def admin_update_shipping_address(order_id):
         order.updated_at = datetime.now()
         db.session.commit()
 
-        flash('Adres dostawy zaktualizowany', 'success')
         return '<div class="alert alert-success">Adres dostawy zapisany</div>'
 
     return '<div class="alert alert-error">Błąd podczas aktualizacji adresu</div>', 400
@@ -716,7 +715,6 @@ def admin_update_pickup_point(order_id):
         order.updated_at = datetime.now()
         db.session.commit()
 
-        flash('Punkt odbioru zaktualizowany', 'success')
         return '<div class="alert alert-success">Punkt odbioru zapisany</div>'
 
     return '<div class="alert alert-error">Błąd podczas aktualizacji punktu odbioru</div>', 400
@@ -767,8 +765,6 @@ def admin_update_tracking(order_id):
                 tracking_number=order.tracking_number,
                 courier_name=COURIER_NAMES.get(order.courier, order.courier or 'Kurier')
             )
-
-        flash('Informacje o śledzeniu zaktualizowane', 'success')
 
         # Return updated tracking info HTML
         return render_template('admin/orders/_tracking_info.html', order=order)
@@ -1256,8 +1252,6 @@ def admin_delete_order(order_id):
 
     db.session.delete(order)
     db.session.commit()
-
-    flash(f'Zamówienie {order.order_number} zostało usunięte', 'success')
 
     return jsonify({'success': True, 'message': 'Zamówienie usunięte'}), 200
 

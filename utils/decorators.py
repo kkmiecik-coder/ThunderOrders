@@ -32,7 +32,9 @@ def role_required(*roles):
 
             # Sprawdź czy użytkownik ma odpowiednią rolę
             if current_user.role not in roles:
-                flash('Nie masz uprawnień do tej strony.', 'error')
+                # Bez flash() — abort(403) renderuje samodzielny errors/403.html,
+                # który komunikatu nie konsumuje. Zostawał w sesji i wyskakiwał
+                # użytkownikowi dopiero przy następnym przeładowaniu, bez kontekstu.
                 abort(403)  # Forbidden
 
             return f(*args, **kwargs)
