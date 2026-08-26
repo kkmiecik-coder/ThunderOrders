@@ -208,11 +208,10 @@ def offers_settings():
         setting = Settings.query.filter_by(key=key).first()
         return setting.value if setting else default
 
-    offers_closure_settings = {
-        'fully_fulfilled': get_setting_value('offers_closure_status_fully_fulfilled', 'oczekujace'),
-        'partially_fulfilled': get_setting_value('offers_closure_status_partially_fulfilled', 'oczekujace'),
-        'not_fulfilled': get_setting_value('offers_closure_status_not_fulfilled', 'anulowane')
-    }
+    # Prefill z tego samego źródła, z którego czyta silnik domykania — inaczej panel
+    # pokazuje jedno, a zamknięcie oferty robi drugie (regresja b7b10ea).
+    from utils.closure_settings import get_closure_statuses
+    offers_closure_settings = get_closure_statuses()
 
     auto_increase_settings = {
         'enabled': get_setting_value('auto_increase_enabled', 'false') == 'true',
@@ -2029,6 +2028,7 @@ def update_offers_closure_settings():
     """Update offers closure settings"""
     from modules.auth.models import Settings
     from utils.activity_logger import log_activity
+    from utils.closure_settings import CLOSURE_STATUS_KEYS, validate_closure_statuses
     import json
 
     # Get form data
@@ -2037,8 +2037,18 @@ def update_offers_closure_settings():
     not_fulfilled = request.form.get('offers_closure_status_not_fulfilled')
 
     # Validate
-    if not all([fully_fulfilled, partially_fulfilled, not_fulfilled]):
-        flash('Wszystkie statusy muszą być wybrane.', 'error')
+    wybrane = {
+        'fully_fulfilled': fully_fulfilled,
+        'partially_fulfilled': partially_fulfilled,
+        'not_fulfilled': not_fulfilled,
+    }
+
+    # Walidacja slugów: orders.status to klucz obcy do słownika statusów. Slug spoza
+    # słownika zapisałby się bez szemrania i wywalił dopiero przy domykaniu oferty —
+    # w transakcji, której rollback cofa alokację setów i wyzerowane ceny.
+    bledy = validate_closure_statuses(wybrane)
+    if bledy:
+        flash(bledy[0], 'error')
         return redirect(url_for('admin.offers_settings'))
 
     # Helper function to set setting value
@@ -2050,10 +2060,10 @@ def update_offers_closure_settings():
             setting = Settings(key=key, value=value, type='string')
             db.session.add(setting)
 
-    # Update settings
-    set_setting_value('offers_closure_status_fully_fulfilled', fully_fulfilled)
-    set_setting_value('offers_closure_status_partially_fulfilled', partially_fulfilled)
-    set_setting_value('offers_closure_status_not_fulfilled', not_fulfilled)
+    # Update settings (nazwy kluczy: utils/closure_settings.py — jedno źródło prawdy
+    # dla zapisu, odczytu i prefillu formularza)
+    for kategoria, slug in wybrane.items():
+        set_setting_value(CLOSURE_STATUS_KEYS[kategoria], slug)
     db.session.commit()
 
     # Log activity

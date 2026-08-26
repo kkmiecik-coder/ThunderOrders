@@ -15,8 +15,9 @@ from flask import current_app, url_for
 from extensions import db
 from modules.offers.models import OfferPage, OfferSection, OfferSetItem
 from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirmation
-from modules.auth.models import Settings, User
+from modules.auth.models import User
 from utils.transfer_title import render_transfer_title
+from utils.closure_settings import get_closure_statuses
 
 
 def calculate_set_fulfillment(page_id):
@@ -317,17 +318,15 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
             'fully_fulfilled': 0,
             'partially_fulfilled': 0,
             'not_fulfilled': 0,
-            'updated_order_ids': []
+            'updated_order_ids': [],
+            'not_fulfilled_order_ids': []
         }
 
-    # Pobierz ustawienia statusów z bazy
-    def get_status_setting(key, default):
-        setting = Settings.query.filter_by(key=key).first()
-        return setting.value if setting else default
-
-    status_fully = get_status_setting('offer_closure_status_fully_fulfilled', 'oczekujace')
-    status_partially = get_status_setting('offer_closure_status_partially_fulfilled', 'oczekujace')
-    status_not = get_status_setting('offer_closure_status_not_fulfilled', 'anulowane')
+    # Pobierz ustawienia statusów z bazy (nazwy kluczy: utils/closure_settings.py)
+    statusy = get_closure_statuses()
+    status_fully = statusy['fully_fulfilled']
+    status_partially = statusy['partially_fulfilled']
+    status_not = statusy['not_fulfilled']
 
     orders = Order.query.filter_by(offer_page_id=page_id).all()
 
@@ -335,7 +334,11 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
         'fully_fulfilled': 0,
         'partially_fulfilled': 0,
         'not_fulfilled': 0,
-        'updated_order_ids': []
+        'updated_order_ids': [],
+        # Adresaci maila o anulowaniu — wybierani po KLASYFIKACJI, nie po statusie.
+        # Gdy admin ustawi ten sam slug dla dwóch kategorii, filtrowanie po statusie
+        # wysyła "nic się nie załapało" klientkom z pełnym kompletem.
+        'not_fulfilled_order_ids': []
     }
 
     for order in orders:
@@ -370,6 +373,8 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
 
             counts[fulfillment_type] += 1
             counts['updated_order_ids'].append(order.id)
+            if fulfillment_type == 'not_fulfilled':
+                counts['not_fulfilled_order_ids'].append(order.id)
 
             # Kolejkuj email o zmianie statusu
             if order.customer_email:
@@ -523,19 +528,13 @@ def close_offer_page(page_id, user_id, send_emails=True):
                 # Email o closure (istniejący)
                 send_closure_emails(page_id, payment_deadline=page.payment_deadline)
 
-                # NOWE: Email o anulowaniu (tylko dla zamówień not_fulfilled)
-                status_not_fulfilled_setting = Settings.query.filter_by(
-                    key='offer_closure_status_not_fulfilled'
-                ).first()
-
-                if status_not_fulfilled_setting:
-                    status_not = status_not_fulfilled_setting.value
-                    not_fulfilled_orders = [
-                        oid for oid in status_update_result['updated_order_ids']
-                        if db.session.get(Order, oid).status == status_not
-                    ]
-                    if not_fulfilled_orders:
-                        send_cancellation_emails(page_id, not_fulfilled_orders)
+                # Email o anulowaniu — tylko dla zamówień sklasyfikowanych jako
+                # not_fulfilled. Wcześniej bramką było istnienie wiersza Settings,
+                # więc na instalacji bez zapisanych ustawień (czyli na produkcji)
+                # te maile nie wyszły ani razu od 2026-03-31.
+                not_fulfilled_orders = status_update_result.get('not_fulfilled_order_ids') or []
+                if not_fulfilled_orders:
+                    send_cancellation_emails(page_id, not_fulfilled_orders)
 
             except Exception as e:
                 current_app.logger.error(f"Błąd wysyłki emaili dla strony {page_id}: {str(e)}")
