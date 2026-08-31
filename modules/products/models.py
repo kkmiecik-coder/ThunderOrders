@@ -442,6 +442,12 @@ class PolandOrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=1)
     shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)
 
+    # Stawki wysyłki KR za sztukę, osobno dla całego albumu i dla samego incl.
+    # NULL w obu = partia sprzed rozdzielenia stawek → koszt dzieli się po równo
+    # (shipping_cost / quantity), dokładnie jak wcześniej. Bez backfillu.
+    shipping_cost_album_per_unit = db.Column(db.Numeric(10, 2), nullable=True, default=None)
+    shipping_cost_incl_per_unit = db.Column(db.Numeric(10, 2), nullable=True, default=None)
+
     # Cło/VAT — NULL: nie ustalono, 0: ustalono bez podatku, > 0: ustalono z podatkiem
     customs_vat_percentage = db.Column(db.Numeric(5, 2), nullable=True, default=None)
     customs_vat_amount = db.Column(db.Numeric(10, 2), nullable=True, default=None)
