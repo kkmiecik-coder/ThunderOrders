@@ -3952,6 +3952,48 @@ def _order_product_quantities(order, product_id):
     return ilosc, incl
 
 
+def _zapisz_incl_na_zamowieniu(order_id, product_id, incl_qty):
+    """Rozkłada `incl_qty` sztuk „samo incl" na pozycje zamówienia z danym produktem.
+
+    Jedno zamówienie może mieć ten sam produkt w kilku pozycjach (np. różne sety),
+    a okno partii operuje na sumie — rozdzielamy zachłannie po kolei, przycinając
+    do ilości efektywnej każdej pozycji.
+
+    Podnosi ValueError, gdy `incl_qty` przekracza sumę sztuk klienta.
+    """
+    from modules.orders.models import Order
+
+    order = db.session.get(Order, order_id)
+    if not order:
+        raise ValueError(f'Nie znaleziono zamówienia {order_id}')
+
+    if incl_qty < 0:
+        raise ValueError('Liczba sztuk „samo incl" nie może być ujemna')
+
+    dostepne = 0
+    pozycje = []
+    for item in order.items:
+        if item.product_id != product_id:
+            continue
+        efektywna = _client_item_qty(item)
+        if efektywna <= 0:
+            continue
+        dostepne += efektywna
+        pozycje.append((item, efektywna))
+
+    if incl_qty > dostepne:
+        raise ValueError(
+            f'Zamówienie {order.order_number}: „samo incl" = {incl_qty}, '
+            f'a klient ma tylko {dostepne} szt. tego produktu'
+        )
+
+    zostalo = incl_qty
+    for item, efektywna in pozycje:
+        przypisane = min(zostalo, efektywna)
+        item.incl_only_quantity = przypisane
+        zostalo -= przypisane
+
+
 def _allocate_product_shipping_fifo(product_id):
     """
     Przydziela koszty wysyłki danego produktu do zamówień klientów wg modelu
@@ -4330,6 +4372,48 @@ def create_poland_order():
             if not proxy_item:
                 continue
 
+            raw_album = item_data.get('album_rate')
+            raw_incl = item_data.get('incl_rate')
+            stawki_podane = raw_album is not None and raw_incl is not None
+
+            album_rate = incl_rate = None
+            if stawki_podane:
+                album_rate = Decimal(str(raw_album))
+                incl_rate = Decimal(str(raw_incl))
+                if album_rate < 0 or incl_rate < 0:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Stawki wysyłki nie mogą być ujemne.'
+                    }), 400
+
+            # Zapis wyboru album/incl na zamówieniach klientów MUSI się wykonać przed
+            # dystrybucją kosztów — _distribute_proxy_shipping_to_client_orders czyta
+            # incl_only_quantity prosto z pozycji zamówienia.
+            incl_lacznie = 0
+            for wpis in item_data.get('clients') or []:
+                try:
+                    incl_klienta = int(wpis.get('incl_only_quantity') or 0)
+                    _zapisz_incl_na_zamowieniu(
+                        wpis.get('order_id'), proxy_item.product_id, incl_klienta)
+                except ValueError as blad:
+                    db.session.rollback()
+                    return jsonify({'success': False, 'error': str(blad)}), 400
+                incl_lacznie += incl_klienta
+
+            if stawki_podane:
+                album_lacznie = (proxy_item.quantity or 0) - incl_lacznie
+                if album_lacznie < 0:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': ('Suma sztuk „samo incl" przekracza ilość w partii '
+                                  f'produktu {proxy_item.product_id}.')
+                    }), 400
+                # Suma linijki liczona po stronie serwera — front pokazuje ją tylko poglądowo.
+                shipping_cost = (album_rate * album_lacznie
+                                 + incl_rate * incl_lacznie).quantize(Decimal('0.01'))
+
             proxy_item.shipping_cost_total = shipping_cost
             proxy_item.shipping_cost_per_item = shipping_cost / proxy_item.quantity if proxy_item.quantity > 0 else 0
 
@@ -4348,6 +4432,8 @@ def create_poland_order():
                 order_id=proxy_item.order_id,
                 quantity=proxy_item.quantity,
                 shipping_cost=shipping_cost,
+                shipping_cost_album_per_unit=album_rate,
+                shipping_cost_incl_per_unit=incl_rate,
                 selected_size=proxy_item.selected_size,
             )
             db.session.add(poland_item)
