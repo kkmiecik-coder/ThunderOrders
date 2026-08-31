@@ -3933,7 +3933,13 @@ def _allocate_product_shipping_fifo(product_id):
     """
     Przydziela koszty wysyłki danego produktu do zamówień klientów wg modelu
     PER PARTIA + FIFO:
-      • każda partia (PolandOrderItem) ma swoją stawkę per szt = shipping_cost / quantity,
+      • każda partia (PolandOrderItem) ma stawkę za sztukę — w ogólnym przypadku
+        parę stawek (album, incl); jeśli obie są NULL (partia sprzed rozdzielenia
+        album/incl), obie stawki wynoszą shipping_cost / quantity, czyli stary
+        podział po równo,
+      • w obrębie sztuk przypadających jednemu zamówieniu klienta sztuki-albumy
+        konsumują się przed sztukami-incl (album_qty = ilość − incl_qty, patrz
+        `_order_product_quantities`),
       • sztuki zamówione przez klientów są przydzielane do partii w kolejności
         DATY ZŁOŻENIA zamówienia (najstarsze najpierw),
       • partie ustawione w kolejności ich utworzenia (created_at).

@@ -164,19 +164,32 @@ def test_klient_w_calosci_na_incl(db, make_user, make_order, make_product):
 
 
 def test_klient_mieszany_album_i_incl(db, make_user, make_order, make_product):
-    """2 szt. = 1 album (45) + 1 incl (12) = 57 zł na jednym zamówieniu."""
+    """Partia 3 szt. dzielona między DWA zamówienia — żadne nie zjada całej partii,
+    więc wynik faktycznie zależy od tego, czy incl jest liczony osobno od albumu.
+
+    Zam. A (starsze, 2 szt., w tym 1 incl) = 1 album (45) + 1 incl (12) = 57 zł.
+    Zam. B (nowsze, 1 szt., bez incl) = 1 album = 45 zł.
+
+    Dla kontroli: stara logika (podział partii po równo: 102 / 3 = 34 zł/szt.)
+    dałaby A = 2 × 34 = 68 zł, B = 1 × 34 = 34 zł — inny wynik niż tutaj, więc
+    ten test faktycznie odróżnia starą logikę od nowej (w przeciwieństwie do
+    poprzedniej wersji, gdzie jedno zamówienie zjadało całą partię i oba modele
+    dawały ten sam wynik 57 zł)."""
     from modules.products.routes import _allocate_product_shipping_fifo
 
     produkt = make_product()
     baza = datetime(2026, 8, 1, 10, 0)
-    _partia(db, produkt.id, qty=2, shipping='57', created_at=baza,
+    _partia(db, produkt.id, qty=3, shipping='102', created_at=baza,
             album_rate='45.00', incl_rate='12.00')
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
                             baza - timedelta(days=2), incl=1)
+    b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=1))
 
     alokacja = _allocate_product_shipping_fifo(produkt.id)
 
     assert alokacja[a.id] == Decimal('57.00')
+    assert alokacja[b.id] == Decimal('45.00')
 
 
 def test_dwie_partie_rozne_stawki_bez_dublowania(db, make_user, make_order, make_product):
@@ -211,21 +224,41 @@ def test_dwie_partie_rozne_stawki_bez_dublowania(db, make_user, make_order, make
     assert db.session.get(Order, b.id).proxy_shipping_cost == Decimal('20.00')
 
 
-def test_incl_przyciete_do_ilosci_zrealizowanej(db, make_user, make_order, make_product):
-    """Set zrealizowany częściowo: incl nie może przekroczyć ilości, którą klient dostał."""
+def test_incl_przyciete_per_pozycje_a_nie_na_sumie(db, make_user, make_order, make_product):
+    """Przycięcie `incl_only_quantity` do ilości efektywnej musi liczyć się PER POZYCJA,
+    nie na sumie pozycji zamówienia — ma to znaczenie, gdy ten sam produkt występuje
+    w zamówieniu w kilku pozycjach (normalny przypadek: ten sam produkt w kilku setach
+    jednego zamówienia; brak unikatu na (order_id, product_id)).
+
+    Jedno zamówienie, dwie pozycje tego samego produktu:
+      • poz. 1: quantity=2, fulfilled_quantity=1, incl_only_quantity=2
+        → efektywna=1 (przycięta do fulfilled_quantity), incl=min(2, 1)=1
+      • poz. 2: quantity=2, incl_only_quantity=0
+        → efektywna=2, incl=0
+    Razem: ilość=3, incl=1, album=2 → 45 + 45 + 12 = 102.00.
+
+    Liczenie na sumie pozycji (błędne, którego ten test pilnuje) zsumowałoby
+    incl_only_quantity BEZ przycięcia per pozycja: incl=2+0=2, album=3-2=1,
+    co dałoby 45 + 12 + 12 = 69.00 — inny (błędny) wynik."""
     from modules.orders.models import OrderItem
     from modules.products.routes import _allocate_product_shipping_fifo
 
     produkt = make_product()
     baza = datetime(2026, 8, 1, 10, 0)
-    _partia(db, produkt.id, qty=1, shipping='12', created_at=baza,
+    _partia(db, produkt.id, qty=3, shipping='102', created_at=baza,
             album_rate='45.00', incl_rate='12.00')
-    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
-                            baza - timedelta(days=2), incl=3)
-    pozycja = OrderItem.query.filter_by(order_id=a.id).one()
-    pozycja.fulfilled_quantity = 1
+    zam = make_order(make_user(), offer_page_id=1, created_at=baza - timedelta(days=2))
+    poz1 = OrderItem(
+        order_id=zam.id, product_id=produkt.id, quantity=2, fulfilled_quantity=1,
+        price=Decimal('130'), total=Decimal('260'), incl_only_quantity=2,
+    )
+    poz2 = OrderItem(
+        order_id=zam.id, product_id=produkt.id, quantity=2,
+        price=Decimal('130'), total=Decimal('260'), incl_only_quantity=0,
+    )
+    db.session.add_all([poz1, poz2])
     db.session.commit()
 
     alokacja = _allocate_product_shipping_fifo(produkt.id)
 
-    assert alokacja[a.id] == Decimal('12.00')
+    assert alokacja[zam.id] == Decimal('102.00')
