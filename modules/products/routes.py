@@ -3907,6 +3907,28 @@ def _client_item_qty(item):
     return qty or 0
 
 
+def _order_product_quantities(order, product_id):
+    """Ile sztuk danego produktu ma zamówienie i ile z nich to SAMO INCL.
+
+    Ilość efektywna liczona przez `_client_item_qty` (sety, częściowa realizacja);
+    `incl_only_quantity` przycinamy do niej per pozycja, żeby przy częściowo
+    zrealizowanym secie nie policzyć incl-a, którego klient nie dostał.
+
+    Zwraca (ilość, ilość_incl).
+    """
+    ilosc = 0
+    incl = 0
+    for item in order.items:
+        if item.product_id != product_id:
+            continue
+        efektywna = _client_item_qty(item)
+        if efektywna <= 0:
+            continue
+        ilosc += efektywna
+        incl += min(item.incl_only_quantity or 0, efektywna)
+    return ilosc, incl
+
+
 def _allocate_product_shipping_fifo(product_id):
     """
     Przydziela koszty wysyłki danego produktu do zamówień klientów wg modelu
@@ -3932,13 +3954,23 @@ def _allocate_product_shipping_fifo(product_id):
         .order_by(PolandOrder.created_at.asc(), PolandOrder.id.asc())
         .all()
     )
-    slots = []  # lista kosztów per sztuka, w kolejności partii
+    # Sloty jednostkowe: para stawek (album, incl) dla każdej sztuki, w kolejności partii.
+    # Partia bez stawek (obie NULL) = sprzed rozdzielenia — obie stawki równe
+    # shipping_cost / quantity, czyli stary podział po równo.
+    slots = []
     for pi in poland_items:
         qty = pi.quantity or 0
-        shipping = Decimal(str(pi.shipping_cost or 0))
-        if qty > 0:
-            per_unit = shipping / Decimal(qty)
-            slots.extend([per_unit] * qty)
+        if qty <= 0:
+            continue
+        stawka_album = pi.shipping_cost_album_per_unit
+        stawka_incl = pi.shipping_cost_incl_per_unit
+        if stawka_album is None or stawka_incl is None:
+            po_rowno = Decimal(str(pi.shipping_cost or 0)) / Decimal(qty)
+            stawka_album = stawka_incl = po_rowno
+        else:
+            stawka_album = Decimal(str(stawka_album))
+            stawka_incl = Decimal(str(stawka_incl))
+        slots.extend([(stawka_album, stawka_incl)] * qty)
 
     # Zamówienia klientów (exclusive) w kolejności daty złożenia (FIFO)
     client_orders = (
@@ -3951,22 +3983,51 @@ def _allocate_product_shipping_fifo(product_id):
     alloc = {}
     idx = 0
     for order in client_orders:
-        qty = sum(
-            _client_item_qty(item)
-            for item in order.items
-            if item.product_id == product_id
-        )
+        qty, incl_qty = _order_product_quantities(order, product_id)
         if qty <= 0:
             continue
+        album_qty = qty - incl_qty
         total = Decimal('0')
-        for _ in range(qty):
-            if idx < len(slots):
-                total += slots[idx]
-                idx += 1
-            else:
-                break  # brak partii dla tych sztuk — koszt naliczy się przy kolejnej partii
+        for numer_sztuki in range(qty):
+            if idx >= len(slots):
+                break  # brak partii dla tych sztuk — koszt naliczy się przy kolejnej
+            stawka_album, stawka_incl = slots[idx]
+            total += stawka_album if numer_sztuki < album_qty else stawka_incl
+            idx += 1
         alloc[order.id] = total.quantize(Decimal('0.01'))
     return alloc
+
+
+def _batch_allocation_for_range(product_id, batch_start, batch_end):
+    """Które zamówienia klientów (i ile sztuk) wpadają w zakres [batch_start, batch_end)
+    kolejki FIFO sztuk danego produktu.
+
+    Kolejka: zamówienia exclusive wg daty złożenia, każde zajmuje tyle miejsc, ile ma
+    sztuk efektywnych. Zwraca listę (order_id, ilość) w kolejności FIFO.
+    """
+    from modules.orders.models import Order
+
+    client_orders = (
+        Order.query
+        .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
+        .order_by(Order.created_at.asc(), Order.id.asc())
+        .all()
+    )
+
+    result = []
+    cursor = 0
+    for order in client_orders:
+        qty, _ = _order_product_quantities(order, product_id)
+        if qty <= 0:
+            continue
+        order_start, order_end = cursor, cursor + qty
+        cursor = order_end
+
+        overlap = min(order_end, batch_end) - max(order_start, batch_start)
+        if overlap > 0:
+            result.append((order.id, overlap))
+
+    return result
 
 
 def _allocate_batch_units_to_orders(poland_item):
@@ -3979,7 +4040,6 @@ def _allocate_batch_units_to_orders(poland_item):
 
     Zwraca listę (order_id, ilość), w kolejności FIFO zamówień klientów.
     """
-    from modules.orders.models import Order
     from modules.products.models import PolandOrder
 
     product_id = poland_item.product_id
@@ -4008,31 +4068,7 @@ def _allocate_batch_units_to_orders(poland_item):
     batch_start = sum(pi.quantity or 0 for pi in earlier_items)
     batch_end = batch_start + (poland_item.quantity or 0)
 
-    client_orders = (
-        Order.query
-        .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
-        .order_by(Order.created_at.asc(), Order.id.asc())
-        .all()
-    )
-
-    result = []
-    cursor = 0
-    for order in client_orders:
-        qty = sum(
-            _client_item_qty(item)
-            for item in order.items
-            if item.product_id == product_id
-        )
-        if qty <= 0:
-            continue
-        order_start, order_end = cursor, cursor + qty
-        cursor = order_end
-
-        overlap = min(order_end, batch_end) - max(order_start, batch_start)
-        if overlap > 0:
-            result.append((order.id, overlap))
-
-    return result
+    return _batch_allocation_for_range(product_id, batch_start, batch_end)
 
 
 def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
