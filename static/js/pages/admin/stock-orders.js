@@ -221,7 +221,15 @@ function renderPolandModal(orders) {
                 product_name: item.product.name,
                 quantity: item.quantity,
                 shipping_cost: 0,
-                order_index: orderIndex
+                order_index: orderIndex,
+                clients: (item.clients || []).map(c => ({
+                    order_id: c.order_id,
+                    order_number: c.order_number,
+                    client_name: c.client_name,
+                    quantity: c.quantity,
+                    order_total_quantity: c.order_total_quantity,
+                    incl_only_quantity: c.incl_only_quantity || 0
+                }))
             });
 
             const hasRealImage = item.product.image_url && !item.product.image_url.includes('placeholder');
@@ -245,6 +253,54 @@ function renderPolandModal(orders) {
             html += `oninput="handleShippingValueChange(${globalItemIndex})">`;
             html += `</td>`;
             html += `</tr>`;
+
+            const klienci = polandOrderData.items[globalItemIndex].clients;
+            if (klienci.length) {
+                html += `<tr class="poland-incl-row"><td colspan="4">`;
+                html += `<div class="poland-incl-clients">`;
+                klienci.forEach((k, clientIndex) => {
+                    html += `<div class="poland-incl-client">`;
+                    html += `<span class="poland-incl-client-name">${escapeHtml(k.client_name)}</span>`;
+                    html += `<span class="poland-incl-client-order">${escapeHtml(k.order_number)}</span>`;
+                    html += `<span class="poland-incl-client-qty">${k.quantity} szt</span>`;
+                    if (k.order_total_quantity > k.quantity) {
+                        html += `<span class="poland-incl-warning" title="Reszta sztuk tego klienta jest w innej partii. Liczba „samo incl” dotyczy całego zamówienia (${k.order_total_quantity} szt.), nie tylko tej partii.">⚠ ${k.quantity} z ${k.order_total_quantity} szt. w tej partii</span>`;
+                    }
+                    html += `<label class="poland-incl-label">samo incl:`;
+                    html += `<input type="number" class="form-input poland-incl-input" `;
+                    html += `data-item-index="${globalItemIndex}" data-client-index="${clientIndex}" `;
+                    html += `value="${k.incl_only_quantity}" min="0" max="${k.order_total_quantity}" step="1" `;
+                    html += `oninput="handleInclQtyChange(${globalItemIndex}, ${clientIndex})">`;
+                    html += `<span class="poland-incl-of">z ${k.order_total_quantity}</span>`;
+                    html += `</label>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+
+                html += `<div class="poland-rates" data-item-index="${globalItemIndex}">`;
+                html += `<div class="poland-rate-line">`;
+                html += `<span class="poland-rate-label">cały album</span>`;
+                html += `<span class="poland-rate-qty" data-role="album-qty">0 szt</span>`;
+                html += `<span class="poland-rate-times">×</span>`;
+                html += `<input type="number" class="form-input poland-rate-input" `;
+                html += `data-item-index="${globalItemIndex}" data-role="album-rate" `;
+                html += `placeholder="0,00" step="0.01" min="0" `;
+                html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `<span class="poland-rate-sum" data-role="album-sum">0,00 zł</span>`;
+                html += `</div>`;
+                html += `<div class="poland-rate-line">`;
+                html += `<span class="poland-rate-label">samo incl</span>`;
+                html += `<span class="poland-rate-qty" data-role="incl-qty">0 szt</span>`;
+                html += `<span class="poland-rate-times">×</span>`;
+                html += `<input type="number" class="form-input poland-rate-input" `;
+                html += `data-item-index="${globalItemIndex}" data-role="incl-rate" `;
+                html += `placeholder="0,00" step="0.01" min="0" `;
+                html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `<span class="poland-rate-sum" data-role="incl-sum">0,00 zł</span>`;
+                html += `</div>`;
+                html += `</div>`;
+                html += `</td></tr>`;
+            }
         });
 
         html += `</tbody></table>`;
@@ -254,7 +310,7 @@ function renderPolandModal(orders) {
     container.innerHTML = html;
 
     // Double-click on any shipping input: placeholder → value
-    container.querySelectorAll('.shipping-price-input, .shipping-value-input, .package-shipping-input').forEach(input => {
+    container.querySelectorAll('.shipping-price-input, .shipping-value-input, .package-shipping-input, .poland-rate-input').forEach(input => {
         input.addEventListener('dblclick', function() {
             if (!this.value && this.placeholder && this.placeholder !== '0,00') {
                 this.value = this.placeholder.replace(',', '.');
@@ -266,6 +322,8 @@ function renderPolandModal(orders) {
             this.classList.remove('input-error');
         });
     });
+
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -320,6 +378,10 @@ function calculateShippingCascade() {
     });
 
     updateShippingSummary();
+    // Kaskada przepisała placeholdery Wartość WSZYSTKICH wierszy, ale refreshRatesRow
+    // czyta ten placeholder do podpowiedzi stawki incl — bez przemiecenia wszystkich
+    // wierszy tutaj tylko wiersz ostatnio edytowany dostałby świeżą podpowiedź.
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -379,6 +441,9 @@ function handlePackageShippingChange(orderIndex) {
     });
 
     updateShippingSummary();
+    // Patrz komentarz w calculateShippingCascade — kaskada dotyka placeholdery
+    // Wartość wszystkich pozycji, więc podpowiedź stawki incl trzeba odświeżyć wszędzie.
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -469,6 +534,11 @@ function handleShippingPriceChange(itemIndex) {
     distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
+    // distributeToProducts przepisuje placeholder Wartość WSZYSTKICH pozycji tej
+    // paczki (patrz komentarz w calculateShippingCascade) — odświeżenie tylko
+    // itemIndex zostawiłoby nieaktualną podpowiedź stawki incl na innych wierszach,
+    // która i tak wysyła się do bazy jako realna stawka (parseValueOrPlaceholder).
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -496,6 +566,9 @@ function handleShippingValueChange(itemIndex) {
     distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
+    // Patrz komentarz w handleShippingPriceChange — distributeToProducts dotyka
+    // placeholdery Wartość wszystkich pozycji paczki, więc trzeba odświeżyć wszystkie.
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -530,12 +603,29 @@ function sumUpToPackage(orderIndex) {
 function updateShippingSummary() {
     const totalDeclared = parseFloat(document.getElementById('totalShippingCost').value) || 0;
 
-    // Sum all Wartość inputs that have actual values entered
+    // Sum all Wartość inputs that have actual values entered — ALE dla pozycji
+    // z aktywnym wierszem stawek (album/incl) liczymy albumRate * albumQty +
+    // inclRate * inclQty, dokładnie jak refreshRatesRow, bo to ta suma faktycznie
+    // idzie do bazy (serwer ignoruje pole Wartość i liczy ją sam ze stawek).
+    // Inaczej ten licznik mógł pokazywać "różnica 0,00", gdy pole Wartość akurat
+    // sumowało się do zadeklarowanej kwoty, a zapisana suma linijek była inna.
     let totalCalculated = 0;
     polandOrderData.items.forEach((item, idx) => {
-        const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
-        if (input) {
-            totalCalculated += parseFloat(input.value) || 0;
+        const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
+        const inclQty = (item.clients || []).reduce(
+            (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
+        const rateRowActive = box && inclQty > 0;
+
+        if (rateRowActive) {
+            const albumQty = (item.quantity || 0) - inclQty;
+            const albumRate = parseValueOrPlaceholder(box.querySelector('[data-role="album-rate"]'));
+            const inclRate = parseValueOrPlaceholder(box.querySelector('[data-role="incl-rate"]'));
+            totalCalculated += albumRate * albumQty + inclRate * inclQty;
+        } else {
+            const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
+            if (input) {
+                totalCalculated += parseFloat(input.value) || 0;
+            }
         }
     });
 
@@ -619,6 +709,55 @@ function confirmPolandOrder() {
         errors.push('Uzupełnij wartość wysyłki dla każdego produktu (może być 0)');
     }
 
+    let stawkiOk = true;
+    let inclStawkaOk = true;
+    polandOrderData.items.forEach((item, idx) => {
+        // incl_only_quantity dotyczy CAŁEGO zamówienia klienta i może przekraczać jego
+        // sztuki w TEJ partii (rozjechany przypadek) — do liczenia album/incl w tej
+        // partii bierzemy tylko część mieszczącą się w tej partii, inaczej album_qty
+        // wyszedłby ujemny.
+        const inclQty = item.clients.reduce(
+            (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
+        if (inclQty === 0) return;
+        const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
+        const albumInput = box.querySelector('[data-role="album-rate"]');
+        const inclInput = box.querySelector('[data-role="incl-rate"]');
+        const albumQty = (item.quantity || 0) - inclQty;
+        const raw = (albumInput.value || '').trim();
+        const albumParsed = parseFloat(raw);
+        // Pustość pola ma znaczenie tylko, gdy ktoś faktycznie bierze cały album w tej
+        // partii (albumQty > 0) — ale ujemna wartość jest błędem zawsze, inaczej przy
+        // wszystkich sztukach na incl admin mógłby wpisać "-5" i dostać surowe 400
+        // z serwera zamiast podświetlenia pola tutaj.
+        const albumPuste = albumQty > 0 && (raw === '' || isNaN(albumParsed));
+        const albumUjemne = raw !== '' && !isNaN(albumParsed) && albumParsed < 0;
+        if (albumPuste || albumUjemne) {
+            stawkiOk = false;
+            albumInput.classList.add('input-error');
+        } else {
+            albumInput.classList.remove('input-error');
+        }
+
+        // Stawka incl: puste pole korzysta z podpowiedzi (dozwolone), "0" jest
+        // dozwolone (wysyłka incl gratis) — błąd tylko przy jawnie wpisanej
+        // wartości ujemnej, zamiast puszczać ją do serwera i wracać surowym 400.
+        const inclRaw = (inclInput.value || '').trim();
+        if (inclRaw !== '' && (isNaN(parseFloat(inclRaw)) || parseFloat(inclRaw) < 0)) {
+            inclStawkaOk = false;
+            inclInput.classList.add('input-error');
+        } else {
+            inclInput.classList.remove('input-error');
+        }
+    });
+
+    if (!stawkiOk) {
+        errors.push('Wpisz stawkę za cały album w produktach, gdzie ktoś bierze samo incl');
+    }
+
+    if (!inclStawkaOk) {
+        errors.push('Stawka za samo incl nie może być ujemna');
+    }
+
     if (errors.length > 0) {
         if (typeof window.showToast === 'function') {
             window.showToast(errors[0], 'error');
@@ -658,10 +797,38 @@ function confirmPolandOrder() {
     const itemsPayload = polandOrderData.items.map((item, idx) => {
         const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
         const shippingCost = input ? (parseFloat(input.value) || 0) : 0;
-        return {
+
+        // incl_only_quantity dotyczy CAŁEGO zamówienia klienta i może przekraczać jego
+        // sztuki w TEJ partii (rozjechany przypadek) — do liczenia album/incl w tej
+        // partii bierzemy tylko część mieszczącą się w tej partii, inaczej album_qty
+        // wyszedłby ujemny.
+        const inclQty = item.clients.reduce(
+            (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
+        const payload = {
             proxy_order_item_id: item.proxy_order_item_id,
-            shipping_cost: shippingCost
+            shipping_cost: shippingCost,
+            clients: item.clients.map(c => ({
+                order_id: c.order_id,
+                incl_only_quantity: c.incl_only_quantity || 0,
+                // Ile z incl_only_quantity (pełnej wartości całego zamówienia) mieści się
+                // w TEJ partii — to samo wyrażenie, którym liczymy inclQty do wyświetlenia,
+                // żeby ekran i payload nigdy się nie rozjechały. Serwer używa tej liczby
+                // do album_lacznie/incl_lacznie tej linijki, a incl_only_quantity dalej
+                // zapisuje bez zmian na całym zamówieniu klienta.
+                incl_w_partii: Math.min(c.incl_only_quantity || 0, c.quantity)
+            }))
         };
+
+        // Stawki wysyłamy tylko wtedy, gdy ktokolwiek bierze samo incl — inaczej
+        // backend idzie starą ścieżką (jedna kwota dzielona po równo).
+        if (inclQty > 0) {
+            const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
+            const albumInput = box.querySelector('[data-role="album-rate"]');
+            const inclInput = box.querySelector('[data-role="incl-rate"]');
+            payload.album_rate = parseValueOrPlaceholder(albumInput);
+            payload.incl_rate = parseValueOrPlaceholder(inclInput);
+        }
+        return payload;
     });
 
     // Disable button
@@ -2325,3 +2492,114 @@ function bulkUnarchivePolandOrders() {
 }
 
 // Archiwum filter wrapper functions
+
+/**
+ * Czyta liczbę z pola liczbowego: wpisana wartość (także jawne "0") ma zawsze
+ * pierwszeństwo przed podpowiedzią (placeholder). Dopiero puste pole albo wartość,
+ * której nie da się sparsować, sięga po podpowiedź (przecinek jako separator
+ * dziesiętny, tak jak w placeholderach kaskady). Bez tego rozróżnienia zapis
+ * `parseFloat(input.value) || podpowiedz` po cichu zamieniał wpisane zero na
+ * podpowiedzianą stawkę, bo `parseFloat("0")` jest wartością fałszywą w JS.
+ */
+function parseValueOrPlaceholder(inputEl) {
+    if (!inputEl) return 0;
+    const raw = (inputEl.value || '').trim();
+    if (raw !== '') {
+        const parsed = parseFloat(raw);
+        if (!isNaN(parsed)) return parsed;
+    }
+    const ph = (inputEl.placeholder || '0').replace(',', '.');
+    const parsed = parseFloat(ph);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Zlicza sztuki album/incl dla pozycji i odświeża wiersz stawek.
+ * Gdy nikt nie bierze incl, wiersz stawek chowamy — okno wygląda jak wcześniej.
+ */
+function refreshRatesRow(itemIndex) {
+    const item = polandOrderData.items[itemIndex];
+    const box = document.querySelector(`.poland-rates[data-item-index="${itemIndex}"]`);
+    if (!item || !box) return;
+
+    // incl_only_quantity dotyczy CAŁEGO zamówienia klienta i może przekraczać jego
+    // sztuki w TEJ partii (rozjechany przypadek) — do wiersza stawek liczymy tylko
+    // część mieszczącą się w tej partii, inaczej albumQty wyszedłby ujemny.
+    const inclQty = item.clients.reduce(
+        (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
+    const albumQty = (item.quantity || 0) - inclQty;
+
+    box.style.display = inclQty > 0 ? '' : 'none';
+    box.querySelector('[data-role="album-qty"]').textContent = `${albumQty} szt`;
+    box.querySelector('[data-role="incl-qty"]').textContent = `${inclQty} szt`;
+
+    const albumInput = box.querySelector('[data-role="album-rate"]');
+    const inclInput = box.querySelector('[data-role="incl-rate"]');
+    const albumRate = parseValueOrPlaceholder(albumInput);
+
+    // Podpowiedź stawki incl: reszta z wartości linijki po opłaceniu albumów.
+    // Wartość linijki (Wartość) bywa tylko podpowiedziana kaskadą (rozdzielenie
+    // łącznej kwoty paczki) — bez czytania placeholdera podpowiedź incl zawsze
+    // wychodziłaby "0,00" przy najczęstszym sposobie wpisywania.
+    const wartoscInput = document.querySelector(`.shipping-value-input[data-item-index="${itemIndex}"]`);
+    const wartosc = parseValueOrPlaceholder(wartoscInput);
+    const reszta = wartosc - albumRate * albumQty;
+    const podpowiedz = inclQty > 0 && reszta > 0 ? (reszta / inclQty) : 0;
+    inclInput.placeholder = podpowiedz > 0 ? podpowiedz.toFixed(2).replace('.', ',') : '0,00';
+
+    const inclRate = parseValueOrPlaceholder(inclInput);
+    box.querySelector('[data-role="album-sum"]').textContent =
+        (albumRate * albumQty).toFixed(2).replace('.', ',') + ' zł';
+    box.querySelector('[data-role="incl-sum"]').textContent =
+        (inclRate * inclQty).toFixed(2).replace('.', ',') + ' zł';
+}
+
+function handleInclQtyChange(itemIndex, clientIndex) {
+    const item = polandOrderData.items[itemIndex];
+    const input = document.querySelector(
+        `.poland-incl-input[data-item-index="${itemIndex}"][data-client-index="${clientIndex}"]`);
+    if (!item || !input) return;
+
+    const klient = item.clients[clientIndex];
+    let wartosc = parseInt(input.value, 10);
+    if (isNaN(wartosc) || wartosc < 0) wartosc = 0;
+    // Górny limit to CAŁE zamówienie klienta (może wykraczać poza tę partię, gdy
+    // reszta sztuk jest w innej partii) — pole samo incl jest jedną liczbą na całe
+    // zamówienie, nie per partia.
+    if (wartosc > klient.order_total_quantity) wartosc = klient.order_total_quantity;
+    input.value = wartosc;
+    klient.incl_only_quantity = wartosc;
+
+    // incl_only_quantity to JEDNA liczba na całe zamówienie klienta DLA DANEGO
+    // PRODUKTU — gdy ten sam order_id i ten sam product_id występują w kilku
+    // pozycjach tego okna (sztuki klienta rozjechane między kilka zamówień proxy
+    // tego samego produktu), pola "samo incl" muszą pokazywać tę samą wartość.
+    // Bez synchronizacji admin widzi dwie niezależne kontrolki dla jednej i tej
+    // samej liczby, a rozjazd między nimi odtwarzałby po stronie serwera błąd
+    // podwajania (patrz max() w create_poland_order). Synchronizacja musi być
+    // ograniczona do tego samego produktu — ten sam klient może mieć w oknie
+    // inny produkt z zupełnie inną (niezależną) wartością incl_only_quantity.
+    polandOrderData.items.forEach((innyItem, innyIndex) => {
+        if (innyIndex === itemIndex) return;
+        if (innyItem.product_id !== item.product_id) return;
+        innyItem.clients.forEach((innyKlient, innyClientIndex) => {
+            if (innyKlient.order_id !== klient.order_id) return;
+            let innyWartosc = wartosc;
+            if (innyWartosc > innyKlient.order_total_quantity) innyWartosc = innyKlient.order_total_quantity;
+            innyKlient.incl_only_quantity = innyWartosc;
+            const innyInput = document.querySelector(
+                `.poland-incl-input[data-item-index="${innyIndex}"][data-client-index="${innyClientIndex}"]`);
+            if (innyInput) innyInput.value = innyWartosc;
+            refreshRatesRow(innyIndex);
+        });
+    });
+
+    refreshRatesRow(itemIndex);
+}
+
+function handleRateChange(itemIndex) {
+    refreshRatesRow(itemIndex);
+}
+
+window.handleInclQtyChange = handleInclQtyChange;
+window.handleRateChange = handleRateChange;

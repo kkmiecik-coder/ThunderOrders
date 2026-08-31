@@ -3864,11 +3864,48 @@ def get_proxy_orders_details():
         proxy_orders = ProxyOrder.query.filter(ProxyOrder.id.in_(order_ids)).all()
 
         orders_data = []
+        # Ile sztuk danego produktu zajęły już wcześniejsze pozycje w TYM oknie —
+        # bez tego dwie pozycje z tym samym produktem wskazałyby te same sztuki.
+        offsety = {}
+        # Cache dzielony między WSZYSTKIMI pozycjami tego żądania — bez niego
+        # _preview_batch_allocation/_batch_allocation_for_range powtarzałyby dla
+        # każdej pozycji z osobna: zapytanie SUM(...) oraz pełny skan zamówień
+        # klientów exclusive (w lokalnej bazie 641 aktywnych) z lazy-loadem
+        # order.items. Zachowanie identyczne jak bez cache — patrz dokumentacja
+        # `cache` w tych funkcjach — tylko policzone raz na żądanie.
+        cache = {}
+        order_map = None
         for order in proxy_orders:
             items_data = []
             for item in order.items:
                 primary_image = item.product.primary_image
                 image_url = url_for('static', filename=f'uploads/products/compressed/{primary_image.filename}') if primary_image else url_for('static', filename='img/product-placeholder.svg')
+
+                pid = item.product_id
+                offset = offsety.get(pid, 0)
+                klienci = []
+                for order_id, ilosc in _preview_batch_allocation(pid, item.quantity, offset, cache=cache):
+                    if order_map is None:
+                        # Zamówienia klientów są już wczytane (z pozycjami) w cache
+                        # przez _batch_allocation_for_range — mapa zamiast osobnego
+                        # db.session.get() na klienta, żeby nie odpytywać bazy w pętli.
+                        order_map = {o.id: o for o in (cache.get('client_orders') or [])}
+                    zam = order_map.get(order_id)
+                    if not zam:
+                        continue
+                    ilosc_calego_zamowienia, incl = _order_product_quantities(zam, pid)
+                    klienci.append({
+                        'order_id': zam.id,
+                        'order_number': zam.order_number,
+                        'client_name': (zam.user.full_name if zam.user else '—'),
+                        'quantity': ilosc,
+                        'order_total_quantity': ilosc_calego_zamowienia,
+                        # Realna zapisana wartość (nie przycięta do tej partii) — inaczej
+                        # wysłanie kolejnej partii po cichu obniżałoby wcześniej zapisane incl
+                        # (zapis w _zapisz_incl_na_zamowieniu jest absolutny, nie doda tego z powrotem).
+                        'incl_only_quantity': incl,
+                    })
+                offsety[pid] = offset + (item.quantity or 0)
 
                 items_data.append({
                     'id': item.id,
@@ -3879,7 +3916,8 @@ def get_proxy_orders_details():
                     },
                     'quantity': item.quantity,
                     'unit_price': float(item.unit_price) if item.unit_price else 0,
-                    'total_price': float(item.total_price) if item.total_price else 0
+                    'total_price': float(item.total_price) if item.total_price else 0,
+                    'clients': klienci,
                 })
 
             orders_data.append({
@@ -3907,11 +3945,89 @@ def _client_item_qty(item):
     return qty or 0
 
 
+def _order_product_quantities(order, product_id):
+    """Ile sztuk danego produktu ma zamówienie i ile z nich to SAMO INCL.
+
+    Ilość efektywna liczona przez `_client_item_qty` (sety, częściowa realizacja);
+    `incl_only_quantity` przycinamy do niej per pozycja, żeby przy częściowo
+    zrealizowanym secie nie policzyć incl-a, którego klient nie dostał.
+
+    Zwraca (ilość, ilość_incl).
+    """
+    ilosc = 0
+    incl = 0
+    for item in order.items:
+        if item.product_id != product_id:
+            continue
+        efektywna = _client_item_qty(item)
+        if efektywna <= 0:
+            continue
+        ilosc += efektywna
+        incl += min(item.incl_only_quantity or 0, efektywna)
+    return ilosc, incl
+
+
+def _zapisz_incl_na_zamowieniu(order_id, product_id, incl_qty):
+    """Rozkłada `incl_qty` sztuk „samo incl" na pozycje zamówienia z danym produktem.
+
+    Jedno zamówienie może mieć ten sam produkt w kilku pozycjach (np. różne sety),
+    a okno partii operuje na sumie — rozdzielamy zachłannie po kolei, przycinając
+    do ilości efektywnej każdej pozycji.
+
+    Podnosi ValueError, gdy `incl_qty` przekracza sumę sztuk klienta.
+    """
+    from modules.orders.models import Order
+
+    order = db.session.get(Order, order_id)
+    if not order:
+        raise ValueError(f'Nie znaleziono zamówienia {order_id}')
+
+    if incl_qty < 0:
+        raise ValueError('Liczba sztuk „samo incl" nie może być ujemna')
+
+    dostepne = 0
+    pozycje = []
+    for item in order.items:
+        if item.product_id != product_id:
+            continue
+        efektywna = _client_item_qty(item)
+        if efektywna <= 0:
+            # Pozycja pominięta (np. set jeszcze niedomknięty) — NIE ruszamy jej
+            # incl_only_quantity. Zerowanie tutaj wcześniej niszczyło zapisaną
+            # wartość: druga pozycja tego samego produktu w tym samym zamówieniu
+            # traciła swoje incl, a gdy set później się domykał, klient dostawał
+            # stawkę albumową za sztuki, które miały być incl, bez ścieżki poprawy.
+            # Wartość i tak nie wpływa na żadną kwotę, dopóki ilość efektywna jest
+            # zerowa — `_order_product_quantities` przycina ją przez
+            # min(incl, efektywna).
+            continue
+        dostepne += efektywna
+        pozycje.append((item, efektywna))
+
+    if incl_qty > dostepne:
+        raise ValueError(
+            f'Zamówienie {order.order_number}: „samo incl" = {incl_qty}, '
+            f'a klient ma tylko {dostepne} szt. tego produktu'
+        )
+
+    zostalo = incl_qty
+    for item, efektywna in pozycje:
+        przypisane = min(zostalo, efektywna)
+        item.incl_only_quantity = przypisane
+        zostalo -= przypisane
+
+
 def _allocate_product_shipping_fifo(product_id):
     """
     Przydziela koszty wysyłki danego produktu do zamówień klientów wg modelu
     PER PARTIA + FIFO:
-      • każda partia (PolandOrderItem) ma swoją stawkę per szt = shipping_cost / quantity,
+      • każda partia (PolandOrderItem) ma stawkę za sztukę — w ogólnym przypadku
+        parę stawek (album, incl); jeśli którakolwiek z nich jest NULL (partia
+        sprzed rozdzielenia album/incl), obie stawki wynoszą shipping_cost / quantity,
+        czyli stary podział po równo,
+      • w obrębie sztuk przypadających jednemu zamówieniu klienta sztuki-albumy
+        konsumują się przed sztukami-incl (album_qty = ilość − incl_qty, patrz
+        `_order_product_quantities`),
       • sztuki zamówione przez klientów są przydzielane do partii w kolejności
         DATY ZŁOŻENIA zamówienia (najstarsze najpierw),
       • partie ustawione w kolejności ich utworzenia (created_at).
@@ -3932,13 +4048,23 @@ def _allocate_product_shipping_fifo(product_id):
         .order_by(PolandOrder.created_at.asc(), PolandOrder.id.asc())
         .all()
     )
-    slots = []  # lista kosztów per sztuka, w kolejności partii
+    # Sloty jednostkowe: para stawek (album, incl) dla każdej sztuki, w kolejności partii.
+    # Partia bez stawek (którakolwiek NULL) = sprzed rozdzielenia — obie stawki równe
+    # shipping_cost / quantity, czyli stary podział po równo.
+    slots = []
     for pi in poland_items:
         qty = pi.quantity or 0
-        shipping = Decimal(str(pi.shipping_cost or 0))
-        if qty > 0:
-            per_unit = shipping / Decimal(qty)
-            slots.extend([per_unit] * qty)
+        if qty <= 0:
+            continue
+        stawka_album = pi.shipping_cost_album_per_unit
+        stawka_incl = pi.shipping_cost_incl_per_unit
+        if stawka_album is None or stawka_incl is None:
+            po_rowno = Decimal(str(pi.shipping_cost or 0)) / Decimal(qty)
+            stawka_album = stawka_incl = po_rowno
+        else:
+            stawka_album = Decimal(str(stawka_album))
+            stawka_incl = Decimal(str(stawka_incl))
+        slots.extend([(stawka_album, stawka_incl)] * qty)
 
     # Zamówienia klientów (exclusive) w kolejności daty złożenia (FIFO)
     client_orders = (
@@ -3951,22 +4077,65 @@ def _allocate_product_shipping_fifo(product_id):
     alloc = {}
     idx = 0
     for order in client_orders:
-        qty = sum(
-            _client_item_qty(item)
-            for item in order.items
-            if item.product_id == product_id
-        )
+        qty, incl_qty = _order_product_quantities(order, product_id)
         if qty <= 0:
             continue
+        album_qty = qty - incl_qty
         total = Decimal('0')
-        for _ in range(qty):
-            if idx < len(slots):
-                total += slots[idx]
-                idx += 1
-            else:
-                break  # brak partii dla tych sztuk — koszt naliczy się przy kolejnej partii
+        for numer_sztuki in range(qty):
+            if idx >= len(slots):
+                break  # brak partii dla tych sztuk — koszt naliczy się przy kolejnej
+            stawka_album, stawka_incl = slots[idx]
+            total += stawka_album if numer_sztuki < album_qty else stawka_incl
+            idx += 1
         alloc[order.id] = total.quantize(Decimal('0.01'))
     return alloc
+
+
+def _batch_allocation_for_range(product_id, batch_start, batch_end, cache=None):
+    """Które zamówienia klientów (i ile sztuk) wpadają w zakres [batch_start, batch_end)
+    kolejki FIFO sztuk danego produktu.
+
+    Kolejka: zamówienia exclusive wg daty złożenia, każde zajmuje tyle miejsc, ile ma
+    sztuk efektywnych. Zwraca listę (order_id, ilość) w kolejności FIFO.
+
+    `cache`: opcjonalny dict do wielokrotnego użycia w obrębie jednego żądania
+    (patrz `get_proxy_orders_details`, gdzie ta funkcja woła się osobno dla
+    każdej pozycji okna partii). Trzyma raz wczytaną listę zamówień klientów
+    (z pozycjami dociągniętymi przez `selectinload`, żeby zabić lazy-load
+    `order.items` w pętli niżej) pod kluczem 'client_orders'. Domyślnie None =
+    zachowanie jak dotąd, własne zapytanie przy każdym wywołaniu.
+    """
+    from modules.orders.models import Order
+    from sqlalchemy.orm import selectinload
+
+    if cache is not None and cache.get('client_orders') is not None:
+        client_orders = cache['client_orders']
+    else:
+        client_orders = (
+            Order.query
+            .options(selectinload(Order.items))
+            .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
+            .order_by(Order.created_at.asc(), Order.id.asc())
+            .all()
+        )
+        if cache is not None:
+            cache['client_orders'] = client_orders
+
+    result = []
+    cursor = 0
+    for order in client_orders:
+        qty, _ = _order_product_quantities(order, product_id)
+        if qty <= 0:
+            continue
+        order_start, order_end = cursor, cursor + qty
+        cursor = order_end
+
+        overlap = min(order_end, batch_end) - max(order_start, batch_start)
+        if overlap > 0:
+            result.append((order.id, overlap))
+
+    return result
 
 
 def _allocate_batch_units_to_orders(poland_item):
@@ -3979,7 +4148,6 @@ def _allocate_batch_units_to_orders(poland_item):
 
     Zwraca listę (order_id, ilość), w kolejności FIFO zamówień klientów.
     """
-    from modules.orders.models import Order
     from modules.products.models import PolandOrder
 
     product_id = poland_item.product_id
@@ -4008,31 +4176,40 @@ def _allocate_batch_units_to_orders(poland_item):
     batch_start = sum(pi.quantity or 0 for pi in earlier_items)
     batch_end = batch_start + (poland_item.quantity or 0)
 
-    client_orders = (
-        Order.query
-        .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
-        .order_by(Order.created_at.asc(), Order.id.asc())
-        .all()
-    )
+    return _batch_allocation_for_range(product_id, batch_start, batch_end)
 
-    result = []
-    cursor = 0
-    for order in client_orders:
-        qty = sum(
-            _client_item_qty(item)
-            for item in order.items
-            if item.product_id == product_id
-        )
-        if qty <= 0:
-            continue
-        order_start, order_end = cursor, cursor + qty
-        cursor = order_end
 
-        overlap = min(order_end, batch_end) - max(order_start, batch_start)
-        if overlap > 0:
-            result.append((order.id, overlap))
+def _preview_batch_allocation(product_id, quantity, offset=0, cache=None):
+    """Podgląd przydziału dla partii, której jeszcze NIE ma w bazie (tworzonej w modalu).
 
-    return result
+    Nowa partia trafia na koniec kolejki FIFO, więc zaczyna się za wszystkimi
+    istniejącymi (nieanulowanymi) partiami tego produktu. `offset` przesuwa start,
+    gdy w jednym oknie jest kilka pozycji z tym samym produktem — bez niego obie
+    wskazywałyby te same sztuki.
+
+    `cache`: patrz `_batch_allocation_for_range` — dodatkowo memoizuje tu sumę
+    `juz_w_partiach` per `product_id` pod kluczem 'juz_w_partiach', żeby przy
+    kilku pozycjach tego samego produktu w oknie nie odpytywać bazy ponownie.
+    Domyślnie None = zachowanie jak dotąd.
+    """
+    from modules.products.models import PolandOrder
+
+    if cache is not None and product_id in cache.get('juz_w_partiach', {}):
+        juz_w_partiach = cache['juz_w_partiach'][product_id]
+    else:
+        juz_w_partiach = db.session.query(
+            db.func.coalesce(db.func.sum(PolandOrderItem.quantity), 0)
+        ).join(
+            PolandOrder, PolandOrderItem.poland_order_id == PolandOrder.id
+        ).filter(
+            PolandOrderItem.product_id == product_id,
+            PolandOrder.status != 'anulowane',
+        ).scalar() or 0
+        if cache is not None:
+            cache.setdefault('juz_w_partiach', {})[product_id] = juz_w_partiach
+
+    start = int(juz_w_partiach) + offset
+    return _batch_allocation_for_range(product_id, start, start + quantity, cache=cache)
 
 
 def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
@@ -4233,6 +4410,13 @@ def create_poland_order():
         total_amount = Decimal('0')
         total_shipping_declared = Decimal('0')
         product_shipping_costs = {}  # {product_id: shipping_cost_total}
+        # incl per (order_id, product_id) — zaznaczenie kilku zamówień proxy
+        # z tym samym produktem naraz może dać tego samego klienta w dwóch
+        # różnych pozycjach items_data; każdy wpis niesie PEŁNĄ wartość
+        # incl_only_quantity całego zamówienia, więc bierzemy max (nie sumę,
+        # patrz komentarz przy przypisaniu niżej) i zapisujemy RAZ na klucz,
+        # po pętli po pozycjach (patrz niżej).
+        incl_do_zapisania = {}
 
         for item_data in items_data:
             proxy_item_id = item_data.get('proxy_order_item_id')
@@ -4242,11 +4426,109 @@ def create_poland_order():
             if not proxy_item:
                 continue
 
+            raw_album = item_data.get('album_rate')
+            raw_incl = item_data.get('incl_rate')
+            stawki_podane = raw_album is not None and raw_incl is not None
+
+            album_rate = incl_rate = None
+            if stawki_podane:
+                album_rate = Decimal(str(raw_album))
+                incl_rate = Decimal(str(raw_incl))
+                if album_rate < 0 or incl_rate < 0:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Stawki wysyłki nie mogą być ujemne.'
+                    }), 400
+
+            # Zbieramy incl klientów tej pozycji — zapis do bazy dopiero PO pętli
+            # po wszystkich pozycjach (patrz incl_do_zapisania wyżej), ale
+            # incl_lacznie tej linijki liczymy tu, bo służy do shipping_cost niżej.
+            incl_lacznie = 0
+            for wpis in item_data.get('clients') or []:
+                order_id = wpis.get('order_id')
+                if order_id is None:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Brak identyfikatora zamówienia klienta w danych „samo incl".'
+                    }), 400
+                try:
+                    incl_klienta = int(wpis.get('incl_only_quantity') or 0)
+                except (TypeError, ValueError):
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Nieprawidłowa liczba sztuk „samo incl".'
+                    }), 400
+
+                if incl_klienta < 0:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Liczba sztuk „samo incl" nie może być ujemna.'
+                    }), 400
+
+                # incl_w_partii: ile z incl_klienta (pełnej wartości CAŁEGO zamówienia)
+                # mieści się w TEJ partii — może być mniejsze niż incl_klienta, gdy
+                # sztuki klienta rozjeżdżają się między partie. Do zapisania na
+                # zamówieniu (incl_do_zapisania) zawsze idzie incl_klienta bez zmian;
+                # incl_w_partii służy WYŁĄCZNIE do album_lacznie/incl_lacznie tej
+                # linijki. Starsi klienci API tego pola nie wysyłają — wtedy zakładamy
+                # całość (zachowanie jak przed rozdzieleniem).
+                raw_incl_w_partii = wpis.get('incl_w_partii')
+                if raw_incl_w_partii is None:
+                    incl_w_partii = incl_klienta
+                else:
+                    try:
+                        incl_w_partii = int(raw_incl_w_partii)
+                    except (TypeError, ValueError):
+                        db.session.rollback()
+                        return jsonify({
+                            'success': False,
+                            'error': 'Nieprawidłowa liczba sztuk „samo incl" w tej partii.'
+                        }), 400
+                    if (incl_w_partii < 0 or incl_w_partii > incl_klienta
+                            or incl_w_partii > proxy_item.quantity):
+                        db.session.rollback()
+                        return jsonify({
+                            'success': False,
+                            'error': ('Nieprawidłowa liczba sztuk „samo incl" w tej partii '
+                                      f'dla zamówienia {order_id}.')
+                        }), 400
+
+                klucz = (order_id, proxy_item.product_id)
+                # NIE sumować: incl_klienta to zawsze PEŁNA wartość incl_only_quantity
+                # całego zamówienia (patrz komentarz wyżej), więc gdy ten sam klient
+                # występuje w kilku pozycjach tego okna (kilka zamówień proxy z tym
+                # samym produktem zaznaczone naraz), każdy wpis niesie tę samą liczbę.
+                # Suma podwoiłaby ją; max jest bezpieczny nawet gdyby wpisy się
+                # rozjechały (np. front nie zdążył zsynchronizować pól).
+                incl_do_zapisania[klucz] = max(incl_do_zapisania.get(klucz, 0), incl_klienta)
+                incl_lacznie += incl_w_partii
+
+            if stawki_podane:
+                album_lacznie = (proxy_item.quantity or 0) - incl_lacznie
+                if album_lacznie < 0:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': ('Suma sztuk „samo incl" przekracza ilość w partii '
+                                  f'produktu {proxy_item.product_id}.')
+                    }), 400
+                # Suma linijki liczona po stronie serwera — front pokazuje ją tylko poglądowo.
+                shipping_cost = (album_rate * album_lacznie
+                                 + incl_rate * incl_lacznie).quantize(Decimal('0.01'))
+
             proxy_item.shipping_cost_total = shipping_cost
             proxy_item.shipping_cost_per_item = shipping_cost / proxy_item.quantity if proxy_item.quantity > 0 else 0
 
-            # Zbierz koszty wysyłki per produkt do dystrybucji
-            if shipping_cost > 0:
+            # Zbierz koszty wysyłki per produkt do dystrybucji. Gdy stawki zostały
+            # podane (album_rate/incl_rate), produkt musi trafić do przeliczenia
+            # nawet przy sumie 0 (darmowa wysyłka) — inaczej zapisane incl nie
+            # wyzwoli przeliczenia wcześniejszych partii tego produktu. Stara
+            # ścieżka (bez stawek) zostaje bez zmian: tylko shipping_cost > 0.
+            if shipping_cost > 0 or stawki_podane:
                 pid = proxy_item.product_id
                 product_shipping_costs[pid] = product_shipping_costs.get(pid, Decimal('0')) + shipping_cost
 
@@ -4260,6 +4542,8 @@ def create_poland_order():
                 order_id=proxy_item.order_id,
                 quantity=proxy_item.quantity,
                 shipping_cost=shipping_cost,
+                shipping_cost_album_per_unit=album_rate,
+                shipping_cost_incl_per_unit=incl_rate,
                 selected_size=proxy_item.selected_size,
             )
             db.session.add(poland_item)
@@ -4274,6 +4558,17 @@ def create_poland_order():
 
             total_amount += proxy_item.total_price + shipping_cost
             total_shipping_declared += shipping_cost
+
+        # Zapis wyboru album/incl na zamówieniach klientów — RAZ na (order_id,
+        # product_id), zsumowane przez wszystkie pozycje okna. MUSI się wykonać
+        # przed dystrybucją kosztów niżej — _distribute_proxy_shipping_to_client_orders
+        # czyta incl_only_quantity prosto z pozycji zamówienia.
+        for (order_id, product_id), suma_incl in incl_do_zapisania.items():
+            try:
+                _zapisz_incl_na_zamowieniu(order_id, product_id, suma_incl)
+            except ValueError as blad:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': str(blad)}), 400
 
         poland_order.total_amount = total_amount
 

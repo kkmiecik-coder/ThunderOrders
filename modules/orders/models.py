@@ -1256,6 +1256,11 @@ class OrderItem(db.Model):
     # Size selection (snapshot at time of order)
     selected_size = db.Column(db.String(50), nullable=True)
 
+    # Ile sztuk z tej pozycji klient bierze jako SAMO INCL (bez całego albumu).
+    # Reszta (quantity - incl_only_quantity) to całe albumy. 0 = wszystko albumy,
+    # czyli zachowanie sprzed rozdzielenia stawek wysyłki KR.
+    incl_only_quantity = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+
     # Order details
     quantity = db.Column(db.Integer, nullable=False, default=1)
     price = db.Column(db.Numeric(10, 2), nullable=False)  # Price at time of order

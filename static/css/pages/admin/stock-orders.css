@@ -2639,3 +2639,82 @@
 .poland-inner-header .poland-inner-col:nth-child(2) {
     padding-right: 14px;
 }
+
+/* Lista klientów i stawki album/incl w oknie „Zamówienie do Polski" */
+.poland-incl-row td { padding-top: 0; }
+
+.poland-incl-clients {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0 10px 0;
+}
+
+.poland-incl-client {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: #374151;
+}
+
+.poland-incl-client-name { font-weight: 600; }
+.poland-incl-client-order { color: #6b7280; }
+.poland-incl-client-qty { color: #6b7280; }
+
+.poland-incl-warning {
+    font-size: 12px;
+    color: #b45309;
+    cursor: help;
+}
+
+[data-theme="dark"] .poland-incl-warning { color: #fbbf24; }
+
+.poland-incl-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.poland-incl-input {
+    width: 64px;
+    min-height: 44px;
+    text-align: center;
+}
+
+.poland-incl-of { color: #6b7280; }
+
+.poland-rates {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0 4px 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+.poland-rate-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #374151;
+}
+
+.poland-rate-label { min-width: 90px; }
+.poland-rate-qty { min-width: 56px; color: #6b7280; }
+.poland-rate-times { color: #6b7280; }
+.poland-rate-input { width: 100px; min-height: 44px; }
+.poland-rate-sum { margin-left: auto; font-weight: 600; }
+
+[data-theme="dark"] .poland-incl-client,
+[data-theme="dark"] .poland-rate-line { color: #d1d5db; }
+
+[data-theme="dark"] .poland-incl-client-order,
+[data-theme="dark"] .poland-incl-client-qty,
+[data-theme="dark"] .poland-incl-of,
+[data-theme="dark"] .poland-rate-qty,
+[data-theme="dark"] .poland-rate-times { color: #9ca3af; }
+
+[data-theme="dark"] .poland-rates { border-top-color: #374151; }
