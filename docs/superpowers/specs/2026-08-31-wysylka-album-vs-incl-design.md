@@ -58,6 +58,13 @@ incl_only_quantity`) to całe albumy.
 
 Domyślnie `0` → wszystkie istniejące zamówienia zachowują się dokładnie jak dziś.
 
+**Pozycje o zerowej ilości efektywnej** (niedomknięty set, `fulfilled_quantity = 0`)
+zapis pozostawia **nietknięte** — zachowują swoje `incl_only_quantity`. Wartość nie
+wpływa wtedy na żadną kwotę, bo `_order_product_quantities` przycina ją przez
+`min(incl, efektywna)`. Gdyby ją zerować, wybór klienta przepadłby bezpowrotnie, a po
+późniejszym domknięciu setu klient dostałby stawkę albumową za sztuki, które miały być
+incl — bez ścieżki poprawy, skoro edycja utworzonej partii jest poza zakresem.
+
 ### `poland_order_items` — dwie stawki zamiast jednej kwoty
 
 Nowe kolumny, obie `db.Column(db.Numeric(10, 2), nullable=True, default=None)`:
@@ -85,8 +92,10 @@ utworzenia, sztuki klientów wg daty złożenia zamówienia). Zmienia się **cen
 3. Sumę zaokrąglamy jak dziś: `total.quantize(Decimal('0.01'))`.
 
 `_allocate_batch_units_to_orders` (rozbicie ilości do `PolandOrderItemOrder`) nie zmienia
-logiki przydziału — dodatkowo zwraca, ile z przydzielonych sztuk to incl, żeby okno
-partii mogło pokazać podsumowanie `4 szt. album / 6 szt. incl`.
+logiki przydziału ani swojej sygnatury — jego rdzeń został wydzielony do
+`_batch_allocation_for_range(product_id, batch_start, batch_end)`, z którego korzysta też
+podgląd w oknie. Podsumowanie `4 szt. album / 6 szt. incl` okno liczy po swojej stronie,
+z pól „samo incl".
 
 ### Częściowa realizacja setów
 
@@ -120,17 +129,24 @@ Album XYZ — 10 szt.
   zeszła się z kwotą paczki — jako placeholder do nadpisania, tym samym mechanizmem
   co dzisiejsze podpowiedzi (`calculateShippingCascade`,
   `static/js/pages/admin/stock-orders.js:276`).
-- Istniejący licznik `shippingDifference` działa bez zmian — porównuje kwotę paczki
-  z sumą linijek.
-- Gdy w produkcie nikt nie bierze incl (`0` wszędzie), drugi wiersz stawki się nie
-  pokazuje — okno wygląda jak dziś.
+- Licznik `shippingDifference` porównuje kwotę paczki z sumą linijek, ale dla pozycji
+  z aktywnym wierszem stawek liczy linijkę **ze stawek** (`stawka_album × szt_album +
+  stawka_incl × szt_incl`), a nie z pola „Wartość" — bo dokładnie tak liczy ją serwer.
+  Inaczej admin widziałby „różnica 0", a zapisywałaby się inna kwota.
+- Gdy w produkcie nikt nie bierze incl (`0` wszędzie), **cały blok stawek** się nie
+  pokazuje — okno wygląda jak dotąd.
 
 ### Podgląd przydziału klientów
 
-Nowy endpoint GET, np. `/admin/warehouse/poland-order/preview-allocation`, przyjmuje
-listę `proxy_order_item_id` i zwraca dla każdego: produkt, listę
-`{order_id, klient, quantity, incl_only_quantity}` wyliczoną tą samą funkcją
-`_allocate_batch_units_to_orders`, żeby podgląd zgadzał się z tym, co zapisze zapis partii.
+**Zrealizowane inaczej, niż zakładał projekt** (decyzja z wdrożenia): zamiast nowego
+endpointu rozszerzony został istniejący POST `/admin/products/api/get-proxy-orders-details`,
+z którego okno i tak korzysta przy otwarciu — jedno żądanie zamiast dwóch. Dla każdej
+pozycji zwraca `clients`: listę `{order_id, order_number, client_name, quantity,
+order_total_quantity, incl_only_quantity}`, wyliczoną przez `_preview_batch_allocation`
+(ta sama zasada FIFO co `_allocate_batch_units_to_orders`, ale dla partii jeszcze
+nieistniejącej w bazie). `quantity` to sztuki przypadające na tę partię,
+`order_total_quantity` to sztuki klienta w całym zamówieniu — różnica między nimi
+uruchamia ostrzeżenie ⚠ w oknie.
 
 ## Gdzie jeszcze to widać
 

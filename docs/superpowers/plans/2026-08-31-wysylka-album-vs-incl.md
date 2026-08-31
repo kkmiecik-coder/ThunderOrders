@@ -539,7 +539,7 @@ git commit -m "feat(wysylka): stawka sztuki zalezna od typu album/incl w podzial
 - Consumes: `_batch_allocation_for_range`, `_order_product_quantities` (Task 2).
 - Produces:
   - `_preview_batch_allocation(product_id, quantity, offset=0) -> list[tuple[int, int]]`.
-  - `/admin/products/api/get-proxy-orders-details` zwraca dla każdej pozycji dodatkowe pole `clients`: lista `{order_id, order_number, client_name, quantity, incl_only_quantity}`.
+  - `/admin/products/api/get-proxy-orders-details` zwraca dla każdej pozycji dodatkowe pole `clients`: lista `{order_id, order_number, client_name, quantity, order_total_quantity, incl_only_quantity}`. **Uzupełnione po wdrożeniu:** `order_total_quantity` doszło w Kroku 5b (bez niego okno nie ustawi `max` w polu ani nie pokaże ostrzeżenia ⚠), a `incl_only_quantity` jest **nieprzycięte** — to pełna wartość całego zamówienia, nie `min(incl, quantity)`.
 
 - [ ] **Step 1: Napisz test podglądu**
 
@@ -745,7 +745,16 @@ git commit -m "feat(wysylka): podglad przydzialu klientow w oknie partii"
 - Consumes: `_order_product_quantities` (Task 2).
 - Produces:
   - `_zapisz_incl_na_zamowieniu(order_id, product_id, incl_qty) -> None`.
-  - `create_poland_order` przyjmuje w każdej pozycji `items[]` opcjonalne `album_rate`, `incl_rate` oraz `clients: [{order_id, incl_only_quantity}]`.
+  - `create_poland_order` przyjmuje w każdej pozycji `items[]` opcjonalne `album_rate`, `incl_rate` oraz `clients: [{order_id, incl_only_quantity, incl_w_partii}]`.
+
+**Kontrakt payloadu — uzupełnione po wdrożeniu.** Każdy wpis klienta niesie **dwie** liczby:
+
+| pole | znaczenie | do czego służy |
+|---|---|---|
+| `incl_only_quantity` | pełna liczba sztuk „samo incl" w **całym zamówieniu** klienta | zapis na `OrderItem.incl_only_quantity` |
+| `incl_w_partii` | ile z niej mieści się w **tej** partii (`min(incl_only_quantity, sztuki_w_partii)`) | wyłącznie suma linijki (`album_rate × album + incl_rate × incl`) |
+
+Konsekwencja, o którą łatwo się potknąć: gdy ten sam klient trafi do **dwóch pozycji** jednego okna (admin zaznaczył kilka zamówień proxy z tym samym produktem), oba wpisy niosą **tę samą** pełną wartość. Zbierając je po kluczu `(order_id, product_id)` trzeba wziąć `max`, **nigdy sumę** — sumowanie podwaja zapisaną wartość i zaniża rachunek klienta. Przykładowe payloady w krokach poniżej pochodzą sprzed rozdzielenia tych pól i pokazują starszą, jednopolową postać (serwer nadal ją przyjmuje: brak `incl_w_partii` = zachowanie jak dotąd).
 
 - [ ] **Step 1: Napisz testy zapisu**
 
@@ -1403,7 +1412,7 @@ git commit -m "feat(wysylka): lista klientow i stawki album/incl w oknie partii"
 ### Task 6: Plakietka „SAMO INCL" u admina, u klienta i w API mobilnym
 
 **Files:**
-- Modify: `templates/admin/orders/detail.html:64` oraz `:161` i `:251` (nazwa produktu w pozycji)
+- Modify: `templates/admin/orders/detail.html` — **cztery** gałęzie renderowania pozycji: `:64` i `:161` (pozycja częściowo zrealizowana, dwa wiersze), `:251` (`is_set_fulfilled == false`) oraz `:358` (zwykły przypadek, `is_set_fulfilled` NULL). **Uzupełnione po wdrożeniu:** plan mówił o trzech miejscach; czwarte obsługuje typowe zamówienia i bez niego plakietka w ogóle by się nie pokazała.
 - Modify: `templates/client/orders/detail.html:170` (nazwa produktu w pozycji)
 - Modify: `modules/api_mobile/orders_routes.py:124-140` (`_serialize_order_item`)
 - Modify: `static/css/pages/client/order-detail.css:345` (obok `.od-product-row__badge--full-set`)
