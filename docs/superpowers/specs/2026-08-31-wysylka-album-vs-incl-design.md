@@ -147,7 +147,13 @@ nadrobienia exclusive, które są już zebrane, i do poprawienia pomyłek. Zapis
   więc terminy (`get_shipping_kr_deadline`), przypomnienia
   (`modules/orders/payment_overdue_service.py:16`) i maile
   (`utils/email_manager.py:683`) działają bez ruszania.
-- **Panel klienta** — na razie bez zmian (do decyzji, patrz "Otwarte").
+- **Panel klienta** (`templates/client/orders/detail.html:170`) — klient widzi przy
+  pozycji plakietkę „SAMO INCL", tym samym wzorem co istniejące `size-badge` /
+  `od-product-row__badge` (PEŁNY SET, GRATIS). Przy pozycji mieszanej plakietka mówi
+  ile z ilu, np. „SAMO INCL 1/2". Klient tego nie edytuje — tylko podgląd.
+- **Aplikacja mobilna** (`modules/api_mobile/orders_routes.py:131`) — pole
+  `incl_only_quantity` dochodzi do odpowiedzi z pozycją zamówienia, obok
+  `selected_size`, żeby apka mogła pokazać to samo.
 
 ## Walidacja
 
@@ -166,6 +172,9 @@ nadrobienia exclusive, które są już zebrane, i do poprawienia pomyłek. Zapis
    daje ten sam wynik co jednorazowe.
 6. Częściowo zrealizowany set → `incl_only_quantity` przycięte do `_client_item_qty`.
 7. Walidacja: `incl_only_quantity > quantity` odrzucone.
+8. Render szczegółów zamówienia klienta: plakietka „SAMO INCL" pojawia się przy pozycji
+   z `incl_only_quantity > 0` i znika przy `0` (test przez `app.test_request_context()`,
+   nie `app.app_context()` — globalny context processor czyta `flask.session`).
 
 ## Odrzucone rozwiązania
 
@@ -181,10 +190,8 @@ dodała.
 **Oznaczanie tylko w oknie partii, bez zapisu przy zamówieniu.** Niemożliwe technicznie
 — patrz sekcja o idempotentnym przeliczaniu.
 
-## Otwarte / poza zakresem
+## Poza zakresem
 
 - **Na później:** wybór „cały album / samo incl" przez klienta przy składaniu zamówienia
   w ofercie, żeby nie przepisywać go z czatu. Naturalna druga część tego zadania —
   nie robimy jej teraz, bo nie ratuje exclusive już zebranych.
-- **Do decyzji:** czy klient ma widzieć u siebie w zamówieniu, że dana sztuka to samo
-  incl.
