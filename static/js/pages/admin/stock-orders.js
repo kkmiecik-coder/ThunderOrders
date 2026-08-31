@@ -378,6 +378,10 @@ function calculateShippingCascade() {
     });
 
     updateShippingSummary();
+    // Kaskada przepisała placeholdery Wartość WSZYSTKICH wierszy, ale refreshRatesRow
+    // czyta ten placeholder do podpowiedzi stawki incl — bez przemiecenia wszystkich
+    // wierszy tutaj tylko wiersz ostatnio edytowany dostałby świeżą podpowiedź.
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -437,6 +441,9 @@ function handlePackageShippingChange(orderIndex) {
     });
 
     updateShippingSummary();
+    // Patrz komentarz w calculateShippingCascade — kaskada dotyka placeholdery
+    // Wartość wszystkich pozycji, więc podpowiedź stawki incl trzeba odświeżyć wszędzie.
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -694,7 +701,14 @@ function confirmPolandOrder() {
         const inclInput = box.querySelector('[data-role="incl-rate"]');
         const albumQty = (item.quantity || 0) - inclQty;
         const raw = (albumInput.value || '').trim();
-        if (albumQty > 0 && (raw === '' || isNaN(parseFloat(raw)) || parseFloat(raw) < 0)) {
+        const albumParsed = parseFloat(raw);
+        // Pustość pola ma znaczenie tylko, gdy ktoś faktycznie bierze cały album w tej
+        // partii (albumQty > 0) — ale ujemna wartość jest błędem zawsze, inaczej przy
+        // wszystkich sztukach na incl admin mógłby wpisać "-5" i dostać surowe 400
+        // z serwera zamiast podświetlenia pola tutaj.
+        const albumPuste = albumQty > 0 && (raw === '' || isNaN(albumParsed));
+        const albumUjemne = raw !== '' && !isNaN(albumParsed) && albumParsed < 0;
+        if (albumPuste || albumUjemne) {
             stawkiOk = false;
             albumInput.classList.add('input-error');
         } else {
@@ -772,7 +786,13 @@ function confirmPolandOrder() {
             shipping_cost: shippingCost,
             clients: item.clients.map(c => ({
                 order_id: c.order_id,
-                incl_only_quantity: c.incl_only_quantity || 0
+                incl_only_quantity: c.incl_only_quantity || 0,
+                // Ile z incl_only_quantity (pełnej wartości całego zamówienia) mieści się
+                // w TEJ partii — to samo wyrażenie, którym liczymy inclQty do wyświetlenia,
+                // żeby ekran i payload nigdy się nie rozjechały. Serwer używa tej liczby
+                // do album_lacznie/incl_lacznie tej linijki, a incl_only_quantity dalej
+                // zapisuje bez zmian na całym zamówieniu klienta.
+                incl_w_partii: Math.min(c.incl_only_quantity || 0, c.quantity)
             }))
         };
 

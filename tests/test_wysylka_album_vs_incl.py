@@ -709,3 +709,146 @@ def test_rozjechany_klient_dostaje_pelne_incl_a_nie_przyciete_do_partii(
     assert klient_json['quantity'] == 1
     assert klient_json['order_total_quantity'] == 3
     assert klient_json['incl_only_quantity'] == 2
+
+
+def test_rozjechany_klient_incl_w_partii_nie_blokuje_tworzenia(
+        db, client, login, make_user, make_order, make_product):
+    """Druga runda recenzji: `incl_only_quantity` w payloadzie to pełna wartość CAŁEGO
+    zamówienia (2), więc licząc album_lacznie z niej wprost partia na 1 szt. dałaby
+    ujemną ilość albumów i twarde 400. Front dosyła `incl_w_partii` — ile z tych 2 szt.
+    mieści się w TEJ partii (1) — serwer ma użyć jej do album_lacznie/incl_lacznie,
+    a `incl_only_quantity` dalej zapisać bez zmian na całym zamówieniu klienta.
+
+    Zamówienie klienta: 3 szt., incl=2 zapisane wcześniej (np. z pierwszej partii).
+    Ta partia obejmuje tylko ostatnią 1 sztukę klienta."""
+    from modules.orders.models import OrderItem
+    from modules.products.models import PolandOrder, PolandOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
+                            baza - timedelta(days=3), incl=2)
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T80')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 12,
+        'tracking_number': 'KB88900-RS7',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': 12,
+            'album_rate': 45,
+            'incl_rate': 12,
+            'clients': [{
+                'order_id': a.id,
+                'incl_only_quantity': 2,
+                'incl_w_partii': 1,
+            }],
+        }],
+    })
+
+    assert odp.status_code == 200, odp.get_json()
+    assert PolandOrder.query.count() == 1
+
+    # incl_only_quantity na zamówieniu klienta zostaje PEŁNĄ wartością (2) — front
+    # dosyła ją nietkniętą właśnie po to, żeby wysłanie tej partii jej nie obniżyło.
+    assert OrderItem.query.filter_by(order_id=a.id).one().incl_only_quantity == 2
+
+    # Suma linijki liczona z incl_w_partii=1: album_lacznie = 1 - 1 = 0 albumów,
+    # 1 szt. incl → 45*0 + 12*1 = 12.00 zł (a NIE 45*(-1)+12*2, co dałoby 400).
+    pozycja_partii = PolandOrderItem.query.filter_by(product_id=produkt.id).one()
+    assert pozycja_partii.shipping_cost == Decimal('12.00')
+
+
+def test_dwaj_klienci_na_jednej_pozycji_incl_w_partii_a_nie_pelne(
+        db, client, login, make_user, make_order, make_product):
+    """Pozycja 3 szt.: klient A ma w TEJ partii 2 szt., ale `incl_only_quantity`=3
+    (pełna wartość CAŁEGO jego zamówienia — reszta zostanie doliczona przy kolejnej
+    partii). Klient B ma 1 szt., cały album. Licząc incl_lacznie z pełnych wartości
+    (3+0=3) cała linijka poszłaby po stawce incl — po cichu źle policzona sztuka
+    albumowa klienta B. Z `incl_w_partii` (2+0=2) wychodzi poprawnie: 1 album + 2 incl."""
+    from modules.orders.models import OrderItem
+    from modules.products.models import PolandOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
+                            baza - timedelta(days=3))
+    b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=2))
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=3, numer='PRX/T81')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 69,
+        'tracking_number': 'KB88900-RS8',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': 69,
+            'album_rate': 45,
+            'incl_rate': 12,
+            'clients': [
+                {'order_id': a.id, 'incl_only_quantity': 3, 'incl_w_partii': 2},
+                {'order_id': b.id, 'incl_only_quantity': 0, 'incl_w_partii': 0},
+            ],
+        }],
+    })
+
+    assert odp.status_code == 200, odp.get_json()
+
+    # incl_only_quantity zapisane na zamówieniach zostaje pełną wartością.
+    assert OrderItem.query.filter_by(order_id=a.id).one().incl_only_quantity == 3
+    assert OrderItem.query.filter_by(order_id=b.id).one().incl_only_quantity == 0
+
+    # album_lacznie = 3 - (2+0) = 1, incl_lacznie = 2 → 45*1 + 12*2 = 69.00 zł.
+    # Błędne liczenie z pełnych incl_only_quantity dałoby album_lacznie = 3-3 = 0,
+    # czyli 45*0 + 12*3 = 36.00 zł — inny wynik, patrz raport dot. eksperymentu.
+    pozycja_partii = PolandOrderItem.query.filter_by(product_id=produkt.id).one()
+    assert pozycja_partii.shipping_cost == Decimal('69.00')
+
+
+def test_incl_w_partii_wieksze_niz_incl_only_quantity_odrzucane(
+        db, client, login, make_user, make_order, make_product):
+    """`incl_w_partii` nie może przekroczyć `incl_only_quantity` dosłanego dla tego
+    samego klienta — inaczej front (lub ktokolwiek wołający API wprost) mógłby zawyżyć
+    sztuki incl tej partii ponad to, co faktycznie zostanie zapisane na zamówieniu."""
+    from modules.orders.models import OrderItem
+    from modules.products.models import PolandOrder
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
+                            baza - timedelta(days=3), incl=1)
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T82')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 24,
+        'tracking_number': 'KB88900-RS9',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': 24,
+            'album_rate': 45,
+            'incl_rate': 12,
+            'clients': [{
+                'order_id': a.id,
+                'incl_only_quantity': 1,
+                'incl_w_partii': 2,
+            }],
+        }],
+    })
+
+    assert odp.status_code == 400
+    assert 'incl' in odp.get_json()['error'].lower()
+    # Rollback pełnej transakcji — ani partia, ani zmiana incl na zamówieniu.
+    assert PolandOrder.query.count() == 0
+    assert OrderItem.query.filter_by(order_id=a.id).one().incl_only_quantity == 1

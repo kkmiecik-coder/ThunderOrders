@@ -4419,9 +4419,38 @@ def create_poland_order():
                         'success': False,
                         'error': 'Nieprawidłowa liczba sztuk „samo incl".'
                     }), 400
+
+                # incl_w_partii: ile z incl_klienta (pełnej wartości CAŁEGO zamówienia)
+                # mieści się w TEJ partii — może być mniejsze niż incl_klienta, gdy
+                # sztuki klienta rozjeżdżają się między partie. Do zapisania na
+                # zamówieniu (incl_do_zapisania) zawsze idzie incl_klienta bez zmian;
+                # incl_w_partii służy WYŁĄCZNIE do album_lacznie/incl_lacznie tej
+                # linijki. Starsi klienci API tego pola nie wysyłają — wtedy zakładamy
+                # całość (zachowanie jak przed rozdzieleniem).
+                raw_incl_w_partii = wpis.get('incl_w_partii')
+                if raw_incl_w_partii is None:
+                    incl_w_partii = incl_klienta
+                else:
+                    try:
+                        incl_w_partii = int(raw_incl_w_partii)
+                    except (TypeError, ValueError):
+                        db.session.rollback()
+                        return jsonify({
+                            'success': False,
+                            'error': 'Nieprawidłowa liczba sztuk „samo incl" w tej partii.'
+                        }), 400
+                    if (incl_w_partii < 0 or incl_w_partii > incl_klienta
+                            or incl_w_partii > proxy_item.quantity):
+                        db.session.rollback()
+                        return jsonify({
+                            'success': False,
+                            'error': ('Nieprawidłowa liczba sztuk „samo incl" w tej partii '
+                                      f'dla zamówienia {order_id}.')
+                        }), 400
+
                 klucz = (order_id, proxy_item.product_id)
                 incl_do_zapisania[klucz] = incl_do_zapisania.get(klucz, 0) + incl_klienta
-                incl_lacznie += incl_klienta
+                incl_lacznie += incl_w_partii
 
             if stawki_podane:
                 album_lacznie = (proxy_item.quantity or 0) - incl_lacznie
