@@ -3858,17 +3858,39 @@ def generate_proxy_to_poland_number():
 def get_proxy_orders_details():
     """Get proxy order details for Poland order modal"""
     try:
+        from modules.orders.models import Order as ZamowienieKlienta
+
         data = request.get_json()
         order_ids = data.get('proxy_order_ids', [])
 
         proxy_orders = ProxyOrder.query.filter(ProxyOrder.id.in_(order_ids)).all()
 
         orders_data = []
+        # Ile sztuk danego produktu zajęły już wcześniejsze pozycje w TYM oknie —
+        # bez tego dwie pozycje z tym samym produktem wskazałyby te same sztuki.
+        offsety = {}
         for order in proxy_orders:
             items_data = []
             for item in order.items:
                 primary_image = item.product.primary_image
                 image_url = url_for('static', filename=f'uploads/products/compressed/{primary_image.filename}') if primary_image else url_for('static', filename='img/product-placeholder.svg')
+
+                pid = item.product_id
+                offset = offsety.get(pid, 0)
+                klienci = []
+                for order_id, ilosc in _preview_batch_allocation(pid, item.quantity, offset):
+                    zam = db.session.get(ZamowienieKlienta, order_id)
+                    if not zam:
+                        continue
+                    _, incl = _order_product_quantities(zam, pid)
+                    klienci.append({
+                        'order_id': zam.id,
+                        'order_number': zam.order_number,
+                        'client_name': (zam.user.full_name if zam.user else '—'),
+                        'quantity': ilosc,
+                        'incl_only_quantity': min(incl, ilosc),
+                    })
+                offsety[pid] = offset + (item.quantity or 0)
 
                 items_data.append({
                     'id': item.id,
@@ -3879,7 +3901,8 @@ def get_proxy_orders_details():
                     },
                     'quantity': item.quantity,
                     'unit_price': float(item.unit_price) if item.unit_price else 0,
-                    'total_price': float(item.total_price) if item.total_price else 0
+                    'total_price': float(item.total_price) if item.total_price else 0,
+                    'clients': klienci,
                 })
 
             orders_data.append({
@@ -4075,6 +4098,29 @@ def _allocate_batch_units_to_orders(poland_item):
     batch_end = batch_start + (poland_item.quantity or 0)
 
     return _batch_allocation_for_range(product_id, batch_start, batch_end)
+
+
+def _preview_batch_allocation(product_id, quantity, offset=0):
+    """Podgląd przydziału dla partii, której jeszcze NIE ma w bazie (tworzonej w modalu).
+
+    Nowa partia trafia na koniec kolejki FIFO, więc zaczyna się za wszystkimi
+    istniejącymi (nieanulowanymi) partiami tego produktu. `offset` przesuwa start,
+    gdy w jednym oknie jest kilka pozycji z tym samym produktem — bez niego obie
+    wskazywałyby te same sztuki.
+    """
+    from modules.products.models import PolandOrder
+
+    juz_w_partiach = db.session.query(
+        db.func.coalesce(db.func.sum(PolandOrderItem.quantity), 0)
+    ).join(
+        PolandOrder, PolandOrderItem.poland_order_id == PolandOrder.id
+    ).filter(
+        PolandOrderItem.product_id == product_id,
+        PolandOrder.status != 'anulowane',
+    ).scalar() or 0
+
+    start = int(juz_w_partiach) + offset
+    return _batch_allocation_for_range(product_id, start, start + quantity)
 
 
 def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):

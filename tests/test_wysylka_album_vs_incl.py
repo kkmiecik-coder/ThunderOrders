@@ -262,3 +262,78 @@ def test_incl_przyciete_per_pozycje_a_nie_na_sumie(db, make_user, make_order, ma
     alokacja = _allocate_product_shipping_fifo(produkt.id)
 
     assert alokacja[zam.id] == Decimal('102.00')
+
+
+def test_podglad_przydziela_klientow_do_tworzonej_partii(db, make_user, make_order,
+                                                         make_product):
+    """Nowa partia trafia na koniec kolejki: pierwsze 2 szt. zjadł klient A z wcześniejszej
+    partii, więc podgląd partii na 2 szt. pokazuje klienta B."""
+    from modules.products.routes import _preview_batch_allocation
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    _partia(db, produkt.id, qty=2, shipping='90', created_at=baza)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
+                            baza - timedelta(days=3))
+    b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
+                            baza - timedelta(days=2), incl=1)
+
+    podglad = _preview_batch_allocation(produkt.id, quantity=2)
+
+    assert podglad == [(b.id, 2)]
+    assert a.id not in [oid for oid, _ in podglad]
+
+
+def test_podglad_z_offsetem_dla_dwoch_pozycji_tego_samego_produktu(
+        db, make_user, make_order, make_product):
+    """Dwie pozycje z tym samym produktem w jednym oknie nie mogą wskazać tych samych sztuk."""
+    from modules.products.routes import _preview_batch_allocation
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=3))
+    b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=2))
+
+    pierwsza = _preview_batch_allocation(produkt.id, quantity=1, offset=0)
+    druga = _preview_batch_allocation(produkt.id, quantity=1, offset=1)
+
+    assert pierwsza == [(a.id, 1)]
+    assert druga == [(b.id, 1)]
+
+
+def test_endpoint_szczegolow_zwraca_klientow(db, client, login, make_user, make_order,
+                                             make_product):
+    """Okno partii dostaje z backendu listę klientów z ich obecnym `incl_only_quantity`."""
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
+                            baza - timedelta(days=2), incl=1)
+
+    proxy = ProxyOrder(order_number='PRX/T99', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    db.session.add(ProxyOrderItem(
+        proxy_order_id=proxy.id, product_id=produkt.id, quantity=2,
+        unit_price=Decimal('100'), total_price=Decimal('200'),
+    ))
+    db.session.commit()
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/get-proxy-orders-details',
+                      json={'proxy_order_ids': [proxy.id]})
+
+    assert odp.status_code == 200
+    dane = odp.get_json()
+    assert dane['success'] is True
+    klienci = dane['orders'][0]['items'][0]['clients']
+    assert klienci == [{
+        'order_id': a.id,
+        'order_number': a.order_number,
+        'client_name': klienci[0]['client_name'],
+        'quantity': 2,
+        'incl_only_quantity': 1,
+    }]
