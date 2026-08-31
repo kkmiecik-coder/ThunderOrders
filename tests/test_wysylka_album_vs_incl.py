@@ -344,6 +344,7 @@ def test_endpoint_szczegolow_zwraca_klientow(db, client, login, make_user, make_
         'order_number': a.order_number,
         'client_name': klient.full_name,
         'quantity': 2,
+        'order_total_quantity': 2,
         'incl_only_quantity': 1,
     }]
 
@@ -645,3 +646,33 @@ def test_ujemna_stawka_odrzucana_polskim_komunikatem(db, client, login, make_use
     assert odp.status_code == 400
     assert 'ujemne' in odp.get_json()['error'].lower()
     assert PolandOrder.query.count() == 0
+
+
+def test_endpoint_podaje_laczna_ilosc_zamowienia(db, client, login, make_user,
+                                                 make_order, make_product):
+    """Gdy część sztuk klienta jest w innej partii, endpoint podaje obie liczby —
+    ile przypada na tę partię i ile klient ma w całym zamówieniu."""
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
+                            baza - timedelta(days=3))
+
+    proxy = ProxyOrder(order_number='PRX/T77', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    db.session.add(ProxyOrderItem(
+        proxy_order_id=proxy.id, product_id=produkt.id, quantity=2,
+        unit_price=Decimal('100'), total_price=Decimal('200'),
+    ))
+    db.session.commit()
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/get-proxy-orders-details',
+                      json={'proxy_order_ids': [proxy.id]})
+
+    klient_json = odp.get_json()['orders'][0]['items'][0]['clients'][0]
+    assert klient_json['order_id'] == a.id
+    assert klient_json['quantity'] == 2
+    assert klient_json['order_total_quantity'] == 3

@@ -221,7 +221,15 @@ function renderPolandModal(orders) {
                 product_name: item.product.name,
                 quantity: item.quantity,
                 shipping_cost: 0,
-                order_index: orderIndex
+                order_index: orderIndex,
+                clients: (item.clients || []).map(c => ({
+                    order_id: c.order_id,
+                    order_number: c.order_number,
+                    client_name: c.client_name,
+                    quantity: c.quantity,
+                    order_total_quantity: c.order_total_quantity,
+                    incl_only_quantity: c.incl_only_quantity || 0
+                }))
             });
 
             const hasRealImage = item.product.image_url && !item.product.image_url.includes('placeholder');
@@ -245,6 +253,54 @@ function renderPolandModal(orders) {
             html += `oninput="handleShippingValueChange(${globalItemIndex})">`;
             html += `</td>`;
             html += `</tr>`;
+
+            const klienci = polandOrderData.items[globalItemIndex].clients;
+            if (klienci.length) {
+                html += `<tr class="poland-incl-row"><td colspan="4">`;
+                html += `<div class="poland-incl-clients">`;
+                klienci.forEach((k, clientIndex) => {
+                    html += `<div class="poland-incl-client">`;
+                    html += `<span class="poland-incl-client-name">${escapeHtml(k.client_name)}</span>`;
+                    html += `<span class="poland-incl-client-order">${escapeHtml(k.order_number)}</span>`;
+                    html += `<span class="poland-incl-client-qty">${k.quantity} szt</span>`;
+                    if (k.order_total_quantity > k.quantity) {
+                        html += `<span class="poland-incl-warning" title="Reszta sztuk tego klienta jest w innej partii. Liczba „samo incl” dotyczy całego zamówienia (${k.order_total_quantity} szt.), nie tylko tej partii.">⚠ ${k.quantity} z ${k.order_total_quantity} szt. w tej partii</span>`;
+                    }
+                    html += `<label class="poland-incl-label">samo incl:`;
+                    html += `<input type="number" class="form-input poland-incl-input" `;
+                    html += `data-item-index="${globalItemIndex}" data-client-index="${clientIndex}" `;
+                    html += `value="${k.incl_only_quantity}" min="0" max="${k.quantity}" step="1" `;
+                    html += `oninput="handleInclQtyChange(${globalItemIndex}, ${clientIndex})">`;
+                    html += `<span class="poland-incl-of">z ${k.quantity}</span>`;
+                    html += `</label>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+
+                html += `<div class="poland-rates" data-item-index="${globalItemIndex}">`;
+                html += `<div class="poland-rate-line">`;
+                html += `<span class="poland-rate-label">cały album</span>`;
+                html += `<span class="poland-rate-qty" data-role="album-qty">0 szt</span>`;
+                html += `<span class="poland-rate-times">×</span>`;
+                html += `<input type="number" class="form-input poland-rate-input" `;
+                html += `data-item-index="${globalItemIndex}" data-role="album-rate" `;
+                html += `placeholder="0,00" step="0.01" min="0" `;
+                html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `<span class="poland-rate-sum" data-role="album-sum">0,00 zł</span>`;
+                html += `</div>`;
+                html += `<div class="poland-rate-line">`;
+                html += `<span class="poland-rate-label">samo incl</span>`;
+                html += `<span class="poland-rate-qty" data-role="incl-qty">0 szt</span>`;
+                html += `<span class="poland-rate-times">×</span>`;
+                html += `<input type="number" class="form-input poland-rate-input" `;
+                html += `data-item-index="${globalItemIndex}" data-role="incl-rate" `;
+                html += `placeholder="0,00" step="0.01" min="0" `;
+                html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `<span class="poland-rate-sum" data-role="incl-sum">0,00 zł</span>`;
+                html += `</div>`;
+                html += `</div>`;
+                html += `</td></tr>`;
+            }
         });
 
         html += `</tbody></table>`;
@@ -266,6 +322,8 @@ function renderPolandModal(orders) {
             this.classList.remove('input-error');
         });
     });
+
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -469,6 +527,7 @@ function handleShippingPriceChange(itemIndex) {
     distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
+    refreshRatesRow(itemIndex);
 }
 
 /**
@@ -496,6 +555,7 @@ function handleShippingValueChange(itemIndex) {
     distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
+    refreshRatesRow(itemIndex);
 }
 
 /**
@@ -619,6 +679,26 @@ function confirmPolandOrder() {
         errors.push('Uzupełnij wartość wysyłki dla każdego produktu (może być 0)');
     }
 
+    let stawkiOk = true;
+    polandOrderData.items.forEach((item, idx) => {
+        const inclQty = item.clients.reduce((s, c) => s + (c.incl_only_quantity || 0), 0);
+        if (inclQty === 0) return;
+        const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
+        const albumInput = box.querySelector('[data-role="album-rate"]');
+        const albumQty = (item.quantity || 0) - inclQty;
+        const raw = (albumInput.value || '').trim();
+        if (albumQty > 0 && (raw === '' || isNaN(parseFloat(raw)) || parseFloat(raw) < 0)) {
+            stawkiOk = false;
+            albumInput.classList.add('input-error');
+        } else {
+            albumInput.classList.remove('input-error');
+        }
+    });
+
+    if (!stawkiOk) {
+        errors.push('Wpisz stawkę za cały album w produktach, gdzie ktoś bierze samo incl');
+    }
+
     if (errors.length > 0) {
         if (typeof window.showToast === 'function') {
             window.showToast(errors[0], 'error');
@@ -658,10 +738,29 @@ function confirmPolandOrder() {
     const itemsPayload = polandOrderData.items.map((item, idx) => {
         const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
         const shippingCost = input ? (parseFloat(input.value) || 0) : 0;
-        return {
+
+        const inclQty = item.clients.reduce((s, c) => s + (c.incl_only_quantity || 0), 0);
+        const payload = {
             proxy_order_item_id: item.proxy_order_item_id,
-            shipping_cost: shippingCost
+            shipping_cost: shippingCost,
+            clients: item.clients.map(c => ({
+                order_id: c.order_id,
+                incl_only_quantity: c.incl_only_quantity || 0
+            }))
         };
+
+        // Stawki wysyłamy tylko wtedy, gdy ktokolwiek bierze samo incl — inaczej
+        // backend idzie starą ścieżką (jedna kwota dzielona po równo).
+        if (inclQty > 0) {
+            const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
+            const albumInput = box.querySelector('[data-role="album-rate"]');
+            const inclInput = box.querySelector('[data-role="incl-rate"]');
+            payload.album_rate = parseFloat(albumInput.value) || 0;
+            payload.incl_rate = parseFloat(inclInput.value)
+                || parseFloat((inclInput.placeholder || '0').replace(',', '.'))
+                || 0;
+        }
+        return payload;
     });
 
     // Disable button
@@ -2325,3 +2424,60 @@ function bulkUnarchivePolandOrders() {
 }
 
 // Archiwum filter wrapper functions
+
+/**
+ * Zlicza sztuki album/incl dla pozycji i odświeża wiersz stawek.
+ * Gdy nikt nie bierze incl, wiersz stawek chowamy — okno wygląda jak wcześniej.
+ */
+function refreshRatesRow(itemIndex) {
+    const item = polandOrderData.items[itemIndex];
+    const box = document.querySelector(`.poland-rates[data-item-index="${itemIndex}"]`);
+    if (!item || !box) return;
+
+    const inclQty = item.clients.reduce((s, c) => s + (c.incl_only_quantity || 0), 0);
+    const albumQty = (item.quantity || 0) - inclQty;
+
+    box.style.display = inclQty > 0 ? '' : 'none';
+    box.querySelector('[data-role="album-qty"]').textContent = `${albumQty} szt`;
+    box.querySelector('[data-role="incl-qty"]').textContent = `${inclQty} szt`;
+
+    const albumInput = box.querySelector('[data-role="album-rate"]');
+    const inclInput = box.querySelector('[data-role="incl-rate"]');
+    const albumRate = parseFloat(albumInput.value) || 0;
+
+    // Podpowiedź stawki incl: reszta z wartości linijki po opłaceniu albumów.
+    const wartosc = parseFloat(
+        document.querySelector(`.shipping-value-input[data-item-index="${itemIndex}"]`)?.value) || 0;
+    const reszta = wartosc - albumRate * albumQty;
+    const podpowiedz = inclQty > 0 && reszta > 0 ? (reszta / inclQty) : 0;
+    inclInput.placeholder = podpowiedz > 0 ? podpowiedz.toFixed(2).replace('.', ',') : '0,00';
+
+    const inclRate = parseFloat(inclInput.value) || podpowiedz;
+    box.querySelector('[data-role="album-sum"]').textContent =
+        (albumRate * albumQty).toFixed(2).replace('.', ',') + ' zł';
+    box.querySelector('[data-role="incl-sum"]').textContent =
+        (inclRate * inclQty).toFixed(2).replace('.', ',') + ' zł';
+}
+
+function handleInclQtyChange(itemIndex, clientIndex) {
+    const item = polandOrderData.items[itemIndex];
+    const input = document.querySelector(
+        `.poland-incl-input[data-item-index="${itemIndex}"][data-client-index="${clientIndex}"]`);
+    if (!item || !input) return;
+
+    const klient = item.clients[clientIndex];
+    let wartosc = parseInt(input.value, 10);
+    if (isNaN(wartosc) || wartosc < 0) wartosc = 0;
+    if (wartosc > klient.quantity) wartosc = klient.quantity;
+    input.value = wartosc;
+    klient.incl_only_quantity = wartosc;
+
+    refreshRatesRow(itemIndex);
+}
+
+function handleRateChange(itemIndex) {
+    refreshRatesRow(itemIndex);
+}
+
+window.handleInclQtyChange = handleInclQtyChange;
+window.handleRateChange = handleRateChange;

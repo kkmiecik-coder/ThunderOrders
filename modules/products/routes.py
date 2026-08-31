@@ -3882,12 +3882,13 @@ def get_proxy_orders_details():
                     zam = db.session.get(ZamowienieKlienta, order_id)
                     if not zam:
                         continue
-                    _, incl = _order_product_quantities(zam, pid)
+                    ilosc_calego_zamowienia, incl = _order_product_quantities(zam, pid)
                     klienci.append({
                         'order_id': zam.id,
                         'order_number': zam.order_number,
                         'client_name': (zam.user.full_name if zam.user else '—'),
                         'quantity': ilosc,
+                        'order_total_quantity': ilosc_calego_zamowienia,
                         'incl_only_quantity': min(incl, ilosc),
                     })
                 offsety[pid] = offset + (item.quantity or 0)
