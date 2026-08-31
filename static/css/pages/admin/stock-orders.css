@@ -2704,6 +2704,7 @@
 
 .poland-rate-label { min-width: 90px; }
 .poland-rate-qty { min-width: 56px; color: #6b7280; }
+.poland-rate-times { color: #6b7280; }
 .poland-rate-input { width: 100px; min-height: 44px; }
 .poland-rate-sum { margin-left: auto; font-weight: 600; }
 
@@ -2713,6 +2714,7 @@
 [data-theme="dark"] .poland-incl-client-order,
 [data-theme="dark"] .poland-incl-client-qty,
 [data-theme="dark"] .poland-incl-of,
-[data-theme="dark"] .poland-rate-qty { color: #9ca3af; }
+[data-theme="dark"] .poland-rate-qty,
+[data-theme="dark"] .poland-rate-times { color: #9ca3af; }
 
 [data-theme="dark"] .poland-rates { border-top-color: #374151; }

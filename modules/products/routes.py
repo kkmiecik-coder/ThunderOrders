@@ -3889,7 +3889,10 @@ def get_proxy_orders_details():
                         'client_name': (zam.user.full_name if zam.user else '—'),
                         'quantity': ilosc,
                         'order_total_quantity': ilosc_calego_zamowienia,
-                        'incl_only_quantity': min(incl, ilosc),
+                        # Realna zapisana wartość (nie przycięta do tej partii) — inaczej
+                        # wysłanie kolejnej partii po cichu obniżałoby wcześniej zapisane incl
+                        # (zapis w _zapisz_incl_na_zamowieniu jest absolutny, nie doda tego z powrotem).
+                        'incl_only_quantity': incl,
                     })
                 offsety[pid] = offset + (item.quantity or 0)
 

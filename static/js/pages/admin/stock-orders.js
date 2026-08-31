@@ -269,9 +269,9 @@ function renderPolandModal(orders) {
                     html += `<label class="poland-incl-label">samo incl:`;
                     html += `<input type="number" class="form-input poland-incl-input" `;
                     html += `data-item-index="${globalItemIndex}" data-client-index="${clientIndex}" `;
-                    html += `value="${k.incl_only_quantity}" min="0" max="${k.quantity}" step="1" `;
+                    html += `value="${k.incl_only_quantity}" min="0" max="${k.order_total_quantity}" step="1" `;
                     html += `oninput="handleInclQtyChange(${globalItemIndex}, ${clientIndex})">`;
-                    html += `<span class="poland-incl-of">z ${k.quantity}</span>`;
+                    html += `<span class="poland-incl-of">z ${k.order_total_quantity}</span>`;
                     html += `</label>`;
                     html += `</div>`;
                 });
@@ -310,7 +310,7 @@ function renderPolandModal(orders) {
     container.innerHTML = html;
 
     // Double-click on any shipping input: placeholder → value
-    container.querySelectorAll('.shipping-price-input, .shipping-value-input, .package-shipping-input').forEach(input => {
+    container.querySelectorAll('.shipping-price-input, .shipping-value-input, .package-shipping-input, .poland-rate-input').forEach(input => {
         input.addEventListener('dblclick', function() {
             if (!this.value && this.placeholder && this.placeholder !== '0,00') {
                 this.value = this.placeholder.replace(',', '.');
@@ -680,11 +680,18 @@ function confirmPolandOrder() {
     }
 
     let stawkiOk = true;
+    let inclStawkaOk = true;
     polandOrderData.items.forEach((item, idx) => {
-        const inclQty = item.clients.reduce((s, c) => s + (c.incl_only_quantity || 0), 0);
+        // incl_only_quantity dotyczy CAŁEGO zamówienia klienta i może przekraczać jego
+        // sztuki w TEJ partii (rozjechany przypadek) — do liczenia album/incl w tej
+        // partii bierzemy tylko część mieszczącą się w tej partii, inaczej album_qty
+        // wyszedłby ujemny.
+        const inclQty = item.clients.reduce(
+            (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
         if (inclQty === 0) return;
         const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
         const albumInput = box.querySelector('[data-role="album-rate"]');
+        const inclInput = box.querySelector('[data-role="incl-rate"]');
         const albumQty = (item.quantity || 0) - inclQty;
         const raw = (albumInput.value || '').trim();
         if (albumQty > 0 && (raw === '' || isNaN(parseFloat(raw)) || parseFloat(raw) < 0)) {
@@ -693,10 +700,25 @@ function confirmPolandOrder() {
         } else {
             albumInput.classList.remove('input-error');
         }
+
+        // Stawka incl: puste pole korzysta z podpowiedzi (dozwolone), "0" jest
+        // dozwolone (wysyłka incl gratis) — błąd tylko przy jawnie wpisanej
+        // wartości ujemnej, zamiast puszczać ją do serwera i wracać surowym 400.
+        const inclRaw = (inclInput.value || '').trim();
+        if (inclRaw !== '' && (isNaN(parseFloat(inclRaw)) || parseFloat(inclRaw) < 0)) {
+            inclStawkaOk = false;
+            inclInput.classList.add('input-error');
+        } else {
+            inclInput.classList.remove('input-error');
+        }
     });
 
     if (!stawkiOk) {
         errors.push('Wpisz stawkę za cały album w produktach, gdzie ktoś bierze samo incl');
+    }
+
+    if (!inclStawkaOk) {
+        errors.push('Stawka za samo incl nie może być ujemna');
     }
 
     if (errors.length > 0) {
@@ -739,7 +761,12 @@ function confirmPolandOrder() {
         const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
         const shippingCost = input ? (parseFloat(input.value) || 0) : 0;
 
-        const inclQty = item.clients.reduce((s, c) => s + (c.incl_only_quantity || 0), 0);
+        // incl_only_quantity dotyczy CAŁEGO zamówienia klienta i może przekraczać jego
+        // sztuki w TEJ partii (rozjechany przypadek) — do liczenia album/incl w tej
+        // partii bierzemy tylko część mieszczącą się w tej partii, inaczej album_qty
+        // wyszedłby ujemny.
+        const inclQty = item.clients.reduce(
+            (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
         const payload = {
             proxy_order_item_id: item.proxy_order_item_id,
             shipping_cost: shippingCost,
@@ -755,10 +782,8 @@ function confirmPolandOrder() {
             const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
             const albumInput = box.querySelector('[data-role="album-rate"]');
             const inclInput = box.querySelector('[data-role="incl-rate"]');
-            payload.album_rate = parseFloat(albumInput.value) || 0;
-            payload.incl_rate = parseFloat(inclInput.value)
-                || parseFloat((inclInput.placeholder || '0').replace(',', '.'))
-                || 0;
+            payload.album_rate = parseValueOrPlaceholder(albumInput);
+            payload.incl_rate = parseValueOrPlaceholder(inclInput);
         }
         return payload;
     });
@@ -2426,6 +2451,26 @@ function bulkUnarchivePolandOrders() {
 // Archiwum filter wrapper functions
 
 /**
+ * Czyta liczbę z pola liczbowego: wpisana wartość (także jawne "0") ma zawsze
+ * pierwszeństwo przed podpowiedzią (placeholder). Dopiero puste pole albo wartość,
+ * której nie da się sparsować, sięga po podpowiedź (przecinek jako separator
+ * dziesiętny, tak jak w placeholderach kaskady). Bez tego rozróżnienia zapis
+ * `parseFloat(input.value) || podpowiedz` po cichu zamieniał wpisane zero na
+ * podpowiedzianą stawkę, bo `parseFloat("0")` jest wartością fałszywą w JS.
+ */
+function parseValueOrPlaceholder(inputEl) {
+    if (!inputEl) return 0;
+    const raw = (inputEl.value || '').trim();
+    if (raw !== '') {
+        const parsed = parseFloat(raw);
+        if (!isNaN(parsed)) return parsed;
+    }
+    const ph = (inputEl.placeholder || '0').replace(',', '.');
+    const parsed = parseFloat(ph);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
  * Zlicza sztuki album/incl dla pozycji i odświeża wiersz stawek.
  * Gdy nikt nie bierze incl, wiersz stawek chowamy — okno wygląda jak wcześniej.
  */
@@ -2434,7 +2479,11 @@ function refreshRatesRow(itemIndex) {
     const box = document.querySelector(`.poland-rates[data-item-index="${itemIndex}"]`);
     if (!item || !box) return;
 
-    const inclQty = item.clients.reduce((s, c) => s + (c.incl_only_quantity || 0), 0);
+    // incl_only_quantity dotyczy CAŁEGO zamówienia klienta i może przekraczać jego
+    // sztuki w TEJ partii (rozjechany przypadek) — do wiersza stawek liczymy tylko
+    // część mieszczącą się w tej partii, inaczej albumQty wyszedłby ujemny.
+    const inclQty = item.clients.reduce(
+        (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
     const albumQty = (item.quantity || 0) - inclQty;
 
     box.style.display = inclQty > 0 ? '' : 'none';
@@ -2443,16 +2492,19 @@ function refreshRatesRow(itemIndex) {
 
     const albumInput = box.querySelector('[data-role="album-rate"]');
     const inclInput = box.querySelector('[data-role="incl-rate"]');
-    const albumRate = parseFloat(albumInput.value) || 0;
+    const albumRate = parseValueOrPlaceholder(albumInput);
 
     // Podpowiedź stawki incl: reszta z wartości linijki po opłaceniu albumów.
-    const wartosc = parseFloat(
-        document.querySelector(`.shipping-value-input[data-item-index="${itemIndex}"]`)?.value) || 0;
+    // Wartość linijki (Wartość) bywa tylko podpowiedziana kaskadą (rozdzielenie
+    // łącznej kwoty paczki) — bez czytania placeholdera podpowiedź incl zawsze
+    // wychodziłaby "0,00" przy najczęstszym sposobie wpisywania.
+    const wartoscInput = document.querySelector(`.shipping-value-input[data-item-index="${itemIndex}"]`);
+    const wartosc = parseValueOrPlaceholder(wartoscInput);
     const reszta = wartosc - albumRate * albumQty;
     const podpowiedz = inclQty > 0 && reszta > 0 ? (reszta / inclQty) : 0;
     inclInput.placeholder = podpowiedz > 0 ? podpowiedz.toFixed(2).replace('.', ',') : '0,00';
 
-    const inclRate = parseFloat(inclInput.value) || podpowiedz;
+    const inclRate = parseValueOrPlaceholder(inclInput);
     box.querySelector('[data-role="album-sum"]').textContent =
         (albumRate * albumQty).toFixed(2).replace('.', ',') + ' zł';
     box.querySelector('[data-role="incl-sum"]').textContent =
@@ -2468,7 +2520,10 @@ function handleInclQtyChange(itemIndex, clientIndex) {
     const klient = item.clients[clientIndex];
     let wartosc = parseInt(input.value, 10);
     if (isNaN(wartosc) || wartosc < 0) wartosc = 0;
-    if (wartosc > klient.quantity) wartosc = klient.quantity;
+    // Górny limit to CAŁE zamówienie klienta (może wykraczać poza tę partię, gdy
+    // reszta sztuk jest w innej partii) — pole samo incl jest jedną liczbą na całe
+    // zamówienie, nie per partia.
+    if (wartosc > klient.order_total_quantity) wartosc = klient.order_total_quantity;
     input.value = wartosc;
     klient.incl_only_quantity = wartosc;
 

@@ -676,3 +676,36 @@ def test_endpoint_podaje_laczna_ilosc_zamowienia(db, client, login, make_user,
     assert klient_json['order_id'] == a.id
     assert klient_json['quantity'] == 2
     assert klient_json['order_total_quantity'] == 3
+
+
+def test_rozjechany_klient_dostaje_pelne_incl_a_nie_przyciete_do_partii(
+        db, client, login, make_user, make_order, make_product):
+    """Klient ma zapisane incl=2 na całe zamówienie (3 szt.), ale ta partia obejmuje
+    tylko 1 sztukę. Endpoint musi zwrócić realnie zapisane incl=2, a NIE min(2, 1)=1 —
+    inaczej wysłanie tej partii bez zmian w oknie po cichu obniżyłoby zapisane incl
+    (zapis jest absolutny, patrz `_zapisz_incl_na_zamowieniu`)."""
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
+                            baza - timedelta(days=3), incl=2)
+
+    proxy = ProxyOrder(order_number='PRX/T78', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    db.session.add(ProxyOrderItem(
+        proxy_order_id=proxy.id, product_id=produkt.id, quantity=1,
+        unit_price=Decimal('100'), total_price=Decimal('100'),
+    ))
+    db.session.commit()
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/get-proxy-orders-details',
+                      json={'proxy_order_ids': [proxy.id]})
+
+    klient_json = odp.get_json()['orders'][0]['items'][0]['clients'][0]
+    assert klient_json['order_id'] == a.id
+    assert klient_json['quantity'] == 1
+    assert klient_json['order_total_quantity'] == 3
+    assert klient_json['incl_only_quantity'] == 2
