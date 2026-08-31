@@ -1195,6 +1195,94 @@ W budowaniu `itemsPayload` (linia ~657) zamień zwracany obiekt na:
     });
 ```
 
+- [ ] **Step 5b: Ostrzeżenie, gdy pozycja klienta rozjeżdża się między partie**
+
+Decyzja właścicielki z 2026-08-31: sztuki jednego klienta dla jednego produktu w praktyce
+nie przyjeżdżają w dwóch partiach, więc „samo incl" zostaje **jedną liczbą na pozycję
+zamówienia**, a nie liczbą per partia. Na wypadek, gdyby taki przypadek jednak wystąpił,
+admin ma to zobaczyć — inaczej wpisałby liczbę myśląc, że dotyczy tylko tej partii, a
+zapisze się jako całość zamówienia.
+
+W `modules/products/routes.py`, w `get_proxy_orders_details`, do słownika klienta dołóż
+pole z łączną ilością sztuk tego produktu w całym zamówieniu:
+
+```python
+                    ilosc_calego_zamowienia, incl = _order_product_quantities(zam, pid)
+                    klienci.append({
+                        'order_id': zam.id,
+                        'order_number': zam.order_number,
+                        'client_name': (zam.user.full_name if zam.user else '—'),
+                        'quantity': ilosc,
+                        'order_total_quantity': ilosc_calego_zamowienia,
+                        'incl_only_quantity': min(incl, ilosc),
+                    })
+```
+
+(Zastępuje to dotychczasowe `_, incl = _order_product_quantities(zam, pid)` — ta sama
+funkcja, tylko wykorzystana jest też pierwsza zwracana wartość.)
+
+W `renderPolandModal`, przy renderowaniu wiersza klienta, po `poland-incl-client-qty`
+dodaj ostrzeżenie widoczne tylko wtedy, gdy klient ma w tym zamówieniu więcej sztuk, niż
+przypada na tę partię:
+
+```javascript
+                    if (k.order_total_quantity > k.quantity) {
+                        html += `<span class="poland-incl-warning" title="Reszta sztuk tego klienta jest w innej partii. Liczba „samo incl” dotyczy całego zamówienia (${k.order_total_quantity} szt.), nie tylko tej partii.">⚠ ${k.quantity} z ${k.order_total_quantity} szt. w tej partii</span>`;
+                    }
+```
+
+Pole `clients[].order_total_quantity` dopisz też do stanu modala w Kroku 1
+(`polandOrderData.items[].clients`), obok pozostałych pól:
+
+```javascript
+                    order_total_quantity: c.order_total_quantity,
+```
+
+Test do dopisania w `tests/test_wysylka_album_vs_incl.py`:
+
+```python
+def test_endpoint_podaje_laczna_ilosc_zamowienia(db, client, login, make_user,
+                                                 make_order, make_product):
+    """Gdy część sztuk klienta jest w innej partii, endpoint podaje obie liczby —
+    ile przypada na tę partię i ile klient ma w całym zamówieniu."""
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
+                            baza - timedelta(days=3))
+
+    proxy = ProxyOrder(order_number='PRX/T77', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    db.session.add(ProxyOrderItem(
+        proxy_order_id=proxy.id, product_id=produkt.id, quantity=2,
+        unit_price=Decimal('100'), total_price=Decimal('200'),
+    ))
+    db.session.commit()
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/get-proxy-orders-details',
+                      json={'proxy_order_ids': [proxy.id]})
+
+    klient_json = odp.get_json()['orders'][0]['items'][0]['clients'][0]
+    assert klient_json['order_id'] == a.id
+    assert klient_json['quantity'] == 2
+    assert klient_json['order_total_quantity'] == 3
+```
+
+Styl ostrzeżenia dopisz razem z pozostałymi w Kroku 7:
+
+```css
+.poland-incl-warning {
+    font-size: 12px;
+    color: #b45309;
+    cursor: help;
+}
+
+[data-theme="dark"] .poland-incl-warning { color: #fbbf24; }
+```
+
 - [ ] **Step 6: Dodaj walidację stawek przed wysłaniem**
 
 W bloku walidacji, zaraz po pętli sprawdzającej `shipping-value-input` (linia ~617), dopisz:
