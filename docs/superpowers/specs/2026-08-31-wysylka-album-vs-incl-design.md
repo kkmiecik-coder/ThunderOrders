@@ -132,18 +132,12 @@ listę `proxy_order_item_id` i zwraca dla każdego: produkt, listę
 `{order_id, klient, quantity, incl_only_quantity}` wyliczoną tą samą funkcją
 `_allocate_batch_units_to_orders`, żeby podgląd zgadzał się z tym, co zapisze zapis partii.
 
-### Edycja już utworzonej partii
-
-To samo rozwinięcie klientów + stawki musi być dostępne w edycji istniejącej partii
-(ścieżka edycji kosztów partii, `modules/products/routes.py:4514`). To jest droga do
-nadrobienia exclusive, które są już zebrane, i do poprawienia pomyłek. Zapis wywołuje
-`_distribute_proxy_shipping_to_client_orders`, czyli kwoty klientów przeliczają się od nowa.
-
 ## Gdzie jeszcze to widać
 
 - **Szczegóły zamówienia w adminie** (`templates/admin/orders/detail.html`) — przy
-  pozycji informacja „samo incl: 1 z 2" z możliwością poprawienia. To jest źródło
-  prawdy, więc admin musi je widzieć i móc zmienić poza oknem partii.
+  pozycji plakietka „SAMO INCL" (przy mieszanej „SAMO INCL 1/2"), **tylko do odczytu**.
+  Edycja tutaj byłaby myląca: nie ma ścieżki ponownego naliczenia kosztów już
+  utworzonej partii, więc zmiana nic by nie przeliczyła.
 - **Etap 2 „Wysyłka KR"** — bez zmian. `proxy_shipping_cost` to to samo pole co dotąd,
   więc terminy (`get_shipping_kr_deadline`), przypomnienia
   (`modules/orders/payment_overdue_service.py:16`) i maile
@@ -193,6 +187,10 @@ dodała.
 
 ## Poza zakresem
 
+- **Edycja kosztów wysyłki na już utworzonej partii.** W systemie nie istnieje dziś taki
+  endpoint (jest tylko edycja cła/VAT, `/api/update-poland-customs-vat`), a partie do
+  Polski dla tych exclusive dopiero powstaną — decyzja Karoliny z 2026-08-31. Do
+  dorobienia osobnym zadaniem, gdyby okazało się potrzebne przy pomyłkach.
 - **Na później:** wybór „cały album / samo incl" przez klienta przy składaniu zamówienia
   w ofercie, żeby nie przepisywać go z czatu. Naturalna druga część tego zadania —
   nie robimy jej teraz, bo nie ratuje exclusive już zebranych.
