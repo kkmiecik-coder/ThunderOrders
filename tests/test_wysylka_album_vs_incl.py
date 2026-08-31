@@ -1048,3 +1048,113 @@ def test_plakietka_samo_incl_w_panelu_klienta(db, client, login, make_user,
     db.session.commit()
     odp = client.get(f'/client/orders/{zam.id}')
     assert 'SAMO INCL' not in odp.get_data(as_text=True)
+
+
+def test_jeden_klient_dwa_produkty_incl_nie_rozlewa_sie_na_drugi_produkt(
+        db, client, login, make_user, make_order, make_product):
+    """Ten sam klient bierze DWA różne produkty w jednym oknie (typowa sytuacja:
+    dwa albumy z tego samego dropu, jedna paczka). Admin ustawia „samo incl"
+    tylko przy produkcie 1; okno wysyła dla produktu 2 zero (tak wygląda payload,
+    gdy front — poprawnie zsynchronizowany w obrębie tego samego produktu —
+    w ogóle nie rusza pola drugiego produktu).
+
+    `incl_do_zapisania` w `create_poland_order` jest kluczowane przez
+    `(order_id, product_id)`, więc serwer i tak nie miesza tu produktów — ten
+    test pilnuje tego kontraktu, żeby się nie rozjechał, ale sam z siebie NIE
+    wykrywa błędu opisanego w zadaniu (błąd siedział w JS, w synchronizacji pól
+    w przeglądarce po samym order_id, bez sprawdzenia product_id — patrz
+    `handleInclQtyChange` w `static/js/pages/admin/stock-orders.js`; ta ścieżka
+    nie jest pokryta testem automatycznym i wymaga przeklikania w przeglądarce).
+
+    Wyliczenie z `_allocate_product_shipping_fifo` (każdy produkt to osobna,
+    jednorazowa partia na całą swoją ilość — kolejność FIFO nie ma tu znaczenia):
+      • produkt 1: 4 szt., incl=2 → album=2×45 + incl=2×12 = 90 + 24 = 114,00 zł
+      • produkt 2: 4 szt., incl=0 → album=4×45 = 180,00 zł
+      • razem na zamówieniu klienta: 114,00 + 180,00 = 294,00 zł
+
+    (Błędna synchronizacja po samym order_id przepisałaby incl=2 również na
+    produkt 2: 2×45 + 2×12 = 114,00 zł, co dałoby razem 114 + 114 = 228,00 zł —
+    dokładnie kwota zmierzona w opisie błędu, o 66 zł za mało.)
+    """
+    from modules.orders.models import Order, OrderItem
+    from modules.products.models import PolandOrderItem, ProxyOrder, ProxyOrderItem
+
+    produkt1 = make_product(name='Album A')
+    produkt2 = make_product(name='Album B')
+    baza = datetime(2026, 8, 1, 10, 0)
+
+    zam = make_order(make_user(), offer_page_id=1, created_at=baza - timedelta(days=3))
+    poz1 = OrderItem(
+        order_id=zam.id, product_id=produkt1.id, quantity=4,
+        price=Decimal('130'), total=Decimal('520'),
+    )
+    poz2 = OrderItem(
+        order_id=zam.id, product_id=produkt2.id, quantity=4,
+        price=Decimal('130'), total=Decimal('520'),
+    )
+    db.session.add_all([poz1, poz2])
+    db.session.commit()
+
+    # Jedno okno (jeden ProxyOrder) z dwiema pozycjami — po jednej na produkt.
+    proxy = ProxyOrder(order_number='PRX/T80', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    proxy_poz1 = ProxyOrderItem(
+        proxy_order_id=proxy.id, product_id=produkt1.id, quantity=4,
+        unit_price=Decimal('100'), total_price=Decimal('400'),
+    )
+    proxy_poz2 = ProxyOrderItem(
+        proxy_order_id=proxy.id, product_id=produkt2.id, quantity=4,
+        unit_price=Decimal('100'), total_price=Decimal('400'),
+    )
+    db.session.add_all([proxy_poz1, proxy_poz2])
+    db.session.commit()
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 294,
+        'tracking_number': 'KB88900-RS5',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [
+            {
+                'proxy_order_item_id': proxy_poz1.id,
+                'shipping_cost': 114,
+                'album_rate': 45,
+                'incl_rate': 12,
+                'clients': [{
+                    'order_id': zam.id,
+                    'incl_only_quantity': 2,
+                    'incl_w_partii': 2,
+                }],
+            },
+            {
+                'proxy_order_item_id': proxy_poz2.id,
+                'shipping_cost': 180,
+                'album_rate': 45,
+                'incl_rate': 12,
+                'clients': [{
+                    'order_id': zam.id,
+                    'incl_only_quantity': 0,
+                    'incl_w_partii': 0,
+                }],
+            },
+        ],
+    })
+
+    assert odp.status_code == 200, odp.get_json()
+
+    # Produkt 1 dostał ustawioną wartość, produkt 2 zostaje przy zerze — brak
+    # rozlania między pozycjami tego samego klienta w różnych produktach.
+    assert OrderItem.query.filter_by(order_id=zam.id, product_id=produkt1.id).one() \
+        .incl_only_quantity == 2
+    assert OrderItem.query.filter_by(order_id=zam.id, product_id=produkt2.id).one() \
+        .incl_only_quantity == 0
+
+    pozycja1 = PolandOrderItem.query.filter_by(proxy_order_item_id=proxy_poz1.id).one()
+    pozycja2 = PolandOrderItem.query.filter_by(proxy_order_item_id=proxy_poz2.id).one()
+    assert pozycja1.shipping_cost == Decimal('114.00')
+    assert pozycja2.shipping_cost == Decimal('180.00')
+
+    assert db.session.get(Order, zam.id).proxy_shipping_cost == Decimal('294.00')

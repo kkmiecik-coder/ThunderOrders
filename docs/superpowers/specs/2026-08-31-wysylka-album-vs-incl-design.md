@@ -171,7 +171,9 @@ uruchamia ostrzeżenie ⚠ w oknie.
 - `incl_only_quantity` z zakresu `0..quantity`; wartość spoza zakresu odrzucana.
 - Stawki nie mogą być ujemne.
 - Podpowiedziana stawka incl, gdyby wyszła ujemna (stawka albumu wyższa niż cała
-  paczka), pokazuje się jako `0.00` z ostrzeżeniem — admin i tak widzi różnicę na dole.
+  paczka), pokazuje się po prostu jako placeholder `0,00` — bez osobnego ostrzeżenia
+  przy tym polu. Licznik „różnica" na dole okna liczy pozycje ze stawek, więc rozjazd
+  i tak jest widoczny tam.
 
 ## Testy (pytest)
 

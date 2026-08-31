@@ -2570,20 +2570,26 @@ function handleInclQtyChange(itemIndex, clientIndex) {
     input.value = wartosc;
     klient.incl_only_quantity = wartosc;
 
-    // incl_only_quantity to JEDNA liczba na całe zamówienie klienta — gdy ten sam
-    // order_id występuje w kilku pozycjach tego okna (sztuki klienta rozjechane
-    // między kilka zamówień proxy tego samego produktu), pola "samo incl" muszą
-    // pokazywać tę samą wartość. Bez synchronizacji admin widzi dwie niezależne
-    // kontrolki dla jednej i tej samej liczby, a rozjazd między nimi odtwarzałby
-    // po stronie serwera błąd podwajania (patrz max() w create_poland_order).
+    // incl_only_quantity to JEDNA liczba na całe zamówienie klienta DLA DANEGO
+    // PRODUKTU — gdy ten sam order_id i ten sam product_id występują w kilku
+    // pozycjach tego okna (sztuki klienta rozjechane między kilka zamówień proxy
+    // tego samego produktu), pola "samo incl" muszą pokazywać tę samą wartość.
+    // Bez synchronizacji admin widzi dwie niezależne kontrolki dla jednej i tej
+    // samej liczby, a rozjazd między nimi odtwarzałby po stronie serwera błąd
+    // podwajania (patrz max() w create_poland_order). Synchronizacja musi być
+    // ograniczona do tego samego produktu — ten sam klient może mieć w oknie
+    // inny produkt z zupełnie inną (niezależną) wartością incl_only_quantity.
     polandOrderData.items.forEach((innyItem, innyIndex) => {
         if (innyIndex === itemIndex) return;
+        if (innyItem.product_id !== item.product_id) return;
         innyItem.clients.forEach((innyKlient, innyClientIndex) => {
             if (innyKlient.order_id !== klient.order_id) return;
-            innyKlient.incl_only_quantity = wartosc;
+            let innyWartosc = wartosc;
+            if (innyWartosc > innyKlient.order_total_quantity) innyWartosc = innyKlient.order_total_quantity;
+            innyKlient.incl_only_quantity = innyWartosc;
             const innyInput = document.querySelector(
                 `.poland-incl-input[data-item-index="${innyIndex}"][data-client-index="${innyClientIndex}"]`);
-            if (innyInput) innyInput.value = wartosc;
+            if (innyInput) innyInput.value = innyWartosc;
             refreshRatesRow(innyIndex);
         });
     });
