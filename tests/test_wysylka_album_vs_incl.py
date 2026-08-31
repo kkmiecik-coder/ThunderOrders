@@ -852,3 +852,55 @@ def test_incl_w_partii_wieksze_niz_incl_only_quantity_odrzucane(
     # Rollback pełnej transakcji — ani partia, ani zmiana incl na zamówieniu.
     assert PolandOrder.query.count() == 0
     assert OrderItem.query.filter_by(order_id=a.id).one().incl_only_quantity == 1
+
+
+def test_api_mobilne_zwraca_incl_only_quantity(app, db, make_user, make_order, make_product):
+    """Apka dostaje to samo pole co web, żeby pokazać tę samą plakietkę.
+
+    `_serialize_order_item` woła `_abs_image`, które czyta `request.url_root`
+    (konwencja repo, patrz inne testy z `app.test_request_context()`) — bez
+    aktywnego request contextu (mamy tylko app_context z fixture `db`) padłoby
+    `RuntimeError: Working outside of request context`, zanim w ogóle dojdzie
+    do sprawdzenia klucza `incl_only_quantity`.
+    """
+    from modules.api_mobile.orders_routes import _serialize_order_item
+    from modules.orders.models import OrderItem
+
+    produkt = make_product()
+    zam = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
+                              datetime(2026, 8, 1, 10, 0), incl=1)
+    pozycja = OrderItem.query.filter_by(order_id=zam.id).one()
+
+    with app.test_request_context():
+        assert _serialize_order_item(pozycja)['incl_only_quantity'] == 1
+
+
+def test_plakietka_samo_incl_w_panelu_klienta(db, client, login, make_user,
+                                              make_order, make_product):
+    """Plakietka pokazuje się przy pozycji z incl i znika przy zerze.
+
+    Idziemy przez trasę `/client/orders/<id>` (`modules/orders/routes.py:1800`), a nie
+    przez `render_template` — widok podaje szablonowi kilkanaście zmiennych i ręczne
+    renderowanie rozjeżdżałoby się przy każdej ich zmianie.
+    """
+    from modules.orders.models import OrderItem
+
+    produkt = make_product(name='Album Testowy')
+    wlasciciel = make_user()
+    zam = make_order(wlasciciel, offer_page_id=1, created_at=datetime(2026, 8, 1, 10, 0))
+    pozycja = OrderItem(
+        order_id=zam.id, product_id=produkt.id, quantity=2,
+        price=Decimal('130'), total=Decimal('260'), incl_only_quantity=1,
+    )
+    db.session.add(pozycja)
+    db.session.commit()
+
+    login(wlasciciel)
+    odp = client.get(f'/client/orders/{zam.id}')
+    assert odp.status_code == 200
+    assert 'SAMO INCL' in odp.get_data(as_text=True)
+
+    pozycja.incl_only_quantity = 0
+    db.session.commit()
+    odp = client.get(f'/client/orders/{zam.id}')
+    assert 'SAMO INCL' not in odp.get_data(as_text=True)

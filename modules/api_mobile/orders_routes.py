@@ -129,6 +129,7 @@ def _serialize_order_item(item):
         'sku': item.product_sku,
         'image_url': _abs_image(item.product_image_url),
         'selected_size': item.selected_size,
+        'incl_only_quantity': item.incl_only_quantity or 0,
         'quantity': item.quantity,
         'price': to_grosze(item.price),
         'total': to_grosze(item.total),
