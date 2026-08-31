@@ -534,7 +534,11 @@ function handleShippingPriceChange(itemIndex) {
     distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
-    refreshRatesRow(itemIndex);
+    // distributeToProducts przepisuje placeholder Wartość WSZYSTKICH pozycji tej
+    // paczki (patrz komentarz w calculateShippingCascade) — odświeżenie tylko
+    // itemIndex zostawiłoby nieaktualną podpowiedź stawki incl na innych wierszach,
+    // która i tak wysyła się do bazy jako realna stawka (parseValueOrPlaceholder).
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -562,7 +566,9 @@ function handleShippingValueChange(itemIndex) {
     distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
-    refreshRatesRow(itemIndex);
+    // Patrz komentarz w handleShippingPriceChange — distributeToProducts dotyka
+    // placeholdery Wartość wszystkich pozycji paczki, więc trzeba odświeżyć wszystkie.
+    polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
 }
 
 /**
@@ -597,12 +603,29 @@ function sumUpToPackage(orderIndex) {
 function updateShippingSummary() {
     const totalDeclared = parseFloat(document.getElementById('totalShippingCost').value) || 0;
 
-    // Sum all Wartość inputs that have actual values entered
+    // Sum all Wartość inputs that have actual values entered — ALE dla pozycji
+    // z aktywnym wierszem stawek (album/incl) liczymy albumRate * albumQty +
+    // inclRate * inclQty, dokładnie jak refreshRatesRow, bo to ta suma faktycznie
+    // idzie do bazy (serwer ignoruje pole Wartość i liczy ją sam ze stawek).
+    // Inaczej ten licznik mógł pokazywać "różnica 0,00", gdy pole Wartość akurat
+    // sumowało się do zadeklarowanej kwoty, a zapisana suma linijek była inna.
     let totalCalculated = 0;
     polandOrderData.items.forEach((item, idx) => {
-        const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
-        if (input) {
-            totalCalculated += parseFloat(input.value) || 0;
+        const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
+        const inclQty = (item.clients || []).reduce(
+            (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
+        const rateRowActive = box && inclQty > 0;
+
+        if (rateRowActive) {
+            const albumQty = (item.quantity || 0) - inclQty;
+            const albumRate = parseValueOrPlaceholder(box.querySelector('[data-role="album-rate"]'));
+            const inclRate = parseValueOrPlaceholder(box.querySelector('[data-role="incl-rate"]'));
+            totalCalculated += albumRate * albumQty + inclRate * inclQty;
+        } else {
+            const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
+            if (input) {
+                totalCalculated += parseFloat(input.value) || 0;
+            }
         }
     });
 
@@ -2546,6 +2569,24 @@ function handleInclQtyChange(itemIndex, clientIndex) {
     if (wartosc > klient.order_total_quantity) wartosc = klient.order_total_quantity;
     input.value = wartosc;
     klient.incl_only_quantity = wartosc;
+
+    // incl_only_quantity to JEDNA liczba na całe zamówienie klienta — gdy ten sam
+    // order_id występuje w kilku pozycjach tego okna (sztuki klienta rozjechane
+    // między kilka zamówień proxy tego samego produktu), pola "samo incl" muszą
+    // pokazywać tę samą wartość. Bez synchronizacji admin widzi dwie niezależne
+    // kontrolki dla jednej i tej samej liczby, a rozjazd między nimi odtwarzałby
+    // po stronie serwera błąd podwajania (patrz max() w create_poland_order).
+    polandOrderData.items.forEach((innyItem, innyIndex) => {
+        if (innyIndex === itemIndex) return;
+        innyItem.clients.forEach((innyKlient, innyClientIndex) => {
+            if (innyKlient.order_id !== klient.order_id) return;
+            innyKlient.incl_only_quantity = wartosc;
+            const innyInput = document.querySelector(
+                `.poland-incl-input[data-item-index="${innyIndex}"][data-client-index="${innyClientIndex}"]`);
+            if (innyInput) innyInput.value = wartosc;
+            refreshRatesRow(innyIndex);
+        });
+    });
 
     refreshRatesRow(itemIndex);
 }

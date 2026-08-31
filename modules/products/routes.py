@@ -3858,8 +3858,6 @@ def generate_proxy_to_poland_number():
 def get_proxy_orders_details():
     """Get proxy order details for Poland order modal"""
     try:
-        from modules.orders.models import Order as ZamowienieKlienta
-
         data = request.get_json()
         order_ids = data.get('proxy_order_ids', [])
 
@@ -3869,6 +3867,14 @@ def get_proxy_orders_details():
         # Ile sztuk danego produktu zajęły już wcześniejsze pozycje w TYM oknie —
         # bez tego dwie pozycje z tym samym produktem wskazałyby te same sztuki.
         offsety = {}
+        # Cache dzielony między WSZYSTKIMI pozycjami tego żądania — bez niego
+        # _preview_batch_allocation/_batch_allocation_for_range powtarzałyby dla
+        # każdej pozycji z osobna: zapytanie SUM(...) oraz pełny skan zamówień
+        # klientów exclusive (w lokalnej bazie 641 aktywnych) z lazy-loadem
+        # order.items. Zachowanie identyczne jak bez cache — patrz dokumentacja
+        # `cache` w tych funkcjach — tylko policzone raz na żądanie.
+        cache = {}
+        order_map = None
         for order in proxy_orders:
             items_data = []
             for item in order.items:
@@ -3878,8 +3884,13 @@ def get_proxy_orders_details():
                 pid = item.product_id
                 offset = offsety.get(pid, 0)
                 klienci = []
-                for order_id, ilosc in _preview_batch_allocation(pid, item.quantity, offset):
-                    zam = db.session.get(ZamowienieKlienta, order_id)
+                for order_id, ilosc in _preview_batch_allocation(pid, item.quantity, offset, cache=cache):
+                    if order_map is None:
+                        # Zamówienia klientów są już wczytane (z pozycjami) w cache
+                        # przez _batch_allocation_for_range — mapa zamiast osobnego
+                        # db.session.get() na klienta, żeby nie odpytywać bazy w pętli.
+                        order_map = {o.id: o for o in (cache.get('client_orders') or [])}
+                    zam = order_map.get(order_id)
                     if not zam:
                         continue
                     ilosc_calego_zamowienia, incl = _order_product_quantities(zam, pid)
@@ -3981,9 +3992,14 @@ def _zapisz_incl_na_zamowieniu(order_id, product_id, incl_qty):
             continue
         efektywna = _client_item_qty(item)
         if efektywna <= 0:
-            # Pozycja pominięta (np. set jeszcze niedomknięty) — zerujemy incl,
-            # żeby po późniejszym domknięciu setu nie wróciła nieaktualna wartość.
-            item.incl_only_quantity = 0
+            # Pozycja pominięta (np. set jeszcze niedomknięty) — NIE ruszamy jej
+            # incl_only_quantity. Zerowanie tutaj wcześniej niszczyło zapisaną
+            # wartość: druga pozycja tego samego produktu w tym samym zamówieniu
+            # traciła swoje incl, a gdy set później się domykał, klient dostawał
+            # stawkę albumową za sztuki, które miały być incl, bez ścieżki poprawy.
+            # Wartość i tak nie wpływa na żadną kwotę, dopóki ilość efektywna jest
+            # zerowa — `_order_product_quantities` przycina ją przez
+            # min(incl, efektywna).
             continue
         dostepne += efektywna
         pozycje.append((item, efektywna))
@@ -4006,9 +4022,9 @@ def _allocate_product_shipping_fifo(product_id):
     Przydziela koszty wysyłki danego produktu do zamówień klientów wg modelu
     PER PARTIA + FIFO:
       • każda partia (PolandOrderItem) ma stawkę za sztukę — w ogólnym przypadku
-        parę stawek (album, incl); jeśli obie są NULL (partia sprzed rozdzielenia
-        album/incl), obie stawki wynoszą shipping_cost / quantity, czyli stary
-        podział po równo,
+        parę stawek (album, incl); jeśli którakolwiek z nich jest NULL (partia
+        sprzed rozdzielenia album/incl), obie stawki wynoszą shipping_cost / quantity,
+        czyli stary podział po równo,
       • w obrębie sztuk przypadających jednemu zamówieniu klienta sztuki-albumy
         konsumują się przed sztukami-incl (album_qty = ilość − incl_qty, patrz
         `_order_product_quantities`),
@@ -4033,7 +4049,7 @@ def _allocate_product_shipping_fifo(product_id):
         .all()
     )
     # Sloty jednostkowe: para stawek (album, incl) dla każdej sztuki, w kolejności partii.
-    # Partia bez stawek (obie NULL) = sprzed rozdzielenia — obie stawki równe
+    # Partia bez stawek (którakolwiek NULL) = sprzed rozdzielenia — obie stawki równe
     # shipping_cost / quantity, czyli stary podział po równo.
     slots = []
     for pi in poland_items:
@@ -4076,21 +4092,35 @@ def _allocate_product_shipping_fifo(product_id):
     return alloc
 
 
-def _batch_allocation_for_range(product_id, batch_start, batch_end):
+def _batch_allocation_for_range(product_id, batch_start, batch_end, cache=None):
     """Które zamówienia klientów (i ile sztuk) wpadają w zakres [batch_start, batch_end)
     kolejki FIFO sztuk danego produktu.
 
     Kolejka: zamówienia exclusive wg daty złożenia, każde zajmuje tyle miejsc, ile ma
     sztuk efektywnych. Zwraca listę (order_id, ilość) w kolejności FIFO.
+
+    `cache`: opcjonalny dict do wielokrotnego użycia w obrębie jednego żądania
+    (patrz `get_proxy_orders_details`, gdzie ta funkcja woła się osobno dla
+    każdej pozycji okna partii). Trzyma raz wczytaną listę zamówień klientów
+    (z pozycjami dociągniętymi przez `selectinload`, żeby zabić lazy-load
+    `order.items` w pętli niżej) pod kluczem 'client_orders'. Domyślnie None =
+    zachowanie jak dotąd, własne zapytanie przy każdym wywołaniu.
     """
     from modules.orders.models import Order
+    from sqlalchemy.orm import selectinload
 
-    client_orders = (
-        Order.query
-        .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
-        .order_by(Order.created_at.asc(), Order.id.asc())
-        .all()
-    )
+    if cache is not None and cache.get('client_orders') is not None:
+        client_orders = cache['client_orders']
+    else:
+        client_orders = (
+            Order.query
+            .options(selectinload(Order.items))
+            .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
+            .order_by(Order.created_at.asc(), Order.id.asc())
+            .all()
+        )
+        if cache is not None:
+            cache['client_orders'] = client_orders
 
     result = []
     cursor = 0
@@ -4149,27 +4179,37 @@ def _allocate_batch_units_to_orders(poland_item):
     return _batch_allocation_for_range(product_id, batch_start, batch_end)
 
 
-def _preview_batch_allocation(product_id, quantity, offset=0):
+def _preview_batch_allocation(product_id, quantity, offset=0, cache=None):
     """Podgląd przydziału dla partii, której jeszcze NIE ma w bazie (tworzonej w modalu).
 
     Nowa partia trafia na koniec kolejki FIFO, więc zaczyna się za wszystkimi
     istniejącymi (nieanulowanymi) partiami tego produktu. `offset` przesuwa start,
     gdy w jednym oknie jest kilka pozycji z tym samym produktem — bez niego obie
     wskazywałyby te same sztuki.
+
+    `cache`: patrz `_batch_allocation_for_range` — dodatkowo memoizuje tu sumę
+    `juz_w_partiach` per `product_id` pod kluczem 'juz_w_partiach', żeby przy
+    kilku pozycjach tego samego produktu w oknie nie odpytywać bazy ponownie.
+    Domyślnie None = zachowanie jak dotąd.
     """
     from modules.products.models import PolandOrder
 
-    juz_w_partiach = db.session.query(
-        db.func.coalesce(db.func.sum(PolandOrderItem.quantity), 0)
-    ).join(
-        PolandOrder, PolandOrderItem.poland_order_id == PolandOrder.id
-    ).filter(
-        PolandOrderItem.product_id == product_id,
-        PolandOrder.status != 'anulowane',
-    ).scalar() or 0
+    if cache is not None and product_id in cache.get('juz_w_partiach', {}):
+        juz_w_partiach = cache['juz_w_partiach'][product_id]
+    else:
+        juz_w_partiach = db.session.query(
+            db.func.coalesce(db.func.sum(PolandOrderItem.quantity), 0)
+        ).join(
+            PolandOrder, PolandOrderItem.poland_order_id == PolandOrder.id
+        ).filter(
+            PolandOrderItem.product_id == product_id,
+            PolandOrder.status != 'anulowane',
+        ).scalar() or 0
+        if cache is not None:
+            cache.setdefault('juz_w_partiach', {})[product_id] = juz_w_partiach
 
     start = int(juz_w_partiach) + offset
-    return _batch_allocation_for_range(product_id, start, start + quantity)
+    return _batch_allocation_for_range(product_id, start, start + quantity, cache=cache)
 
 
 def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
@@ -4370,10 +4410,12 @@ def create_poland_order():
         total_amount = Decimal('0')
         total_shipping_declared = Decimal('0')
         product_shipping_costs = {}  # {product_id: shipping_cost_total}
-        # Suma incl per (order_id, product_id) — zaznaczenie kilku zamówień proxy
+        # incl per (order_id, product_id) — zaznaczenie kilku zamówień proxy
         # z tym samym produktem naraz może dać tego samego klienta w dwóch
-        # różnych pozycjach items_data; sumujemy zamiast nadpisywać i zapisujemy
-        # RAZ na klucz, po pętli po pozycjach (patrz niżej).
+        # różnych pozycjach items_data; każdy wpis niesie PEŁNĄ wartość
+        # incl_only_quantity całego zamówienia, więc bierzemy max (nie sumę,
+        # patrz komentarz przy przypisaniu niżej) i zapisujemy RAZ na klucz,
+        # po pętli po pozycjach (patrz niżej).
         incl_do_zapisania = {}
 
         for item_data in items_data:
@@ -4420,6 +4462,13 @@ def create_poland_order():
                         'error': 'Nieprawidłowa liczba sztuk „samo incl".'
                     }), 400
 
+                if incl_klienta < 0:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Liczba sztuk „samo incl" nie może być ujemna.'
+                    }), 400
+
                 # incl_w_partii: ile z incl_klienta (pełnej wartości CAŁEGO zamówienia)
                 # mieści się w TEJ partii — może być mniejsze niż incl_klienta, gdy
                 # sztuki klienta rozjeżdżają się między partie. Do zapisania na
@@ -4449,7 +4498,13 @@ def create_poland_order():
                         }), 400
 
                 klucz = (order_id, proxy_item.product_id)
-                incl_do_zapisania[klucz] = incl_do_zapisania.get(klucz, 0) + incl_klienta
+                # NIE sumować: incl_klienta to zawsze PEŁNA wartość incl_only_quantity
+                # całego zamówienia (patrz komentarz wyżej), więc gdy ten sam klient
+                # występuje w kilku pozycjach tego okna (kilka zamówień proxy z tym
+                # samym produktem zaznaczone naraz), każdy wpis niesie tę samą liczbę.
+                # Suma podwoiłaby ją; max jest bezpieczny nawet gdyby wpisy się
+                # rozjechały (np. front nie zdążył zsynchronizować pól).
+                incl_do_zapisania[klucz] = max(incl_do_zapisania.get(klucz, 0), incl_klienta)
                 incl_lacznie += incl_w_partii
 
             if stawki_podane:
