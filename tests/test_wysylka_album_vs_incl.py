@@ -310,8 +310,16 @@ def test_endpoint_szczegolow_zwraca_klientow(db, client, login, make_user, make_
 
     produkt = make_product()
     baza = datetime(2026, 8, 1, 10, 0)
-    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
-                            baza - timedelta(days=2), incl=1)
+    klient = make_user(first_name='Jan', last_name='Kowalski')
+    zam = make_order(klient, offer_page_id=1, created_at=baza - timedelta(days=2))
+    from modules.orders.models import OrderItem
+    poz = OrderItem(
+        order_id=zam.id, product_id=produkt.id, quantity=2,
+        price=Decimal('130'), total=Decimal('260'), incl_only_quantity=1,
+    )
+    db.session.add(poz)
+    db.session.commit()
+    a = zam
 
     proxy = ProxyOrder(order_number='PRX/T99', order_type='proxy')
     db.session.add(proxy)
@@ -330,10 +338,71 @@ def test_endpoint_szczegolow_zwraca_klientow(db, client, login, make_user, make_
     dane = odp.get_json()
     assert dane['success'] is True
     klienci = dane['orders'][0]['items'][0]['clients']
+    assert klient.full_name == 'Jan Kowalski'
     assert klienci == [{
         'order_id': a.id,
         'order_number': a.order_number,
-        'client_name': klienci[0]['client_name'],
+        'client_name': klient.full_name,
         'quantity': 2,
         'incl_only_quantity': 1,
     }]
+
+
+def test_endpoint_offset_dla_dwoch_pozycji_tego_samego_produktu_w_dwoch_zamowieniach_proxy(
+        db, client, login, make_user, make_order, make_product):
+    """Dwie pozycje tego samego produktu w JEDNEJ odpowiedzi endpointu (w dwóch różnych
+    zamówieniach proxy) nie mogą wskazać tych samych sztuk klienta — `offsety` musi
+    przeżyć zewnętrzną pętlę po zamówieniach proxy, nie tylko wewnętrzną po pozycjach.
+
+    Kolejność zamówień proxy w odpowiedzi (`orders_data`) NIE jest gwarantowana przez
+    zapytanie `ProxyOrder.query.filter(id.in_(...))` (brak `.order_by`) — endpoint
+    jednak buduje `orders_data`/inkrementuje `offsety` w JEDNEJ tej samej pętli, więc
+    kolejność spłaszczonych pozycji w JSON zawsze odzwierciedla kolejność faktycznego
+    przetwarzania. Dlatego test spłaszcza pozycje w kolejności zwróconej przez
+    endpoint, zamiast zakładać, który proxy_order_id wyląduje pierwszy."""
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=3))
+    b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=2))
+
+    proxy1 = ProxyOrder(order_number='PRX/T-OFF-1', order_type='proxy')
+    proxy2 = ProxyOrder(order_number='PRX/T-OFF-2', order_type='proxy')
+    db.session.add_all([proxy1, proxy2])
+    db.session.flush()
+    db.session.add(ProxyOrderItem(
+        proxy_order_id=proxy1.id, product_id=produkt.id, quantity=1,
+        unit_price=Decimal('100'), total_price=Decimal('100'),
+    ))
+    db.session.add(ProxyOrderItem(
+        proxy_order_id=proxy2.id, product_id=produkt.id, quantity=1,
+        unit_price=Decimal('100'), total_price=Decimal('100'),
+    ))
+    db.session.commit()
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/get-proxy-orders-details',
+                      json={'proxy_order_ids': [proxy1.id, proxy2.id]})
+
+    assert odp.status_code == 200
+    dane = odp.get_json()
+    assert dane['success'] is True
+
+    # Spłaszczamy pozycje w kolejności, w jakiej faktycznie wyszły z endpointu —
+    # to ta sama kolejność, w jakiej backend przetwarzał je i inkrementował `offsety`.
+    pozycje = [poz for zam in dane['orders'] for poz in zam['items']]
+    assert len(pozycje) == 2
+
+    pierwsza_klienci = pozycje[0]['clients']
+    druga_klienci = pozycje[1]['clients']
+
+    assert [k['order_id'] for k in pierwsza_klienci] == [a.id]
+    assert [k['order_id'] for k in druga_klienci] == [b.id]
+
+    # Żaden klient nie może pojawić się w obu pozycjach.
+    id_pierwszej = {k['order_id'] for k in pierwsza_klienci}
+    id_drugiej = {k['order_id'] for k in druga_klienci}
+    assert id_pierwszej.isdisjoint(id_drugiej)
