@@ -1,5 +1,6 @@
 # Wysyłka KR liczona osobno dla całego albumu i dla samego incl
 
+Zadanie ClickUp: [869erz1q0](https://app.clickup.com/t/869erz1q0) — „Wysyłka KR liczona osobno dla całego albumu i dla samego incl"
 Data: 2026-08-31
 Gałąź: `feat/wysylka-album-vs-incl`
 
