@@ -3977,6 +3977,9 @@ def _zapisz_incl_na_zamowieniu(order_id, product_id, incl_qty):
             continue
         efektywna = _client_item_qty(item)
         if efektywna <= 0:
+            # Pozycja pominięta (np. set jeszcze niedomknięty) — zerujemy incl,
+            # żeby po późniejszym domknięciu setu nie wróciła nieaktualna wartość.
+            item.incl_only_quantity = 0
             continue
         dostepne += efektywna
         pozycje.append((item, efektywna))
@@ -4363,6 +4366,11 @@ def create_poland_order():
         total_amount = Decimal('0')
         total_shipping_declared = Decimal('0')
         product_shipping_costs = {}  # {product_id: shipping_cost_total}
+        # Suma incl per (order_id, product_id) — zaznaczenie kilku zamówień proxy
+        # z tym samym produktem naraz może dać tego samego klienta w dwóch
+        # różnych pozycjach items_data; sumujemy zamiast nadpisywać i zapisujemy
+        # RAZ na klucz, po pętli po pozycjach (patrz niżej).
+        incl_do_zapisania = {}
 
         for item_data in items_data:
             proxy_item_id = item_data.get('proxy_order_item_id')
@@ -4387,18 +4395,28 @@ def create_poland_order():
                         'error': 'Stawki wysyłki nie mogą być ujemne.'
                     }), 400
 
-            # Zapis wyboru album/incl na zamówieniach klientów MUSI się wykonać przed
-            # dystrybucją kosztów — _distribute_proxy_shipping_to_client_orders czyta
-            # incl_only_quantity prosto z pozycji zamówienia.
+            # Zbieramy incl klientów tej pozycji — zapis do bazy dopiero PO pętli
+            # po wszystkich pozycjach (patrz incl_do_zapisania wyżej), ale
+            # incl_lacznie tej linijki liczymy tu, bo służy do shipping_cost niżej.
             incl_lacznie = 0
             for wpis in item_data.get('clients') or []:
+                order_id = wpis.get('order_id')
+                if order_id is None:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Brak identyfikatora zamówienia klienta w danych „samo incl".'
+                    }), 400
                 try:
                     incl_klienta = int(wpis.get('incl_only_quantity') or 0)
-                    _zapisz_incl_na_zamowieniu(
-                        wpis.get('order_id'), proxy_item.product_id, incl_klienta)
-                except ValueError as blad:
+                except (TypeError, ValueError):
                     db.session.rollback()
-                    return jsonify({'success': False, 'error': str(blad)}), 400
+                    return jsonify({
+                        'success': False,
+                        'error': 'Nieprawidłowa liczba sztuk „samo incl".'
+                    }), 400
+                klucz = (order_id, proxy_item.product_id)
+                incl_do_zapisania[klucz] = incl_do_zapisania.get(klucz, 0) + incl_klienta
                 incl_lacznie += incl_klienta
 
             if stawki_podane:
@@ -4417,8 +4435,12 @@ def create_poland_order():
             proxy_item.shipping_cost_total = shipping_cost
             proxy_item.shipping_cost_per_item = shipping_cost / proxy_item.quantity if proxy_item.quantity > 0 else 0
 
-            # Zbierz koszty wysyłki per produkt do dystrybucji
-            if shipping_cost > 0:
+            # Zbierz koszty wysyłki per produkt do dystrybucji. Gdy stawki zostały
+            # podane (album_rate/incl_rate), produkt musi trafić do przeliczenia
+            # nawet przy sumie 0 (darmowa wysyłka) — inaczej zapisane incl nie
+            # wyzwoli przeliczenia wcześniejszych partii tego produktu. Stara
+            # ścieżka (bez stawek) zostaje bez zmian: tylko shipping_cost > 0.
+            if shipping_cost > 0 or stawki_podane:
                 pid = proxy_item.product_id
                 product_shipping_costs[pid] = product_shipping_costs.get(pid, Decimal('0')) + shipping_cost
 
@@ -4448,6 +4470,17 @@ def create_poland_order():
 
             total_amount += proxy_item.total_price + shipping_cost
             total_shipping_declared += shipping_cost
+
+        # Zapis wyboru album/incl na zamówieniach klientów — RAZ na (order_id,
+        # product_id), zsumowane przez wszystkie pozycje okna. MUSI się wykonać
+        # przed dystrybucją kosztów niżej — _distribute_proxy_shipping_to_client_orders
+        # czyta incl_only_quantity prosto z pozycji zamówienia.
+        for (order_id, product_id), suma_incl in incl_do_zapisania.items():
+            try:
+                _zapisz_incl_na_zamowieniu(order_id, product_id, suma_incl)
+            except ValueError as blad:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': str(blad)}), 400
 
         poland_order.total_amount = total_amount
 

@@ -500,6 +500,9 @@ def test_tworzenie_partii_bez_stawek_dziala_jak_dotad(db, client, login, make_us
 def test_odrzuca_incl_wieksze_niz_ilosc(db, client, login, make_user, make_order,
                                         make_product):
     """Ochrona przed rozjechanymi kwotami: incl nie może przekroczyć sztuk klienta."""
+    from modules.orders.models import Order, OrderItem
+    from modules.products.models import PolandOrder
+
     produkt = make_product()
     baza = datetime(2026, 8, 1, 10, 0)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
@@ -524,3 +527,121 @@ def test_odrzuca_incl_wieksze_niz_ilosc(db, client, login, make_user, make_order
 
     assert odp.status_code == 400
     assert 'incl' in odp.get_json()['error'].lower()
+    # Błąd musi cofnąć CAŁĄ transakcję: żadna partia nie powstała, a incl klienta
+    # zostało nietknięte (zapis incl idzie po całej pętli po pozycjach, ale przed
+    # commitem — rollback ma je zdjąć razem z resztą).
+    assert PolandOrder.query.count() == 0
+    assert OrderItem.query.filter_by(order_id=a.id).one().incl_only_quantity == 0
+
+
+def test_ten_sam_klient_w_dwoch_pozycjach_sumuje_incl(db, client, login, make_user,
+                                                       make_order, make_product):
+    """Dwa zamówienia proxy zaznaczone naraz, oba z tym samym produktem — jeden
+    klient ma incl w obu pozycjach (po 1 szt.), suma ma się zapisać jako 2, a nie
+    nadpisać się do 1 (drugi zapis nadpisujący pierwszy)."""
+    from modules.orders.models import OrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
+                            baza - timedelta(days=3))
+    proxy1, poz1 = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T60')
+    proxy2, poz2 = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T61')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy1.id, proxy2.id],
+        'shipping_cost_total': 24,
+        'tracking_number': 'KB88900-RS4',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [
+            {
+                'proxy_order_item_id': poz1.id,
+                'shipping_cost': 12,
+                'album_rate': 45,
+                'incl_rate': 12,
+                'clients': [{'order_id': a.id, 'incl_only_quantity': 1}],
+            },
+            {
+                'proxy_order_item_id': poz2.id,
+                'shipping_cost': 12,
+                'album_rate': 45,
+                'incl_rate': 12,
+                'clients': [{'order_id': a.id, 'incl_only_quantity': 1}],
+            },
+        ],
+    })
+
+    assert odp.status_code == 200, odp.get_json()
+    assert OrderItem.query.filter_by(order_id=a.id).one().incl_only_quantity == 2
+
+
+def test_stawki_podane_wszyscy_bez_incl_liczy_po_albumowej(db, client, login,
+                                                            make_user, make_order,
+                                                            make_product):
+    """Stawki podane, ale u wszystkich klientów incl = 0 — shipping_cost linijki
+    ma wyjść album_rate * quantity, a klienci mają dostać koszt po stawce album."""
+    from modules.orders.models import Order
+    from modules.products.models import PolandOrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
+                            baza - timedelta(days=3))
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T62')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 90,
+        'tracking_number': 'KB88900-RS5',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': 90,
+            'album_rate': 45,
+            'incl_rate': 12,
+            'clients': [{'order_id': a.id, 'incl_only_quantity': 0}],
+        }],
+    })
+
+    assert odp.status_code == 200, odp.get_json()
+    pozycja_partii = PolandOrderItem.query.filter_by(product_id=produkt.id).one()
+    assert pozycja_partii.shipping_cost == Decimal('90.00')
+    assert pozycja_partii.shipping_cost_album_per_unit == Decimal('45.00')
+    assert pozycja_partii.shipping_cost_incl_per_unit == Decimal('12.00')
+    assert db.session.get(Order, a.id).proxy_shipping_cost == Decimal('90.00')
+
+
+def test_ujemna_stawka_odrzucana_polskim_komunikatem(db, client, login, make_user,
+                                                      make_order, make_product):
+    """Ujemna stawka (album lub incl) ma dać 400 z polskim komunikatem."""
+    from modules.products.models import PolandOrder
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=3))
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T63')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': -5,
+        'tracking_number': 'KB88900-RS6',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': -5,
+            'album_rate': -45,
+            'incl_rate': 12,
+            'clients': [{'order_id': a.id, 'incl_only_quantity': 0}],
+        }],
+    })
+
+    assert odp.status_code == 400
+    assert 'ujemne' in odp.get_json()['error'].lower()
+    assert PolandOrder.query.count() == 0
