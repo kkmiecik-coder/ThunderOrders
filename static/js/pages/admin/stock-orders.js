@@ -198,11 +198,16 @@ function renderPolandModal(orders) {
         html += `</div>`;
 
         html += `<table class="data-table poland-products-table">`;
+        // Szerokości w procentach, nie `auto` + piksele. Tabela ma
+        // `table-layout: fixed` (stock-orders.css), a przy tym trybie kolumna
+        // `width: auto` dostaje resztkę ~7px, podczas gdy kolumny pikselowe
+        // rozdmuchują się proporcjonalnie na całą szerokość — nazwa produktu
+        // znikała, a nagłówki "Produkt" i "Cena/szt" nachodziły na siebie.
         html += `<colgroup>`;
-        html += `<col style="width: auto">`;
-        html += `<col style="width: 110px">`;
-        html += `<col style="width: 60px">`;
-        html += `<col style="width: 110px">`;
+        html += `<col style="width: 49%">`;
+        html += `<col style="width: 19%">`;
+        html += `<col style="width: 13%">`;
+        html += `<col style="width: 19%">`;
         html += `</colgroup>`;
         html += `<thead><tr>`;
         html += `<th>Produkt</th>`;
@@ -2595,10 +2600,16 @@ function handleInclQtyChange(itemIndex, clientIndex) {
     });
 
     refreshRatesRow(itemIndex);
+    // Zmiana liczby sztuk "samo incl" zmienia sumę linijki, a tę serwer liczy ze
+    // stawek — licznik "różnica" musi to od razu pokazać, inaczej admin widzi
+    // zbilansowane okno i zapisuje inną kwotę.
+    updateShippingSummary();
 }
 
 function handleRateChange(itemIndex) {
     refreshRatesRow(itemIndex);
+    // Jak wyżej: sama zmiana stawki zmienia sumę, która pójdzie do bazy.
+    updateShippingSummary();
 }
 
 window.handleInclQtyChange = handleInclQtyChange;
