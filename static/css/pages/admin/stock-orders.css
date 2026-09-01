@@ -2718,3 +2718,25 @@
 [data-theme="dark"] .poland-rate-times { color: #9ca3af; }
 
 [data-theme="dark"] .poland-rates { border-top-color: #374151; }
+
+/* Przełącznik "cała paczka na samo incl" w nagłówku paczki */
+.poland-package-incl {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: #374151;
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 4px;
+}
+
+.poland-package-incl-input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #FF8500;
+    cursor: pointer;
+}
+
+[data-theme="dark"] .poland-package-incl { color: #d1d5db; }

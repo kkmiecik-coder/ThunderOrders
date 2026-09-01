@@ -187,6 +187,16 @@ function renderPolandModal(orders) {
         html += `<div class="poland-package" data-order-id="${order.id}">`;
         html += `<div class="poland-package-header">`;
         html += `<span class="poland-package-title">Paczka: ${escapeHtml(order.order_number)}</span>`;
+        // Skrót na częsty przypadek: cała paczka jedzie jako samo incl. Ustawia
+        // maksimum u wszystkich klientów wszystkich produktów tej paczki, żeby nie
+        // klikać każdego z osobna. Nie zmienia niczego w kontrakcie wysyłanym do
+        // serwera — wpisuje te same liczby, które admin wpisałby ręcznie.
+        html += `<label class="poland-package-incl">`;
+        html += `<input type="checkbox" class="poland-package-incl-input" `;
+        html += `data-order-index="${orderIndex}" `;
+        html += `onchange="handlePackageInclToggle(${orderIndex})">`;
+        html += `<span>cała paczka na samo incl</span>`;
+        html += `</label>`;
         html += `<div class="poland-package-shipping">`;
         html += `<label>Wysyłka:</label>`;
         html += `<input type="number" class="form-input package-shipping-input" `;
@@ -283,7 +293,7 @@ function renderPolandModal(orders) {
                 html += `</div>`;
 
                 html += `<div class="poland-rates" data-item-index="${globalItemIndex}">`;
-                html += `<div class="poland-rate-line">`;
+                html += `<div class="poland-rate-line" data-role="album-line">`;
                 html += `<span class="poland-rate-label">cały album</span>`;
                 html += `<span class="poland-rate-qty" data-role="album-qty">0 szt</span>`;
                 html += `<span class="poland-rate-times">×</span>`;
@@ -329,6 +339,10 @@ function renderPolandModal(orders) {
     });
 
     polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
+    // Przełączniki paczek muszą od razu odzwierciedlać stan wczytany z serwera —
+    // paczka, w której wszyscy klienci mają już maksimum, otwiera się zaznaczona.
+    [...new Set(polandOrderData.items.map(i => i.order_index))]
+        .forEach(oi => refreshPackageInclToggle(oi));
 }
 
 /**
@@ -2540,6 +2554,21 @@ function refreshRatesRow(itemIndex) {
 
     const albumInput = box.querySelector('[data-role="album-rate"]');
     const inclInput = box.querySelector('[data-role="incl-rate"]');
+
+    // Gdy w tej partii nikt nie bierze całego albumu, linijka stawki albumowej
+    // znika — nie ma czego w niej wpisać. Czyścimy też pole, żeby nie została w nim
+    // wartość, której admin już nie widzi, a która poleciałaby w payloadzie
+    // (ujemna wywołałaby 400 z serwera o polu niewidocznym na ekranie).
+    const albumLine = box.querySelector('[data-role="album-line"]');
+    if (albumLine) {
+        const pokazAlbum = albumQty > 0;
+        albumLine.style.display = pokazAlbum ? '' : 'none';
+        if (!pokazAlbum && albumInput.value !== '') {
+            albumInput.value = '';
+            albumInput.classList.remove('input-error');
+        }
+    }
+
     const albumRate = parseValueOrPlaceholder(albumInput);
 
     // Podpowiedź stawki incl: reszta z wartości linijki po opłaceniu albumów.
@@ -2600,6 +2629,7 @@ function handleInclQtyChange(itemIndex, clientIndex) {
     });
 
     refreshRatesRow(itemIndex);
+    refreshPackageInclToggle(item.order_index);
     // Zmiana liczby sztuk "samo incl" zmienia sumę linijki, a tę serwer liczy ze
     // stawek — licznik "różnica" musi to od razu pokazać, inaczej admin widzi
     // zbilansowane okno i zapisuje inną kwotę.
@@ -2612,5 +2642,63 @@ function handleRateChange(itemIndex) {
     updateShippingSummary();
 }
 
+/**
+ * Maksimum "samo incl" dla klienta: tyle sztuk, ile ma w CAŁYM zamówieniu —
+ * bo taka jest semantyka incl_only_quantity (patrz kontrakt create_poland_order).
+ */
+function maksInclKlienta(klient) {
+    return klient.order_total_quantity || klient.quantity || 0;
+}
+
+/**
+ * Przełącznik "cała paczka na samo incl": ustawia maksimum u wszystkich klientów
+ * wszystkich produktów tej paczki, a po wyłączeniu zeruje wszystkich.
+ */
+function handlePackageInclToggle(orderIndex) {
+    const cb = document.querySelector(
+        `.poland-package-incl-input[data-order-index="${orderIndex}"]`);
+    if (!cb) return;
+
+    const wlaczony = cb.checked;
+    polandOrderData.items.forEach((item, idx) => {
+        if (item.order_index !== orderIndex) return;
+        item.clients.forEach((klient, clientIndex) => {
+            const wartosc = wlaczony ? maksInclKlienta(klient) : 0;
+            klient.incl_only_quantity = wartosc;
+            const input = document.querySelector(
+                `.poland-incl-input[data-item-index="${idx}"][data-client-index="${clientIndex}"]`);
+            if (input) input.value = wartosc;
+        });
+        refreshRatesRow(idx);
+    });
+
+    updateShippingSummary();
+}
+
+/**
+ * Zapala przełącznik paczki, gdy wszyscy jej klienci są na maksimum, i gasi go,
+ * gdy choć jeden nie jest — żeby nigdy nie pokazywał innego stanu niż faktyczny.
+ */
+function refreshPackageInclToggle(orderIndex) {
+    const cb = document.querySelector(
+        `.poland-package-incl-input[data-order-index="${orderIndex}"]`);
+    if (!cb) return;
+
+    let maKlientow = false;
+    let wszyscyNaMaksie = true;
+    polandOrderData.items.forEach((item) => {
+        if (item.order_index !== orderIndex) return;
+        item.clients.forEach((klient) => {
+            maKlientow = true;
+            if ((klient.incl_only_quantity || 0) < maksInclKlienta(klient)) {
+                wszyscyNaMaksie = false;
+            }
+        });
+    });
+
+    cb.checked = maKlientow && wszyscyNaMaksie;
+}
+
 window.handleInclQtyChange = handleInclQtyChange;
 window.handleRateChange = handleRateChange;
+window.handlePackageInclToggle = handlePackageInclToggle;
