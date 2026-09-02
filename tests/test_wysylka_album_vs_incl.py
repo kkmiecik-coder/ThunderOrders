@@ -1158,3 +1158,63 @@ def test_jeden_klient_dwa_produkty_incl_nie_rozlewa_sie_na_drugi_produkt(
     assert pozycja2.shipping_cost == Decimal('180.00')
 
     assert db.session.get(Order, zam.id).proxy_shipping_cost == Decimal('294.00')
+
+
+def test_dziennik_zapisuje_stawki_partii(db, client, login, make_user, make_order,
+                                         make_product):
+    """Dziennik zdarzeń zapisuje stawki album/incl, żeby dało się później odtworzyć,
+    co admin faktycznie wysłał z okna.
+
+    Powód: przy partii PRX/PL/14 (2026-09-01) jedna pozycja miała stawki odwrotnie
+    i nie dało się rozstrzygnąć, czy to pomyłka przy wpisywaniu, czy błąd kodu —
+    dziennik zapisywał wyłącznie numer partii.
+    """
+    from modules.admin.models import ActivityLog
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=3))
+    b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
+                            baza - timedelta(days=2))
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T90')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 57,
+        'tracking_number': 'KB88900-RS9',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': 57,
+            'album_rate': 45,
+            'incl_rate': 12,
+            'clients': [
+                {'order_id': a.id, 'incl_only_quantity': 0, 'incl_w_partii': 0},
+                {'order_id': b.id, 'incl_only_quantity': 1, 'incl_w_partii': 1},
+            ],
+        }],
+    })
+    assert odp.status_code == 200, odp.get_json()
+
+    wpis = (ActivityLog.query
+            .filter_by(action='poland_order_created')
+            .order_by(ActivityLog.id.desc())
+            .first())
+    assert wpis is not None, 'brak wpisu poland_order_created w dzienniku'
+
+    zapisane = wpis.new_value
+    if isinstance(zapisane, str):
+        import json
+        zapisane = json.loads(zapisane)
+
+    assert zapisane['order_number'].startswith('PRX/PL/')
+    pozycje = zapisane['pozycje']
+    assert len(pozycje) == 1
+    assert pozycje[0]['product_id'] == produkt.id
+    assert pozycje[0]['quantity'] == 2
+    assert pozycje[0]['album_rate'] == 45.0
+    assert pozycje[0]['incl_rate'] == 12.0
+    assert pozycje[0]['incl_w_partii'] == 1

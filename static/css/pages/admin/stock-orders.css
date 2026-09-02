@@ -2740,3 +2740,35 @@
 }
 
 [data-theme="dark"] .poland-package-incl { color: #d1d5db; }
+
+/* Pole wyliczane automatycznie (Wartość / Cena/szt przy wpisanych stawkach) */
+.poland-products-table input.input-wyliczone {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+[data-theme="dark"] .poland-products-table input.input-wyliczone {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #374151;
+    color: #9ca3af;
+}
+
+/* Ostrzeżenie: stawka incl wyższa niż albumowa */
+.poland-rate-warning {
+    margin-top: 6px;
+    padding: 7px 10px;
+    border-left: 3px solid #b45309;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 12.5px;
+    line-height: 1.45;
+    border-radius: 3px;
+}
+
+[data-theme="dark"] .poland-rate-warning {
+    background: rgba(180, 83, 9, 0.16);
+    border-left-color: #f59e0b;
+    color: #fcd34d;
+}
