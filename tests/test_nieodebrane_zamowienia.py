@@ -436,6 +436,130 @@ def test_pozycje_wlasne_ida_na_koniec(app, db, make_user, make_order, make_produ
     assert dane['produkty'][1]['nazwa'] == 'Zestaw niespodzianka'
 
 
+def test_klient_bez_wieku_jest_pierwszy(app, db, make_user, make_order):
+    """Klient bez policzalnego wieku ma stać PRZED klientem z konkretną liczbą dni.
+
+    `zbierz_nieodebrane` sortuje kluczem `float('inf') if dni is None else dni`
+    z `reverse=True` — brak śladu po zmianie statusu (`status_changed_at=None`
+    i żaden pasujący wpis w `ActivityLog`) ma znaczyć „leży najdłużej", nie
+    „leży najkrócej". Gdyby ktoś podmienił `float('inf')` na `-1`, klient bez
+    wieku spadłby na sam dół listy — dokładne przeciwieństwo zamierzonego
+    zachowania — a żaden dotychczasowy test by tego nie złapał, bo
+    `test_klienci_sortowani_od_najstarszej_zaleglosci` porównuje wyłącznie
+    dwie policzalne liczby dni.
+    """
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    bez_wieku = make_user(email='bez-wieku@example.com')
+    z_wiekiem = make_user(email='z-wiekiem@example.com')
+
+    o_bez_wieku = make_order(bez_wieku, status='dostarczone_gom')
+    o_bez_wieku.status_changed_at = None
+    db.session.commit()
+
+    o_z_wiekiem = make_order(z_wiekiem, status='dostarczone_gom')
+    o_z_wiekiem.status_changed_at = get_local_now() - timedelta(days=90)
+    db.session.commit()
+
+    dane = zbierz_nieodebrane()
+
+    assert [k['user'].id for k in dane['klienci']] == [bez_wieku.id, z_wiekiem.id]
+    assert dane['klienci'][0]['dni'] is None
+
+
+def test_dokladne_false_gdy_jedno_zamowienie_ma_wiek_przyblizony(
+    app, db, make_user, make_order,
+):
+    """Jedna niepewna data w wierszu klienta ma ustawić `dokladne=False` na CAŁYM wierszu.
+
+    Klient ma dwa zamówienia: jedno z wiekiem dokładnym (kolumna
+    `status_changed_at`), drugie z wiekiem przybliżonym (kolumna pusta, wiek
+    z `ActivityLog`). Regresja usuwająca `if not dokladne: wpis['dokladne'] =
+    False` w `zbierz_nieodebrane` przeszłaby niezauważona przez wszystkie
+    dotychczasowe testy — żaden nie czyta klucza `dokladne` z wyniku.
+    """
+    import json
+    from datetime import timedelta
+    from modules.admin.models import ActivityLog
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    u = make_user()
+
+    dokladne_zam = make_order(u, status='dostarczone_gom')
+    dokladne_zam.status_changed_at = get_local_now() - timedelta(days=10)
+    db.session.commit()
+
+    przyblizone_zam = make_order(u, status='dostarczone_gom')
+    przyblizone_zam.status_changed_at = None
+    db.session.add(ActivityLog(
+        action='order_status_change', entity_type='order',
+        entity_id=przyblizone_zam.id,
+        new_value=json.dumps({'status': 'dostarczone_gom'}),
+        created_at=get_local_now() - timedelta(days=5),
+    ))
+    db.session.commit()
+
+    dane = zbierz_nieodebrane()
+
+    assert len(dane['klienci']) == 1
+    assert dane['klienci'][0]['dokladne'] is False
+
+
+def test_dokladne_true_gdy_wszystkie_zamowienia_maja_wiek_z_kolumny(
+    app, db, make_user, make_order,
+):
+    """Przypadek kontrolny do testu powyżej: same dokładne wieki dają `dokladne=True`.
+
+    Bez tego testu poprzedni (sprawdzający tylko `dokladne is False`) nie
+    odróżniałby prawdziwej logiki „jedna niepewność brudzi wiersz" od zepsutej
+    wersji, która ustawia `dokladne=False` zawsze, niezależnie od danych.
+    """
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    u = make_user()
+    for dni in (10, 20):
+        o = make_order(u, status='dostarczone_gom')
+        o.status_changed_at = get_local_now() - timedelta(days=dni)
+        db.session.commit()
+
+    dane = zbierz_nieodebrane()
+
+    assert len(dane['klienci']) == 1
+    assert dane['klienci'][0]['dokladne'] is True
+
+
+def test_ostatnie_przypomnienie_to_najnowsza_data(app, db, make_user, make_order):
+    """Wiersz klienta ma pokazać NAJNOWSZE `pickup_reminder_sent_at` spośród jego zamówień.
+
+    Klient ma trzy zamówienia — jedno bez przypomnienia (`None`, ma zostać
+    zignorowane) i dwa z różnymi datami — żeby odwrócone porównanie (`<`
+    zamiast `>` w `zbierz_nieodebrane`) dawało inny wynik niż poprawne i test
+    faktycznie na tym łapał regresję, a nie tylko sprawdzał obecność wartości.
+    """
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    u = make_user()
+    teraz = get_local_now()
+
+    make_order(u, status='dostarczone_gom', pickup_reminder_sent_at=None)
+    make_order(u, status='dostarczone_gom',
+               pickup_reminder_sent_at=teraz - timedelta(days=5))
+    najnowsze = teraz - timedelta(days=1)
+    make_order(u, status='dostarczone_gom', pickup_reminder_sent_at=najnowsze)
+
+    dane = zbierz_nieodebrane()
+
+    assert len(dane['klienci']) == 1
+    assert dane['klienci'][0]['ostatnie_przypomnienie'] == najnowsze
+
+
 def test_pusta_baza_nie_wywraca_ekranu(app, db):
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
