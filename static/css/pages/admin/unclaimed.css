@@ -105,10 +105,20 @@
     background: #fef9c3;
 }
 
+/* Wygląda jak zwykły link, ale to <button> z akcją dotykową (rozwija listę
+   zamówień klienta) — dlatego mimo braku tła/ramki dostaje min-height: 44px
+   (konwencja repo dla elementów dotykowych, panel używany na telefonie).
+   box-sizing: border-box, żeby padding mieścił się w tych 44px zamiast je
+   powiększać, a inline-flex + align-items tylko centruje tekst w pionie —
+   przy zawijaniu długiego e-maila na 2 linie przycisk normalnie rośnie. */
 .unclaimed__expand {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 44px;
     background: none;
     border: none;
-    padding: 0;
+    padding: 8px 0;
     color: #240046;
     font-size: 0.9rem;
     text-align: left;
@@ -178,9 +188,15 @@
     background: #1f2937;
 }
 
+/* border-bottom dotyczy th i td razem (jasna reguła bazowa też jest wspólna
+   dla obu) — inaczej dolna krawędź wiersza nagłówka zostaje jasna na ciemnym tle */
+[data-theme="dark"] .unclaimed__table th,
+[data-theme="dark"] .unclaimed__table td {
+    border-bottom-color: #374151;
+}
+
 [data-theme="dark"] .unclaimed__table td {
     color: #e5e7eb;
-    border-bottom-color: #374151;
 }
 
 [data-theme="dark"] .unclaimed__expand {
