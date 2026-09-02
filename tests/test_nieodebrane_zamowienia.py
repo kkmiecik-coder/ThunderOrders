@@ -4,6 +4,8 @@
 nie wrzucił do żadnego zlecenia WYS/. Ta sama definicja, którą widzi klient u siebie —
 testy pilnują, żeby oba widoki nie zaczęły pokazywać czegoś innego.
 """
+import re
+
 import pytest
 
 
@@ -430,6 +432,27 @@ def test_produkty_sumuja_sztuki_i_licza_klientow(app, db, make_user, make_order,
     assert dane['produkty'][0]['klientow'] == 2
 
 
+def test_produkt_rozwiniecie_pokazuje_kazdego_klienta_z_jego_sztukami(
+    app, db, make_user, make_order, make_product,
+):
+    """To jest właściwy powód istnienia zakładki „Wg produktów": rozesłałam paczkę,
+    zostało mi 5 light sticków na półce — czyje one są? Samo `sztuk` i `klientow`
+    (liczby) na to nie odpowiada, trzeba wiedzieć KTO i PO ILE.
+    """
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    ls = make_product(name='Light stick ATEEZ')
+    kasia = make_user(email='kasia@example.com')
+    ola = make_user(email='ola@example.com')
+    _pozycja(db, make_order(kasia, status='dostarczone_gom'), product=ls, qty=2)
+    _pozycja(db, make_order(ola, status='dostarczone_gom'), product=ls, qty=3)
+
+    dane = zbierz_nieodebrane()
+
+    lista = dane['produkty'][0]['lista_klientow']
+    assert {(w['user'].id, w['sztuk']) for w in lista} == {(kasia.id, 2), (ola.id, 3)}
+
+
 def test_ten_sam_klient_liczony_raz_na_produkt(app, db, make_user, make_order,
                                                 make_product):
     from modules.orders.unclaimed_service import zbierz_nieodebrane
@@ -444,12 +467,39 @@ def test_ten_sam_klient_liczony_raz_na_produkt(app, db, make_user, make_order,
 
     assert dane['produkty'][0]['sztuk'] == 2
     assert dane['produkty'][0]['klientow'] == 1
+    # Ten sam klient w dwóch zamówieniach z tym samym produktem ma dać JEDNĄ
+    # pozycję w rozwinięciu, z sumą sztuk — nie dwie osobne pozycje po 1 sztuce.
+    lista = dane['produkty'][0]['lista_klientow']
+    assert len(lista) == 1
+    assert lista[0]['user'].id == u.id
+    assert lista[0]['sztuk'] == 2
+
+
+def test_klienci_produktu_posortowani_malejaco_po_sztukach(
+    app, db, make_user, make_order, make_product,
+):
+    """Właścicielka najpierw chce wiedzieć, kto ma najwięcej sztuk."""
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    ls = make_product(name='Light stick ATEEZ')
+    malo = make_user(email='malo@example.com')
+    duzo = make_user(email='duzo@example.com')
+    srednio = make_user(email='srednio@example.com')
+    _pozycja(db, make_order(malo, status='dostarczone_gom'), product=ls, qty=1)
+    _pozycja(db, make_order(duzo, status='dostarczone_gom'), product=ls, qty=10)
+    _pozycja(db, make_order(srednio, status='dostarczone_gom'), product=ls, qty=5)
+
+    dane = zbierz_nieodebrane()
+
+    lista = dane['produkty'][0]['lista_klientow']
+    assert [w['user'].id for w in lista] == [duzo.id, srednio.id, malo.id]
 
 
 def test_pozycje_wlasne_ida_na_koniec(app, db, make_user, make_order, make_product):
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
-    o1 = make_order(make_user(), status='dostarczone_gom')
+    wlasciciel = make_user(email='wlasciciel-zestawu@example.com')
+    o1 = make_order(wlasciciel, status='dostarczone_gom')
     _pozycja(db, o1, nazwa='Zestaw niespodzianka', qty=99)
     o2 = make_order(make_user(), status='dostarczone_gom')
     _pozycja(db, o2, product=make_product(name='Album TXT'), qty=1)
@@ -457,7 +507,14 @@ def test_pozycje_wlasne_ida_na_koniec(app, db, make_user, make_order, make_produ
     dane = zbierz_nieodebrane()
 
     assert [p['wlasny'] for p in dane['produkty']] == [False, True]
-    assert dane['produkty'][1]['nazwa'] == 'Zestaw niespodzianka'
+    pozycja_wlasna = dane['produkty'][1]
+    assert pozycja_wlasna['nazwa'] == 'Zestaw niespodzianka'
+    # Pozycja bez product_id (grupowana po nazwie) ma dostać taką samą listę
+    # klientów jak pozycja katalogowa — brak karty magazynowej nie może znaczyć
+    # braku odpowiedzi na „czyje to jest".
+    assert len(pozycja_wlasna['lista_klientow']) == 1
+    assert pozycja_wlasna['lista_klientow'][0]['user'].id == wlasciciel.id
+    assert pozycja_wlasna['lista_klientow'][0]['sztuk'] == 99
 
 
 def test_klient_bez_wieku_jest_pierwszy(app, db, make_user, make_order):
@@ -662,3 +719,50 @@ def test_ekran_bez_zaleglosci_nie_wywala_sie(app, client, db, make_user, login):
     r = client.get('/admin/orders/nieodebrane')
 
     assert r.status_code == 200
+
+
+def test_ekran_produktu_renderuje_nazwiska_klientow(app, client, db, make_user,
+                                                      make_order, make_product, login):
+    """Zakładka „Wg produktów" ma faktycznie odpowiadać „kto ma te sztuki" — nie
+    tylko w danych z `zbierz_nieodebrane`, ale i w HTML-u, który dostaje przeglądarka.
+    """
+    login(make_user(role='admin', email='admin@example.com'))
+    zalegacz = make_user(email='zalegacz@example.com', first_name='Jan', last_name='Kowalski')
+    o = make_order(zalegacz, status='dostarczone_gom')
+    _pozycja(db, o, product=make_product(name='Light stick ATEEZ'), qty=5)
+
+    r = client.get('/admin/orders/nieodebrane')
+
+    assert r.status_code == 200
+    tresc = r.get_data(as_text=True)
+    assert zalegacz.full_name in tresc
+    assert 'unclaimed__expand' in tresc
+
+
+def test_ekran_identyfikatory_wierszy_produktow_i_klientow_sie_nie_zderzaja(
+    app, client, db, make_user, make_order, make_product, login,
+):
+    """`id="klient-{id}"` (zakładka klientów) i `id="produkt-{index}"` (zakładka
+    produktów) muszą współistnieć na tej samej stronie bez kolizji — w tym gdy
+    pozycja własna ma nazwę ze spacjami i znakami, które w atrybucie `id` byłyby
+    kłopotliwe (stąd `produkt-{{ loop.index0 }}`, nie slug z nazwy).
+    """
+    login(make_user(role='admin', email='admin@example.com'))
+    u = make_user(email='klient1@example.com')
+    o1 = make_order(u, status='dostarczone_gom')
+    _pozycja(db, o1, product=make_product(name='Album TXT'), qty=1)
+    o2 = make_order(u, status='dostarczone_gom')
+    _pozycja(db, o2, nazwa='Zestaw & Karty / Prezent #1', qty=2)
+
+    r = client.get('/admin/orders/nieodebrane')
+    tresc = r.get_data(as_text=True)
+
+    assert r.status_code == 200
+    identyfikatory = re.findall(r'id="([^"]+)"', tresc)
+    unclaimed_ids = [i for i in identyfikatory if i.startswith('klient-') or i.startswith('produkt-')]
+    assert len(unclaimed_ids) == len(set(unclaimed_ids)), (
+        f'zduplikowane identyfikatory wierszy: {unclaimed_ids}'
+    )
+    assert f'klient-{u.id}' in unclaimed_ids
+    assert 'produkt-0' in unclaimed_ids
+    assert 'produkt-1' in unclaimed_ids

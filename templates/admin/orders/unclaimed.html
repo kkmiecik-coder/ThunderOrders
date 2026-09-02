@@ -138,14 +138,38 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {# Identyfikator wiersza = numer pozycji w pętli (loop.index0), nie nazwa
+                       produktu — pozycje własne grupują się po `custom_name`, a nazwa może
+                       zawierać spacje i znaki, które nie nadają się do atrybutu `id`. Prefiks
+                       „produkt-" (zamiast „klient-" jak w zakładce klientów) gwarantuje, że
+                       identyfikatory obu zakładek nigdy się nie zderzą na tej samej stronie. #}
                     {% for p in produkty %}
                     <tr{% if p.wlasny %} class="unclaimed__row--custom"{% endif %}>
                         <td>
-                            {{ p.nazwa }}
+                            <button type="button" class="unclaimed__expand" data-target="produkt-{{ loop.index0 }}">
+                                {{ p.nazwa }}
+                            </button>
                             {% if p.wlasny %}<span class="unclaimed__badge">produkt własny</span>{% endif %}
                         </td>
                         <td>{{ p.sztuk }} szt.</td>
                         <td>{{ p.klientow }}</td>
+                    </tr>
+                    <tr class="unclaimed__details" id="produkt-{{ loop.index0 }}" hidden>
+                        <td colspan="3">
+                            {# Ten sam wzorzec co rozwinięcie klienta: nazwa + link do karty
+                               klienta, sprawdzony w commicie 2e6e899. Tu dodatkowo liczba sztuk
+                               tego produktu u danego klienta — to odpowiedź na pytanie „czyje są
+                               te sztuki", dla którego ta zakładka w ogóle powstała. #}
+                            <ul class="unclaimed__orders">
+                                {% for k in p.lista_klientow %}
+                                <li>
+                                    <a href="{{ url_for('admin.client_detail', id=k.user.id) }}"
+                                       class="unclaimed__client-link">{{ k.user.full_name }}</a>
+                                    <span class="unclaimed__items">&times;{{ k.sztuk }} szt.</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

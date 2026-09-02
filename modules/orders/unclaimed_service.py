@@ -157,14 +157,27 @@ def zbierz_nieodebrane():
                          else (it.product.name if it.product else f'Produkt #{it.product_id}'),
                 'sztuk': 0,
                 'klienci': set(),
+                # user_id -> wpis klienta tego produktu. Osobna mapa od `klienci` (set,
+                # tylko do liczenia `klientow`) — ten sam klient z tym produktem w dwóch
+                # zamówieniach ma dać JEDNĄ pozycję z sumą sztuk, nie dwie.
+                'klienci_wg_id': {},
                 'wlasny': wlasny,
             })
             wpis['sztuk'] += it.quantity or 0
             wpis['klienci'].add(o.user_id)
+            klient_wpis = wpis['klienci_wg_id'].setdefault(
+                o.user_id, {'user': o.user, 'sztuk': 0}
+            )
+            klient_wpis['sztuk'] += it.quantity or 0
 
     produkty = [
         {'product_id': w['product_id'], 'nazwa': w['nazwa'], 'sztuk': w['sztuk'],
-         'klientow': len(w['klienci']), 'wlasny': w['wlasny']}
+         'klientow': len(w['klienci']), 'wlasny': w['wlasny'],
+         # Rozwinięcie wiersza produktu pokazuje „czyje są te sztuki" — malejąco po
+         # liczbie sztuk, bo właścicielka najpierw chce wiedzieć, kto ma najwięcej.
+         'lista_klientow': sorted(
+             w['klienci_wg_id'].values(), key=lambda k: k['sztuk'], reverse=True
+         )}
         for w in wg_produktu.values()
     ]
     # Pozycje własne zawsze na końcu — nie mają karty w magazynie, więc mieszanie
