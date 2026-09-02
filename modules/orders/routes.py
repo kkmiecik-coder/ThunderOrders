@@ -2145,6 +2145,7 @@ def update_email_notification_settings():
         'notify_admin_new_order', 'notify_admin_payment_uploaded',
         'notify_delivery_confirmation', 'notify_delivery_confirmed',
         'notify_delivery_autoclosed', 'notify_admin_delivery_confirmed',
+        'notify_pickup_reminder',
     }
 
     try:
@@ -5344,6 +5345,22 @@ def admin_unclaimed():
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     return render_template('admin/orders/unclaimed.html', **zbierz_nieodebrane())
+
+
+@orders_bp.route('/admin/orders/nieodebrane/przypomnij', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_unclaimed_remind():
+    """Wysyła przypomnienia o odbiorze do zaznaczonych klientów."""
+    from modules.orders.unclaimed_service import wyslij_przypomnienia
+
+    data = request.get_json() or {}
+    user_ids = data.get('user_ids') or []
+    if not user_ids:
+        return jsonify({'success': False, 'message': 'Nie wybrano nikogo'}), 400
+
+    wynik = wyslij_przypomnienia([int(uid) for uid in user_ids])
+    return jsonify({'success': True, **wynik})
 
 
 # ====================

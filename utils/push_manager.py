@@ -956,6 +956,34 @@ class PushManager:
                 notification_type='shipping_updates',
             )
 
+    @staticmethod
+    def notify_pickup_reminder(user_id, liczba_zamowien):
+        """Push + wpis w centrum powiadomień: „odbierz swoje rzeczy".
+
+        Kategoria `shipping_updates`, nie własne pole w NotificationPreference —
+        z punktu widzenia klienta to powiadomienie o wysyłce, a dokładanie kolumny
+        znaczyłoby migrację dla jednego przełącznika.
+        """
+        from flask import url_for
+
+        try:
+            url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
+
+        tresc = ('Twoje zamówienie czeka na odbiór — zamów wysyłkę'
+                 if liczba_zamowien == 1
+                 else f'{liczba_zamowien} Twoje zamówienia czekają na odbiór — zamów wysyłkę')
+
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title='Odbierz swoje rzeczy',
+            body=tresc,
+            url=url,
+            tag=f'pickup-reminder-{user_id}',
+            notification_type='shipping_updates',
+        )
+
     # ========================================
     # ORDER CONFIRMATION
     # ========================================

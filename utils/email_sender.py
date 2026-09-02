@@ -1606,3 +1606,25 @@ def prepare_consolidation_address_changed_email(user_email, user_name, request_n
         is_recipient=is_recipient,
         shipping_requests_url=shipping_requests_url,
     )
+
+
+def prepare_pickup_reminder_email(user_email, user_name, orders_summary,
+                                  shipping_url, log_context=None):
+    """Buduje Message z przypomnieniem o odbiorze (BEZ wysyłania) — do send_email_batch().
+
+    `orders_summary` to lista dictów {'numer': str, 'pozycje': str} — jeden mail
+    obejmuje WSZYSTKIE zaległe zamówienia klienta, więc szablon dostaje listę,
+    nie pojedyncze zamówienie.
+    """
+    liczba = len(orders_summary)
+    temat = ('Twoje zamówienie czeka na odbiór' if liczba == 1
+             else f'Twoje zamówienia ({liczba}) czekają na odbiór')
+    return prepare_email(
+        to=user_email,
+        subject=temat,
+        template='pickup_reminder',
+        log_context=log_context,
+        user_name=user_name,
+        orders_summary=orders_summary,
+        shipping_url=shipping_url,
+    )

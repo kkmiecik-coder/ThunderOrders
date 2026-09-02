@@ -369,4 +369,5 @@ EMAIL_TYPE_LABELS = {
     'payment_approved': 'płatność zatwierdzona',
     'payment_rejected': 'płatność odrzucona',
     'payment_reminder': 'przypomnienie o płatności',
+    'pickup_reminder': 'przypomnienie o odbiorze',
 }

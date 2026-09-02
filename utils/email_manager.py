@@ -1612,6 +1612,58 @@ class EmailManager:
             )
         return len(messages)
 
+    @staticmethod
+    def notify_pickup_reminder_bulk(users_orders):
+        """Przypomnienia o odbiorze — jeden mail na klienta, jeden batch na całość.
+
+        Args:
+            users_orders: lista krotek (user, [order, ...]) — zamówienia zaległe
+                tego klienta. Jedna krotka = jeden mail; klient z trzema paczkami
+                dostaje jedną wiadomość, nie trzy.
+
+        Returns:
+            int: liczba zakolejkowanych wiadomości
+        """
+        if not EmailManager.is_email_enabled('notify_pickup_reminder'):
+            current_app.logger.info(
+                "Email notification 'notify_pickup_reminder' is disabled, skipping bulk")
+            return 0
+
+        from utils.email_sender import prepare_pickup_reminder_email, send_email_batch
+
+        shipping_url = url_for('client.shipping_requests_list', _external=True)
+
+        messages = []
+        for user, orders in users_orders:
+            email = getattr(user, 'email', None)
+            if not email:
+                current_app.logger.warning(
+                    f"Cannot send pickup reminder for user {getattr(user, 'id', '?')}: no email")
+                continue
+
+            podsumowanie = [{
+                'numer': o.order_number,
+                'pozycje': ', '.join(
+                    f"{it.product.name if it.product else it.custom_name} ×{it.quantity}"
+                    for it in o.items
+                ) or 'brak pozycji',
+            } for o in orders]
+
+            msg = prepare_pickup_reminder_email(
+                user_email=email,
+                user_name=getattr(user, 'first_name', None) or email,
+                orders_summary=podsumowanie,
+                shipping_url=shipping_url,
+                log_context={'entity_type': 'user', 'entity_id': user.id},
+            )
+            if msg:
+                messages.append(msg)
+
+        if messages:
+            send_email_batch(messages)
+            current_app.logger.info(f"Queued batch of {len(messages)} pickup reminders")
+        return len(messages)
+
     # ========================================
     # ADMIN NOTIFICATION EMAILS
     # ========================================
