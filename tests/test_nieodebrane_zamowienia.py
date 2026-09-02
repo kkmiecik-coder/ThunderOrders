@@ -157,3 +157,88 @@ def test_migracja_statusu_celowo_nie_rusza_daty(app, db, make_user, make_order):
     db.session.refresh(o)
     assert o.status == 'w_drodze_polska'
     assert o.status_changed_at == stary_stempel
+
+
+# ============================================
+# Wiek zaległości
+# ============================================
+
+def test_wiek_z_kolumny_jest_dokladny(app, db, make_user, make_order):
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import wiek_zaleglosci
+
+    o = make_order(make_user(), status='dostarczone_gom')
+    o.status_changed_at = get_local_now() - timedelta(days=47)
+    db.session.commit()
+
+    assert wiek_zaleglosci([o]) == {o.id: (47, True)}
+
+
+def test_wiek_z_dziennika_jest_przyblizony(app, db, make_user, make_order):
+    """Zamówienie sprzed wdrożenia — kolumna pusta, ale dziennik pamięta."""
+    import json
+    from datetime import timedelta
+    from modules.admin.models import ActivityLog
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import wiek_zaleglosci
+
+    o = make_order(make_user(), status='dostarczone_gom')
+    o.status_changed_at = None
+    db.session.add(ActivityLog(
+        action='order_status_change', entity_type='order', entity_id=o.id,
+        new_value=json.dumps({'status': 'dostarczone_gom'}),
+        created_at=get_local_now() - timedelta(days=120),
+    ))
+    db.session.commit()
+
+    assert wiek_zaleglosci([o]) == {o.id: (120, False)}
+
+
+def test_dziennik_o_innym_statusie_jest_ignorowany(app, db, make_user, make_order):
+    """Wpis o wejściu w JAKIŚ status nie mówi nic o wieku OBECNEJ zaległości."""
+    import json
+    from datetime import timedelta
+    from modules.admin.models import ActivityLog
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import wiek_zaleglosci
+
+    o = make_order(make_user(), status='dostarczone_gom')
+    o.status_changed_at = None
+    db.session.add(ActivityLog(
+        action='order_status_change', entity_type='order', entity_id=o.id,
+        new_value=json.dumps({'status': 'urzad_celny'}),
+        created_at=get_local_now() - timedelta(days=200),
+    ))
+    db.session.commit()
+
+    assert wiek_zaleglosci([o]) == {o.id: (None, False)}
+
+
+def test_brak_obu_zrodel_daje_none(app, db, make_user, make_order):
+    from modules.orders.unclaimed_service import wiek_zaleglosci
+
+    o = make_order(make_user(), status='dostarczone_gom')
+    o.status_changed_at = None
+    db.session.commit()
+
+    assert wiek_zaleglosci([o]) == {o.id: (None, False)}
+
+
+def test_wiek_liczony_jednym_zapytaniem_dla_wielu(app, db, make_user, make_order):
+    """Regresja na N+1: 30 zamówień to nadal jedno zapytanie do dziennika."""
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import wiek_zaleglosci
+
+    zamowienia = []
+    for i in range(30):
+        o = make_order(make_user(), status='dostarczone_gom')
+        o.status_changed_at = get_local_now() - timedelta(days=i + 1)
+        zamowienia.append(o)
+    db.session.commit()
+
+    wynik = wiek_zaleglosci(zamowienia)
+
+    assert len(wynik) == 30
+    assert wynik[zamowienia[0].id] == (1, True)
