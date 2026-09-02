@@ -158,15 +158,31 @@ def wyslij_przypomnienia(user_ids):
     wyrenderowaniem ekranu a kliknięciem przycisku klient mógł już zamówić wysyłkę
     i przypominanie mu o tym byłoby wpadką.
 
+    Przypomnienie idzie TRZEMA kanałami: mail, push i dzwoneczek w centrum
+    powiadomień. Mail ma własny przełącznik (`notify_pickup_reminder` w ustawieniach)
+    i może pominąć pojedynczego klienta bez adresu e-mail — to nie może gasić
+    pozostałych dwóch kanałów. Push ma własną, niezależną kontrolę per użytkownik
+    (`NotificationPreference.shipping_updates`, sprawdzaną wewnątrz `PushManager`),
+    więc nie potrzebuje bramki od maila. Dlatego stemplowanie `pickup_reminder_sent_at`
+    i wywołanie pusha idą do KAŻDEGO klienta z realną zaległością, niezależnie od
+    tego, czy i ile maili faktycznie poszło.
+
     Returns:
-        dict: {'wyslane': int, 'pominieci': [str]} — pominięci to adresy klientów,
-        którzy w międzyczasie przestali zalegać.
+        dict: {'wyslane': int, 'maile': int, 'pominieci': [str]}
+            - 'wyslane': liczba klientów, do których poszło przypomnienie (czyli
+              tych z realną zaległością) — to ta liczba trafia do komunikatu
+              na ekranie;
+            - 'maile': liczba zakolejkowanych wiadomości e-mail (może być 0 przy
+              wyłączonym przełączniku albo gdy nikt z zaznaczonych nie ma adresu —
+              to nie znaczy, że 'wyslane' też jest 0);
+            - 'pominieci': identyfikatory klientów, którzy w międzyczasie przestali
+              zalegać.
     """
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
 
     if not user_ids:
-        return {'wyslane': 0, 'pominieci': []}
+        return {'wyslane': 0, 'maile': 0, 'pominieci': []}
 
     zamowienia = unclaimed_orders_query().filter(
         Order.user_id.in_(user_ids)
@@ -182,18 +198,20 @@ def wyslij_przypomnienia(user_ids):
 
     pominieci = [str(uid) for uid in user_ids if uid not in wg_klienta]
     if not wg_klienta:
-        return {'wyslane': 0, 'pominieci': pominieci}
+        return {'wyslane': 0, 'maile': 0, 'pominieci': pominieci}
 
-    wyslane = EmailManager.notify_pickup_reminder_bulk(
+    # Mail podlega swojemu przełącznikowi (i pomija pojedynczych klientów bez
+    # adresu) — licznik zakolejkowanych wiadomości jest osobny od tego, ilu
+    # klientów faktycznie dostało przypomnienie.
+    maile = EmailManager.notify_pickup_reminder_bulk(
         [(w['user'], w['zamowienia']) for w in wg_klienta.values()]
     )
 
-    if wyslane:
-        teraz = get_local_now()
-        for user_id, w in wg_klienta.items():
-            for o in w['zamowienia']:
-                o.pickup_reminder_sent_at = teraz
-            PushManager.notify_pickup_reminder(user_id, len(w['zamowienia']))
-        db.session.commit()
+    teraz = get_local_now()
+    for user_id, w in wg_klienta.items():
+        for o in w['zamowienia']:
+            o.pickup_reminder_sent_at = teraz
+        PushManager.notify_pickup_reminder(user_id, len(w['zamowienia']))
+    db.session.commit()
 
-    return {'wyslane': wyslane, 'pominieci': pominieci}
+    return {'wyslane': len(wg_klienta), 'maile': maile, 'pominieci': pominieci}

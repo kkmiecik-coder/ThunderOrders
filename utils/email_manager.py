@@ -1644,7 +1644,7 @@ class EmailManager:
             podsumowanie = [{
                 'numer': o.order_number,
                 'pozycje': ', '.join(
-                    f"{it.product.name if it.product else it.custom_name} ×{it.quantity}"
+                    f"{it.product.name if it.product else (it.custom_name or 'Bez nazwy')} ×{it.quantity}"
                     for it in o.items
                 ) or 'brak pozycji',
             } for o in orders]

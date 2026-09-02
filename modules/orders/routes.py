@@ -5359,7 +5359,13 @@ def admin_unclaimed_remind():
     if not user_ids:
         return jsonify({'success': False, 'message': 'Nie wybrano nikogo'}), 400
 
-    wynik = wyslij_przypomnienia([int(uid) for uid in user_ids])
+    try:
+        user_ids = [int(uid) for uid in user_ids]
+    except (TypeError, ValueError):
+        return jsonify({'success': False,
+                        'message': 'Nieprawidłowy identyfikator klienta'}), 400
+
+    wynik = wyslij_przypomnienia(user_ids)
     return jsonify({'success': True, **wynik})
 
 
