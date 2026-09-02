@@ -106,6 +106,47 @@
         return '';
     }
 
+    function pokazToast(wiadomosc, typ) {
+        // Ten sam wzorzec co orders-list.js: gdy globalny toast nie jest dostępny
+        // (np. skrypt się nie załadował), komunikat i tak musi dotrzeć do właścicielki.
+        if (typeof window.showToast === 'function') {
+            window.showToast(wiadomosc, typ);
+        } else {
+            alert(wiadomosc);
+        }
+    }
+
+    function odmienOsoby(n, forma1, forma2, formaWiele) {
+        // Polska odmiana liczebnika głównego przy rzeczowniku: 1 → forma1; 2-4 z wyjątkiem
+        // końcówek 12-14 → forma2 (liczba mnoga "lekka"); pozostałe (5+, 12-14, 0) → formaWiele
+        // (dopełniacz). Wywołujący dobiera słowa pod przypadek zdania — np. po "do" (dopełniacz)
+        // forma2 i formaWiele są tym samym słowem, bo "do dwóch osób", nie "do dwóch osoby".
+        if (n === 1) {
+            return forma1;
+        }
+        const dziesiatki = n % 10;
+        const setki = n % 100;
+        if (dziesiatki >= 2 && dziesiatki <= 4 && !(setki >= 12 && setki <= 14)) {
+            return forma2;
+        }
+        return formaWiele;
+    }
+
+    function opisIluOsob(n) {
+        // Biernik — pasuje do "Pominięto kogo? co? — 1 osobę / 2 osoby / 7 osób".
+        return n + ' ' + odmienOsoby(n, 'osobę', 'osoby', 'osób');
+    }
+
+    function opisDoIluOsob(n) {
+        // Dopełniacz — przyimek "do" tego wymaga: "do jednej osoby", "do 2/5/22 osób".
+        // Liczba mnoga dopełniacza jest stała niezależnie od 2-4 czy 5+, dlatego forma2
+        // i formaWiele w wywołaniu odmienOsoby są tym samym słowem.
+        if (n === 1) {
+            return 'jednej osoby';
+        }
+        return n + ' ' + odmienOsoby(n, 'osoby', 'osób', 'osób');
+    }
+
     function komunikatSukcesu(dane) {
         // Kontrakt trasy (Zadanie 6 po recenzji): 'wyslane' to liczba klientów — ta liczba
         // idzie do komunikatu. 'maile' może być 0 mimo wyslane > 0, gdy właścicielka wyłączyła
@@ -121,8 +162,7 @@
             tekst += '. Mail jest wyłączony w ustawieniach — poszło tylko powiadomienie w aplikacji.';
         }
         if (pominieci.length > 0) {
-            const ilu = pominieci.length === 1 ? '1 osobę' : pominieci.length + ' osoby';
-            tekst += ' Pominięto ' + ilu + ' — przestały już zalegać.';
+            tekst += ' Pominięto ' + opisIluOsob(pominieci.length) + ' — przestały już zalegać.';
         }
         return tekst;
     }
@@ -135,9 +175,8 @@
 
         const swiezo = niedawnoPrzypomniane(pola);
         if (swiezo.length > 0) {
-            const ilu = swiezo.length === 1 ? 'jednej osobie' : swiezo.length + ' osobom';
             if (!window.confirm(
-                'Do ' + ilu + ' przypomnienie poszło w ciągu ostatnich ' +
+                'Do ' + opisDoIluOsob(swiezo.length) + ' przypomnienie poszło w ciągu ostatnich ' +
                 DNI_OSTRZEZENIA + ' dni. Wysłać mimo to?'
             )) {
                 return;
@@ -156,15 +195,24 @@
             .then(function (r) { return r.json(); })
             .then(function (dane) {
                 if (dane.success) {
-                    window.showToast?.(komunikatSukcesu(dane), 'success');
-                    window.location.reload();
+                    pokazToast(komunikatSukcesu(dane), 'success');
+                    // Wzorzec z orders-list.js: przeładowanie po chwili, żeby zdążyć przeczytać
+                    // toast, zanim strona się wyładuje. Gdy komunikat ma drugi człon (mail
+                    // wyłączony w ustawieniach albo lista pominiętych klientów), tekst jest
+                    // wyraźnie dłuższy do przeczytania niż samo "Wysłano przypomnień: N" —
+                    // wydłużamy pauzę do 2500 ms zamiast standardowych 1200 ms.
+                    const wieloczlonowy = (dane.wyslane > 0 && (dane.maile || 0) === 0) ||
+                        (dane.pominieci || []).length > 0;
+                    setTimeout(function () {
+                        window.location.reload();
+                    }, wieloczlonowy ? 2500 : 1200);
                 } else {
-                    window.showToast?.(dane.message || 'Nie udało się wysłać', 'error');
+                    pokazToast(dane.message || 'Nie udało się wysłać', 'error');
                     przycisk.disabled = false;
                 }
             })
             .catch(function () {
-                window.showToast?.('Nie udało się wysłać przypomnień', 'error');
+                pokazToast('Nie udało się wysłać przypomnień', 'error');
                 przycisk.disabled = false;
             });
     });
