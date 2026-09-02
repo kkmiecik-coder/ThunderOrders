@@ -21,7 +21,33 @@ echo "$LOG_PREFIX Starting deploy..."
 cd "$APP_DIR" || exit 1
 
 echo "$LOG_PREFIX Pulling latest code..."
-git pull origin main 2>&1
+# Nieudany `git pull` NIE MOŻE przejść dalej. Wcześniej skrypt leciał do końca i meldował
+# "Deploy complete!" mimo starego kodu na dysku: 2026-09-02 produkcja przez ~40 min serwowała
+# kod sprzed doby, a log deployu i dostawa webhooka w GitHubie pokazywały sukces. Awaria była
+# niewidoczna aż ktoś zauważył, że zmiany "nie weszły".
+#
+# Powód samego padu: GitHub sporadycznie odrzuca anonimowy fetch po HTTPS
+# ("fatal: could not read Username for 'https://github.com'"), mimo że repo jest publiczne
+# i kolejne próby przechodzą bez zmian w konfiguracji. Stąd retry przed poddaniem się.
+PULL_OK=0
+for attempt in 1 2 3; do
+    if git pull origin main 2>&1; then
+        PULL_OK=1
+        break
+    fi
+    echo "$LOG_PREFIX git pull nie powiódł się (próba $attempt/3), ponawiam za 5 s..."
+    sleep 5
+done
+
+if [ "$PULL_OK" -ne 1 ]; then
+    echo "$LOG_PREFIX ================================================================"
+    echo "$LOG_PREFIX BŁĄD: git pull nie powiódł się po 3 próbach. PRZERYWAM DEPLOY."
+    echo "$LOG_PREFIX Kod na serwerze zostaje na $(git rev-parse --short HEAD) — usługi NIE"
+    echo "$LOG_PREFIX zostały zrestartowane, produkcja dalej chodzi na poprzedniej wersji."
+    echo "$LOG_PREFIX Naprawa: zaloguj się na serwer i uruchom ponownie ten skrypt."
+    echo "$LOG_PREFIX ================================================================"
+    exit 1
+fi
 
 echo "$LOG_PREFIX Installing dependencies..."
 source venv/bin/activate
