@@ -2198,7 +2198,7 @@ class PaymentConfirmation(db.Model):
         return f'<PaymentConfirmation {self.id} Order:{self.order_id} Stage:{self.payment_stage} Status:{self.status}>'
 
 
-@db.event.listens_for(Order.status, 'set')
+@db.event.listens_for(Order.status, 'set', active_history=True)
 def _stempluj_zmiane_statusu(order, nowy, stary, initiator):
     """Zapisuje moment wejścia zamówienia w nowy status.
 
@@ -2210,6 +2210,15 @@ def _stempluj_zmiane_statusu(order, nowy, stary, initiator):
     wypada fałszywie i stempel powstaje — tak ma być, nowe zamówienie też wchodzi
     w status. Ponowne przypisanie tej samej wartości stempla NIE rusza: „leży
     47 dni" ma znaczyć wiek zaległości, a nie datę ostatniego zapisu formularza.
+
+    `active_history=True` jest tu obowiązkowe, nie kosmetyczne: bez niego
+    SQLAlchemy podaje w `stary` symbol `NO_VALUE` zamiast realnej starej wartości,
+    gdy atrybut jest wygaszony (a jest — po każdym `commit()` domyślnie). Wtedy
+    `nowy == stary` wypada FAŁSZYWIE nawet dla przypisania TEJ SAMEJ wartości, i
+    stempel by się odświeżał — czyli dokładnie to, przed czym ten listener ma
+    chronić. Dziś nie strzelało tylko dlatego, że wszystkie znane ścieżki
+    czytają `order.status` (co ładuje atrybut) tuż przed przypisaniem — kruche
+    założenie, które `active_history=True` czyni zbędnym.
 
     Wyjątek, celowo NIE załatany: trasa `migrate_status` (routes.py) przenosi
     zamówienia masowym `Order.query.filter_by(...).update(...)`, co omija ORM

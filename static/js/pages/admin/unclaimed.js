@@ -147,19 +147,40 @@
         return n + ' ' + odmienOsoby(n, 'osoby', 'osób', 'osób');
     }
 
+    function opisIluOsobMianownik(n) {
+        // Mianownik — pasuje do "Kto? co? nie ma adresu — 1 osoba / 2 osoby / 7 osób".
+        return n + ' ' + odmienOsoby(n, 'osoba', 'osoby', 'osób');
+    }
+
     function komunikatSukcesu(dane) {
-        // Kontrakt trasy (Zadanie 6 po recenzji): 'wyslane' to liczba klientów — ta liczba
-        // idzie do komunikatu. 'maile' może być 0 mimo wyslane > 0, gdy właścicielka wyłączyła
-        // maile w ustawieniach (push i wpis w apce poszły i tak) — trzeba to powiedzieć wprost,
-        // inaczej pomyśli, że klient dostał e-mail. 'pominieci' to klienci, którzy przestali
-        // zalegać między wyrenderowaniem ekranu a kliknięciem.
+        // Kontrakt trasy (Zadanie 6 po recenzji, rozszerzony po kolejnej): 'wyslane' to
+        // liczba klientów — ta liczba idzie do komunikatu. 'maile' może być 0 mimo
+        // wyslane > 0 z DWÓCH różnych powodów, które trzeba odróżnić, inaczej właścicielka
+        // źle zrozumie, co się stało:
+        //   - 'mail_wylaczony': przełącznik w ustawieniach jest wyłączony (dotyczy WSZYSTKICH);
+        //   - brak przełącznika, ale 'bez_maila' === 'wyslane': nikt z zaznaczonych nie ma
+        //     zapisanego adresu.
+        // Gdy 'maile' jest dodatnie, ale MNIEJSZE niż 'wyslane' (część klientów bez adresu,
+        // reszta z adresem), poprzednia wersja milczała o tym całkowicie i właścicielka
+        // myślała, że mail poszedł do wszystkich zaznaczonych — teraz mówimy to wprost.
+        // 'pominieci' to klienci, którzy przestali zalegać między wyrenderowaniem ekranu
+        // a kliknięciem.
         const wyslane = dane.wyslane || 0;
         const maile = dane.maile || 0;
+        const bezMaila = dane.bez_maila || 0;
+        const mailWylaczony = !!dane.mail_wylaczony;
         const pominieci = dane.pominieci || [];
 
         let tekst = 'Wysłano przypomnień: ' + wyslane;
         if (wyslane > 0 && maile === 0) {
-            tekst += '. Mail jest wyłączony w ustawieniach — poszło tylko powiadomienie w aplikacji.';
+            if (mailWylaczony) {
+                tekst += '. Mail jest wyłączony w ustawieniach — poszło tylko powiadomienie w aplikacji.';
+            } else {
+                tekst += '. Nikt z zaznaczonych nie ma zapisanego adresu e-mail — poszło tylko powiadomienie w aplikacji.';
+            }
+        } else if (maile > 0 && maile < wyslane && bezMaila > 0 && !mailWylaczony) {
+            tekst += '. Mail nie poszedł do ' + opisIluOsobMianownik(bezMaila) +
+                ' (brak zapisanego adresu) — reszta dostała mail normalnie, wszyscy dostali powiadomienie w aplikacji.';
         }
         if (pominieci.length > 0) {
             tekst += ' Pominięto ' + opisIluOsob(pominieci.length) + ' — przestały już zalegać.';

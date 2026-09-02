@@ -41,8 +41,19 @@ def wiek_zaleglosci(orders):
             bez_kolumny[o.id] = o.status
 
     if bez_kolumny:
+        # Dwie akcje wpisują zmianę statusu zamówienia do dziennika: ręczna/hurtowa
+        # zmiana w panelu loguje 'order_status_change' (routes.py), a GŁÓWNA,
+        # automatyczna droga wejścia w status (towar dojechał i pokrył zamówienia,
+        # `_apply_coverage_status_update` w modules/products/routes.py) loguje
+        # 'order_status_auto_updated' — inny action, ten sam kształt new_value
+        # ({'status': ...} przez json.dumps). Pominięcie drugiej akcji zostawiałoby
+        # fallback ślepym na zdecydowaną większość zaległości sprzed wdrożenia tej
+        # kolumny, bo to właśnie ta droga najczęściej wprowadza zamówienia w status
+        # „nieodebrane". (Trzecia droga, `reopen_orders_for_wms`, w ogóle nie loguje
+        # activity_log na poziomie zamówienia — dla niej fallback i tak zwróci
+        # (None, False), czyli „wiek nieznany", co jest bezpieczne: patrz P2.)
         wpisy = ActivityLog.query.filter(
-            ActivityLog.action == 'order_status_change',
+            ActivityLog.action.in_(('order_status_change', 'order_status_auto_updated')),
             ActivityLog.entity_type == 'order',
             ActivityLog.entity_id.in_(bez_kolumny.keys()),
         ).order_by(desc(ActivityLog.created_at)).all()
@@ -96,14 +107,22 @@ def zbierz_nieodebrane():
     for o in zamowienia:
         wpis = wg_klienta.setdefault(o.user_id, {
             'user': o.user, 'zamowienia': [], 'dni': None, 'dokladne': True,
-            'ostatnie_przypomnienie': None,
+            'ostatnie_przypomnienie': None, 'ma_nieznany_wiek': False,
         })
         wpis['zamowienia'].append(o)
 
         dni, dokladne = wiek.get(o.id, (None, False))
-        # Wiersz klienta pokazuje jego NAJSTARSZĄ zaległość — to ona decyduje,
-        # jak pilnie trzeba mu przypomnieć.
-        if dni is not None and (wpis['dni'] is None or dni > wpis['dni']):
+        # Wiersz klienta pokazuje jego NAJSTARSZĄ ZNANĄ zaległość — to ona
+        # decyduje, jak pilnie trzeba mu przypomnieć. Ale samo `dni` nie
+        # wystarcza do sortowania: klient z jednym zamówieniem bez daty (może
+        # leżeć 400 dni) i jednym sprzed 10 dni pokazałby tu „10 dni" i wylądował
+        # nisko na liście, mimo że realnie może zalegać najdłużej ze wszystkich.
+        # `ma_nieznany_wiek` pamięta, że część zamówień tego klienta nie ma
+        # policzalnego wieku — klucz sortowania (niżej) wysyła taki wiersz na
+        # górę niezależnie od tego, co pokazuje `dni`.
+        if dni is None:
+            wpis['ma_nieznany_wiek'] = True
+        elif wpis['dni'] is None or dni > wpis['dni']:
             wpis['dni'] = dni
         if not dokladne:
             wpis['dokladne'] = False  # jedna niepewna data brudzi cały wiersz
@@ -114,11 +133,15 @@ def zbierz_nieodebrane():
         ):
             wpis['ostatnie_przypomnienie'] = o.pickup_reminder_sent_at
 
-    # Klient bez policzalnego wieku trafia na górę: skoro nie ma śladu po zmianie
-    # statusu, leży od dawna. `-1` sortowałoby go na dół, stąd nieskończoność.
+    # Klient, u którego CHOĆBY JEDNO zamówienie ma nieznany wiek, trafia na górę —
+    # niezależnie od tego, ile pokazuje `dni` dla jego znanych zaległości. Wiek
+    # nieznany może w rzeczywistości być największy ze wszystkich (zamówienie
+    # sprzed wdrożenia kolumny, bez wpisu w dzienniku), więc pokazywanie tu
+    # najmłodszej znanej daty i sortowanie po niej chowałoby najgorszych
+    # zalegaczy na dole listy. `-1` sortowałoby na dół, stąd nieskończoność.
     klienci = sorted(
         wg_klienta.values(),
-        key=lambda w: float('inf') if w['dni'] is None else w['dni'],
+        key=lambda w: float('inf') if (w['ma_nieznany_wiek'] or w['dni'] is None) else w['dni'],
         reverse=True,
     )
 
@@ -168,13 +191,20 @@ def wyslij_przypomnienia(user_ids):
     tego, czy i ile maili faktycznie poszło.
 
     Returns:
-        dict: {'wyslane': int, 'maile': int, 'pominieci': [str]}
+        dict: {'wyslane': int, 'maile': int, 'bez_maila': int,
+               'mail_wylaczony': bool, 'pominieci': [str]}
             - 'wyslane': liczba klientów, do których poszło przypomnienie (czyli
               tych z realną zaległością) — to ta liczba trafia do komunikatu
               na ekranie;
             - 'maile': liczba zakolejkowanych wiadomości e-mail (może być 0 przy
               wyłączonym przełączniku albo gdy nikt z zaznaczonych nie ma adresu —
               to nie znaczy, że 'wyslane' też jest 0);
+            - 'bez_maila': liczba klientów spośród 'wyslane', którzy nie mają
+              zapisanego adresu e-mail — bez tego `maile < wyslane` milczy o
+              przyczynie i właścicielka myśli, że mail poszedł do wszystkich;
+            - 'mail_wylaczony': czy przełącznik „Przypomnienie o odbiorze" jest
+              wyłączony w ustawieniach — odróżnia to od samego braku adresów,
+              bo `maile == 0` ma dwa zupełnie inne wytłumaczenia;
             - 'pominieci': identyfikatory klientów, którzy w międzyczasie przestali
               zalegać.
     """
@@ -182,7 +212,8 @@ def wyslij_przypomnienia(user_ids):
     from utils.push_manager import PushManager
 
     if not user_ids:
-        return {'wyslane': 0, 'maile': 0, 'pominieci': []}
+        return {'wyslane': 0, 'maile': 0, 'bez_maila': 0,
+                'mail_wylaczony': False, 'pominieci': []}
 
     zamowienia = unclaimed_orders_query().filter(
         Order.user_id.in_(user_ids)
@@ -198,7 +229,22 @@ def wyslij_przypomnienia(user_ids):
 
     pominieci = [str(uid) for uid in user_ids if uid not in wg_klienta]
     if not wg_klienta:
-        return {'wyslane': 0, 'maile': 0, 'pominieci': pominieci}
+        return {'wyslane': 0, 'maile': 0, 'bez_maila': 0,
+                'mail_wylaczony': False, 'pominieci': pominieci}
+
+    mail_wylaczony = not EmailManager.is_email_enabled('notify_pickup_reminder')
+    bez_maila = sum(1 for w in wg_klienta.values() if not getattr(w['user'], 'email', None))
+
+    # Stempel NAJPIERW, powiadomienia PO commicie: `send_email_batch` (jak i wątek
+    # pusha) startuje natychmiast, więc gdyby mail/push poszły przed commitem,
+    # a commit padł, klient dostałby wiadomość bez zapisanego stempla — przy
+    # następnym kliknięciu ostrzeżenie o 7 dniach by nie zadziałało i ta sama
+    # osoba dostałaby drugie przypomnienie.
+    teraz = get_local_now()
+    for w in wg_klienta.values():
+        for o in w['zamowienia']:
+            o.pickup_reminder_sent_at = teraz
+    db.session.commit()
 
     # Mail podlega swojemu przełącznikowi (i pomija pojedynczych klientów bez
     # adresu) — licznik zakolejkowanych wiadomości jest osobny od tego, ilu
@@ -207,11 +253,15 @@ def wyslij_przypomnienia(user_ids):
         [(w['user'], w['zamowienia']) for w in wg_klienta.values()]
     )
 
-    teraz = get_local_now()
-    for user_id, w in wg_klienta.items():
-        for o in w['zamowienia']:
-            o.pickup_reminder_sent_at = teraz
-        PushManager.notify_pickup_reminder(user_id, len(w['zamowienia']))
-    db.session.commit()
+    # Push: JEDEN wątek tła na całą operację, nie jeden na klienta — patrz
+    # docstring `PushManager.notify_pickup_reminder_bulk`. Ekran nie ma
+    # paginacji i ma „Zaznacz wszystkich", więc pętla `_fire_and_forget` po
+    # kliencie odpalałaby przy większej zaległości dziesiątki wątków OS naraz.
+    PushManager.notify_pickup_reminder_bulk(
+        [(user_id, len(w['zamowienia'])) for user_id, w in wg_klienta.items()]
+    )
 
-    return {'wyslane': len(wg_klienta), 'maile': maile, 'pominieci': pominieci}
+    return {
+        'wyslane': len(wg_klienta), 'maile': maile, 'bez_maila': bez_maila,
+        'mail_wylaczony': mail_wylaczony, 'pominieci': pominieci,
+    }

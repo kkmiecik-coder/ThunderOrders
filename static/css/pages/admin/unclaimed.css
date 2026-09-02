@@ -152,6 +152,30 @@
     text-decoration: underline;
 }
 
+/* Karta klienta + adres, pod przyciskiem rozwijania (patrz komentarz w szablonie:
+   przycisk rozwijania musi zostać osobnym elementem, nie linkiem, więc link do
+   karty klienta i adres lądują pod nim, nie obok). Link ma własne 44px, żeby
+   był wygodny do dotknięcia mimo małego rozmiaru tekstu. */
+.unclaimed__client-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+}
+
+.unclaimed__client-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: #240046;
+    text-decoration: underline;
+}
+
+.unclaimed__client-email {
+    color: #6b7280;
+}
+
 .unclaimed__age--approx,
 .unclaimed__age--unknown {
     color: #92400e;
@@ -227,6 +251,14 @@
 
 [data-theme="dark"] .unclaimed__expand {
     color: #c4b5fd;
+}
+
+[data-theme="dark"] .unclaimed__client-link {
+    color: #c4b5fd;
+}
+
+[data-theme="dark"] .unclaimed__client-email {
+    color: #9ca3af;
 }
 
 [data-theme="dark"] .unclaimed__pick {

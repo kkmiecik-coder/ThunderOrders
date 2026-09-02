@@ -58,14 +58,34 @@
                                    data-ostatnie="{{ wpis.ostatnie_przypomnienie.isoformat() if wpis.ostatnie_przypomnienie else '' }}">
                         </td>
                         <td>
+                            {# Konwencja panelu (list.html): nazwa klienta + link do karty, adres
+                               tylko jako informacja dodatkowa — właścicielka rozpoznaje ludzi po
+                               nazwisku/nicku, nie po adresie, a z surowego e-maila nie było jak
+                               wejść na kartę klienta. Nazwa zostaje na `.unclaimed__expand`, bo to
+                               ten sam przycisk co dotąd rozwija/zwija listę zamówień tego klienta —
+                               nie może być zagnieżdżonym linkiem (button w a / a w button to
+                               nieprawidłowy HTML), stąd link do karty jest osobnym elementem obok. #}
                             <button type="button" class="unclaimed__expand" data-target="klient-{{ wpis.user.id }}">
-                                {{ wpis.user.email }}
+                                {{ wpis.user.full_name }}
                             </button>
+                            <div class="unclaimed__client-meta">
+                                <a href="{{ url_for('admin.client_detail', id=wpis.user.id) }}"
+                                   class="unclaimed__client-link">karta klienta</a>
+                                <span class="unclaimed__client-email">{{ wpis.user.email }}</span>
+                            </div>
                         </td>
                         <td>{{ wpis.zamowienia|length }}</td>
                         <td>
                             {% if wpis.dni is none %}
                                 <span class="unclaimed__age unclaimed__age--unknown" title="Brak śladu po zmianie statusu">~ b.d.</span>
+                            {% elif wpis.ma_nieznany_wiek %}
+                                {# Klient ma i zamówienie ze znanym wiekiem, i takie bez daty — pokazujemy znany
+                                   wiek jako dolną granicę ("+?"), żeby nie sugerować, że to CAŁA zaległość.
+                                   Realny wiek może być większy — patrz sortowanie (klucz w unclaimed_service.py). #}
+                                <span class="unclaimed__age unclaimed__age--unknown"
+                                      title="Najstarsze znane zamówienie leży {{ wpis.dni }} dni, ale część zamówień tego klienta nie ma śladu po zmianie statusu — realny wiek może być większy">
+                                    {% if not wpis.dokladne %}~{% endif %}{{ wpis.dni }} dni +?
+                                </span>
                             {% else %}
                                 <span class="unclaimed__age{% if not wpis.dokladne %} unclaimed__age--approx{% endif %}"
                                       {% if not wpis.dokladne %}title="Data z dziennika zmian — wartość przybliżona"{% endif %}>
@@ -88,7 +108,7 @@
                                 <li>
                                     <a href="{{ url_for('orders.admin_detail', order_id=z.id) }}">{{ z.order_number }}</a>
                                     <span class="unclaimed__items">
-                                        {% for it in z.items %}{{ it.product.name if it.product else it.custom_name }} &times;{{ it.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                        {% for it in z.items %}{{ it.product.name if it.product else (it.custom_name or 'Bez nazwy') }} &times;{{ it.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}
                                     </span>
                                 </li>
                                 {% endfor %}

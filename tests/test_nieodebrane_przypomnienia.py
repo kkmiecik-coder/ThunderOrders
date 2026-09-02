@@ -115,8 +115,8 @@ def test_wylaczony_przelacznik_blokuje_maile_ale_nie_push(
     )
     push_calls = []
     monkeypatch.setattr(
-        PushManager, 'notify_pickup_reminder',
-        staticmethod(lambda user_id, n: push_calls.append((user_id, n))),
+        PushManager, 'notify_pickup_reminder_bulk',
+        staticmethod(lambda pary: push_calls.extend(pary)),
     )
     u = make_user()
     z = make_order(u, status='dostarczone_gom')
@@ -125,6 +125,7 @@ def test_wylaczony_przelacznik_blokuje_maile_ale_nie_push(
         wynik = wyslij_przypomnienia([u.id])
 
     assert wynik['maile'] == 0
+    assert wynik['mail_wylaczony'] is True
     assert batch_capture == []
     assert wynik['wyslane'] == 1
     assert push_calls == [(u.id, 1)]
@@ -153,8 +154,8 @@ def test_klient_bez_maila_dostaje_mimo_to_push_i_stempel(
 
     push_calls = []
     monkeypatch.setattr(
-        PushManager, 'notify_pickup_reminder',
-        staticmethod(lambda user_id, n: push_calls.append((user_id, n))),
+        PushManager, 'notify_pickup_reminder_bulk',
+        staticmethod(lambda pary: push_calls.extend(pary)),
     )
 
     bez_maila = make_user(email='ktos-bez-maila@example.com')
@@ -172,6 +173,8 @@ def test_klient_bez_maila_dostaje_mimo_to_push_i_stempel(
 
     assert wynik['wyslane'] == 2
     assert wynik['maile'] == 1
+    assert wynik['bez_maila'] == 1
+    assert wynik['mail_wylaczony'] is False
     assert len(batch_capture) == 1
     assert len(batch_capture[0]) == 1
     assert batch_capture[0][0].recipients == ['zmailem@example.com']
@@ -194,8 +197,8 @@ def test_push_wywolany_raz_na_klienta_z_liczba_zamowien(
 
     push_calls = []
     monkeypatch.setattr(
-        PushManager, 'notify_pickup_reminder',
-        staticmethod(lambda user_id, n: push_calls.append((user_id, n))),
+        PushManager, 'notify_pickup_reminder_bulk',
+        staticmethod(lambda pary: push_calls.extend(pary)),
     )
 
     u = make_user()
@@ -206,6 +209,97 @@ def test_push_wywolany_raz_na_klienta_z_liczba_zamowien(
         wyslij_przypomnienia([u.id])
 
     assert push_calls == [(u.id, 3)]
+
+
+def test_push_jednym_wywolaniem_bulk_dla_wielu_klientow(
+        app, db, make_user, make_order, batch_capture, monkeypatch):
+    """Push dla całego zaznaczenia ma iść PRZEZ JEDNO wywołanie `notify_pickup_reminder_bulk`,
+    nie przez pętlę wołającą `notify_pickup_reminder` per klient.
+
+    To sedno P3 recenzji: `_fire_and_forget` na produkcji odpala osobny wątek OS
+    na każde wywołanie, a ekran nie ma paginacji i ma „Zaznacz wszystkich" — pętla
+    per klient przy większej zaległości odpalałaby dziesiątki/setki wątków naraz.
+    Regresja do starego wzorca (`notify_pickup_reminder` w pętli w
+    `wyslij_przypomnienia`) przeszłaby niezauważona przez test powyżej, bo on
+    tylko sprawdza TREŚĆ argumentów, nie to, ile razy metoda bulk została wywołana.
+    """
+    from utils.push_manager import PushManager
+    from modules.orders.unclaimed_service import wyslij_przypomnienia
+
+    calls = []
+    monkeypatch.setattr(
+        PushManager, 'notify_pickup_reminder_bulk',
+        staticmethod(lambda pary: calls.append(list(pary))),
+    )
+
+    users = [make_user(email=f'zalegacz{i}@example.com') for i in range(5)]
+    for u in users:
+        make_order(u, status='dostarczone_gom')
+
+    with app.test_request_context():
+        wyslij_przypomnienia([u.id for u in users])
+
+    assert len(calls) == 1  # jedno wywołanie bulk, nie pięć osobnych
+    assert sorted(calls[0]) == sorted((u.id, 1) for u in users)
+
+
+def test_bulk_pusha_wola_send_to_user_dla_kazdego_klienta(
+        app, db, make_user, monkeypatch):
+    """`notify_pickup_reminder_bulk` ma sam iterować po parach i wywołać
+    `send_to_user` dla każdej — pod TESTING synchronicznie, w wątku wołającego
+    (patrz docstring `_fire_and_forget`: testowa konfiguracja dzieli jedno
+    połączenie SQLite między wątkami, więc wątek tła commitujący w tle
+    rozjeżdżałby testy niezwiązane z pushem)."""
+    from utils.push_manager import PushManager
+
+    u1 = make_user(email='a@example.com')
+    u2 = make_user(email='b@example.com')
+
+    calls = []
+    monkeypatch.setattr(
+        PushManager, 'send_to_user',
+        staticmethod(lambda user_id, title, body, url='/', tag='default',
+                             notification_type=None: calls.append((user_id, body))),
+    )
+
+    with app.test_request_context():
+        PushManager.notify_pickup_reminder_bulk([(u1.id, 1), (u2.id, 5)])
+
+    assert len(calls) == 2
+    tresci = dict(calls)
+    assert tresci[u1.id] == 'Twoje zamówienie czeka na odbiór — zamów wysyłkę'
+    assert tresci[u2.id] == 'Twoich 5 zamówień czeka na odbiór — zamów wysyłkę'
+
+
+def test_bulk_pusha_pusta_lista_nic_nie_robi(app, monkeypatch):
+    from utils.push_manager import PushManager
+
+    calls = []
+    monkeypatch.setattr(
+        PushManager, 'send_to_user',
+        staticmethod(lambda *a, **kw: calls.append((a, kw))),
+    )
+
+    with app.test_request_context():
+        PushManager.notify_pickup_reminder_bulk([])
+
+    assert calls == []
+
+
+@pytest.mark.parametrize('n, oczekiwana', [
+    (1, 'Twoje zamówienie czeka na odbiór — zamów wysyłkę'),
+    (2, 'Twoje 2 zamówienia czekają na odbiór — zamów wysyłkę'),
+    (5, 'Twoich 5 zamówień czeka na odbiór — zamów wysyłkę'),
+    (12, 'Twoich 12 zamówień czeka na odbiór — zamów wysyłkę'),
+])
+def test_tresc_przypomnienia_odmienia_liczebnik(n, oczekiwana):
+    """Klient dostaje poprawną polszczyznę dla każdej liczby zaległych zamówień —
+    P5 recenzji: dla 5+ dotychczasowy tekst dawał '5 Twoje zamówienia czekają'
+    zamiast '5 Twoich zamówień czeka'. 2-4 (poza 12-14) to inna forma niż 5+/12-14:
+    zaimek, rzeczownik I czasownik zmieniają się razem z liczebnikiem."""
+    from utils.push_manager import _tresc_przypomnienia_o_odbiorze
+
+    assert _tresc_przypomnienia_o_odbiorze(n) == oczekiwana
 
 
 def test_pozycja_bez_nazwy_nie_wypuszcza_none_do_maila(

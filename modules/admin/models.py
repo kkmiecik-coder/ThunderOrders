@@ -247,6 +247,14 @@ class ActivityLog(db.Model):
     user_agent = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
 
+    __table_args__ = (
+        # Fallback wieku zaległości (unclaimed_service.wiek_zaleglosci) filtruje
+        # po action + entity_type + entity_id IN (...) przy KAŻDYM otwarciu ekranu
+        # „Nieodebrane" — bez indeksu to pełny skan tabeli, która rośnie z każdą
+        # akcją w systemie. Ten sam wzorzec co `ix_email_log_entity` na EmailLog.
+        db.Index('ix_activity_log_entity', 'entity_type', 'entity_id'),
+    )
+
     # Relationships
     user = db.relationship('User', backref='activity_logs')
 

@@ -195,6 +195,30 @@ def test_wiek_z_dziennika_jest_przyblizony(app, db, make_user, make_order):
     assert wiek_zaleglosci([o]) == {o.id: (120, False)}
 
 
+def test_wiek_z_dziennika_automatu_jest_przyblizony(app, db, make_user, make_order):
+    """Automatyczna droga wejścia w status (`_apply_coverage_status_update`,
+    towar dojechał i pokrył zamówienie) loguje 'order_status_auto_updated', nie
+    'order_status_change' — to GŁÓWNA droga wejścia w 'dostarczone_gom', więc
+    fallback musi ją znać, inaczej większość zaległości sprzed wdrożenia kolumny
+    pokaże wiek jako nieznany."""
+    import json
+    from datetime import timedelta
+    from modules.admin.models import ActivityLog
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import wiek_zaleglosci
+
+    o = make_order(make_user(), status='dostarczone_gom')
+    o.status_changed_at = None
+    db.session.add(ActivityLog(
+        action='order_status_auto_updated', entity_type='order', entity_id=o.id,
+        new_value=json.dumps({'status': 'dostarczone_gom'}),
+        created_at=get_local_now() - timedelta(days=75),
+    ))
+    db.session.commit()
+
+    assert wiek_zaleglosci([o]) == {o.id: (75, False)}
+
+
 def test_dziennik_o_innym_statusie_jest_ignorowany(app, db, make_user, make_order):
     """Wpis o wejściu w JAKIŚ status nie mówi nic o wieku OBECNEJ zaległości."""
     import json
@@ -467,6 +491,46 @@ def test_klient_bez_wieku_jest_pierwszy(app, db, make_user, make_order):
 
     assert [k['user'].id for k in dane['klienci']] == [bez_wieku.id, z_wiekiem.id]
     assert dane['klienci'][0]['dni'] is None
+
+
+def test_klient_z_mieszanym_wiekiem_jest_pierwszy(app, db, make_user, make_order):
+    """Klient z JEDNYM zamówieniem bez daty i jednym z 10 dniami ma stać PRZED
+    klientem, który ma większy, ale w całości ZNANY wiek (np. 90 dni).
+
+    To dokładnie sytuacja opisana w P2 recenzji: reguła „bez policzalnego wieku
+    na górę" wcześniej działała tylko wtedy, gdy WSZYSTKIE zamówienia klienta
+    były bez daty — klient mieszany pokazywał najmłodszą znaną wartość (10 dni)
+    i lądował nisko na liście, mimo że jego drugie zamówienie, bez śladu w
+    dzienniku, może leżeć znacznie dłużej niż 90 dni. Flaga `ma_nieznany_wiek`
+    ma to naprawić niezależnie od tego, co pokazuje `dni`.
+    """
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    mieszany = make_user(email='mieszany@example.com')
+    duzy_znany = make_user(email='duzy-znany@example.com')
+
+    o_znane_10 = make_order(mieszany, status='dostarczone_gom')
+    o_znane_10.status_changed_at = get_local_now() - timedelta(days=10)
+    db.session.commit()
+
+    o_nieznane = make_order(mieszany, status='dostarczone_gom')
+    o_nieznane.status_changed_at = None
+    db.session.commit()
+
+    o_duzy = make_order(duzy_znany, status='dostarczone_gom')
+    o_duzy.status_changed_at = get_local_now() - timedelta(days=90)
+    db.session.commit()
+
+    dane = zbierz_nieodebrane()
+
+    assert [k['user'].id for k in dane['klienci']] == [mieszany.id, duzy_znany.id]
+    mieszany_wpis = next(k for k in dane['klienci'] if k['user'].id == mieszany.id)
+    assert mieszany_wpis['ma_nieznany_wiek'] is True
+    assert mieszany_wpis['dni'] == 10  # najstarsza ZNANA zaległość, do wyświetlenia
+    duzy_wpis = next(k for k in dane['klienci'] if k['user'].id == duzy_znany.id)
+    assert duzy_wpis['ma_nieznany_wiek'] is False
 
 
 def test_dokladne_false_gdy_jedno_zamowienie_ma_wiek_przyblizony(
