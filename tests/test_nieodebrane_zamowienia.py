@@ -76,3 +76,54 @@ def test_parytet_ze_strefa_klienta(app, db, make_user, zamowienie_gotowe):
     klient = {z.id for z in get_available_orders(u.id)}
 
     assert admin == klient
+
+
+# ============================================
+# Stemplowanie daty zmiany statusu
+# ============================================
+
+def test_utworzenie_zamowienia_stempluje_date(app, db, make_user, make_order):
+    """Nowe zamówienie też wchodzi w status — stempel powstaje od razu."""
+    o = make_order(make_user(), status='nowe')
+
+    assert o.status_changed_at is not None
+
+
+def test_zmiana_statusu_przesuwa_date(app, db, make_user, make_order):
+    """Listener działa niezależnie od tego, która trasa zmienia status."""
+    from datetime import timedelta
+
+    o = make_order(make_user(), status='nowe')
+    o.status_changed_at = o.status_changed_at - timedelta(days=30)
+    db.session.commit()
+    stary_stempel = o.status_changed_at
+
+    o.status = 'dostarczone_gom'
+    db.session.commit()
+
+    assert o.status_changed_at > stary_stempel
+
+
+def test_edycja_innego_pola_nie_rusza_daty(app, db, make_user, make_order):
+    """Notatka dopisana do zamówienia nie może „odmłodzić" zaległości."""
+    o = make_order(make_user(), status='nowe')
+    o.status = 'dostarczone_gom'
+    db.session.commit()
+    stempel = o.status_changed_at
+
+    o.admin_notes = 'klient prosił o wstrzymanie'
+    db.session.commit()
+
+    assert o.status_changed_at == stempel
+
+
+def test_przypisanie_tego_samego_statusu_nie_rusza_daty(app, db, make_user, make_order):
+    o = make_order(make_user(), status='dostarczone_gom')
+    o.status = 'dostarczone_gom'
+    db.session.commit()
+    stempel = o.status_changed_at
+
+    o.status = 'dostarczone_gom'
+    db.session.commit()
+
+    assert o.status_changed_at == stempel
