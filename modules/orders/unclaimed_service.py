@@ -8,9 +8,8 @@ import json
 
 from sqlalchemy import desc
 
-from extensions import db
 from modules.admin.models import ActivityLog
-from modules.orders.models import Order, get_local_now
+from modules.orders.models import get_local_now
 
 
 def wiek_zaleglosci(orders):
