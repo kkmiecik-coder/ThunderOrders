@@ -313,6 +313,7 @@ function renderPolandModal(orders) {
                 html += `oninput="handleRateChange(${globalItemIndex})">`;
                 html += `<span class="poland-rate-sum" data-role="incl-sum">0,00 zł</span>`;
                 html += `</div>`;
+                html += `<div class="poland-rate-warning" data-role="rate-warning" style="display: none"></div>`;
                 html += `</div>`;
                 html += `</td></tr>`;
             }
@@ -2571,13 +2572,20 @@ function refreshRatesRow(itemIndex) {
 
     const albumRate = parseValueOrPlaceholder(albumInput);
 
-    // Podpowiedź stawki incl: reszta z wartości linijki po opłaceniu albumów.
-    // Wartość linijki (Wartość) bywa tylko podpowiedziana kaskadą (rozdzielenie
-    // łącznej kwoty paczki) — bez czytania placeholdera podpowiedź incl zawsze
-    // wychodziłaby "0,00" przy najczęstszym sposobie wpisywania.
+    // Podpowiedź stawki incl: reszta z CELU linijki po opłaceniu albumów.
+    //
+    // Celem jest kwota, jaką ta pozycja ma osiągnąć wg rozdzielenia łącznej kwoty
+    // paczki — czyli podpowiedź kaskady, siedząca w placeholderze pola "Wartość".
+    // Przy wpisanych stawkach pole "Wartość" jest WYLICZANE z tych stawek (niżej),
+    // więc czytanie jego wartości zapętliłoby rachunek: podpowiedź incl wychodziłaby
+    // po prostu równa wpisanej stawce incl. Dlatego przy stawkach bierzemy wyłącznie
+    // placeholder; bez stawek zachowanie zostaje jak dotąd.
     const wartoscInput = document.querySelector(`.shipping-value-input[data-item-index="${itemIndex}"]`);
-    const wartosc = parseValueOrPlaceholder(wartoscInput);
-    const reszta = wartosc - albumRate * albumQty;
+    const cenaInput = document.querySelector(`.shipping-price-input[data-item-index="${itemIndex}"]`);
+    const cel = inclQty > 0
+        ? (parseFloat(((wartoscInput && wartoscInput.placeholder) || '0').replace(',', '.')) || 0)
+        : parseValueOrPlaceholder(wartoscInput);
+    const reszta = cel - albumRate * albumQty;
     const podpowiedz = inclQty > 0 && reszta > 0 ? (reszta / inclQty) : 0;
     inclInput.placeholder = podpowiedz > 0 ? podpowiedz.toFixed(2).replace('.', ',') : '0,00';
 
@@ -2586,6 +2594,48 @@ function refreshRatesRow(itemIndex) {
         (albumRate * albumQty).toFixed(2).replace('.', ',') + ' zł';
     box.querySelector('[data-role="incl-sum"]').textContent =
         (inclRate * inclQty).toFixed(2).replace('.', ',') + ' zł';
+
+    // Wartość linijki liczona ze stawek. Serwer przy podanych stawkach i tak liczy tę
+    // kwotę sam i IGNORUJE pole "Wartość" z payloadu — dopóki pole było edytowalne,
+    // mogło pokazywać co innego, niż faktycznie się zapisze. Teraz pokazuje dokładnie
+    // to, co zapisze serwer, i jest tylko do odczytu. Razem z nim blokujemy "Cena/szt":
+    // przy dwóch różnych stawkach jedna cena za sztukę nie ma znaczenia, a jej wpisanie
+    // przeliczałoby "Wartość", czyli biłoby się ze stawkami o to samo pole.
+    const zeStawek = inclQty > 0;
+    if (wartoscInput) {
+        if (zeStawek) {
+            wartoscInput.value = (albumRate * albumQty + inclRate * inclQty).toFixed(2);
+            wartoscInput.readOnly = true;
+            wartoscInput.classList.add('input-wyliczone');
+            wartoscInput.classList.remove('input-error');
+        } else {
+            wartoscInput.readOnly = false;
+            wartoscInput.classList.remove('input-wyliczone');
+        }
+    }
+    if (cenaInput) {
+        cenaInput.readOnly = zeStawek;
+        cenaInput.classList.toggle('input-wyliczone', zeStawek);
+    }
+
+    // Ostrzeżenie o odwróconych stawkach. Suma linijki wychodzi identyczna przy
+    // 6,51 + 14,53 i przy 14,53 + 6,51, więc licznik "różnica" tego nie wyłapie —
+    // to jedyne miejsce, w którym da się to zauważyć przed zatwierdzeniem.
+    const ostrzezenie = box.querySelector('[data-role="rate-warning"]');
+    if (ostrzezenie) {
+        // Warunek "stawka albumu faktycznie wpisana" jest konieczny: zaraz po
+        // zaznaczeniu pierwszego klienta na incl pole albumu jest jeszcze puste,
+        // czyli stawka albumowa wychodzi 0, a podpowiedź incl bierze całą wartość
+        // linijki — ostrzeżenie zapalałoby się zawsze, zanim admin cokolwiek wpisze,
+        // i szybko nauczyłby się je ignorować.
+        const albumWpisany = albumInput && albumInput.value.trim() !== '';
+        const odwrocone = albumWpisany && albumQty > 0 && inclQty > 0 && inclRate > albumRate;
+        ostrzezenie.style.display = odwrocone ? '' : 'none';
+        ostrzezenie.textContent = odwrocone
+            ? `Samo incl (${inclRate.toFixed(2).replace('.', ',')}) drożej niż cały album `
+              + `(${albumRate.toFixed(2).replace('.', ',')}) — na pewno tak ma być?`
+            : '';
+    }
 }
 
 function handleInclQtyChange(itemIndex, clientIndex) {

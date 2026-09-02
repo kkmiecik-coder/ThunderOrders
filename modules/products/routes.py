@@ -4417,6 +4417,11 @@ def create_poland_order():
         # patrz komentarz przy przypisaniu niżej) i zapisujemy RAZ na klucz,
         # po pętli po pozycjach (patrz niżej).
         incl_do_zapisania = {}
+        # Rozbicie pozycji do dziennika zdarzeń. Dotąd zapisywany był wyłącznie numer
+        # partii, przez co po fakcie nie dało się ustalić, jakie stawki admin wysłał
+        # z okna — a przy odwróconych stawkach suma linijki wychodzi identyczna, więc
+        # nic innego tego nie zdradza (patrz PRX/PL/14 z 2026-09-01).
+        pozycje_do_dziennika = []
 
         for item_data in items_data:
             proxy_item_id = item_data.get('proxy_order_item_id')
@@ -4556,6 +4561,15 @@ def create_poland_order():
                     quantity=allocated_qty,
                 ))
 
+            pozycje_do_dziennika.append({
+                'product_id': proxy_item.product_id,
+                'quantity': proxy_item.quantity,
+                'shipping_cost': float(shipping_cost),
+                'album_rate': float(album_rate) if album_rate is not None else None,
+                'incl_rate': float(incl_rate) if incl_rate is not None else None,
+                'incl_w_partii': incl_lacznie,
+            })
+
             total_amount += proxy_item.total_price + shipping_cost
             total_shipping_declared += shipping_cost
 
@@ -4594,7 +4608,7 @@ def create_poland_order():
             action='poland_order_created',
             entity_type='poland_order',
             entity_id=poland_order.id,
-            new_value={'order_number': poland_number}
+            new_value={'order_number': poland_number, 'pozycje': pozycje_do_dziennika}
         )
 
         # Log per-order proxy shipping distribution
