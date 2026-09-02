@@ -225,20 +225,110 @@ def test_brak_obu_zrodel_daje_none(app, db, make_user, make_order):
     assert wiek_zaleglosci([o]) == {o.id: (None, False)}
 
 
-def test_wiek_liczony_jednym_zapytaniem_dla_wielu(app, db, make_user, make_order):
-    """Regresja na N+1: 30 zamówień to nadal jedno zapytanie do dziennika."""
+def test_uszkodzony_wpis_dziennika_nie_wywraca_reszty(app, db, make_user, make_order):
+    """Jeden wpis o `new_value`, który zdekoduje się do nie-słownika, ma być pominięty.
+
+    `activity_log` to tabela współdzielona przez wielu piszących w systemie — nic nie
+    gwarantuje, że każdy zapis do `new_value` jest obiektem JSON. `.get('status')` na
+    czymkolwiek innym (np. na liście) rzuca AttributeError, który bez zabezpieczenia
+    wywaliłby liczenie dla WSZYSTKICH zamówień w wywołaniu, nie tylko dla tego jednego
+    wiersza.
+    """
+    import json
     from datetime import timedelta
+    from modules.admin.models import ActivityLog
     from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import wiek_zaleglosci
 
-    zamowienia = []
-    for i in range(30):
-        o = make_order(make_user(), status='dostarczone_gom')
-        o.status_changed_at = get_local_now() - timedelta(days=i + 1)
-        zamowienia.append(o)
+    uszkodzone = make_order(make_user(), status='dostarczone_gom')
+    uszkodzone.status_changed_at = None
+    db.session.add(ActivityLog(
+        action='order_status_change', entity_type='order', entity_id=uszkodzone.id,
+        new_value='[1,2,3]',  # poprawny JSON, ale nie słownik — .get() by tu wybuchło
+        created_at=get_local_now() - timedelta(days=10),
+    ))
+
+    zdrowe = make_order(make_user(), status='dostarczone_gom')
+    zdrowe.status_changed_at = None
+    db.session.add(ActivityLog(
+        action='order_status_change', entity_type='order', entity_id=zdrowe.id,
+        new_value=json.dumps({'status': 'dostarczone_gom'}),
+        created_at=get_local_now() - timedelta(days=5),
+    ))
     db.session.commit()
 
-    wynik = wiek_zaleglosci(zamowienia)
+    wynik = wiek_zaleglosci([uszkodzone, zdrowe])
+
+    assert wynik[uszkodzone.id] == (None, False)  # wpis pominięty, nie ma innego źródła
+    assert wynik[zdrowe.id] == (5, False)  # sąsiedni wiersz policzony normalnie
+
+
+def test_wiek_liczony_jednym_zapytaniem_dla_wielu(app, db, make_user, make_order):
+    """Regresja na N+1: dziennik dociągany JEDNYM zapytaniem, niezależnie od liczby wierszy.
+
+    Połowa z 30 zamówień ma wypełnioną kolumnę `status_changed_at` (zamówienia
+    sprzed i po wdrożeniu współistnieją na produkcji), połowa ma kolumnę pustą i
+    wpis w `ActivityLog` — tylko ta druga połowa w ogóle uruchamia zapytanie do
+    dziennika (`if bez_kolumny:` w `wiek_zaleglosci`). Poprzednia wersja tego testu
+    stemplowała WSZYSTKIE zamówienia kolumną, więc `bez_kolumny` był zawsze pusty,
+    zapytanie do dziennika nigdy się nie wykonywało, a test przechodziłby tak samo
+    przy zepsutym, nieobecnym albo N+1-owym fallbacku — sprawdzał tylko `len(wynik)`.
+
+    Liczbę faktycznie wykonanych zapytań do `activity_log` mierzymy przez listener
+    `before_cursor_execute` na silniku SQLAlchemy, więc regresja na N+1 (zapytanie w
+    pętli po zamówieniach) zostanie złapana niezależnie od tego, jak zmieni się
+    implementacja — asercja nie liczy wyników, tylko realny ruch do bazy.
+    """
+    from datetime import timedelta
+
+    import json
+
+    from sqlalchemy import event
+
+    from modules.admin.models import ActivityLog
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import wiek_zaleglosci
+
+    teraz = get_local_now()
+    z_kolumny = []
+    z_dziennika = []
+
+    for i in range(15):
+        o = make_order(make_user(), status='dostarczone_gom')
+        o.status_changed_at = teraz - timedelta(days=i + 1)
+        z_kolumny.append(o)
+
+    for i in range(15):
+        o = make_order(make_user(), status='dostarczone_gom')
+        o.status_changed_at = None
+        db.session.add(ActivityLog(
+            action='order_status_change', entity_type='order', entity_id=o.id,
+            new_value=json.dumps({'status': 'dostarczone_gom'}),
+            created_at=teraz - timedelta(days=i + 100),
+        ))
+        z_dziennika.append(o)
+
+    db.session.commit()
+
+    zapytania_do_dziennika = []
+
+    def _licz_zapytania(conn, cursor, statement, parameters, context, executemany):
+        if 'activity_log' in statement:
+            zapytania_do_dziennika.append(statement)
+
+    event.listen(db.engine, 'before_cursor_execute', _licz_zapytania)
+    try:
+        wynik = wiek_zaleglosci(z_kolumny + z_dziennika)
+    finally:
+        event.remove(db.engine, 'before_cursor_execute', _licz_zapytania)
+
+    assert len(zapytania_do_dziennika) == 1, (
+        f'oczekiwano jednego zapytania do activity_log, wykonano '
+        f'{len(zapytania_do_dziennika)}: {zapytania_do_dziennika}'
+    )
 
     assert len(wynik) == 30
-    assert wynik[zamowienia[0].id] == (1, True)
+    for i, o in enumerate(z_kolumny):
+        assert wynik[o.id] == (i + 1, True)
+    for i, o in enumerate(z_dziennika):
+        assert wynik[o.id] == (i + 100, False)

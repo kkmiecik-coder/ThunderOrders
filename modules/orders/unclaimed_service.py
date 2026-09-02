@@ -49,9 +49,18 @@ def wiek_zaleglosci(orders):
             if wpis.entity_id in znalezione:
                 continue  # wpisy posortowane malejąco — pierwszy trafiony jest najnowszy
             try:
-                status_z_wpisu = (json.loads(wpis.new_value) or {}).get('status')
+                dane = json.loads(wpis.new_value)
             except (TypeError, ValueError):
                 continue
+            if dane is None:
+                continue
+            if not isinstance(dane, dict):
+                # `activity_log` to tabela współdzielona przez wielu piszących —
+                # nie ma gwarancji, że `new_value` zawsze zdekoduje się do słownika.
+                # Pojedynczy nietypowy wiersz (np. '[1,2,3]') ma zostać pominięty,
+                # a nie wywalić AttributeError-em liczenie dla WSZYSTKICH zamówień.
+                continue
+            status_z_wpisu = dane.get('status')
             if status_z_wpisu != bez_kolumny[wpis.entity_id]:
                 continue  # wpis o wejściu w inny status nie datuje obecnej zaległości
             znalezione.add(wpis.entity_id)
