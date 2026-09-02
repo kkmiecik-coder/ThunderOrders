@@ -332,3 +332,111 @@ def test_wiek_liczony_jednym_zapytaniem_dla_wielu(app, db, make_user, make_order
         assert wynik[o.id] == (i + 1, True)
     for i, o in enumerate(z_dziennika):
         assert wynik[o.id] == (i + 100, False)
+
+
+# ============================================
+# Agregacja ekranu
+# ============================================
+
+def _pozycja(db, order, product=None, nazwa=None, qty=1):
+    from decimal import Decimal
+    from modules.orders.models import OrderItem
+
+    it = OrderItem(
+        order_id=order.id,
+        product_id=product.id if product else None,
+        custom_name=nazwa,
+        is_custom=product is None,
+        quantity=qty,
+        price=Decimal('100.00'),
+        total=Decimal('100.00') * qty,
+    )
+    db.session.add(it)
+    db.session.commit()
+    return it
+
+
+def test_klient_z_trzema_zamowieniami_to_jeden_wiersz(app, db, make_user, make_order):
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    u = make_user()
+    for _ in range(3):
+        make_order(u, status='dostarczone_gom')
+
+    dane = zbierz_nieodebrane()
+
+    assert len(dane['klienci']) == 1
+    assert dane['klienci'][0]['user'].id == u.id
+    assert len(dane['klienci'][0]['zamowienia']) == 3
+
+
+def test_klienci_sortowani_od_najstarszej_zaleglosci(app, db, make_user, make_order):
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    swiezy = make_user(email='swiezy@example.com')
+    stary = make_user(email='stary@example.com')
+    o1 = make_order(swiezy, status='dostarczone_gom')
+    o2 = make_order(stary, status='dostarczone_gom')
+    o1.status_changed_at = get_local_now() - timedelta(days=3)
+    o2.status_changed_at = get_local_now() - timedelta(days=90)
+    db.session.commit()
+
+    dane = zbierz_nieodebrane()
+
+    assert [k['user'].id for k in dane['klienci']] == [stary.id, swiezy.id]
+    assert dane['klienci'][0]['dni'] == 90
+
+
+def test_produkty_sumuja_sztuki_i_licza_klientow(app, db, make_user, make_order,
+                                                  make_product):
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    ls = make_product(name='Light stick ATEEZ')
+    for qty in (2, 3):
+        o = make_order(make_user(), status='dostarczone_gom')
+        _pozycja(db, o, product=ls, qty=qty)
+
+    dane = zbierz_nieodebrane()
+
+    assert len(dane['produkty']) == 1
+    assert dane['produkty'][0]['nazwa'] == 'Light stick ATEEZ'
+    assert dane['produkty'][0]['sztuk'] == 5
+    assert dane['produkty'][0]['klientow'] == 2
+
+
+def test_ten_sam_klient_liczony_raz_na_produkt(app, db, make_user, make_order,
+                                                make_product):
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    ls = make_product(name='Light stick ATEEZ')
+    u = make_user()
+    for _ in range(2):
+        o = make_order(u, status='dostarczone_gom')
+        _pozycja(db, o, product=ls, qty=1)
+
+    dane = zbierz_nieodebrane()
+
+    assert dane['produkty'][0]['sztuk'] == 2
+    assert dane['produkty'][0]['klientow'] == 1
+
+
+def test_pozycje_wlasne_ida_na_koniec(app, db, make_user, make_order, make_product):
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    o1 = make_order(make_user(), status='dostarczone_gom')
+    _pozycja(db, o1, nazwa='Zestaw niespodzianka', qty=99)
+    o2 = make_order(make_user(), status='dostarczone_gom')
+    _pozycja(db, o2, product=make_product(name='Album TXT'), qty=1)
+
+    dane = zbierz_nieodebrane()
+
+    assert [p['wlasny'] for p in dane['produkty']] == [False, True]
+    assert dane['produkty'][1]['nazwa'] == 'Zestaw niespodzianka'
+
+
+def test_pusta_baza_nie_wywraca_ekranu(app, db):
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    assert zbierz_nieodebrane() == {'klienci': [], 'produkty': []}

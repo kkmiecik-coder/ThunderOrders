@@ -7,9 +7,11 @@ i wysyłka przypomnień żyją tu, trasy zostają cienkie.
 import json
 
 from sqlalchemy import desc
+from sqlalchemy.orm import joinedload
 
 from modules.admin.models import ActivityLog
-from modules.orders.models import get_local_now
+from modules.client.shipping_service import unclaimed_orders_query
+from modules.orders.models import Order, OrderItem, get_local_now
 
 
 def wiek_zaleglosci(orders):
@@ -70,3 +72,79 @@ def wiek_zaleglosci(orders):
             wynik.setdefault(order_id, (None, False))
 
     return wynik
+
+
+def zbierz_nieodebrane():
+    """Dane obu zakładek ekranu „Nieodebrane" — jedno przejście po zamówieniach.
+
+    Zwraca {'klienci': [...], 'produkty': [...]}. Obie zakładki renderują się
+    z jednego żądania, więc przełączanie ich jest czysto wizualne.
+    """
+    zamowienia = unclaimed_orders_query().options(
+        joinedload(Order.user),
+        joinedload(Order.items).joinedload(OrderItem.product),
+    ).all()
+
+    if not zamowienia:
+        return {'klienci': [], 'produkty': []}
+
+    wiek = wiek_zaleglosci(zamowienia)
+
+    # --- zakładka „Wg klientów" ---
+    wg_klienta = {}
+    for o in zamowienia:
+        wpis = wg_klienta.setdefault(o.user_id, {
+            'user': o.user, 'zamowienia': [], 'dni': None, 'dokladne': True,
+            'ostatnie_przypomnienie': None,
+        })
+        wpis['zamowienia'].append(o)
+
+        dni, dokladne = wiek.get(o.id, (None, False))
+        # Wiersz klienta pokazuje jego NAJSTARSZĄ zaległość — to ona decyduje,
+        # jak pilnie trzeba mu przypomnieć.
+        if dni is not None and (wpis['dni'] is None or dni > wpis['dni']):
+            wpis['dni'] = dni
+        if not dokladne:
+            wpis['dokladne'] = False  # jedna niepewna data brudzi cały wiersz
+
+        if o.pickup_reminder_sent_at is not None and (
+            wpis['ostatnie_przypomnienie'] is None
+            or o.pickup_reminder_sent_at > wpis['ostatnie_przypomnienie']
+        ):
+            wpis['ostatnie_przypomnienie'] = o.pickup_reminder_sent_at
+
+    # Klient bez policzalnego wieku trafia na górę: skoro nie ma śladu po zmianie
+    # statusu, leży od dawna. `-1` sortowałoby go na dół, stąd nieskończoność.
+    klienci = sorted(
+        wg_klienta.values(),
+        key=lambda w: float('inf') if w['dni'] is None else w['dni'],
+        reverse=True,
+    )
+
+    # --- zakładka „Wg produktów" ---
+    wg_produktu = {}
+    for o in zamowienia:
+        for it in o.items:
+            wlasny = it.product_id is None
+            klucz = ('custom', it.custom_name or 'Bez nazwy') if wlasny else ('id', it.product_id)
+            wpis = wg_produktu.setdefault(klucz, {
+                'product_id': it.product_id,
+                'nazwa': (it.custom_name or 'Bez nazwy') if wlasny
+                         else (it.product.name if it.product else f'Produkt #{it.product_id}'),
+                'sztuk': 0,
+                'klienci': set(),
+                'wlasny': wlasny,
+            })
+            wpis['sztuk'] += it.quantity or 0
+            wpis['klienci'].add(o.user_id)
+
+    produkty = [
+        {'product_id': w['product_id'], 'nazwa': w['nazwa'], 'sztuk': w['sztuk'],
+         'klientow': len(w['klienci']), 'wlasny': w['wlasny']}
+        for w in wg_produktu.values()
+    ]
+    # Pozycje własne zawsze na końcu — nie mają karty w magazynie, więc mieszanie
+    # ich z katalogiem tylko zaśmieca listę.
+    produkty.sort(key=lambda p: (p['wlasny'], -p['sztuk']))
+
+    return {'klienci': klienci, 'produkty': produkty}
