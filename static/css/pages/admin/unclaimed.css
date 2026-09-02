@@ -99,6 +99,32 @@
     width: 44px;
 }
 
+/* Selektor ze znacznikiem "td", żeby specyficzność dorównała regule
+   ".unclaimed__table td" wyżej (12px) — inaczej ta reguła by wygrywała
+   mimo dalszej pozycji w pliku. Padding własny inputu (niżej) już daje
+   44px celu dotykowego, więc tu zerujemy padding komórki, żeby kolumna
+   nie robiła się szersza niż trzeba. */
+.unclaimed__table td.unclaimed__col-check {
+    padding: 0;
+    text-align: center;
+}
+
+/* Sam input bez etykiety obok (w tej kolumnie nie ma tekstu) — powiększamy klikalny
+   obszar przez padding wokół widocznego kwadratu 20x20, więc cel dotykowy to
+   pełne 44x44 (box-sizing: content-box, żeby padding doliczał się do rozmiaru,
+   a nie wcinał w widoczny kwadrat). To samo rozwiązanie co box-sizing w .unclaimed__expand,
+   inny sposób osiągnięcia 44px — tam etykiety nie ma, tu i tak nie pasowałaby do kolumny. */
+.unclaimed__pick {
+    display: block;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    padding: 12px;
+    box-sizing: content-box;
+    accent-color: #240046;
+    cursor: pointer;
+}
+
 /* Wiersz produktu spoza katalogu (custom_name) — delikatne wyróżnienie tła,
    spójne z etykietą "produkt własny" w tej samej komórce. */
 .unclaimed__row--custom {
@@ -201,6 +227,10 @@
 
 [data-theme="dark"] .unclaimed__expand {
     color: #c4b5fd;
+}
+
+[data-theme="dark"] .unclaimed__pick {
+    accent-color: #c4b5fd;
 }
 
 [data-theme="dark"] .unclaimed__age--approx,

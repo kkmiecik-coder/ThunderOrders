@@ -14,16 +14,19 @@
     </p>
 
     <div class="unclaimed__tabs" role="tablist">
-        <button type="button" class="unclaimed__tab is-active" data-tab="klienci" role="tab">
+        <button type="button" class="unclaimed__tab is-active" data-tab="klienci" role="tab"
+                id="unclaimedTab-klienci" aria-selected="true" aria-controls="unclaimedPanel-klienci" tabindex="0">
             Wg klientów ({{ klienci|length }})
         </button>
-        <button type="button" class="unclaimed__tab" data-tab="produkty" role="tab">
+        <button type="button" class="unclaimed__tab" data-tab="produkty" role="tab"
+                id="unclaimedTab-produkty" aria-selected="false" aria-controls="unclaimedPanel-produkty" tabindex="-1">
             Wg produktów ({{ produkty|length }})
         </button>
     </div>
 
     {# ===== Zakładka: klienci ===== #}
-    <section class="unclaimed__panel is-active" data-panel="klienci">
+    <section class="unclaimed__panel is-active" data-panel="klienci"
+             role="tabpanel" id="unclaimedPanel-klienci" aria-labelledby="unclaimedTab-klienci">
         {% if klienci %}
         <div class="unclaimed__actions">
             <label class="unclaimed__checkbox">
@@ -102,7 +105,8 @@
     </section>
 
     {# ===== Zakładka: produkty ===== #}
-    <section class="unclaimed__panel" data-panel="produkty">
+    <section class="unclaimed__panel" data-panel="produkty"
+             role="tabpanel" id="unclaimedPanel-produkty" aria-labelledby="unclaimedTab-produkty">
         {% if produkty %}
         <div class="unclaimed__table-wrap">
             <table class="unclaimed__table">
