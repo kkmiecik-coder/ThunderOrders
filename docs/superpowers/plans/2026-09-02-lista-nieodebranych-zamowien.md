@@ -20,7 +20,12 @@ Projekt: `docs/superpowers/specs/2026-09-02-lista-nieodebranych-zamowien-design.
 
 ## Global Constraints
 
-- Testy uruchamiane przez `python -m pytest` (samo `pytest` nie jest w PATH).
+- Testy uruchamiane przez `venv/bin/python -m pytest` (Python 3.12, pytest 9.1.1).
+  Samo `python`/`pytest` to systemowe 3.9 — nie zadziała.
+- Baseline przed startem: **1538 testów zebranych**. Po każdym zadaniu liczba ma rosnąć,
+  nigdy maleć.
+- NIE potokować pytesta przez `| tail` — kod wyjścia jest wtedy z `tail`, nie z pytesta,
+  i przegrany przebieg wygląda na zielony. Czytać podsumowanie wprost.
 - Każda zmiana schematu bazy = migracja Alembic. Historia migracji ma dziś **trzy
   głowy**; nowa migracja podpina się pod żywą gałąź `6b335dbff596`. Nie scalamy
   pozostałych głów — to poza zakresem tego planu.
@@ -139,7 +144,7 @@ def test_parytet_ze_strefa_klienta(app, db, make_user, zamowienie_gotowe):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -v`
 Expected: FAIL — `ImportError: cannot import name 'unclaimed_orders_query'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -171,10 +176,10 @@ razem ze starym ciałem).
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -v`
 Expected: PASS (5 testów)
 
-Run: `python -m pytest tests/ -k "shipping or wysylka" -q`
+Run: `venv/bin/python -m pytest tests/ -k "shipping or wysylka" -q`
 Expected: PASS — refaktor nie rusza zachowania strefy klienta ani API mobilnego.
 
 - [ ] **Step 5: Commit**
@@ -265,7 +270,7 @@ def test_przypisanie_tego_samego_statusu_nie_rusza_daty(app, db, make_user, make
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -k "stempl or przesuwa" -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -k "stempl or przesuwa" -v`
 Expected: FAIL — `AttributeError: 'Order' object has no attribute 'status_changed_at'`
 
 - [ ] **Step 3: Add columns to the model**
@@ -310,7 +315,7 @@ def _stempluj_zmiane_statusu(order, nowy, stary, initiator):
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -k "stempl or przesuwa" -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -k "stempl or przesuwa" -v`
 Expected: PASS (4 testy)
 
 - [ ] **Step 6: Write the migration**
@@ -359,14 +364,14 @@ def downgrade():
 
 - [ ] **Step 7: Verify the migration applies**
 
-Run: `python -m flask db upgrade c9d1e2f3a4b5`
+Run: `venv/bin/python -m flask db upgrade c9d1e2f3a4b5`
 Expected: `Running upgrade 6b335dbff596 -> c9d1e2f3a4b5`
 
 Jeśli Alembic zgłosi błąd o wielu głowach, użyj wersji z jawnym celem (jak wyżej) —
 nie uruchamiaj `flask db upgrade heads`, bo pociągnęłoby to dwie porzucone gałęzie
 z 2025 roku. Zgłoś problem właścicielce zamiast go obchodzić.
 
-Run: `python -m pytest tests/ -q`
+Run: `venv/bin/python -m pytest tests/ -q`
 Expected: PASS — nowe kolumny są nullable, nic istniejącego nie zależy od ich wartości.
 
 - [ ] **Step 8: Commit**
@@ -483,7 +488,7 @@ def test_wiek_liczony_jednym_zapytaniem_dla_wielu(app, db, make_user, make_order
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -k wiek -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -k wiek -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'modules.orders.unclaimed_service'`
 
 - [ ] **Step 3: Write the implementation**
@@ -559,7 +564,7 @@ def wiek_zaleglosci(orders):
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -k wiek -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -k wiek -v`
 Expected: PASS (5 testów)
 
 - [ ] **Step 5: Commit**
@@ -702,7 +707,7 @@ def test_pusta_baza_nie_wywraca_ekranu(app, db):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -k "klient or produkt or pusta" -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -k "klient or produkt or pusta" -v`
 Expected: FAIL — `ImportError: cannot import name 'zbierz_nieodebrane'`
 
 - [ ] **Step 3: Write the implementation**
@@ -804,7 +809,7 @@ from modules.client.shipping_service import unclaimed_orders_query
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -v`
 Expected: PASS (wszystkie testy pliku)
 
 - [ ] **Step 5: Commit**
@@ -870,7 +875,7 @@ def test_ekran_bez_zaleglosci_nie_wywala_sie(app, client, db, make_user, login):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -k ekran -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -k ekran -v`
 Expected: FAIL — 404 zamiast 200
 
 - [ ] **Step 3: Add the route**
@@ -1256,10 +1261,10 @@ z `orders.admin_list` (kończy się w linii 41):
 
 - [ ] **Step 7: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_nieodebrane_zamowienia.py -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_zamowienia.py -v`
 Expected: PASS
 
-Run: `python -m pytest tests/ -q`
+Run: `venv/bin/python -m pytest tests/ -q`
 Expected: PASS — nowa pozycja w sidebarze renderuje się na każdym ekranie admina,
 więc awaria `url_for` wywaliłaby cały panel; pełna suita to wychwyci.
 
@@ -1466,7 +1471,7 @@ def test_trasa_odrzuca_pusta_liste(app, client, db, make_user, login):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_nieodebrane_przypomnienia.py -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_przypomnienia.py -v`
 Expected: FAIL — `ImportError: cannot import name 'wyslij_przypomnienia'`
 
 - [ ] **Step 3: Create the email template**
@@ -1769,10 +1774,10 @@ def admin_unclaimed_remind():
 
 - [ ] **Step 10: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_nieodebrane_przypomnienia.py -v`
+Run: `venv/bin/python -m pytest tests/test_nieodebrane_przypomnienia.py -v`
 Expected: PASS (10 testów)
 
-Run: `python -m pytest tests/ -q`
+Run: `venv/bin/python -m pytest tests/ -q`
 Expected: PASS
 
 - [ ] **Step 11: Commit**
@@ -1936,7 +1941,7 @@ podmień oba wywołania.
 
 - [ ] **Step 4: Run the full suite**
 
-Run: `python -m pytest tests/ -q`
+Run: `venv/bin/python -m pytest tests/ -q`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1950,8 +1955,8 @@ git commit -m "feat(nieodebrane): obsluga zakladek i wysylki przypomnien w przeg
 
 ## Po wykonaniu planu
 
-1. `python -m pytest tests/ -q` — cała suita zielona.
-2. `python -m flask db upgrade c9d1e2f3a4b5` na bazie deweloperskiej.
+1. `venv/bin/python -m pytest tests/ -q` — cała suita zielona.
+2. `venv/bin/python -m flask db upgrade c9d1e2f3a4b5` na bazie deweloperskiej.
 3. Przekazać właścicielce do przeklikania: ekran „Nieodebrane" w menu, obie
    zakładki, rozwijanie wierszy, zaznaczanie, ostrzeżenie o 7 dniach, wygląd
    w ciemnym motywie, wygląd na telefonie.
