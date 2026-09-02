@@ -1,0 +1,192 @@
+/* Lista nieodebranych zamówień (projekt 2026-09-02) */
+
+.unclaimed {
+    padding: 24px;
+}
+
+.unclaimed__title {
+    margin: 0 0 8px;
+    color: #333333;
+}
+
+.unclaimed__lead {
+    margin: 0 0 20px;
+    color: #4b5563;
+    font-size: 0.9rem;
+}
+
+/* ===== Zakładki ===== */
+
+.unclaimed__tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.unclaimed__tab {
+    padding: 10px 16px;
+    min-height: 44px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #6b7280;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.unclaimed__tab.is-active {
+    color: #240046;
+    border-bottom-color: #240046;
+    font-weight: 600;
+}
+
+.unclaimed__panel {
+    display: none;
+}
+
+.unclaimed__panel.is-active {
+    display: block;
+}
+
+/* ===== Akcje ===== */
+
+.unclaimed__actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.unclaimed__checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    font-size: 0.9rem;
+    color: #4b5563;
+}
+
+/* ===== Tabela ===== */
+
+.unclaimed__table-wrap {
+    overflow-x: auto;
+    background: #ffffff;
+    border-radius: 8px;
+}
+
+.unclaimed__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.unclaimed__table th,
+.unclaimed__table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #f3f4f6;
+    color: #212121;
+}
+
+.unclaimed__table th {
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.unclaimed__col-check {
+    width: 44px;
+}
+
+.unclaimed__expand {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #240046;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.unclaimed__age--approx,
+.unclaimed__age--unknown {
+    color: #92400e;
+}
+
+.unclaimed__orders {
+    margin: 0;
+    padding: 8px 0 8px 20px;
+}
+
+.unclaimed__items {
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
+.unclaimed__badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+.unclaimed__empty {
+    padding: 32px;
+    text-align: center;
+    color: #6b7280;
+}
+
+/* ===== Ciemny motyw ===== */
+
+[data-theme="dark"] .unclaimed__title {
+    color: #f3f4f6;
+}
+
+[data-theme="dark"] .unclaimed__lead,
+[data-theme="dark"] .unclaimed__checkbox,
+[data-theme="dark"] .unclaimed__table th,
+[data-theme="dark"] .unclaimed__items,
+[data-theme="dark"] .unclaimed__empty {
+    color: #9ca3af;
+}
+
+[data-theme="dark"] .unclaimed__tabs {
+    border-bottom-color: #374151;
+}
+
+[data-theme="dark"] .unclaimed__tab {
+    color: #9ca3af;
+}
+
+[data-theme="dark"] .unclaimed__tab.is-active {
+    color: #c4b5fd;
+    border-bottom-color: #c4b5fd;
+}
+
+[data-theme="dark"] .unclaimed__table-wrap {
+    background: #1f2937;
+}
+
+[data-theme="dark"] .unclaimed__table td {
+    color: #e5e7eb;
+    border-bottom-color: #374151;
+}
+
+[data-theme="dark"] .unclaimed__expand {
+    color: #c4b5fd;
+}
+
+[data-theme="dark"] .unclaimed__age--approx,
+[data-theme="dark"] .unclaimed__age--unknown {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .unclaimed__badge {
+    background: #374151;
+    color: #9ca3af;
+}

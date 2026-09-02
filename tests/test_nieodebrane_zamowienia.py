@@ -564,3 +564,37 @@ def test_pusta_baza_nie_wywraca_ekranu(app, db):
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     assert zbierz_nieodebrane() == {'klienci': [], 'produkty': []}
+
+
+# ============================================
+# Ekran admina
+# ============================================
+
+def test_ekran_wymaga_admina(app, client, db, make_user, login):
+    login(make_user(role='client'))
+
+    r = client.get('/admin/orders/nieodebrane')
+
+    assert r.status_code in (302, 403)
+
+
+def test_ekran_pokazuje_klienta_i_produkt(app, client, db, make_user, make_order,
+                                           make_product, login):
+    login(make_user(role='admin', email='admin@example.com'))
+    o = make_order(make_user(email='zalegacz@example.com'), status='dostarczone_gom')
+    _pozycja(db, o, product=make_product(name='Light stick ATEEZ'), qty=5)
+
+    r = client.get('/admin/orders/nieodebrane')
+
+    assert r.status_code == 200
+    tresc = r.get_data(as_text=True)
+    assert 'zalegacz@example.com' in tresc
+    assert 'Light stick ATEEZ' in tresc
+
+
+def test_ekran_bez_zaleglosci_nie_wywala_sie(app, client, db, make_user, login):
+    login(make_user(role='admin', email='admin@example.com'))
+
+    r = client.get('/admin/orders/nieodebrane')
+
+    assert r.status_code == 200

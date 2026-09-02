@@ -1,0 +1,137 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Nieodebrane - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/unclaimed.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="unclaimed">
+    <h1 class="unclaimed__title">Nieodebrane</h1>
+    <p class="unclaimed__lead">
+        Zamówienia gotowe do wysyłki, do których klient nie zamówił jeszcze przesyłki.
+    </p>
+
+    <div class="unclaimed__tabs" role="tablist">
+        <button type="button" class="unclaimed__tab is-active" data-tab="klienci" role="tab">
+            Wg klientów ({{ klienci|length }})
+        </button>
+        <button type="button" class="unclaimed__tab" data-tab="produkty" role="tab">
+            Wg produktów ({{ produkty|length }})
+        </button>
+    </div>
+
+    {# ===== Zakładka: klienci ===== #}
+    <section class="unclaimed__panel is-active" data-panel="klienci">
+        {% if klienci %}
+        <div class="unclaimed__actions">
+            <label class="unclaimed__checkbox">
+                <input type="checkbox" id="unclaimedSelectAll">
+                <span>Zaznacz wszystkich</span>
+            </label>
+            <button type="button" class="btn btn-primary" id="unclaimedRemindBtn" disabled>
+                Wyślij przypomnienie (<span id="unclaimedCount">0</span>)
+            </button>
+        </div>
+
+        <div class="unclaimed__table-wrap">
+            <table class="unclaimed__table">
+                <thead>
+                    <tr>
+                        <th class="unclaimed__col-check"></th>
+                        <th>Klient</th>
+                        <th>Zaległych</th>
+                        <th>Najstarsze leży</th>
+                        <th>Ostatnie przypomnienie</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for wpis in klienci %}
+                    <tr class="unclaimed__row" data-user-id="{{ wpis.user.id }}">
+                        <td class="unclaimed__col-check">
+                            <input type="checkbox" class="unclaimed__pick"
+                                   value="{{ wpis.user.id }}"
+                                   data-ostatnie="{{ wpis.ostatnie_przypomnienie.isoformat() if wpis.ostatnie_przypomnienie else '' }}">
+                        </td>
+                        <td>
+                            <button type="button" class="unclaimed__expand" data-target="klient-{{ wpis.user.id }}">
+                                {{ wpis.user.email }}
+                            </button>
+                        </td>
+                        <td>{{ wpis.zamowienia|length }}</td>
+                        <td>
+                            {% if wpis.dni is none %}
+                                <span class="unclaimed__age unclaimed__age--unknown" title="Brak śladu po zmianie statusu">~ b.d.</span>
+                            {% else %}
+                                <span class="unclaimed__age{% if not wpis.dokladne %} unclaimed__age--approx{% endif %}"
+                                      {% if not wpis.dokladne %}title="Data z dziennika zmian — wartość przybliżona"{% endif %}>
+                                    {% if not wpis.dokladne %}~{% endif %}{{ wpis.dni }} dni
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if wpis.ostatnie_przypomnienie %}
+                                {{ wpis.ostatnie_przypomnienie.strftime('%d.%m.%Y') }}
+                            {% else %}
+                                &mdash;
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr class="unclaimed__details" id="klient-{{ wpis.user.id }}" hidden>
+                        <td colspan="5">
+                            <ul class="unclaimed__orders">
+                                {% for z in wpis.zamowienia %}
+                                <li>
+                                    <a href="{{ url_for('orders.admin_detail', order_id=z.id) }}">{{ z.order_number }}</a>
+                                    <span class="unclaimed__items">
+                                        {% for it in z.items %}{{ it.product.name if it.product else it.custom_name }} &times;{{ it.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="unclaimed__empty">Nikt nie zalega — wszystko odebrane. 🎉</p>
+        {% endif %}
+    </section>
+
+    {# ===== Zakładka: produkty ===== #}
+    <section class="unclaimed__panel" data-panel="produkty">
+        {% if produkty %}
+        <div class="unclaimed__table-wrap">
+            <table class="unclaimed__table">
+                <thead>
+                    <tr>
+                        <th>Produkt</th>
+                        <th>Sztuk</th>
+                        <th>Osób</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in produkty %}
+                    <tr{% if p.wlasny %} class="unclaimed__row--custom"{% endif %}>
+                        <td>
+                            {{ p.nazwa }}
+                            {% if p.wlasny %}<span class="unclaimed__badge">produkt własny</span>{% endif %}
+                        </td>
+                        <td>{{ p.sztuk }} szt.</td>
+                        <td>{{ p.klientow }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="unclaimed__empty">Żaden towar nie czeka na odbiór.</p>
+        {% endif %}
+    </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/pages/admin/unclaimed.js') }}" defer></script>
+{% endblock %}

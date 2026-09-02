@@ -5329,6 +5329,24 @@ def admin_delivery_reviews():
 
 
 # ====================
+# ADMIN: NIEODEBRANE ZAMÓWIENIA
+# ====================
+
+@orders_bp.route('/admin/orders/nieodebrane')
+@login_required
+@role_required('admin', 'mod')
+def admin_unclaimed():
+    """Kto nie odebrał swoich rzeczy — ujęcie klientów i produktów.
+
+    Bez paginacji: lista jest krótka z definicji (tylko zaległości), a stronicowanie
+    rozbiłoby zaznaczanie do przypomnień na kilka ekranów.
+    """
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    return render_template('admin/orders/unclaimed.html', **zbierz_nieodebrane())
+
+
+# ====================
 # ADMIN SHIPPING REQUESTS LIST
 # ====================
 
