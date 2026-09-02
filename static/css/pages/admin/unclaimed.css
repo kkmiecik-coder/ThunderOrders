@@ -99,6 +99,12 @@
     width: 44px;
 }
 
+/* Wiersz produktu spoza katalogu (custom_name) — delikatne wyróżnienie tła,
+   spójne z etykietą "produkt własny" w tej samej komórce. */
+.unclaimed__row--custom {
+    background: #fef9c3;
+}
+
 .unclaimed__expand {
     background: none;
     border: none;
@@ -189,4 +195,8 @@
 [data-theme="dark"] .unclaimed__badge {
     background: #374151;
     color: #9ca3af;
+}
+
+[data-theme="dark"] .unclaimed__row--custom {
+    background: #422006;
 }
