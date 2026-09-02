@@ -127,3 +127,33 @@ def test_przypisanie_tego_samego_statusu_nie_rusza_daty(app, db, make_user, make
     db.session.commit()
 
     assert o.status_changed_at == stempel
+
+
+def test_migracja_statusu_celowo_nie_rusza_daty(app, db, make_user, make_order):
+    """Świadoma decyzja: masowy update() w migrate_status omija listener.
+
+    `migrate_status` przenosi zamówienia masowym `Order.query...update()`
+    (synchronize_session=False), więc omija ORM i tym samym listener
+    `_stempluj_zmiane_statusu` — to nie jest przeoczenie, tylko wybór
+    opisany w docstringu listenera (modules/orders/models.py). Zmiana
+    etykiety skasowanego statusu nie jest realnym krokiem zamówienia
+    naprzód, więc odświeżanie stempla wyzerowałoby wiek zaległości. Ten
+    test ma pilnować, żeby ktoś przypadkiem tego nie „naprawił".
+    """
+    from datetime import datetime
+
+    o = make_order(make_user(), status='oczekujace')
+    stary_stempel = datetime(2026, 1, 1, 12, 0, 0)
+    o.status_changed_at = stary_stempel
+    db.session.commit()
+
+    from modules.orders.models import Order
+    Order.query.filter_by(status='oczekujace').update(
+        {'status': 'w_drodze_polska'},
+        synchronize_session=False,
+    )
+    db.session.commit()
+
+    db.session.refresh(o)
+    assert o.status == 'w_drodze_polska'
+    assert o.status_changed_at == stary_stempel

@@ -2766,6 +2766,10 @@ def migrate_status(status_id):
             ]
 
         # Migrate all orders to new status
+        # Celowo NIE odświeżamy tu status_changed_at: to zmiana etykiety
+        # skasowanego statusu, nie realny krok zamówienia naprzód — patrz
+        # uzasadnienie w docstringu listenera _stempluj_zmiane_statusu
+        # (modules/orders/models.py).
         orders_updated = Order.query.filter_by(status=status.slug).update(
             {'status': new_status_slug},
             synchronize_session=False

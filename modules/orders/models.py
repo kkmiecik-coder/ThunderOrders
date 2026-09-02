@@ -2210,6 +2210,17 @@ def _stempluj_zmiane_statusu(order, nowy, stary, initiator):
     wypada fałszywie i stempel powstaje — tak ma być, nowe zamówienie też wchodzi
     w status. Ponowne przypisanie tej samej wartości stempla NIE rusza: „leży
     47 dni" ma znaczyć wiek zaległości, a nie datę ostatniego zapisu formularza.
+
+    Wyjątek, celowo NIE załatany: trasa `migrate_status` (routes.py) przenosi
+    zamówienia masowym `Order.query.filter_by(...).update(...)`, co omija ORM
+    i tym samym ten listener — przeniesione zamówienia zachowują stary stempel.
+    To świadomy wybór, nie przeoczenie. `migrate_status` uruchamia się, gdy
+    admin KASUJE status ze słownika i przepisuje jego zamówienia na inny —
+    zamówienie nie robi wtedy realnego kroku naprzód, zmienia się tylko
+    etykieta. Odświeżenie stempla wyzerowałoby wiek zaległości (pół roku
+    leżenia pokazałoby „0 dni" i zniknęłoby z góry listy), a to jest gorsze niż
+    stempel, który w najgorszym razie zawyży wiek — dla listy typu „nie
+    przeocz nikogo" zawyżenie jest bezpieczne, wyzerowanie nie.
     """
     if nowy == stary:
         return
