@@ -149,6 +149,16 @@ Jeśli w zaznaczeniu jest ktoś, komu przypomnienie poszło w ciągu **7 dni**, 
 wysyłką pojawia się pytanie potwierdzające z listą tych osób. Ostrzeżenie, nie
 blokada — właścicielka może mieć powód, żeby napisać drugi raz.
 
+## Konta nieaktywne
+
+Klient, który dezaktywował konto, **dostaje przypomnienie tak samo jak każdy inny** —
+decyzja właścicielki z 2026-09-03, podjęta po wdrożeniu. Uzasadnienie: skoro jego rzeczy
+fizycznie leżą w magazynie, informacja o tym mu się należy niezależnie od tego, czy
+korzysta jeszcze z konta. Pominięcie takich osób oznaczałoby, że ich towar leży
+bezterminowo i nikt im o tym nie przypomni.
+
+`unclaimed_orders_query()` świadomie nie filtruje po `User.is_active`.
+
 ## Poza zakresem
 
 - automatyczne przypomnienia po X dniach (świadomie odłożone do drugiego kroku)
