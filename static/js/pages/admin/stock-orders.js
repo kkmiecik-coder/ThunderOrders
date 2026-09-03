@@ -207,6 +207,32 @@ function renderPolandModal(orders) {
         html += `</div>`;
         html += `</div>`;
 
+        // Stawki dla CAŁEJ paczki. Partia do Polski to zawsze jedna wysyłka jednego
+        // typu rzeczy (albumy z jednego wydania), więc koszt za sztukę jest w niej
+        // wszędzie taki sam — wpisywanie go osobno przy każdym z kilkunastu produktów
+        // było mozolne i to właśnie przy takim powtórzeniu stawki raz wylądowały
+        // odwrotnie (PRX/PL/14, 2026-09-01).
+        //
+        // Pola przy produktach nie znikają z kodu, tylko z widoku: wartość stąd jest
+        // do nich wpisywana, dzięki czemu walidacja, payload i licznik różnicy czytają
+        // dokładnie to co dotąd i nie wymagają żadnej zmiany.
+        html += `<div class="poland-package-rates" data-order-index="${orderIndex}">`;
+        html += `<span class="poland-package-rates-label">Stawki paczki:</span>`;
+        html += `<label class="poland-package-rate">cały album`;
+        html += `<input type="number" class="form-input poland-package-rate-input" `;
+        html += `data-order-index="${orderIndex}" data-role="pkg-album-rate" `;
+        html += `placeholder="0,00" step="0.01" min="0" `;
+        html += `oninput="handlePackageRateChange(${orderIndex})">`;
+        html += `<span class="poland-package-rate-unit">zł/szt</span></label>`;
+        html += `<label class="poland-package-rate">samo incl`;
+        html += `<input type="number" class="form-input poland-package-rate-input" `;
+        html += `data-order-index="${orderIndex}" data-role="pkg-incl-rate" `;
+        html += `placeholder="0,00" step="0.01" min="0" `;
+        html += `oninput="handlePackageRateChange(${orderIndex})">`;
+        html += `<span class="poland-package-rate-unit">zł/szt</span></label>`;
+        html += `<div class="poland-rate-warning" data-role="pkg-rate-warning" style="display: none"></div>`;
+        html += `</div>`;
+
         html += `<table class="data-table poland-products-table">`;
         // Szerokości w procentach, nie `auto` + piksele. Tabela ma
         // `table-layout: fixed` (stock-orders.css), a przy tym trybie kolumna
@@ -301,6 +327,7 @@ function renderPolandModal(orders) {
                 html += `data-item-index="${globalItemIndex}" data-role="album-rate" `;
                 html += `placeholder="0,00" step="0.01" min="0" `;
                 html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `<span class="poland-rate-value" data-role="album-rate-text"></span>`;
                 html += `<span class="poland-rate-sum" data-role="album-sum">0,00 zł</span>`;
                 html += `</div>`;
                 html += `<div class="poland-rate-line">`;
@@ -311,6 +338,7 @@ function renderPolandModal(orders) {
                 html += `data-item-index="${globalItemIndex}" data-role="incl-rate" `;
                 html += `placeholder="0,00" step="0.01" min="0" `;
                 html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `<span class="poland-rate-value" data-role="incl-rate-text"></span>`;
                 html += `<span class="poland-rate-sum" data-role="incl-sum">0,00 zł</span>`;
                 html += `</div>`;
                 html += `<div class="poland-rate-warning" data-role="rate-warning" style="display: none"></div>`;
@@ -340,6 +368,8 @@ function renderPolandModal(orders) {
     });
 
     polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
+    [...new Set(polandOrderData.items.map(i => i.order_index))]
+        .forEach(oi => refreshPackageRates(oi));
     // Przełączniki paczek muszą od razu odzwierciedlać stan wczytany z serwera —
     // paczka, w której wszyscy klienci mają już maksimum, otwiera się zaznaczona.
     [...new Set(polandOrderData.items.map(i => i.order_index))]
@@ -402,6 +432,8 @@ function calculateShippingCascade() {
     // czyta ten placeholder do podpowiedzi stawki incl — bez przemiecenia wszystkich
     // wierszy tutaj tylko wiersz ostatnio edytowany dostałby świeżą podpowiedź.
     polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
+    [...new Set(polandOrderData.items.map(i => i.order_index))]
+        .forEach(oi => refreshPackageRates(oi));
 }
 
 /**
@@ -464,6 +496,8 @@ function handlePackageShippingChange(orderIndex) {
     // Patrz komentarz w calculateShippingCascade — kaskada dotyka placeholdery
     // Wartość wszystkich pozycji, więc podpowiedź stawki incl trzeba odświeżyć wszędzie.
     polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
+    [...new Set(polandOrderData.items.map(i => i.order_index))]
+        .forEach(oi => refreshPackageRates(oi));
 }
 
 /**
@@ -559,6 +593,8 @@ function handleShippingPriceChange(itemIndex) {
     // itemIndex zostawiłoby nieaktualną podpowiedź stawki incl na innych wierszach,
     // która i tak wysyła się do bazy jako realna stawka (parseValueOrPlaceholder).
     polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
+    [...new Set(polandOrderData.items.map(i => i.order_index))]
+        .forEach(oi => refreshPackageRates(oi));
 }
 
 /**
@@ -589,6 +625,8 @@ function handleShippingValueChange(itemIndex) {
     // Patrz komentarz w handleShippingPriceChange — distributeToProducts dotyka
     // placeholdery Wartość wszystkich pozycji paczki, więc trzeba odświeżyć wszystkie.
     polandOrderData.items.forEach((_, idx) => refreshRatesRow(idx));
+    [...new Set(polandOrderData.items.map(i => i.order_index))]
+        .forEach(oi => refreshPackageRates(oi));
 }
 
 /**
@@ -2618,10 +2656,29 @@ function refreshRatesRow(itemIndex) {
         cenaInput.classList.toggle('input-wyliczone', zeStawek);
     }
 
+    // Tryb stawek paczki: pola przy produkcie chowamy (wartość i tak pochodzi
+    // z nagłówka), a w ich miejsce pokazujemy samą liczbę. Pola zostają w DOM,
+    // bo czytają je walidacja, payload i licznik różnicy.
+    const pkg = stawkiPaczki(item.order_index);
+    [[albumInput, 'album-rate-text', albumRate],
+     [inclInput, 'incl-rate-text', inclRate]].forEach(([pole, rola, stawka]) => {
+        const tekst = box.querySelector(`[data-role="${rola}"]`);
+        if (!pole || !tekst) return;
+        pole.style.display = pkg.aktywne ? 'none' : '';
+        tekst.style.display = pkg.aktywne ? '' : 'none';
+        if (pkg.aktywne) tekst.textContent = stawka.toFixed(2).replace('.', ',');
+    });
+
     // Ostrzeżenie o odwróconych stawkach. Suma linijki wychodzi identyczna przy
     // 6,51 + 14,53 i przy 14,53 + 6,51, więc licznik "różnica" tego nie wyłapie —
     // to jedyne miejsce, w którym da się to zauważyć przed zatwierdzeniem.
-    const ostrzezenie = box.querySelector('[data-role="rate-warning"]');
+    // Przy stawkach paczki ostrzega nagłówek — jedno zamiast kilkunastu identycznych.
+    const ostrzezenie = pkg.aktywne ? null : box.querySelector('[data-role="rate-warning"]');
+    const ostrzezenieProduktu = box.querySelector('[data-role="rate-warning"]');
+    if (pkg.aktywne && ostrzezenieProduktu) {
+        ostrzezenieProduktu.style.display = 'none';
+        ostrzezenieProduktu.textContent = '';
+    }
     if (ostrzezenie) {
         // Warunek "stawka albumu faktycznie wpisana" jest konieczny: zaraz po
         // zaznaczeniu pierwszego klienta na incl pole albumu jest jeszcze puste,
@@ -2680,6 +2737,9 @@ function handleInclQtyChange(itemIndex, clientIndex) {
 
     refreshRatesRow(itemIndex);
     refreshPackageInclToggle(item.order_index);
+    // Zmiana liczby sztuk incl zmienia podział album/incl w całej paczce, więc
+    // podpowiedź stawki incl i stawki wpisane do produktów trzeba przeliczyć.
+    handlePackageRateChange(item.order_index);
     // Zmiana liczby sztuk "samo incl" zmienia sumę linijki, a tę serwer liczy ze
     // stawek — licznik "różnica" musi to od razu pokazać, inaczej admin widzi
     // zbilansowane okno i zapisuje inną kwotę.
@@ -2722,6 +2782,7 @@ function handlePackageInclToggle(orderIndex) {
         refreshRatesRow(idx);
     });
 
+    handlePackageRateChange(orderIndex);
     updateShippingSummary();
 }
 
@@ -2752,3 +2813,93 @@ function refreshPackageInclToggle(orderIndex) {
 window.handleInclQtyChange = handleInclQtyChange;
 window.handleRateChange = handleRateChange;
 window.handlePackageInclToggle = handlePackageInclToggle;
+
+/**
+ * Stawki wpisane w nagłówku paczki. `aktywne` = admin wpisał choć jedno z pól;
+ * dopiero wtedy stawki paczki rządzą polami przy produktach.
+ */
+function stawkiPaczki(orderIndex) {
+    const box = document.querySelector(`.poland-package-rates[data-order-index="${orderIndex}"]`);
+    if (!box) return { aktywne: false, album: 0, incl: 0 };
+    const albumInput = box.querySelector('[data-role="pkg-album-rate"]');
+    const inclInput = box.querySelector('[data-role="pkg-incl-rate"]');
+    const aktywne = albumInput.value.trim() !== '' || inclInput.value.trim() !== '';
+    return {
+        aktywne,
+        album: parseValueOrPlaceholder(albumInput),
+        incl: parseValueOrPlaceholder(inclInput),
+    };
+}
+
+/**
+ * Podpowiedź stawki incl i ostrzeżenie — liczone dla CAŁEJ paczki, nie per produkt.
+ */
+function refreshPackageRates(orderIndex) {
+    const box = document.querySelector(`.poland-package-rates[data-order-index="${orderIndex}"]`);
+    if (!box) return;
+    const albumInput = box.querySelector('[data-role="pkg-album-rate"]');
+    const inclInput = box.querySelector('[data-role="pkg-incl-rate"]');
+
+    let sztAlbum = 0;
+    let sztIncl = 0;
+    polandOrderData.items.forEach((item) => {
+        if (item.order_index !== orderIndex) return;
+        const incl = item.clients.reduce(
+            (s, c) => s + Math.min(c.incl_only_quantity || 0, c.quantity), 0);
+        sztIncl += incl;
+        sztAlbum += (item.quantity || 0) - incl;
+    });
+
+    // Cel: kwota tej paczki — wpisana ręcznie albo podpowiedziana kaskadą z góry.
+    const pkgInput = document.querySelector(`.package-shipping-input[data-order-index="${orderIndex}"]`);
+    const cel = parseValueOrPlaceholder(pkgInput);
+    const albumRate = parseValueOrPlaceholder(albumInput);
+    const reszta = cel - albumRate * sztAlbum;
+    const podpowiedz = sztIncl > 0 && reszta > 0 ? (reszta / sztIncl) : 0;
+    inclInput.placeholder = podpowiedz > 0 ? podpowiedz.toFixed(2).replace('.', ',') : '0,00';
+
+    const inclRate = parseValueOrPlaceholder(inclInput);
+    const ostrzezenie = box.querySelector('[data-role="pkg-rate-warning"]');
+    if (ostrzezenie) {
+        // Ten sam warunek co przy produktach: ostrzegamy dopiero, gdy stawka albumu
+        // jest FAKTYCZNIE wpisana, żeby nie świeciło zaraz po zaznaczeniu klientów.
+        const albumWpisany = albumInput.value.trim() !== '';
+        const odwrocone = albumWpisany && sztAlbum > 0 && sztIncl > 0 && inclRate > albumRate;
+        ostrzezenie.style.display = odwrocone ? '' : 'none';
+        ostrzezenie.textContent = odwrocone
+            ? `Samo incl (${inclRate.toFixed(2).replace('.', ',')}) drożej niż cały album `
+              + `(${albumRate.toFixed(2).replace('.', ',')}) — na pewno tak ma być?`
+            : '';
+    }
+}
+
+/**
+ * Zmiana stawki w nagłówku paczki: wpisuje ją do (ukrytych) pól przy każdym
+ * produkcie tej paczki, dzięki czemu walidacja, payload i licznik różnicy czytają
+ * dokładnie to samo co dotąd.
+ */
+function handlePackageRateChange(orderIndex) {
+    refreshPackageRates(orderIndex);
+    const pkg = stawkiPaczki(orderIndex);
+
+    polandOrderData.items.forEach((item, idx) => {
+        if (item.order_index !== orderIndex) return;
+        const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
+        if (box && pkg.aktywne) {
+            box.querySelector('[data-role="album-rate"]').value = pkg.album.toFixed(2);
+            box.querySelector('[data-role="incl-rate"]').value = pkg.incl.toFixed(2);
+        } else if (box) {
+            // Wyczyszczenie pól w nagłówku ma oznaczać czysto: bez tego w polach przy
+            // produktach zostawałyby liczby wpisane przez paczkę, a przy odwróconych
+            // stawkach zapalałoby się od razu tyle ostrzeżeń, ile jest produktów.
+            box.querySelector('[data-role="album-rate"]').value = '';
+            box.querySelector('[data-role="incl-rate"]').value = '';
+        }
+        refreshRatesRow(idx);
+    });
+
+    updateShippingSummary();
+}
+
+window.handlePackageRateChange = handlePackageRateChange;
+
