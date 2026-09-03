@@ -326,7 +326,7 @@ function renderPolandModal(orders) {
                 html += `<input type="number" class="form-input poland-rate-input" `;
                 html += `data-item-index="${globalItemIndex}" data-role="album-rate" `;
                 html += `placeholder="0,00" step="0.01" min="0" `;
-                html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `oninput="handleRateChange(${globalItemIndex}, this)">`;
                 html += `<span class="poland-rate-value" data-role="album-rate-text"></span>`;
                 html += `<span class="poland-rate-sum" data-role="album-sum">0,00 zł</span>`;
                 html += `</div>`;
@@ -337,7 +337,7 @@ function renderPolandModal(orders) {
                 html += `<input type="number" class="form-input poland-rate-input" `;
                 html += `data-item-index="${globalItemIndex}" data-role="incl-rate" `;
                 html += `placeholder="0,00" step="0.01" min="0" `;
-                html += `oninput="handleRateChange(${globalItemIndex})">`;
+                html += `oninput="handleRateChange(${globalItemIndex}, this)">`;
                 html += `<span class="poland-rate-value" data-role="incl-rate-text"></span>`;
                 html += `<span class="poland-rate-sum" data-role="incl-sum">0,00 zł</span>`;
                 html += `</div>`;
@@ -2656,17 +2656,22 @@ function refreshRatesRow(itemIndex) {
         cenaInput.classList.toggle('input-wyliczone', zeStawek);
     }
 
-    // Tryb stawek paczki: pola przy produkcie chowamy (wartość i tak pochodzi
-    // z nagłówka), a w ich miejsce pokazujemy samą liczbę. Pola zostają w DOM,
-    // bo czytają je walidacja, payload i licznik różnicy.
+    // Stawki z nagłówka paczki wypełniają pola przy produktach, ale pola zostają
+    // EDYTOWALNE — sety psują założenie "jedna stawka na całą paczkę". Pozycja OT8
+    // to osiem kart, więc jej incl kosztuje ośmiokrotność stawki pojedynczej
+    // (w PRX/PL/14: 52,08 przy 6,51 u pozostałych). Bez możliwości nadpisania takiej
+    // linijki nie dałoby się w ogóle wycenić.
     const pkg = stawkiPaczki(item.order_index);
-    [[albumInput, 'album-rate-text', albumRate],
-     [inclInput, 'incl-rate-text', inclRate]].forEach(([pole, rola, stawka]) => {
+    [[albumInput, 'album-rate-text'], [inclInput, 'incl-rate-text']].forEach(([pole, rola]) => {
         const tekst = box.querySelector(`[data-role="${rola}"]`);
-        if (!pole || !tekst) return;
-        pole.style.display = pkg.aktywne ? 'none' : '';
-        tekst.style.display = pkg.aktywne ? '' : 'none';
-        if (pkg.aktywne) tekst.textContent = stawka.toFixed(2).replace('.', ',');
+        if (tekst) tekst.style.display = 'none';
+        if (pole) {
+            pole.style.display = '';
+            // Linijka nadpisana ręcznie jest oznaczona, żeby było widać, która odstaje
+            // od stawki paczki.
+            pole.classList.toggle('poland-rate-nadpisana',
+                pkg.aktywne && pole.dataset.manual === 'true');
+        }
     });
 
     // Ostrzeżenie o odwróconych stawkach. Suma linijki wychodzi identyczna przy
@@ -2746,7 +2751,14 @@ function handleInclQtyChange(itemIndex, clientIndex) {
     updateShippingSummary();
 }
 
-function handleRateChange(itemIndex) {
+function handleRateChange(itemIndex, pole) {
+    // Wywoływane z oninput, czyli wyłącznie przy pisaniu przez człowieka —
+    // wypełnianie ze stawek paczki ustawia .value bez zdarzenia, więc nie oznaczy
+    // linijki jako nadpisanej.
+    if (pole) {
+        if ((pole.value || '').trim() === '') delete pole.dataset.manual;
+        else pole.dataset.manual = 'true';
+    }
     refreshRatesRow(itemIndex);
     // Jak wyżej: sama zmiana stawki zmienia sumę, która pójdzie do bazy.
     updateShippingSummary();
@@ -2886,8 +2898,12 @@ function handlePackageRateChange(orderIndex) {
         if (item.order_index !== orderIndex) return;
         const box = document.querySelector(`.poland-rates[data-item-index="${idx}"]`);
         if (box && pkg.aktywne) {
-            box.querySelector('[data-role="album-rate"]').value = pkg.album.toFixed(2);
-            box.querySelector('[data-role="incl-rate"]').value = pkg.incl.toFixed(2);
+            // Ręcznie nadpisanej linijki nie ruszamy — inaczej poprawka dla setu
+            // (np. OT8) znikałaby przy każdej zmianie stawki w nagłówku.
+            const a = box.querySelector('[data-role="album-rate"]');
+            const i = box.querySelector('[data-role="incl-rate"]');
+            if (a.dataset.manual !== 'true') a.value = pkg.album.toFixed(2);
+            if (i.dataset.manual !== 'true') i.value = pkg.incl.toFixed(2);
         } else if (box) {
             // Wyczyszczenie pól w nagłówku ma oznaczać czysto: bez tego w polach przy
             // produktach zostawałyby liczby wpisane przez paczkę, a przy odwróconych

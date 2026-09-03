@@ -16,7 +16,8 @@ co kosztowało godzinę dochodzenia i błędne kwoty u dwóch klientek.
 ## Ustalenia z właścicielką
 
 - Partia do Polski to zawsze **jedna wysyłka jednego typu rzeczy** — albumy z jednego
-  wydania. Koszt wysyłki za sztukę jest w niej wszędzie taki sam.
+  wydania. Koszt wysyłki za sztukę jest w niej *zwykle* wszędzie taki sam —
+  **z wyjątkiem setów** (OT8), patrz korekta niżej.
 - Groszowe różnice w PRX/PL/14 (Mingi incl 6,52 zamiast 6,51; Wooyoung album 14,56
   zamiast 14,53) były **przypadkowe**, nie celowe.
 - Produkty o realnie różnej wadze (lightstick, keyring, pouch) chodzą trybem
@@ -39,11 +40,32 @@ Stawki paczki:   cały album [ 14,53 ] zł/szt    samo incl [ 6,51 ] zł/szt
 PRODUKT                    CENA/SZT   ILOŚĆ   WARTOŚĆ
 ```
 
-Przy produktach pola stawek **znikają z widoku** — zostaje sam podgląd rozbicia
-(`cały album 3 szt × 14,53 = 43,59 zł`) jako tekst. Lista klientów z polami „samo incl"
-zostaje bez zmian: to jedyna rzecz, która różni się produkt od produktu.
+Przy produktach pola stawek **zostają widoczne i edytowalne** — patrz korekta niżej.
+Lista klientów z polami „samo incl" bez zmian.
 
-### Dlaczego pola per produkt zostają w kodzie, choć znikają z oczu
+### Korekta z 2026-09-03: sety psują założenie „jedna stawka na paczkę"
+
+Pierwotnie pola stawek przy produktach miały **zniknąć z widoku**, skoro stawka jest
+w paczce wszędzie taka sama. **To założenie jest nieprawdziwe** — wyszło przy pierwszym
+użyciu, gdy okazało się, że nie da się wycenić pozycji OT8.
+
+**OT8 to zestaw ośmiu kart**, więc jego „samo incl" kosztuje ośmiokrotność stawki
+pojedynczego członka. W PRX/PL/14 widać to wprost: OT8 miał incl **52,08** przy **6,51**
+u wszystkich pozostałych — czyli dokładnie 8 × 6,51. Ta liczba była w danych, które
+analizowałam dzień wcześniej, i została wtedy błędnie uznana za zgodną z regułą.
+
+Dlatego:
+
+- stawki z nagłówka **wypełniają** wszystkie produkty paczki (wygoda zostaje),
+- pole przy produkcie **można nadpisać** — dla setu wpisuje się właściwą wielokrotność,
+- **nadpisana linijka nie jest już zamazywana** przy kolejnych zmianach stawki
+  w nagłówku i jest wizualnie oznaczona, żeby było widać, która odstaje.
+
+Rozpoznanie nadpisania opiera się na `dataset.manual`, ustawianym wyłącznie w `oninput` —
+czyli tylko przy pisaniu przez człowieka. Wypełnianie ze stawek paczki ustawia `.value`
+bez zdarzenia, więc samo się nie oznacza.
+
+### Dlaczego pola per produkt zostają w kodzie
 
 Pola stawek przy produktach **nie są usuwane z DOM — są ukrywane**, a wartość z paczki
 jest do nich wpisywana. Cała logika pieniężna (`refreshRatesRow`, walidacja przed
