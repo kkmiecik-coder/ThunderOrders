@@ -121,11 +121,17 @@ def zbierz_nieodebrane():
         # policzalnego wieku — klucz sortowania (niżej) wysyła taki wiersz na
         # górę niezależnie od tego, co pokazuje `dni`.
         if dni is None:
+            # Zamówienie bez policzalnego wieku nie mówi nic o PRECYZJI liczby,
+            # którą pokażemy (`wpis['dni']` bierze się z INNYCH zamówień tego
+            # klienta) — to osobna informacja, sygnalizowana w szablonie przez
+            # „+?", nie przez tyldę. Stąd `dokladne` (zawsze False dla takiego
+            # wpisu w `wiek_zaleglosci`) NIE ma tu brudzić `wpis['dokladne']`.
             wpis['ma_nieznany_wiek'] = True
-        elif wpis['dni'] is None or dni > wpis['dni']:
-            wpis['dni'] = dni
-        if not dokladne:
-            wpis['dokladne'] = False  # jedna niepewna data brudzi cały wiersz
+        else:
+            if wpis['dni'] is None or dni > wpis['dni']:
+                wpis['dni'] = dni
+            if not dokladne:
+                wpis['dokladne'] = False  # jedna niepewna data spośród ZNANYCH brudzi cały wiersz
 
         if o.pickup_reminder_sent_at is not None and (
             wpis['ostatnie_przypomnienie'] is None

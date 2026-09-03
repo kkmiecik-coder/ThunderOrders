@@ -977,20 +977,21 @@ class PushManager:
             )
 
     @staticmethod
-    def _send_pickup_reminders_async(app, pary):
+    def _send_pickup_reminders_async(app, pary, url):
         """Wątek tła dla `notify_pickup_reminder_bulk` — JEDEN wątek, pętla w środku.
 
         W przeciwieństwie do `_send_async` (jeden push = jeden wątek) ta funkcja
         sama iteruje po wszystkich klientach, więc "Zaznacz wszystkich" na ekranie
         „Nieodebrane" odpala tyle wątków OS, ile wywołań `notify_pickup_reminder_bulk`
         (jedno na kliknięcie), a nie tyle, ilu klientów zaznaczono.
+
+        `url` jest liczony przez wołającego (patrz `notify_pickup_reminder_bulk`),
+        JESZCZE w kontekście żądania — świeży `app.app_context()` w wątku tła
+        nie ma kontekstu żądania, więc `url_for(_external=True)` bez skonfigurowanego
+        SERVER_NAME rzucałby tu RuntimeError i po cichu degradował adres do '/'
+        (dokładnie ten wzorzec, którego reszta pliku unika, licząc url_for u wołającego).
         """
-        from flask import url_for
         with app.app_context():
-            try:
-                url = url_for('client.shipping_requests_list', _external=True)
-            except RuntimeError:
-                url = '/'
             for user_id, liczba_zamowien in pary:
                 try:
                     PushManager.send_to_user(
@@ -1037,13 +1038,22 @@ class PushManager:
         """
         if not pary:
             return
+        from flask import url_for
+        # Liczymy url TU, jeszcze w kontekście żądania — wątek tła dostaje
+        # tylko świeży app.app_context(), w którym url_for(_external=True)
+        # bez SERVER_NAME rzuca RuntimeError i degraduje adres do '/'
+        # (patrz komentarz w _send_pickup_reminders_async).
+        try:
+            url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
         app = current_app._get_current_object()
         if app.config.get('TESTING'):
-            PushManager._send_pickup_reminders_async(app, pary)
+            PushManager._send_pickup_reminders_async(app, pary, url)
             return
         thread = threading.Thread(
             target=PushManager._send_pickup_reminders_async,
-            args=(app, pary),
+            args=(app, pary, url),
         )
         thread.daemon = True
         thread.start()

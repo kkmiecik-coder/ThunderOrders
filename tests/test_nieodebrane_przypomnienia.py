@@ -259,16 +259,29 @@ def test_bulk_pusha_wola_send_to_user_dla_kazdego_klienta(
     monkeypatch.setattr(
         PushManager, 'send_to_user',
         staticmethod(lambda user_id, title, body, url='/', tag='default',
-                             notification_type=None: calls.append((user_id, body))),
+                             notification_type=None: calls.append((user_id, body, url))),
     )
 
     with app.test_request_context():
         PushManager.notify_pickup_reminder_bulk([(u1.id, 1), (u2.id, 5)])
 
     assert len(calls) == 2
-    tresci = dict(calls)
+    tresci = {user_id: body for user_id, body, _url in calls}
     assert tresci[u1.id] == 'Twoje zamówienie czeka na odbiór — zamów wysyłkę'
     assert tresci[u2.id] == 'Twoich 5 zamówień czeka na odbiór — zamów wysyłkę'
+
+    # Regresja: url_for('client.shipping_requests_list', _external=True) liczony
+    # w wątku tła (świeży app.app_context() bez kontekstu żądania) rzucał
+    # RuntimeError przez brak SERVER_NAME i po cichu degradował adres do '/' —
+    # klient klikający w push lądował na stronie głównej zamiast na liście
+    # zleceń wysyłki. Pod TESTING wołanie jest synchroniczne w kontekście
+    # żądania testu, więc samo to NIE odtworzy błędu produkcyjnego (patrz
+    # dowód w raporcie: uruchomienie _send_pickup_reminders_async w gołym
+    # app_context) — ta asercja pilnuje tylko, że adres jest w ogóle
+    # przekazywany do send_to_user i wskazuje na listę zleceń wysyłki.
+    for _user_id, _body, url in calls:
+        assert url != '/'
+        assert 'shipping/requests' in url
 
 
 def test_bulk_pusha_pusta_lista_nic_nie_robi(app, monkeypatch):

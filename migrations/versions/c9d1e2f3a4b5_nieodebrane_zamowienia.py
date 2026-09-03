@@ -17,8 +17,9 @@ produkcji jest już spora (rośnie od dawna, na bieżąco), więc `CREATE INDEX`
 MariaDB przy tej migracji sam w sobie potrwa — nie jest to natychmiastowe jak
 `add_column` powyżej.
 
-Podpięte pod 6b335dbff596: historia migracji ma trzy głowy, z czego dwie pochodzą
-z grudnia 2025. Żywa jest ta gałąź.
+Podpięte pod 6b335dbff596 — to była wtedy najnowsza (head) rewizja na gałęzi.
+Sprawdzone przy tej poprawce (`flask db heads`, 2026-09): repo ma dziś JEDNĄ
+głowę, `c9d1e2f3a4b5` — nie ma tu żadnego rozgałęzienia do scalania.
 
 Revision ID: c9d1e2f3a4b5
 Revises: 6b335dbff596

@@ -654,6 +654,45 @@ def test_dokladne_true_gdy_wszystkie_zamowienia_maja_wiek_z_kolumny(
     assert dane['klienci'][0]['dokladne'] is True
 
 
+def test_dokladne_true_gdy_znany_wiek_z_kolumny_i_jedno_zamowienie_bez_daty(
+    app, db, make_user, make_order,
+):
+    """Zamówienie BEZ policzalnego wieku nie ma brudzić `dokladne`.
+
+    Regresja (N3, projekt trzech poprawek okna partii): `wiek_zaleglosci` zwraca
+    dla zamówienia bez daty `(None, False)` — to `False` znaczyło dotąd zawsze
+    „niedokładne", więc samo ISTNIENIE takiego zamówienia gasiło `dokladne` na
+    całym wierszu klienta, nawet gdy pokazywana liczba dni pochodziła z
+    dokładnej kolumny `status_changed_at`. Efekt w szablonie: „~10 dni +?" —
+    tylda sugerowała niepewność liczby, której w rzeczywistości nikt nie
+    podważał; niepewność dotyczyła wyłącznie TEGO, że są jeszcze zaległości
+    o nieznanym wieku (co i tak mówi „+?"). Klient z jednym dokładnym
+    zamówieniem i jednym bez daty ma dostać `dokladne=True` — tyldy nie
+    powinno być, samo „+?" wystarczy.
+    """
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    u = make_user()
+
+    dokladny = make_order(u, status='dostarczone_gom')
+    dokladny.status_changed_at = get_local_now() - timedelta(days=10)
+    db.session.commit()
+
+    bez_daty = make_order(u, status='dostarczone_gom')
+    bez_daty.status_changed_at = None
+    db.session.commit()
+
+    dane = zbierz_nieodebrane()
+
+    assert len(dane['klienci']) == 1
+    wpis = dane['klienci'][0]
+    assert wpis['ma_nieznany_wiek'] is True
+    assert wpis['dni'] == 10
+    assert wpis['dokladne'] is True
+
+
 def test_ostatnie_przypomnienie_to_najnowsza_data(app, db, make_user, make_order):
     """Wiersz klienta ma pokazać NAJNOWSZE `pickup_reminder_sent_at` spośród jego zamówień.
 

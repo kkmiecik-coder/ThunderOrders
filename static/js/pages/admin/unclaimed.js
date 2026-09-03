@@ -179,7 +179,9 @@
                 tekst += '. Nikt z zaznaczonych nie ma zapisanego adresu e-mail — poszło tylko powiadomienie w aplikacji.';
             }
         } else if (maile > 0 && maile < wyslane && bezMaila > 0 && !mailWylaczony) {
-            tekst += '. Mail nie poszedł do ' + opisIluOsobMianownik(bezMaila) +
+            // "do" wymaga dopełniacza ("do jednej osoby" / "do 2 osób"), nie mianownika —
+            // stąd opisDoIluOsob, nie opisIluOsobMianownik (trzecia runda poprawek tego błędu).
+            tekst += '. Mail nie poszedł do ' + opisDoIluOsob(bezMaila) +
                 ' (brak zapisanego adresu) — reszta dostała mail normalnie, wszyscy dostali powiadomienie w aplikacji.';
         }
         if (pominieci.length > 0) {
