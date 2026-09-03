@@ -2145,6 +2145,7 @@ def update_email_notification_settings():
         'notify_admin_new_order', 'notify_admin_payment_uploaded',
         'notify_delivery_confirmation', 'notify_delivery_confirmed',
         'notify_delivery_autoclosed', 'notify_admin_delivery_confirmed',
+        'notify_pickup_reminder',
     }
 
     try:
@@ -2766,6 +2767,10 @@ def migrate_status(status_id):
             ]
 
         # Migrate all orders to new status
+        # Celowo NIE odświeżamy tu status_changed_at: to zmiana etykiety
+        # skasowanego statusu, nie realny krok zamówienia naprzód — patrz
+        # uzasadnienie w docstringu listenera _stempluj_zmiane_statusu
+        # (modules/orders/models.py).
         orders_updated = Order.query.filter_by(status=status.slug).update(
             {'status': new_status_slug},
             synchronize_session=False
@@ -5322,6 +5327,46 @@ def admin_delivery_reviews():
         wybrana_ocena=ocena,
         tylko_z_komentarzem=tylko_z_komentarzem,
     )
+
+
+# ====================
+# ADMIN: NIEODEBRANE ZAMÓWIENIA
+# ====================
+
+@orders_bp.route('/admin/orders/nieodebrane')
+@login_required
+@role_required('admin', 'mod')
+def admin_unclaimed():
+    """Kto nie odebrał swoich rzeczy — ujęcie klientów i produktów.
+
+    Bez paginacji: lista jest krótka z definicji (tylko zaległości), a stronicowanie
+    rozbiłoby zaznaczanie do przypomnień na kilka ekranów.
+    """
+    from modules.orders.unclaimed_service import zbierz_nieodebrane
+
+    return render_template('admin/orders/unclaimed.html', **zbierz_nieodebrane())
+
+
+@orders_bp.route('/admin/orders/nieodebrane/przypomnij', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_unclaimed_remind():
+    """Wysyła przypomnienia o odbiorze do zaznaczonych klientów."""
+    from modules.orders.unclaimed_service import wyslij_przypomnienia
+
+    data = request.get_json() or {}
+    user_ids = data.get('user_ids') or []
+    if not user_ids:
+        return jsonify({'success': False, 'message': 'Nie wybrano nikogo'}), 400
+
+    try:
+        user_ids = [int(uid) for uid in user_ids]
+    except (TypeError, ValueError):
+        return jsonify({'success': False,
+                        'message': 'Nieprawidłowy identyfikator klienta'}), 400
+
+    wynik = wyslij_przypomnienia(user_ids)
+    return jsonify({'success': True, **wynik})
 
 
 # ====================

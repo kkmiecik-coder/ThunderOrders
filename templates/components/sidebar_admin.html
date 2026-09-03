@@ -40,6 +40,13 @@
                         </a>
                     </li>
                     <li class="sidebar-subitem">
+                        <a href="{{ url_for('orders.admin_unclaimed') }}"
+                           class="sidebar-sublink {% if request.endpoint == 'orders.admin_unclaimed' %}active{% endif %}"
+                           data-tooltip="Nieodebrane">
+                            <span class="sidebar-text">Nieodebrane</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
                         <a href="{{ url_for('orders.wms_dashboard') }}"
                            class="sidebar-sublink {% if request.endpoint and ('wms' in request.endpoint or request.endpoint == 'orders.admin_shipping_requests_list') %}active{% endif %}"
                            data-tooltip="WMS / Wysyłka">

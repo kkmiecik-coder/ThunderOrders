@@ -724,6 +724,16 @@
                             </div>
                             <div class="email-notif-item">
                                 <div class="email-notif-info">
+                                    <div class="email-notif-name">Przypomnienie o odbiorze</div>
+                                    <div class="email-notif-desc">Rzeczy czekają, klient nie zamówił wysyłki</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_pickup_reminder" {{ 'checked' if email_notif_config.get('notify_pickup_reminder', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
                                     <div class="email-notif-name">Status wysyłki</div>
                                     <div class="email-notif-desc">Zmiana statusu zlecenia wysyłki</div>
                                 </div>

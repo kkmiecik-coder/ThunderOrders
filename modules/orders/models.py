@@ -235,6 +235,17 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
+    # Kiedy zamówienie weszło w obecny status. Stemplowane listenerem (koniec pliku),
+    # nie w trasach — ścieżek zmiany statusu jest kilka i każda nowa musiałaby
+    # pamiętać o stemplu. NULL = zamówienie sprzed wdrożenia; wiek zaległości
+    # liczy się wtedy z activity_log.
+    status_changed_at = db.Column(db.DateTime, nullable=True)
+
+    # Ostatnie przypomnienie „odbierz swoje rzeczy". Kolumna, nie tabela logu —
+    # interesuje nas wyłącznie „kiedy ostatnio", tak samo jak przy
+    # ShippingRequest.delivery_reminder_sent_at.
+    pickup_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+
     # Relationships
     items = db.relationship('OrderItem', back_populates='order', cascade='all, delete-orphan')
     comments = db.relationship('OrderComment', back_populates='order', cascade='all, delete-orphan', order_by='OrderComment.created_at.desc()')
@@ -2185,3 +2196,41 @@ class PaymentConfirmation(db.Model):
 
     def __repr__(self):
         return f'<PaymentConfirmation {self.id} Order:{self.order_id} Stage:{self.payment_stage} Status:{self.status}>'
+
+
+@db.event.listens_for(Order.status, 'set', active_history=True)
+def _stempluj_zmiane_statusu(order, nowy, stary, initiator):
+    """Zapisuje moment wejścia zamówienia w nowy status.
+
+    Listener zamiast przypisań w trasach: status zmieniają dziś co najmniej
+    `admin_update_status` i `bulk_status_change`, obie przez ORM, a kolejne ścieżki
+    powstaną bez wiedzy o tej kolumnie. Jedno miejsce łapie wszystkie.
+
+    Przy tworzeniu zamówienia `stary` jest symbolem NO_VALUE, więc porównanie
+    wypada fałszywie i stempel powstaje — tak ma być, nowe zamówienie też wchodzi
+    w status. Ponowne przypisanie tej samej wartości stempla NIE rusza: „leży
+    47 dni" ma znaczyć wiek zaległości, a nie datę ostatniego zapisu formularza.
+
+    `active_history=True` jest tu obowiązkowe, nie kosmetyczne: bez niego
+    SQLAlchemy podaje w `stary` symbol `NO_VALUE` zamiast realnej starej wartości,
+    gdy atrybut jest wygaszony (a jest — po każdym `commit()` domyślnie). Wtedy
+    `nowy == stary` wypada FAŁSZYWIE nawet dla przypisania TEJ SAMEJ wartości, i
+    stempel by się odświeżał — czyli dokładnie to, przed czym ten listener ma
+    chronić. Dziś nie strzelało tylko dlatego, że wszystkie znane ścieżki
+    czytają `order.status` (co ładuje atrybut) tuż przed przypisaniem — kruche
+    założenie, które `active_history=True` czyni zbędnym.
+
+    Wyjątek, celowo NIE załatany: trasa `migrate_status` (routes.py) przenosi
+    zamówienia masowym `Order.query.filter_by(...).update(...)`, co omija ORM
+    i tym samym ten listener — przeniesione zamówienia zachowują stary stempel.
+    To świadomy wybór, nie przeoczenie. `migrate_status` uruchamia się, gdy
+    admin KASUJE status ze słownika i przepisuje jego zamówienia na inny —
+    zamówienie nie robi wtedy realnego kroku naprzód, zmienia się tylko
+    etykieta. Odświeżenie stempla wyzerowałoby wiek zaległości (pół roku
+    leżenia pokazałoby „0 dni" i zniknęłoby z góry listy), a to jest gorsze niż
+    stempel, który w najgorszym razie zawyży wiek — dla listy typu „nie
+    przeocz nikogo" zawyżenie jest bezpieczne, wyzerowanie nie.
+    """
+    if nowy == stary:
+        return
+    order.status_changed_at = get_local_now()

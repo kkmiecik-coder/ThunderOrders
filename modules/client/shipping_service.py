@@ -111,14 +111,23 @@ def _orders_in_request_ids(order_ids):
     return {r.order_id for r in rows}
 
 
-def get_available_orders(user_id):
-    """Zamówienia usera w dozwolonym statusie i bez aktywnego zlecenia (parytet web l. 277-288)."""
-    allowed = allowed_request_statuses()
-    from sqlalchemy import and_
+def unclaimed_orders_query():
+    """Zamówienia gotowe do wysyłki, których klient nie wrzucił do żadnego zlecenia.
+
+    Zwraca Query, nie listę — panel admina dokłada własne `options()` i sortowanie,
+    a strefa klienta zawęża do jednego użytkownika. Jedno źródło warunku: gdyby admin
+    miał własną kopię, zmiana `shipping_request_allowed_statuses` przestawiłaby tylko
+    jeden z widoków i lista zaczęłaby kłamać.
+    """
     in_req = db.session.query(ShippingRequestOrder.order_id).filter(
         ShippingRequestOrder.order_id == Order.id).exists()
-    return Order.query.filter(and_(Order.user_id == user_id, Order.status.in_(allowed),
-                                   ~in_req)).order_by(Order.created_at.desc()).all()
+    return Order.query.filter(Order.status.in_(allowed_request_statuses()), ~in_req)
+
+
+def get_available_orders(user_id):
+    """Zamówienia usera w dozwolonym statusie i bez aktywnego zlecenia (parytet web l. 277-288)."""
+    return unclaimed_orders_query().filter(Order.user_id == user_id).order_by(
+        Order.created_at.desc()).all()
 
 
 def _delivery_method_for(address):

@@ -50,6 +50,26 @@ _fcm_creds = None
 _fcm_creds_lock = threading.Lock()
 
 
+def _tresc_przypomnienia_o_odbiorze(liczba_zamowien):
+    """Treść pushu do KLIENTA o zaległych zamówieniach, z poprawną polską odmianą.
+
+    Bez tego dla 5+ wychodziło "5 Twoje zamówienia czekają" — źle podwójnie:
+    2-4 (poza 12-14) to liczba mnoga "lekka" z rzeczownikiem w mianowniku i
+    czasownikiem w liczbie mnogiej ("Twoje 2 zamówienia czekają"), a 5+ (i
+    12-14) to dopełniacz z czasownikiem w liczbie pojedynczej ("Twoich 5
+    zamówień czeka") — zaimek dzierżawczy, rzeczownik I czasownik muszą się
+    zmieniać RAZEM z liczebnikiem, nie tylko rzeczownik. W tym sklepie każdy
+    drop to osobne zamówienie, więc 5+ zaległości to codzienność, nie brzeg.
+    """
+    if liczba_zamowien == 1:
+        return 'Twoje zamówienie czeka na odbiór — zamów wysyłkę'
+    dziesiatki = liczba_zamowien % 10
+    setki = liczba_zamowien % 100
+    if 2 <= dziesiatki <= 4 and not (12 <= setki <= 14):
+        return f'Twoje {liczba_zamowien} zamówienia czekają na odbiór — zamów wysyłkę'
+    return f'Twoich {liczba_zamowien} zamówień czeka na odbiór — zamów wysyłkę'
+
+
 def _orders_label(count):
     """Odmienia 'zamówienie' po polsku na potrzeby treści pusha.
 
@@ -955,6 +975,88 @@ class PushManager:
                 tag=f'consolidation-address-{sr.id}',
                 notification_type='shipping_updates',
             )
+
+    @staticmethod
+    def _send_pickup_reminders_async(app, pary, url):
+        """Wątek tła dla `notify_pickup_reminder_bulk` — JEDEN wątek, pętla w środku.
+
+        W przeciwieństwie do `_send_async` (jeden push = jeden wątek) ta funkcja
+        sama iteruje po wszystkich klientach, więc "Zaznacz wszystkich" na ekranie
+        „Nieodebrane" odpala tyle wątków OS, ile wywołań `notify_pickup_reminder_bulk`
+        (jedno na kliknięcie), a nie tyle, ilu klientów zaznaczono.
+
+        `url` jest liczony przez wołającego (patrz `notify_pickup_reminder_bulk`),
+        JESZCZE w kontekście żądania — świeży `app.app_context()` w wątku tła
+        nie ma kontekstu żądania, więc `url_for(_external=True)` bez skonfigurowanego
+        SERVER_NAME rzucałby tu RuntimeError i po cichu degradował adres do '/'
+        (dokładnie ten wzorzec, którego reszta pliku unika, licząc url_for u wołającego).
+        """
+        with app.app_context():
+            for user_id, liczba_zamowien in pary:
+                try:
+                    PushManager.send_to_user(
+                        user_id=user_id,
+                        title='Odbierz swoje rzeczy',
+                        body=_tresc_przypomnienia_o_odbiorze(liczba_zamowien),
+                        url=url,
+                        tag=f'pickup-reminder-{user_id}',
+                        notification_type='shipping_updates',
+                    )
+                except Exception as e:
+                    # Jeden klient bez sprawnej subskrypcji/urządzenia nie może
+                    # przerwać wysyłki reszcie — ten sam duch co `send_email_batch`.
+                    current_app.logger.warning(
+                        f'Push przypomnienia o odbiorze nie powiódł się dla usera {user_id}: {e}')
+
+    @staticmethod
+    def notify_pickup_reminder_bulk(pary):
+        """Push + wpis w centrum powiadomień: „odbierz swoje rzeczy" — dla wielu
+        klientów naraz, JEDNYM wątkiem tła.
+
+        Ekran „Nieodebrane" nie ma paginacji i ma przycisk „Zaznacz wszystkich" —
+        wołanie `_fire_and_forget` w pętli (po jednym na klienta, jak dotąd)
+        odpalałoby przy np. 200 zaległościach 200 wątków OS naraz, każdy z
+        własnym commitem do MariaDB. `send_to_user` (patrz jego docstring) już
+        raz przewrócił się na "1205 lock wait timeout ... wiele wątków
+        konkurujących o te same wiersze" — dotychczasowe pętle `_fire_and_forget`
+        w tym pliku chodzą po garstce uczestników jednej paczki (z góry
+        ograniczonej), to pierwsze miejsce, gdzie rozmiar pętli wybiera admin.
+        W duchu `EmailManager.notify_pickup_reminder_bulk` / `send_email_batch()`
+        — jedno połączenie/wątek na całą operację, nie na pozycję.
+
+        Kategoria `shipping_updates`, nie własne pole w NotificationPreference —
+        z punktu widzenia klienta to powiadomienie o wysyłce, a dokładanie kolumny
+        znaczyłoby migrację dla jednego przełącznika.
+
+        Args:
+            pary: lista (user_id, liczba_zamowien) — jedna para na klienta.
+
+        Pod TESTING wołamy synchronicznie w wątku wołającego — jak `_fire_and_forget`
+        (patrz jego docstring): testowa konfiguracja dzieli jedno połączenie SQLite
+        między wątkami, więc wątek tła robiący commit/rollback w tle rozjeżdżałby
+        testy niezwiązane z pushem. Produkcja nie ma TESTING i dostaje jeden wątek.
+        """
+        if not pary:
+            return
+        from flask import url_for
+        # Liczymy url TU, jeszcze w kontekście żądania — wątek tła dostaje
+        # tylko świeży app.app_context(), w którym url_for(_external=True)
+        # bez SERVER_NAME rzuca RuntimeError i degraduje adres do '/'
+        # (patrz komentarz w _send_pickup_reminders_async).
+        try:
+            url = url_for('client.shipping_requests_list', _external=True)
+        except RuntimeError:
+            url = '/'
+        app = current_app._get_current_object()
+        if app.config.get('TESTING'):
+            PushManager._send_pickup_reminders_async(app, pary, url)
+            return
+        thread = threading.Thread(
+            target=PushManager._send_pickup_reminders_async,
+            args=(app, pary, url),
+        )
+        thread.daemon = True
+        thread.start()
 
     # ========================================
     # ORDER CONFIRMATION

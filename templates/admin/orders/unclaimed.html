@@ -1,0 +1,185 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Nieodebrane - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/unclaimed.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="unclaimed">
+    <h1 class="unclaimed__title">Nieodebrane</h1>
+    <p class="unclaimed__lead">
+        Zamówienia gotowe do wysyłki, do których klient nie zamówił jeszcze przesyłki.
+    </p>
+
+    <div class="unclaimed__tabs" role="tablist">
+        <button type="button" class="unclaimed__tab is-active" data-tab="klienci" role="tab"
+                id="unclaimedTab-klienci" aria-selected="true" aria-controls="unclaimedPanel-klienci" tabindex="0">
+            Wg klientów ({{ klienci|length }})
+        </button>
+        <button type="button" class="unclaimed__tab" data-tab="produkty" role="tab"
+                id="unclaimedTab-produkty" aria-selected="false" aria-controls="unclaimedPanel-produkty" tabindex="-1">
+            Wg produktów ({{ produkty|length }})
+        </button>
+    </div>
+
+    {# ===== Zakładka: klienci ===== #}
+    <section class="unclaimed__panel is-active" data-panel="klienci"
+             role="tabpanel" id="unclaimedPanel-klienci" aria-labelledby="unclaimedTab-klienci">
+        {% if klienci %}
+        <div class="unclaimed__actions">
+            <label class="unclaimed__checkbox">
+                <input type="checkbox" id="unclaimedSelectAll">
+                <span>Zaznacz wszystkich</span>
+            </label>
+            <button type="button" class="btn btn-primary" id="unclaimedRemindBtn" disabled>
+                Wyślij przypomnienie (<span id="unclaimedCount">0</span>)
+            </button>
+        </div>
+
+        <div class="unclaimed__table-wrap">
+            <table class="unclaimed__table">
+                <thead>
+                    <tr>
+                        <th class="unclaimed__col-check"></th>
+                        <th>Klient</th>
+                        <th>Zaległych</th>
+                        <th>Najstarsze leży</th>
+                        <th>Ostatnie przypomnienie</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for wpis in klienci %}
+                    <tr class="unclaimed__row" data-user-id="{{ wpis.user.id }}">
+                        <td class="unclaimed__col-check">
+                            <input type="checkbox" class="unclaimed__pick"
+                                   value="{{ wpis.user.id }}"
+                                   data-ostatnie="{{ wpis.ostatnie_przypomnienie.isoformat() if wpis.ostatnie_przypomnienie else '' }}">
+                        </td>
+                        <td>
+                            {# Konwencja panelu (list.html): nazwa klienta + link do karty, adres
+                               tylko jako informacja dodatkowa — właścicielka rozpoznaje ludzi po
+                               nazwisku/nicku, nie po adresie, a z surowego e-maila nie było jak
+                               wejść na kartę klienta. Nazwa zostaje na `.unclaimed__expand`, bo to
+                               ten sam przycisk co dotąd rozwija/zwija listę zamówień tego klienta —
+                               nie może być zagnieżdżonym linkiem (button w a / a w button to
+                               nieprawidłowy HTML), stąd link do karty jest osobnym elementem obok. #}
+                            <button type="button" class="unclaimed__expand" data-target="klient-{{ wpis.user.id }}">
+                                {{ wpis.user.full_name }}
+                            </button>
+                            <div class="unclaimed__client-meta">
+                                <a href="{{ url_for('admin.client_detail', id=wpis.user.id) }}"
+                                   class="unclaimed__client-link">karta klienta</a>
+                                <span class="unclaimed__client-email">{{ wpis.user.email }}</span>
+                            </div>
+                        </td>
+                        <td>{{ wpis.zamowienia|length }}</td>
+                        <td>
+                            {% if wpis.dni is none %}
+                                <span class="unclaimed__age unclaimed__age--unknown" title="Brak śladu po zmianie statusu">~ b.d.</span>
+                            {% elif wpis.ma_nieznany_wiek %}
+                                {# Klient ma i zamówienie ze znanym wiekiem, i takie bez daty — pokazujemy znany
+                                   wiek jako dolną granicę ("+?"), żeby nie sugerować, że to CAŁA zaległość.
+                                   Realny wiek może być większy — patrz sortowanie (klucz w unclaimed_service.py). #}
+                                <span class="unclaimed__age unclaimed__age--unknown"
+                                      title="Najstarsze znane zamówienie leży {{ wpis.dni }} dni, ale część zamówień tego klienta nie ma śladu po zmianie statusu — realny wiek może być większy">
+                                    {% if not wpis.dokladne %}~{% endif %}{{ wpis.dni }} dni +?
+                                </span>
+                            {% else %}
+                                <span class="unclaimed__age{% if not wpis.dokladne %} unclaimed__age--approx{% endif %}"
+                                      {% if not wpis.dokladne %}title="Data z dziennika zmian — wartość przybliżona"{% endif %}>
+                                    {% if not wpis.dokladne %}~{% endif %}{{ wpis.dni }} dni
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if wpis.ostatnie_przypomnienie %}
+                                {{ wpis.ostatnie_przypomnienie.strftime('%d.%m.%Y') }}
+                            {% else %}
+                                &mdash;
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr class="unclaimed__details" id="klient-{{ wpis.user.id }}" hidden>
+                        <td colspan="5">
+                            <ul class="unclaimed__orders">
+                                {% for z in wpis.zamowienia %}
+                                <li>
+                                    <a href="{{ url_for('orders.admin_detail', order_id=z.id) }}">{{ z.order_number }}</a>
+                                    <span class="unclaimed__items">
+                                        {% for it in z.items %}{{ it.product.name if it.product else (it.custom_name or 'Bez nazwy') }} &times;{{ it.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="unclaimed__empty">Nikt nie zalega — wszystko odebrane. 🎉</p>
+        {% endif %}
+    </section>
+
+    {# ===== Zakładka: produkty ===== #}
+    <section class="unclaimed__panel" data-panel="produkty"
+             role="tabpanel" id="unclaimedPanel-produkty" aria-labelledby="unclaimedTab-produkty">
+        {% if produkty %}
+        <div class="unclaimed__table-wrap">
+            <table class="unclaimed__table">
+                <thead>
+                    <tr>
+                        <th>Produkt</th>
+                        <th>Sztuk</th>
+                        <th>Osób</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {# Identyfikator wiersza = numer pozycji w pętli (loop.index0), nie nazwa
+                       produktu — pozycje własne grupują się po `custom_name`, a nazwa może
+                       zawierać spacje i znaki, które nie nadają się do atrybutu `id`. Prefiks
+                       „produkt-" (zamiast „klient-" jak w zakładce klientów) gwarantuje, że
+                       identyfikatory obu zakładek nigdy się nie zderzą na tej samej stronie. #}
+                    {% for p in produkty %}
+                    <tr{% if p.wlasny %} class="unclaimed__row--custom"{% endif %}>
+                        <td>
+                            <button type="button" class="unclaimed__expand" data-target="produkt-{{ loop.index0 }}">
+                                {{ p.nazwa }}
+                            </button>
+                            {% if p.wlasny %}<span class="unclaimed__badge">produkt własny</span>{% endif %}
+                        </td>
+                        <td>{{ p.sztuk }} szt.</td>
+                        <td>{{ p.klientow }}</td>
+                    </tr>
+                    <tr class="unclaimed__details" id="produkt-{{ loop.index0 }}" hidden>
+                        <td colspan="3">
+                            {# Ten sam wzorzec co rozwinięcie klienta: nazwa + link do karty
+                               klienta, sprawdzony w commicie 2e6e899. Tu dodatkowo liczba sztuk
+                               tego produktu u danego klienta — to odpowiedź na pytanie „czyje są
+                               te sztuki", dla którego ta zakładka w ogóle powstała. #}
+                            <ul class="unclaimed__orders">
+                                {% for k in p.lista_klientow %}
+                                <li>
+                                    <a href="{{ url_for('admin.client_detail', id=k.user.id) }}"
+                                       class="unclaimed__client-link">{{ k.user.full_name }}</a>
+                                    <span class="unclaimed__items">&times;{{ k.sztuk }} szt.</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="unclaimed__empty">Żaden towar nie czeka na odbiór.</p>
+        {% endif %}
+    </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/pages/admin/unclaimed.js') }}" defer></script>
+{% endblock %}
