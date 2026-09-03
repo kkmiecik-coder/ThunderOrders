@@ -2772,3 +2772,58 @@
     border-left-color: #f59e0b;
     color: #fcd34d;
 }
+
+/* Stawki dla całej paczki (nagłówek paczki) */
+.poland-package-rates {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 13px;
+    color: #374151;
+}
+
+.poland-package-rates-label {
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #6b7280;
+}
+
+.poland-package-rate {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.poland-package-rate-input {
+    width: 110px;
+    min-height: 44px;
+    text-align: right;
+}
+
+.poland-package-rate-unit { color: #6b7280; }
+
+.poland-package-rates .poland-rate-warning {
+    flex-basis: 100%;
+    margin-top: 0;
+}
+
+/* Stawka pokazana przy produkcie, gdy rządzą stawki paczki */
+.poland-rate-value {
+    min-width: 100px;
+    font-variant-numeric: tabular-nums;
+}
+
+[data-theme="dark"] .poland-package-rates {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: #374151;
+    color: #d1d5db;
+}
+
+[data-theme="dark"] .poland-package-rates-label,
+[data-theme="dark"] .poland-package-rate-unit { color: #9ca3af; }
