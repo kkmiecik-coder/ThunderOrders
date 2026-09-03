@@ -1,4 +1,5 @@
-/* Ekran „Nieodebrane" — zakładki, zaznaczanie klientów, wysyłka przypomnień. */
+/* Ekran „Zalegające" (dawniej „Nieodebrane" — patrz komentarz w unclaimed.css) —
+   zakładki, zaznaczanie klientów, wysyłka przypomnień. */
 (function () {
     'use strict';
 
@@ -47,6 +48,9 @@
             const wiersz = document.getElementById(btn.dataset.target);
             if (wiersz) {
                 wiersz.hidden = !wiersz.hidden;
+                // aria-expanded steruje też obrotem strzałki o 90° — sama reguła
+                // CSS jest w unclaimed.css (.unclaimed__expand[aria-expanded="true"]).
+                btn.setAttribute('aria-expanded', wiersz.hidden ? 'false' : 'true');
             }
         });
     });
