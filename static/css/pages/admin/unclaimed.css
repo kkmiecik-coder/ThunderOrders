@@ -1,4 +1,15 @@
-/* Lista nieodebranych zamówień (projekt 2026-09-02) */
+/* Ekran „Zalegające" (dawniej „Nieodebrane" — sama nazwa i wygląd zmienione w
+   fix/zalegajace-wyglad-i-nazwa, zachowanie bez zmian).
+
+   Kolory wyłącznie ze zmiennych motywu (static/css/core/variables.css) —
+   wcześniej ten plik miał zmyślone, twarde kolory (np. #1f2937, #c4b5fd),
+   przez co ekran wyglądał jak z innej aplikacji niż reszta panelu. Dzięki
+   zmiennym większość reguł działa w obu motywach bez osobnej sekcji
+   [data-theme="dark"] — została ona tylko tam, gdzie zmienne nie
+   wystarczają: przezroczyste podbarwienia tła liczone z konkretnego odcienia
+   koloru akcentu, który jest inny w każdym motywie (pomarańcz / róż), a
+   variables.css nie ma dla niego osobnej zmiennej "rgb-trójki" do użycia w
+   rgba(). */
 
 .unclaimed {
     padding: 24px;
@@ -6,12 +17,12 @@
 
 .unclaimed__title {
     margin: 0 0 8px;
-    color: #333333;
+    color: var(--text-primary);
 }
 
 .unclaimed__lead {
     margin: 0 0 20px;
-    color: #4b5563;
+    color: var(--text-secondary);
     font-size: 0.9rem;
 }
 
@@ -21,7 +32,7 @@
     display: flex;
     gap: 8px;
     margin-bottom: 20px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border-primary);
 }
 
 .unclaimed__tab {
@@ -30,14 +41,15 @@
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
-    color: #6b7280;
+    color: var(--text-secondary);
     font-size: 0.95rem;
+    font-family: inherit;
     cursor: pointer;
 }
 
 .unclaimed__tab.is-active {
-    color: #240046;
-    border-bottom-color: #240046;
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
     font-weight: 600;
 }
 
@@ -65,15 +77,21 @@
     gap: 8px;
     min-height: 44px;
     font-size: 0.9rem;
-    color: #4b5563;
+    color: var(--text-secondary);
 }
 
-/* ===== Tabela ===== */
+/* ===== Tabela: karta jak .table-container w orders-list.css (~linia 735) —
+   tło karty, zaokrąglenie, cień, przewijanie w poziomie na wąskich ekranach.
+   Klasa zostaje "table-wrap" (nie zmieniamy nazw unclaimed__*), zmienia się
+   tylko to, co ta klasa robi wizualnie. ===== */
 
 .unclaimed__table-wrap {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
     overflow-x: auto;
-    background: #ffffff;
-    border-radius: 8px;
+    -webkit-overflow-scrolling: touch;
 }
 
 .unclaimed__table {
@@ -84,101 +102,247 @@
 
 .unclaimed__table th,
 .unclaimed__table td {
-    padding: 12px;
+    padding: 12px 14px;
     text-align: left;
-    border-bottom: 1px solid #f3f4f6;
-    color: #212121;
+    border-bottom: 1px solid var(--border-primary);
+    color: var(--text-primary);
 }
 
+/* Nagłówki jak .orders-table th w orders-list.css (~linia 755): WERSALIKI,
+   letter-spacing, mniejszy stopień pisma, własne (subtelne) tło odróżniające
+   je od wierszy z danymi. */
 .unclaimed__table th {
-    color: #6b7280;
+    background: var(--bg-hover);
+    color: var(--text-tertiary);
     font-weight: 600;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
+.unclaimed__table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.unclaimed__table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Szerokości kolumn — bez nich kolumny rozjeżdżają się po całej szerokości
+   ekranu, zostawiając puste połacie (zgłoszenie właścicielki). Klient/produkt
+   zostaje elastyczny, reszta ma szerokość dobraną pod treść (wzorzec:
+   .orders-table th:nth-child(n) w orders-list.css — tu jako osobne klasy,
+   bo w tej samej tabeli #2 zakładka klientów i zakładka produktów mają różny
+   układ kolumn, więc nth-child by się zderzył). */
 .unclaimed__col-check {
     width: 44px;
 }
 
+.unclaimed__col-ile,
+.unclaimed__col-sztuk {
+    width: 110px;
+}
+
+.unclaimed__col-wiek {
+    width: 150px;
+}
+
+.unclaimed__col-przyp {
+    width: 170px;
+}
+
+.unclaimed__col-osob {
+    width: 100px;
+}
+
 /* Selektor ze znacznikiem "td", żeby specyficzność dorównała regule
-   ".unclaimed__table td" wyżej (12px) — inaczej ta reguła by wygrywała
-   mimo dalszej pozycji w pliku. Padding własny inputu (niżej) już daje
-   44px celu dotykowego, więc tu zerujemy padding komórki, żeby kolumna
+   ".unclaimed__table td" wyżej (ten sam 12px 14px) — inaczej ta reguła by
+   wygrywała mimo dalszej pozycji w pliku. Padding własny inputu (niżej) już
+   daje 44px celu dotykowego, więc tu zerujemy padding komórki, żeby kolumna
    nie robiła się szersza niż trzeba. */
 .unclaimed__table td.unclaimed__col-check {
     padding: 0;
     text-align: center;
 }
 
-/* Sam input bez etykiety obok (w tej kolumnie nie ma tekstu) — powiększamy klikalny
-   obszar przez padding wokół widocznego kwadratu 20x20, więc cel dotykowy to
-   pełne 44x44 (box-sizing: content-box, żeby padding doliczał się do rozmiaru,
-   a nie wcinał w widoczny kwadrat). To samo rozwiązanie co box-sizing w .unclaimed__expand,
-   inny sposób osiągnięcia 44px — tam etykiety nie ma, tu i tak nie pasowałaby do kolumny. */
+/* Sam input bez etykiety obok (w tej kolumnie nie ma tekstu) — powiększamy
+   klikalny obszar przez padding wokół widocznego kwadratu 20x20, więc cel
+   dotykowy to pełne 44x44 (box-sizing: content-box, żeby padding doliczał
+   się do rozmiaru, a nie wcinał w widoczny kwadrat). To samo rozwiązanie co
+   box-sizing w .unclaimed__expand, inny sposób osiągnięcia 44px. */
 .unclaimed__pick {
     display: block;
     width: 20px;
     height: 20px;
-    margin: 0;
+    margin: 0 auto;
     padding: 12px;
     box-sizing: content-box;
-    accent-color: #240046;
+    accent-color: var(--primary-color);
     cursor: pointer;
 }
 
-/* Wiersz produktu spoza katalogu (custom_name) — delikatne wyróżnienie tła,
-   spójne z etykietą "produkt własny" w tej samej komórce. */
+/* Wiersz produktu spoza katalogu (custom_name) — delikatne podbarwienie tła,
+   spójne z etykietą "produkt własny" w tej samej komórce. Przezroczysta
+   warstwa na --warning: ta zmienna ma tę samą wartość (#FFC107) w obu
+   motywach, więc jedna reguła bez [data-theme] wystarcza. */
 .unclaimed__row--custom {
-    background: #fef9c3;
+    background: rgba(255, 193, 7, 0.12);
 }
 
-/* Wygląda jak zwykły link, ale to <button> z akcją dotykową (rozwija listę
-   zamówień klienta) — dlatego mimo braku tła/ramki dostaje min-height: 44px
-   (konwencja repo dla elementów dotykowych, panel używany na telefonie).
-   box-sizing: border-box, żeby padding mieścił się w tych 44px zamiast je
-   powiększać, a inline-flex + align-items tylko centruje tekst w pionie —
-   przy zawijaniu długiego e-maila na 2 linie przycisk normalnie rośnie. */
-.unclaimed__expand {
-    display: inline-flex;
-    align-items: center;
-    box-sizing: border-box;
-    min-height: 44px;
-    background: none;
-    border: none;
-    padding: 8px 0;
-    color: #240046;
-    font-size: 0.9rem;
-    text-align: left;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-/* Karta klienta + adres, pod przyciskiem rozwijania (patrz komentarz w szablonie:
-   przycisk rozwijania musi zostać osobnym elementem, nie linkiem, więc link do
-   karty klienta i adres lądują pod nim, nie obok). Link ma własne 44px, żeby
-   był wygodny do dotknięcia mimo małego rozmiaru tekstu. */
-.unclaimed__client-meta {
+/* ===== Wiersz z przyciskiem rozwijania (klient i produkt) =====
+   Wspólny układ: mała strzałka obok treści, zamiast dawnych dwóch linków
+   jeden pod drugim (~110px wysoki wiersz). Strzałka jest osobnym przyciskiem
+   (button w a / a w button to nieprawidłowy HTML), więc nazwa klienta mogła
+   się przenieść na prawdziwy link do karty klienta bez utraty rozwijania. */
+.unclaimed__row-flex {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
-    font-size: 0.8rem;
+}
+
+/* Sama strzałka — dawniej tekstowy przycisk z nazwą klienta w środku, teraz
+   czysta ikona: kwadrat 44x44 (cel dotykowy), obraca się o 90° po rozwinięciu
+   (JS ustawia aria-expanded przy kliknięciu, patrz unclaimed.js). */
+.unclaimed__expand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-tertiary);
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.unclaimed__expand:hover {
+    background: var(--bg-hover);
+    color: var(--primary-color);
+}
+
+.unclaimed__expand-icon {
+    display: inline-block;
+    transition: transform 150ms ease;
+}
+
+.unclaimed__expand[aria-expanded="true"] .unclaimed__expand-icon {
+    transform: rotate(90deg);
+}
+
+/* ===== Klient: nazwisko + e-mail jeden pod drugim (zamiast dwóch linków
+   obok siebie) — stąd wiersz o połowę niższy niż wcześniej. Kontener ma
+   min-height: 44px, żeby cel dotykowy linku z nazwiskiem nie zależał tylko
+   od wysokości linii tekstu. ===== */
+
+.unclaimed__client-meta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 44px;
 }
 
 .unclaimed__client-link {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    color: #240046;
+    color: var(--text-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.unclaimed__client-link:hover {
+    color: var(--primary-color);
     text-decoration: underline;
 }
 
 .unclaimed__client-email {
-    color: #6b7280;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
 }
 
-.unclaimed__age--approx,
-.unclaimed__age--unknown {
-    color: #92400e;
+.unclaimed__produkt-nazwa {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--text-primary);
+}
+
+/* ===== Liczba zaległych / sztuk jako plakietka ===== */
+
+.unclaimed__ile {
+    display: inline-block;
+    min-width: 28px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* Próg (PROG_DUZO_ZALEGLYCH w szablonie) dobrany na podstawie zaakceptowanej
+   makiety: tam wyróżnione tłem są 8, 10 i 11, reszta (5 i mniej) zostaje w
+   zwykłej plakietce — czyli wyróżniamy tylko górny "ogon" rozkładu, żeby
+   właścicielka od razu widziała, kto ma NAJWIĘCEJ, a nie każdego, kto ma
+   cokolwiek. Tło to przezroczysta warstwa na --primary-color; ponieważ ten
+   kolor jest inny w każdym motywie (pomarańcz w jasnym, róż w ciemnym),
+   wartość niżej jest dobrana pod jasny motyw (domyślny), a [data-theme="dark"]
+   niżej nadpisuje ją odpowiednikiem dla ciemnego. */
+.unclaimed__ile--duzo {
+    background: rgba(255, 133, 0, 0.14);
+    color: var(--primary-color);
+}
+
+/* ===== Wiek: kolor dopiero tam, gdzie coś znaczy =====
+   Progi (patrz też WIEK_OSTRZEZENIE / WIEK_MOCNY w szablonie): do 30 dni —
+   zwykły kolor tekstu, 31-90 dni — ostrzegawczy, powyżej 90 — mocny i
+   pogrubiony. Bez progów KAŻDA wartość wieku wyglądała identycznie
+   (zgłoszenie właścicielki — na jej zrzucie 49 wierszy świeciło tym samym
+   kolorem), więc kolor przestał cokolwiek komunikować.
+
+   Tylda „~" (przybliżoność — data z dziennika zmian, nie z samego
+   zamówienia) to CELOWO osobna informacja i dostaje własny, przygaszony
+   znak (.unclaimed__znak) zamiast dzielić kolor z wiekiem — inaczej
+   zgubilibyśmy rozróżnienie "jak długo leży" / "czy to dokładna liczba". */
+.unclaimed__age {
+    font-variant-numeric: tabular-nums;
+}
+
+.unclaimed__age--srednio {
+    color: var(--warning);
+}
+
+.unclaimed__age--dlugo {
+    color: var(--primary-hover);
+    font-weight: 600;
+}
+
+.unclaimed__znak {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    margin-left: 3px;
+    cursor: help;
+}
+
+.unclaimed__pusto {
+    color: var(--text-tertiary);
+}
+
+.unclaimed__legenda {
+    margin-top: 14px;
+    color: var(--text-tertiary);
+    font-size: 0.82rem;
+}
+
+.unclaimed__legenda code {
+    background: var(--bg-hover);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
 }
 
 .unclaimed__orders {
@@ -187,7 +351,7 @@
 }
 
 .unclaimed__items {
-    color: #6b7280;
+    color: var(--text-tertiary);
     font-size: 0.85rem;
 }
 
@@ -196,85 +360,23 @@
     margin-left: 8px;
     padding: 2px 8px;
     border-radius: 999px;
-    background: #f3f4f6;
-    color: #6b7280;
+    background: var(--bg-hover);
+    color: var(--text-tertiary);
     font-size: 0.75rem;
 }
 
 .unclaimed__empty {
     padding: 32px;
     text-align: center;
-    color: #6b7280;
+    color: var(--text-tertiary);
 }
 
-/* ===== Ciemny motyw ===== */
+/* ===== Ciemny motyw: tylko to, czego zmienne nie pokrywają (patrz komentarz
+   na górze pliku) — przezroczyste podbarwienia liczone z konkretnego odcienia
+   akcentu, różnego w każdym motywie. Wszystko inne (tekst, tła kart,
+   obramowania, hover, tabela) idzie ze zmiennych i nie potrzebuje tu żadnej
+   reguły. ===== */
 
-[data-theme="dark"] .unclaimed__title {
-    color: #f3f4f6;
-}
-
-[data-theme="dark"] .unclaimed__lead,
-[data-theme="dark"] .unclaimed__checkbox,
-[data-theme="dark"] .unclaimed__table th,
-[data-theme="dark"] .unclaimed__items,
-[data-theme="dark"] .unclaimed__empty {
-    color: #9ca3af;
-}
-
-[data-theme="dark"] .unclaimed__tabs {
-    border-bottom-color: #374151;
-}
-
-[data-theme="dark"] .unclaimed__tab {
-    color: #9ca3af;
-}
-
-[data-theme="dark"] .unclaimed__tab.is-active {
-    color: #c4b5fd;
-    border-bottom-color: #c4b5fd;
-}
-
-[data-theme="dark"] .unclaimed__table-wrap {
-    background: #1f2937;
-}
-
-/* border-bottom dotyczy th i td razem (jasna reguła bazowa też jest wspólna
-   dla obu) — inaczej dolna krawędź wiersza nagłówka zostaje jasna na ciemnym tle */
-[data-theme="dark"] .unclaimed__table th,
-[data-theme="dark"] .unclaimed__table td {
-    border-bottom-color: #374151;
-}
-
-[data-theme="dark"] .unclaimed__table td {
-    color: #e5e7eb;
-}
-
-[data-theme="dark"] .unclaimed__expand {
-    color: #c4b5fd;
-}
-
-[data-theme="dark"] .unclaimed__client-link {
-    color: #c4b5fd;
-}
-
-[data-theme="dark"] .unclaimed__client-email {
-    color: #9ca3af;
-}
-
-[data-theme="dark"] .unclaimed__pick {
-    accent-color: #c4b5fd;
-}
-
-[data-theme="dark"] .unclaimed__age--approx,
-[data-theme="dark"] .unclaimed__age--unknown {
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .unclaimed__badge {
-    background: #374151;
-    color: #9ca3af;
-}
-
-[data-theme="dark"] .unclaimed__row--custom {
-    background: #422006;
+[data-theme="dark"] .unclaimed__ile--duzo {
+    background: rgba(240, 147, 251, 0.18);
 }

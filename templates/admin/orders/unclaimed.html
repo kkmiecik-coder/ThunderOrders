@@ -1,14 +1,21 @@
 {% extends "admin/base_admin.html" %}
 
-{% block title %}Nieodebrane - ThunderOrders{% endblock %}
+{% block title %}Zalegające - ThunderOrders{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/unclaimed.css') }}">
 {% endblock %}
 
 {% block content %}
+{# Progi w jednym miejscu, żeby CSS/legenda pod tabelą i logika kolorowania
+   trzymały się tej samej liczby — patrz uzasadnienie przy klasach
+   .unclaimed__age--* i .unclaimed__ile--duzo w unclaimed.css. #}
+{% set WIEK_OSTRZEZENIE = 30 %}
+{% set WIEK_MOCNY = 90 %}
+{% set PROG_DUZO_ZALEGLYCH = 8 %}
+
 <div class="unclaimed">
-    <h1 class="unclaimed__title">Nieodebrane</h1>
+    <h1 class="unclaimed__title">Zalegające</h1>
     <p class="unclaimed__lead">
         Zamówienia gotowe do wysyłki, do których klient nie zamówił jeszcze przesyłki.
     </p>
@@ -44,9 +51,9 @@
                     <tr>
                         <th class="unclaimed__col-check"></th>
                         <th>Klient</th>
-                        <th>Zaległych</th>
-                        <th>Najstarsze leży</th>
-                        <th>Ostatnie przypomnienie</th>
+                        <th class="unclaimed__col-ile">Zaległych</th>
+                        <th class="unclaimed__col-wiek">Najstarsze leży</th>
+                        <th class="unclaimed__col-przyp">Ostatnie przypomnienie</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -58,46 +65,61 @@
                                    data-ostatnie="{{ wpis.ostatnie_przypomnienie.isoformat() if wpis.ostatnie_przypomnienie else '' }}">
                         </td>
                         <td>
-                            {# Konwencja panelu (list.html): nazwa klienta + link do karty, adres
-                               tylko jako informacja dodatkowa — właścicielka rozpoznaje ludzi po
-                               nazwisku/nicku, nie po adresie, a z surowego e-maila nie było jak
-                               wejść na kartę klienta. Nazwa zostaje na `.unclaimed__expand`, bo to
-                               ten sam przycisk co dotąd rozwija/zwija listę zamówień tego klienta —
-                               nie może być zagnieżdżonym linkiem (button w a / a w button to
-                               nieprawidłowy HTML), stąd link do karty jest osobnym elementem obok. #}
-                            <button type="button" class="unclaimed__expand" data-target="klient-{{ wpis.user.id }}">
-                                {{ wpis.user.full_name }}
-                            </button>
-                            <div class="unclaimed__client-meta">
-                                <a href="{{ url_for('admin.client_detail', id=wpis.user.id) }}"
-                                   class="unclaimed__client-link">karta klienta</a>
-                                <span class="unclaimed__client-email">{{ wpis.user.email }}</span>
+                            {# Strzałka rozwija/zwija listę zamówień tego klienta (osobny <button>,
+                               bo button w a / a w button to nieprawidłowy HTML). Nazwisko jest
+                               teraz prawdziwym linkiem do karty klienta — e-mail pod spodem, samym
+                               drobnym drukiem, już bez linku (przed zmianą to były dwa linki jeden
+                               pod drugim, stąd dwukrotnie wyższy wiersz niż dziś). #}
+                            <div class="unclaimed__row-flex">
+                                <button type="button" class="unclaimed__expand" data-target="klient-{{ wpis.user.id }}"
+                                        aria-expanded="false" aria-label="Pokaż zamówienia — {{ wpis.user.full_name }}">
+                                    <span class="unclaimed__expand-icon" aria-hidden="true">&#9656;</span>
+                                </button>
+                                <span class="unclaimed__client-meta">
+                                    <a href="{{ url_for('admin.client_detail', id=wpis.user.id) }}"
+                                       class="unclaimed__client-link">{{ wpis.user.full_name }}</a>
+                                    <span class="unclaimed__client-email">{{ wpis.user.email }}</span>
+                                </span>
                             </div>
                         </td>
-                        <td>{{ wpis.zamowienia|length }}</td>
-                        <td>
+                        <td class="unclaimed__col-ile">
+                            <span class="unclaimed__ile{% if wpis.zamowienia|length >= PROG_DUZO_ZALEGLYCH %} unclaimed__ile--duzo{% endif %}">
+                                {{ wpis.zamowienia|length }}
+                            </span>
+                        </td>
+                        <td class="unclaimed__col-wiek">
                             {% if wpis.dni is none %}
-                                <span class="unclaimed__age unclaimed__age--unknown" title="Brak śladu po zmianie statusu">~ b.d.</span>
-                            {% elif wpis.ma_nieznany_wiek %}
-                                {# Klient ma i zamówienie ze znanym wiekiem, i takie bez daty — pokazujemy znany
-                                   wiek jako dolną granicę ("+?"), żeby nie sugerować, że to CAŁA zaległość.
-                                   Realny wiek może być większy — patrz sortowanie (klucz w unclaimed_service.py). #}
-                                <span class="unclaimed__age unclaimed__age--unknown"
-                                      title="Najstarsze znane zamówienie leży {{ wpis.dni }} dni, ale część zamówień tego klienta nie ma śladu po zmianie statusu — realny wiek może być większy">
-                                    {% if not wpis.dokladne %}~{% endif %}{{ wpis.dni }} dni +?
-                                </span>
+                                <span class="unclaimed__pusto" title="Brak śladu po zmianie statusu">b.d.</span>
                             {% else %}
-                                <span class="unclaimed__age{% if not wpis.dokladne %} unclaimed__age--approx{% endif %}"
-                                      {% if not wpis.dokladne %}title="Data z dziennika zmian — wartość przybliżona"{% endif %}>
-                                    {% if not wpis.dokladne %}~{% endif %}{{ wpis.dni }} dni
-                                </span>
+                                {% if wpis.dni > WIEK_MOCNY %}
+                                    {% set wiek_klasa = ' unclaimed__age--dlugo' %}
+                                {% elif wpis.dni > WIEK_OSTRZEZENIE %}
+                                    {% set wiek_klasa = ' unclaimed__age--srednio' %}
+                                {% else %}
+                                    {% set wiek_klasa = '' %}
+                                {% endif %}
+                                <span class="unclaimed__age{{ wiek_klasa }}">{{ wpis.dni }} dni</span>
+                                {% if not wpis.dokladne or wpis.ma_nieznany_wiek %}
+                                {# Ten sam znak nosi jedną lub obie informacje naraz: „~" (wartość
+                                   przybliżona, z dziennika zmian) i/lub „+?" (klient ma jeszcze
+                                   zaległości, których nie dało się wydatować — realny wiek może być
+                                   większy). Osobny od liczby, bo dawniej dopisane wprost do liczby
+                                   ("~56 dni", "128 dni +?") myliły się z kolorem wieku — teraz kolor
+                                   mówi wyłącznie "jak długo to leży", a ten znak — o dokładności. #}
+                                <span class="unclaimed__znak"
+                                      {% if wpis.ma_nieznany_wiek %}
+                                      title="Najstarsze znane zamówienie leży {{ wpis.dni }} dni, ale część zamówień tego klienta nie ma śladu po zmianie statusu — realny wiek może być większy"
+                                      {% else %}
+                                      title="Data z dziennika zmian — wartość przybliżona"
+                                      {% endif %}>{% if not wpis.dokladne %}~{% endif %}{% if wpis.ma_nieznany_wiek %}{% if not wpis.dokladne %} {% endif %}+?{% endif %}</span>
+                                {% endif %}
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="unclaimed__col-przyp">
                             {% if wpis.ostatnie_przypomnienie %}
                                 {{ wpis.ostatnie_przypomnienie.strftime('%d.%m.%Y') }}
                             {% else %}
-                                &mdash;
+                                <span class="unclaimed__pusto">&mdash;</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -119,6 +141,12 @@
                 </tbody>
             </table>
         </div>
+
+        <p class="unclaimed__legenda">
+            <code>~</code> liczba przybliżona (z dziennika zmian) &middot;
+            <code>+?</code> ten klient ma jeszcze zaległości, których nie da się wydatować &middot;
+            kolor pojawia się dopiero powyżej {{ WIEK_OSTRZEZENIE }} dni, mocniejszy powyżej {{ WIEK_MOCNY }}
+        </p>
         {% else %}
         <p class="unclaimed__empty">Nikt nie zalega — wszystko odebrane. 🎉</p>
         {% endif %}
@@ -133,8 +161,8 @@
                 <thead>
                     <tr>
                         <th>Produkt</th>
-                        <th>Sztuk</th>
-                        <th>Osób</th>
+                        <th class="unclaimed__col-sztuk">Sztuk</th>
+                        <th class="unclaimed__col-osob">Osób</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -146,13 +174,20 @@
                     {% for p in produkty %}
                     <tr{% if p.wlasny %} class="unclaimed__row--custom"{% endif %}>
                         <td>
-                            <button type="button" class="unclaimed__expand" data-target="produkt-{{ loop.index0 }}">
-                                {{ p.nazwa }}
-                            </button>
-                            {% if p.wlasny %}<span class="unclaimed__badge">produkt własny</span>{% endif %}
+                            {# Ta sama warstwa wizualna co rozwijanie klienta (strzałka + treść) —
+                               produkt nie ma własnej karty, więc nazwa zostaje zwykłym tekstem, nie
+                               linkiem, ale wiersz i przycisk wyglądają spójnie z zakładką klientów. #}
+                            <div class="unclaimed__row-flex">
+                                <button type="button" class="unclaimed__expand" data-target="produkt-{{ loop.index0 }}"
+                                        aria-expanded="false" aria-label="Pokaż klientów — {{ p.nazwa }}">
+                                    <span class="unclaimed__expand-icon" aria-hidden="true">&#9656;</span>
+                                </button>
+                                <span class="unclaimed__produkt-nazwa">{{ p.nazwa }}</span>
+                                {% if p.wlasny %}<span class="unclaimed__badge">produkt własny</span>{% endif %}
+                            </div>
                         </td>
-                        <td>{{ p.sztuk }} szt.</td>
-                        <td>{{ p.klientow }}</td>
+                        <td class="unclaimed__col-sztuk"><span class="unclaimed__ile">{{ p.sztuk }} szt.</span></td>
+                        <td class="unclaimed__col-osob">{{ p.klientow }}</td>
                     </tr>
                     <tr class="unclaimed__details" id="produkt-{{ loop.index0 }}" hidden>
                         <td colspan="3">

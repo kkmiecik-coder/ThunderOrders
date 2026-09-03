@@ -760,6 +760,20 @@ def test_ekran_bez_zaleglosci_nie_wywala_sie(app, client, db, make_user, login):
     assert r.status_code == 200
 
 
+def test_ekran_nazywa_sie_zalegajace_nie_nieodebrane(app, client, db, make_user, login):
+    """Zmiana nazwy widocznej dla właścicielki (fix/zalegajace-wyglad-i-nazwa) —
+    adres/endpoint zostają „nieodebrane", ale to, co ona czyta na ekranie, ma
+    mówić „Zalegające"."""
+    login(make_user(role='admin', email='admin@example.com'))
+
+    r = client.get('/admin/orders/nieodebrane')
+
+    assert r.status_code == 200
+    tresc = r.get_data(as_text=True)
+    assert '<h1 class="unclaimed__title">Zalegające</h1>' in tresc
+    assert '<title>Zalegające - ThunderOrders</title>' in tresc
+
+
 def test_ekran_produktu_renderuje_nazwiska_klientow(app, client, db, make_user,
                                                       make_order, make_product, login):
     """Zakładka „Wg produktów" ma faktycznie odpowiadać „kto ma te sztuki" — nie
