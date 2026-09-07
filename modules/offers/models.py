@@ -714,6 +714,10 @@ class OfferReservation(db.Model):
     # Unique constraint - session can reserve same product on different pages
     __table_args__ = (
         db.UniqueConstraint('session_id', 'offer_page_id', 'product_id', name='unique_session_page_product'),
+        # Lazy cleanup kasuje po (offer_page_id, expires_at). Bez indeksu złożonego
+        # InnoDB blokuje wygasłe rezerwacje ze WSZYSTKICH stron naraz, więc równoległe
+        # sprzątanie przy starcie oferty wpadało w deadlocki.
+        db.Index('ix_offer_reservations_page_expires', 'offer_page_id', 'expires_at'),
     )
 
     def __repr__(self):
