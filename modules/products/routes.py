@@ -4929,7 +4929,7 @@ def search_variant_groups():
         results.append({
             'id': group.id,
             'name': group.name,
-            'product_count': len(group.products.all())
+            'product_count': len(group.products)
         })
 
     return jsonify({'groups': results})
@@ -4948,7 +4948,7 @@ def get_variant_group(group_id):
 
     # Get all products in this group
     products = []
-    for product in group.products.all():
+    for product in group.products:
         primary_image = product.primary_image
         image_url = f"/static/{primary_image.path_compressed}" if primary_image else "/static/img/product-placeholder.svg"
 
