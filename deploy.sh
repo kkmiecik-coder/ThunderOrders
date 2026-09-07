@@ -56,25 +56,44 @@ pip install -r requirements.txt --quiet 2>&1
 echo "$LOG_PREFIX Running migrations..."
 flask db upgrade 2>&1
 
-echo "$LOG_PREFIX Restarting application..."
+echo "$LOG_PREFIX Reloading application..."
 # Architektura rozdzielona (2026-06-04): HTTP (gthread) + WS (eventlet/Socket.IO).
-# Stara monolityczna usługa `thunderorders` jest martwa (disabled) — NIE restartować jej tutaj,
+# Stara monolityczna usługa `thunderorders` jest martwa (disabled) — NIE ruszać jej tutaj,
 # bo failuje z "Connection in use: 8000" i nie przeładowuje żywych procesów.
-# UWAGA: dwie osobne komendy, bo reguła sudoers NOPASSWD dopasowuje dokładne wywołanie
-# per usługa (`systemctl restart thunderorders-http` i `...-ws` osobno).
+# UWAGA: osobne komendy per usługa, bo reguła sudoers NOPASSWD dopasowuje dokładne wywołanie.
 #
-# Zwolnij lock PRZED restartem: ten skrypt biegnie w cgroupie usługi thunderorders-http
-# (webhook obsługiwany przez tę samą usługę), więc restart ubija deploy.sh (SIGTERM,
-# "Terminated") zanim trap EXIT zdąży usunąć lock. Bez tego lock zostaje osierocony i
-# blokuje WSZYSTKIE kolejne deploye ("Already deploying, skipping"). Usuwamy go tutaj,
-# żeby kolejny push wszedł nawet gdy ten proces nie dożyje do trap-a.
+# RELOAD, NIE RESTART. `systemctl restart` zatrzymywał gunicorna do końca i dopiero potem
+# startował — przez te ~2-4 s gniazdo 127.0.0.1:8000 nie istniało, nginx dostawał
+# ECONNREFUSED i oddawał klientom 502 (2026-09-02: 125 sztuk, głównie na
+# /client/api/offer-pages). `reload` wysyła HUP do mastera (ExecReload w .service):
+# master i gniazdo nasłuchujące zostają, wymieniane są tylko workery — nginx nie ma
+# ani chwili bez upstreamu. Zweryfikowane 2026-09-07: MainPID identyczny przed i po.
+#
+# Fallback na restart jest ŚWIADOMY: gdyby reload kiedykolwiek nie przeszedł (brak reguły
+# sudoers po zmianie kont, usługa nie stoi, zmiana w samym gunicorn_*.py której HUP nie
+# podnosi), lepiej wdrożyć z krótkim 502 niż zostawić produkcję na starym kodzie i meldować
+# przy tym sukces — na tym już raz się przejechaliśmy.
+#
+# Zwolnij lock PRZED przeładowaniem: skrypt biegnie w cgroupie usługi thunderorders-http
+# (webhook obsługuje ta sama usługa). Reload go nie ubija, ale awaryjny restart owszem
+# (SIGTERM, "Terminated") — zanim trap EXIT zdąży usunąć lock. Bez tego lock zostaje
+# osierocony i blokuje WSZYSTKIE kolejne deploye ("Already deploying, skipping").
 rm -f "$LOCK_FILE"
-# KOLEJNOŚĆ KRYTYCZNA: najpierw -ws, potem -http. Ten skrypt biegnie w cgroupie
-# thunderorders-http, więc restart -http ubija go natychmiast (SIGTERM) — linia
-# wykonana PO restarcie -http nigdy się nie wykona. Przy starej kolejności -ws
-# nie był restartowany NIGDY (potwierdzone 2026-06-12: ws działał na kodzie
+# KOLEJNOŚĆ: najpierw -ws, potem -http — istotna dla ścieżki awaryjnej. Restart -http
+# ubija ten skrypt natychmiast, więc linia po nim nigdy by się nie wykonała. Przy starej
+# kolejności -ws nie był restartowany NIGDY (potwierdzone 2026-06-12: ws działał na kodzie
 # sprzed 10h mimo deployu) i procesy serwowały rozjechane wersje kodu.
-sudo systemctl restart thunderorders-ws 2>&1
-sudo systemctl restart thunderorders-http 2>&1
+przeladuj() {
+    local usluga="$1"
+    if sudo systemctl reload "$usluga" 2>&1; then
+        echo "$LOG_PREFIX $usluga przeładowana łagodnie (bez przerwy w obsłudze)"
+    else
+        echo "$LOG_PREFIX UWAGA: reload $usluga nie przeszedł — awaryjny restart (możliwe krótkie 502)"
+        sudo systemctl restart "$usluga" 2>&1
+    fi
+}
+przeladuj thunderorders-ws
+przeladuj thunderorders-http
 
+# Reload nie ubija tego skryptu, więc w odróżnieniu od restartu ta linia naprawdę się wykona.
 echo "$LOG_PREFIX Deploy complete!"
