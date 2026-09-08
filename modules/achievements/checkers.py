@@ -215,6 +215,7 @@ METRIC_EVALUATORS = {
     'time_since_page_visit': _time_since_page_visit,
     'exclusive_orders': _offer_orders,  # backward compat alias
     'offer_orders': _offer_orders,
+    'distinct_exclusive_pages': _distinct_offer_pages,  # backward compat alias
     'distinct_offer_pages': _distinct_offer_pages,
     'profile_completed': _profile_completed,
     'email_verified': _email_verified,
