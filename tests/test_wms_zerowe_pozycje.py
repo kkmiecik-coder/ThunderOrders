@@ -60,3 +60,86 @@ def test_shippable_items_puste_gdy_same_zera(db, make_user, make_order):
 
     db.session.expire_all()
     assert order.shippable_items == []
+
+
+def _zlecenie(db, make_user, make_order, ile_zamowien=1, status='czeka_na_wycene'):
+    """Zlecenie wysyłki widoczne na /admin/orders/wms (nie zbiorcze, nie anulowane)."""
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+
+    user = make_user()
+    sr = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=user.id,
+        status=status,
+    )
+    db.session.add(sr)
+    db.session.flush()
+
+    zamowienia = []
+    for _ in range(ile_zamowien):
+        o = make_order(user=user)
+        db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=o.id))
+        zamowienia.append(o)
+    db.session.commit()
+    return sr, zamowienia
+
+
+def _zaloguj_admina(login, make_user):
+    login(make_user(role='admin', email='admin-wms@example.com'))
+
+
+def test_karta_wms_nie_pokazuje_wyzerowanej_pozycji(
+        db, client, login, make_user, make_order):
+    sr, (order,) = _zlecenie(db, make_user, make_order)
+    _pozycja(db, order, 'Mingi zywy', 1)
+    _pozycja(db, order, 'Yunho wyzerowany', 0, is_set_fulfilled=False)
+    _zaloguj_admina(login, make_user)
+
+    html = client.get('/admin/orders/wms').get_data(as_text=True)
+
+    assert 'Mingi zywy' in html
+    assert 'Yunho wyzerowany' not in html
+
+
+def test_karta_wms_licznik_liczy_tylko_zywe_pozycje(
+        db, client, login, make_user, make_order):
+    """Dwa wiersze, jeden zerowy → karta ma mowic „1 produkt", nie „2 produkty"."""
+    sr, (order,) = _zlecenie(db, make_user, make_order)
+    _pozycja(db, order, 'Mingi zywy', 1)
+    _pozycja(db, order, 'Yunho wyzerowany', 0, is_set_fulfilled=False)
+    _zaloguj_admina(login, make_user)
+
+    html = client.get('/admin/orders/wms').get_data(as_text=True)
+
+    assert '1 produkt<' in html
+    assert '2 produkty' not in html
+
+
+def test_zamowienie_z_samymi_zerami_znika_z_karty(
+        db, client, login, make_user, make_order):
+    sr, (zywe, martwe) = _zlecenie(db, make_user, make_order, ile_zamowien=2)
+    _pozycja(db, zywe, 'Towar', 1)
+    _pozycja(db, martwe, 'Nic nie weszlo', 0, is_set_fulfilled=False)
+    _zaloguj_admina(login, make_user)
+
+    html = client.get('/admin/orders/wms').get_data(as_text=True)
+
+    assert zywe.order_number in html
+    assert martwe.order_number not in html
+
+
+def test_licznik_pokaz_wiecej_pomija_ukryte_zamowienia(
+        db, client, login, make_user, make_order):
+    """6 zamowien, 2 z samymi zerami → widocznych 4, wiec ukryte jest 1."""
+    sr, zamowienia = _zlecenie(db, make_user, make_order, ile_zamowien=6)
+    for i, o in enumerate(zamowienia):
+        if i < 2:
+            _pozycja(db, o, f'Nic nie weszlo {i}', 0, is_set_fulfilled=False)
+        else:
+            _pozycja(db, o, f'Towar {i}', 1)
+    _zaloguj_admina(login, make_user)
+
+    html = client.get('/admin/orders/wms').get_data(as_text=True)
+
+    assert 'data-hidden-count="1"' in html
+    assert 'Pokaż więcej (1)' in html
