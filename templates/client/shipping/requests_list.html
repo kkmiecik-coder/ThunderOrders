@@ -47,21 +47,24 @@
                 <div class="card-row card-row-orders">
                     <span class="row-label">Zamówienia</span>
                     <div class="card-orders-list">
-                        {% for order in req.display_orders %}
+                        {# Zamówienia, z których nic nie jedzie (same wyzerowane pozycje),
+                           nie pokazują się wcale — patrz Order.shippable_items. #}
+                        {% for order in req.display_orders if not order.is_fully_unfulfilled %}
                         <div class="card-order-block">
                             <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-badge">
                                 {{ order.order_number }}
                             </a>
                             <div class="card-order-products">
-                                {% for item in order.items[:2] %}
+                                {% set pozycje = order.shippable_items %}
+                                {% for item in pozycje[:2] %}
                                 <div class="card-product-item">
                                     <span class="card-product-qty">{{ item.quantity }}x</span>
                                     <span class="card-product-name">{{ item.product_name }}{% if item.selected_size %} <span class="card-size-badge">{{ item.selected_size }}</span>{% endif %}</span>
                                 </div>
                                 {% endfor %}
-                                {% if order.items|length > 2 %}
+                                {% if pozycje|length > 2 %}
                                 <div class="card-order-products-hidden" style="display: none;">
-                                    {% for item in order.items[2:] %}
+                                    {% for item in pozycje[2:] %}
                                     <div class="card-product-item">
                                         <span class="card-product-qty">{{ item.quantity }}x</span>
                                         <span class="card-product-name">{{ item.product_name }}{% if item.selected_size %} <span class="card-size-badge">{{ item.selected_size }}</span>{% endif %}</span>
@@ -69,7 +72,7 @@
                                     {% endfor %}
                                 </div>
                                 <button type="button" class="card-order-products-toggle" onclick="toggleOrderProducts(this);">
-                                    +{{ order.items|length - 2 }} więcej...
+                                    +{{ pozycje|length - 2 }} więcej...
                                 </button>
                                 {% endif %}
                             </div>

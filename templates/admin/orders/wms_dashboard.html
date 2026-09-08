@@ -303,6 +303,12 @@
                                    stąd wspólny licznik namespace zamiast loop.index z zagnieżdżonej pętli. #}
                                 {% set ns = namespace(i=0) %}
                                 {% for uczestnik in sr.consolidation_participants %}
+                                {# Zamówienia z samymi wyzerowanymi pozycjami są niewidoczne, więc
+                                   uczestnik, któremu nic nie zostało, nie dostaje pustego nagłówka.
+                                   Filtr liczony raz do zmiennej — ns.i i licznik „Pokaż więcej"
+                                   muszą widzieć dokładnie tę samą listę, co pętla niżej. #}
+                                {% set widoczne_zamowienia = uczestnik.orders|rejectattr('is_fully_unfulfilled')|list %}
+                                {% if widoczne_zamowienia %}
                                 {% set grupa_od = ns.i %}
                                 <div class="sr-order-group{% if grupa_od >= 3 %} sr-order-extra{% endif %}"{% if grupa_od >= 3 %} style="display: none;"{% endif %}>
                                     <div class="sr-order-group-head">
@@ -328,9 +334,9 @@
                                         <span class="sr-lead-mark">adresat</span>
                                         {% endif %}
                                     </div>
-                                    {% for order in uczestnik.orders %}
+                                    {% for order in widoczne_zamowienia %}
                                     {% set ns.i = ns.i + 1 %}
-                                    {% set n = order.items|length %}
+                                    {% set n = order.shippable_items|length %}
                                     <div class="sr-order-compact{% if ns.i > 3 and grupa_od < 3 %} sr-order-extra{% endif %}"{% if ns.i > 3 and grupa_od < 3 %} style="display: none;"{% endif %}>
                                         <svg class="sr-order-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
                                         <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
@@ -338,7 +344,7 @@
                                         {% if n > 0 %}
                                         <button type="button" class="sr-order-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">Pokaż</button>
                                         <div class="order-products-hidden" style="display: none;">
-                                            {% for item in order.items %}
+                                            {% for item in order.shippable_items %}
                                             <div class="order-product-item">
                                                 <span class="product-qty">{{ item.quantity }}x</span>
                                                 <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
@@ -349,6 +355,7 @@
                                     </div>
                                     {% endfor %}
                                 </div>
+                                {% endif %}
                                 {% endfor %}
                                 {% if ns.i > 3 %}
                                 {# data-hidden-count: prawdziwa liczba ukrytych ZAMÓWIEŃ, nie elementów .sr-order-extra —
@@ -367,8 +374,11 @@
                                 </div>
                                 {% endif %}
                                 {% else %}
-                                {% for order in sr.orders %}
-                                {% set n = order.items|length %}
+                                {# Filtr liczony raz: pętla i licznik „Pokaż więcej" muszą widzieć
+                                   tę samą listę, inaczej przycisk obiecuje więcej, niż da się rozwinąć. #}
+                                {% set widoczne_zamowienia = sr.orders|rejectattr('is_fully_unfulfilled')|list %}
+                                {% for order in widoczne_zamowienia %}
+                                {% set n = order.shippable_items|length %}
                                 <div class="sr-order-compact{% if loop.index > 3 %} sr-order-extra{% endif %}"{% if loop.index > 3 %} style="display: none;"{% endif %}>
                                     <svg class="sr-order-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
                                     <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
@@ -376,7 +386,7 @@
                                     {% if n > 0 %}
                                     <button type="button" class="sr-order-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">Pokaż</button>
                                     <div class="order-products-hidden" style="display: none;">
-                                        {% for item in order.items %}
+                                        {% for item in order.shippable_items %}
                                         <div class="order-product-item">
                                             <span class="product-qty">{{ item.quantity }}x</span>
                                             <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
@@ -386,10 +396,10 @@
                                     {% endif %}
                                 </div>
                                 {% endfor %}
-                                {% if sr.orders|length > 3 %}
+                                {% if widoczne_zamowienia|length > 3 %}
                                 {# Bez konsolidacji element = zamówienie 1:1, ale ten sam atrybut co w gałęzi
                                    zbiorczej — JS czyta go jednolicie, niezależnie od trybu karty. #}
-                                <button type="button" class="sr-orders-toggle" data-expanded="false" data-hidden-count="{{ sr.orders|length - 3 }}" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ sr.orders|length - 3 }})</button>
+                                <button type="button" class="sr-orders-toggle" data-expanded="false" data-hidden-count="{{ widoczne_zamowienia|length - 3 }}" onclick="event.stopPropagation(); toggleExtraOrders(this);">Pokaż więcej ({{ widoczne_zamowienia|length - 3 }})</button>
                                 {% endif %}
                                 {% endif %}
                             </div>

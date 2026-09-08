@@ -624,6 +624,42 @@ class Order(db.Model):
         return sorted(self.items, key=sort_key)
 
     @property
+    def shippable_items(self):
+        """Pozycje, które realnie jadą — bez wyzerowanych przy domykaniu oferty.
+
+        Domykanie strony sprzedaży nie kasuje produktu, który nie zmieścił się
+        w komplecie: zeruje mu ilość, cenę i total, zostawiając wiersz jako ślad
+        (utils/offer_closure.py:190 i :237). Ten sam mechanizm zeruje gratisy
+        w zamówieniach, którym nic nie weszło (utils/offer_closure.py:470).
+        Dla klienta ten ślad jest potrzebny — w szczegółach zamówienia widzi,
+        co zamawiał i co przepadło — ale magazynowi mówi o towarze, którego nie
+        ma czego zdjąć z półki.
+
+        Filtrujemy po samej ilości, a nie po `is_set_fulfilled`: jeśli sztuk
+        jest zero, nie ma czego pakować, niezależnie od tego, skąd to zero się
+        wzięło. Kolejność bierzemy z `sorted_items`, żeby zamówienie bez zer
+        wyglądało dokładnie tak jak dotąd.
+
+        Ten sam wzorzec co `ShippingRequest.active_orders`: filtrujemy widok,
+        danych w bazie nie ruszamy.
+        """
+        return [item for item in self.sorted_items if item.quantity > 0]
+
+    @property
+    def is_fully_unfulfilled(self):
+        """Zamówienie, z którego nic nie jedzie, CHOĆ coś w nim było.
+
+        Widoki magazynowe chowają takie zamówienie w całości — razem z numerem —
+        bo nie ma z niego czego pakować. Warunek „coś w nim było" jest tu celowy:
+        zamówienie bez ani jednej pozycji to nie ten sam przypadek (nic nie
+        zostało wyzerowane) i ma wyglądać dokładnie tak jak dotąd, czyli
+        „0 produktów" w karcie. Bez tego rozróżnienia zniknęłoby z widoku każde
+        puste zamówienie — także takie, które powstało przez pomyłkę i właśnie
+        dlatego powinno rzucać się w oczy.
+        """
+        return bool(self.items) and not self.shippable_items
+
+    @property
     def effective_total(self):
         """
         Returns effective total - suma tylko zrealizowanych produktów.
