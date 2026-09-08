@@ -307,7 +307,7 @@
                                    uczestnik, któremu nic nie zostało, nie dostaje pustego nagłówka.
                                    Filtr liczony raz do zmiennej — ns.i i licznik „Pokaż więcej"
                                    muszą widzieć dokładnie tę samą listę, co pętla niżej. #}
-                                {% set widoczne_zamowienia = uczestnik.orders|selectattr('shippable_items')|list %}
+                                {% set widoczne_zamowienia = uczestnik.orders|rejectattr('is_fully_unfulfilled')|list %}
                                 {% if widoczne_zamowienia %}
                                 {% set grupa_od = ns.i %}
                                 <div class="sr-order-group{% if grupa_od >= 3 %} sr-order-extra{% endif %}"{% if grupa_od >= 3 %} style="display: none;"{% endif %}>
@@ -376,7 +376,7 @@
                                 {% else %}
                                 {# Filtr liczony raz: pętla i licznik „Pokaż więcej" muszą widzieć
                                    tę samą listę, inaczej przycisk obiecuje więcej, niż da się rozwinąć. #}
-                                {% set widoczne_zamowienia = sr.orders|selectattr('shippable_items')|list %}
+                                {% set widoczne_zamowienia = sr.orders|rejectattr('is_fully_unfulfilled')|list %}
                                 {% for order in widoczne_zamowienia %}
                                 {% set n = order.shippable_items|length %}
                                 <div class="sr-order-compact{% if loop.index > 3 %} sr-order-extra{% endif %}"{% if loop.index > 3 %} style="display: none;"{% endif %}>

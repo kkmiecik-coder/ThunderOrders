@@ -196,3 +196,15 @@ def test_klient_nie_widzi_wyzerowanej_pozycji_na_liscie_wysylek(
 
     assert 'Mingi zywy' in html
     assert 'Yunho wyzerowany' not in html
+
+
+def test_zamowienie_bez_zadnych_pozycji_zostaje_w_karcie(
+        db, client, login, make_user, make_order):
+    """Ukrywamy tylko to, co zostalo WYZEROWANE — zamowienie, ktore nigdy nie
+    mialo produktow, wyglada w karcie tak jak dotad („0 produktow")."""
+    sr, (order,) = _zlecenie(db, make_user, make_order)
+    _zaloguj_admina(login, make_user)
+
+    html = client.get('/admin/orders/wms').get_data(as_text=True)
+
+    assert order.order_number in html

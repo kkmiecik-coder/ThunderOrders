@@ -49,7 +49,7 @@
                     <div class="card-orders-list">
                         {# Zamówienia, z których nic nie jedzie (same wyzerowane pozycje),
                            nie pokazują się wcale — patrz Order.shippable_items. #}
-                        {% for order in req.display_orders if order.shippable_items %}
+                        {% for order in req.display_orders if not order.is_fully_unfulfilled %}
                         <div class="card-order-block">
                             <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-badge">
                                 {{ order.order_number }}
