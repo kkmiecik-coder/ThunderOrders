@@ -133,7 +133,10 @@ def _build_session_data(session):
             continue
 
         items_data = []
-        for item in order.items:
+        # Wyzerowane pozycje (nie zmieściły się w komplecie przy domykaniu
+        # oferty) nie mają czego zdjąć z półki, a wchodząc do sesji od razu
+        # liczyły się jako zebrane — patrz Order.shippable_items.
+        for item in order.shippable_items:
             items_data.append({
                 'id': item.id,
                 'product_name': item.product_name,
@@ -150,8 +153,8 @@ def _build_session_data(session):
             })
 
         # Quantity-based progress
-        total_qty = sum(i.quantity for i in order.items)
-        picked_qty = sum(i.picked_quantity or 0 for i in order.items)
+        total_qty = sum(i.quantity for i in order.shippable_items)
+        picked_qty = sum(i.picked_quantity or 0 for i in order.shippable_items)
         picked_pct = int((picked_qty / total_qty) * 100) if total_qty > 0 else 0
 
         orders_data.append({
@@ -737,7 +740,7 @@ def wms_update_item_status():
 
             # Recalculate: all items fully picked?
             all_picked = all(
-                (i.picked_quantity or 0) >= i.quantity for i in order.items
+                (i.picked_quantity or 0) >= i.quantity for i in order.shippable_items
             )
             if all_picked:
                 session_order.picking_completed_at = now
@@ -747,8 +750,8 @@ def wms_update_item_status():
         db.session.commit()
 
         # Compute quantity-based progress for this order
-        total_qty = sum(i.quantity for i in order.items)
-        picked_qty = sum(i.picked_quantity or 0 for i in order.items)
+        total_qty = sum(i.quantity for i in order.shippable_items)
+        picked_qty = sum(i.picked_quantity or 0 for i in order.shippable_items)
         order_picked_pct = int((picked_qty / total_qty) * 100) if total_qty > 0 else 0
         order_is_picked = picked_qty >= total_qty
 

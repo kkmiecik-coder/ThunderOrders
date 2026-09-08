@@ -143,3 +143,29 @@ def test_licznik_pokaz_wiecej_pomija_ukryte_zamowienia(
 
     assert 'data-hidden-count="1"' in html
     assert 'Pokaż więcej (1)' in html
+
+
+def test_sesja_kompletacji_nie_dostaje_wyzerowanych_pozycji(
+        db, make_user, make_order):
+    """Pozycja 0x wchodzila do sesji i od razu liczyla sie jako zebrana —
+    pakujaca widziala wiersz, ktorego nie ma czego zdjac z polki."""
+    from modules.orders.wms import _build_session_data
+    from modules.orders.wms_models import WmsSession, WmsSessionOrder
+
+    user = make_user(role='admin', email='magazyn@example.com')
+    order = make_order(user=user)
+    _pozycja(db, order, 'Mingi zywy', 2)
+    _pozycja(db, order, 'Yunho wyzerowany', 0, is_set_fulfilled=False)
+
+    sesja = WmsSession(session_token='tok-test-1', user_id=user.id, status='active')
+    db.session.add(sesja)
+    db.session.flush()
+    db.session.add(WmsSessionOrder(session_id=sesja.id, order_id=order.id))
+    db.session.commit()
+
+    dane = _build_session_data(sesja)
+
+    pozycje = dane['orders'][0]['items']
+    assert [p['product_name'] for p in pozycje] == ['Mingi zywy']
+    assert dane['orders'][0]['total_quantity'] == 2
+    assert dane['orders'][0]['picked_percentage'] == 0
