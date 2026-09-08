@@ -169,3 +169,30 @@ def test_sesja_kompletacji_nie_dostaje_wyzerowanych_pozycji(
     assert [p['product_name'] for p in pozycje] == ['Mingi zywy']
     assert dane['orders'][0]['total_quantity'] == 2
     assert dane['orders'][0]['picked_percentage'] == 0
+
+
+def test_klient_nie_widzi_wyzerowanej_pozycji_na_liscie_wysylek(
+        db, client, login, make_user, make_order):
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+
+    # profile_completed: panel klienta przepuszcza tylko konta z uzupełnionym
+    # profilem (modules/client/__init__.py:17) — bez tego test mierzyłby redirect.
+    user = make_user(email='klient-wysylki@example.com', profile_completed=True)
+    sr = ShippingRequest(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=user.id,
+        status='czeka_na_wycene',
+    )
+    db.session.add(sr)
+    db.session.flush()
+    order = make_order(user=user)
+    db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=order.id))
+    db.session.commit()
+    _pozycja(db, order, 'Mingi zywy', 1)
+    _pozycja(db, order, 'Yunho wyzerowany', 0, is_set_fulfilled=False)
+    login(user)
+
+    html = client.get('/client/shipping/requests').get_data(as_text=True)
+
+    assert 'Mingi zywy' in html
+    assert 'Yunho wyzerowany' not in html
