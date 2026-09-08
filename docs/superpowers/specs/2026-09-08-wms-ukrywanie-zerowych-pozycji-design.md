@@ -79,6 +79,12 @@ Jeśli po odfiltrowaniu zamówieniu nie zostaje żadna pozycja, w karcie WMS nie
 pokazujemy go wcale — razem z numerem zamówienia. Nic z niego nie jedzie, więc nie
 zajmuje miejsca w karcie.
 
+Doprecyzowanie z wdrożenia: dotyczy to wyłącznie zamówień, w których coś BYŁO
+i zostało wyzerowane (`Order.is_fully_unfulfilled`). Zamówienie bez ani jednej
+pozycji to inny przypadek — nic w nim nie przepadło — i wygląda w karcie tak jak
+dotąd, czyli „0 produktów". Pierwsza wersja filtru nie robiła tego rozróżnienia
+i ukrywała także puste zamówienia; złapały to istniejące testy karty zbiorczej.
+
 Konsekwencja, którą trzeba obsłużyć: licznik przycisku „Pokaż więcej (N)"
 (`wms_dashboard.html`, atrybut `data-hidden-count`) liczy dziś zamówienia przez
 `ns.i` oraz `sr.orders|length`. Oba muszą pomijać zamówienia ukryte, inaczej przycisk
