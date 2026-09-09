@@ -3737,6 +3737,207 @@ def delete_poland_order(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _kwota_z_okna(surowa, nazwa_pola):
+    """Kwota z formularza → Decimal(2 miejsca). Podnosi ValueError z polskim komunikatem."""
+    from decimal import Decimal, InvalidOperation
+
+    if surowa in (None, ''):
+        return Decimal('0.00')
+    try:
+        wartosc = Decimal(str(surowa))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError(f'Nieprawidłowa kwota: {nazwa_pola}.')
+    if wartosc < 0:
+        raise ValueError(f'Nieprawidłowa kwota: {nazwa_pola}.')
+    return wartosc.quantize(Decimal('0.01'))
+
+
+@products_bp.route('/api/poland-orders/<int:id>/split-preview', methods=['GET'])
+@login_required
+@role_required('admin')
+def poland_order_split_preview(id):
+    """Dane do okna podziału partii: pozycje z ilościami i bieżące kwoty ewidencyjne."""
+    from decimal import Decimal
+    from sqlalchemy.orm import joinedload
+
+    partia = PolandOrder.query.get_or_404(id)
+    items = (
+        PolandOrderItem.query
+        .options(joinedload(PolandOrderItem.product))
+        .filter_by(poland_order_id=partia.id)
+        .order_by(PolandOrderItem.id)
+        .all()
+    )
+
+    pozycje = []
+    for item in items:
+        product = item.product
+        cena = (Decimal(str(product.purchase_price_pln or product.purchase_price or 0))
+                if product else Decimal('0'))
+        pozycje.append({
+            'id': item.id,
+            'nazwa': product.name if product else '(produkt usunięty)',
+            'rozmiar': item.selected_size,
+            'ilosc': item.quantity,
+            'wartosc_zakupu': float(cena * item.quantity),
+        })
+
+    return jsonify({
+        'success': True,
+        'numer': partia.order_number,
+        'status': partia.status,
+        'shipping_cost': float(partia.shipping_cost or 0),
+        'customs_cost': float(partia.customs_cost or 0),
+        'pozycje': pozycje,
+    })
+
+
+@products_bp.route('/api/poland-orders/<int:id>/split', methods=['POST'])
+@login_required
+@role_required('admin')
+def split_poland_order(id):
+    """Wydziela wskazane pozycje partii do nowej partii z własnym rodzicem (ProxyOrder).
+
+    Świadomie NIE woła przeliczników kosztów klientów ani powiadomień: stawki za
+    sztukę, kwoty cła i przypisania sztuk (PolandOrderItemOrder) jadą razem z
+    pozycją, więc u klientów nic się nie zmienia.
+    """
+    from decimal import Decimal
+
+    try:
+        partia = PolandOrder.query.get_or_404(id)
+
+        if partia.status == 'anulowane':
+            return jsonify({'success': False,
+                            'error': 'Nie można dzielić anulowanej partii.'}), 400
+
+        data = request.get_json() or {}
+        item_ids = data.get('item_ids') or []
+        if not item_ids:
+            return jsonify({'success': False,
+                            'error': 'Zaznacz przynajmniej jedną pozycję do wydzielenia.'}), 400
+
+        wszystkie = list(partia.items)
+        id_w_partii = {it.id for it in wszystkie}
+        try:
+            zaznaczone_id = {int(i) for i in item_ids}
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Nieprawidłowa lista pozycji.'}), 400
+
+        if not zaznaczone_id <= id_w_partii:
+            return jsonify({'success': False,
+                            'error': 'Te pozycje nie są już w tej partii — odśwież stronę.'}), 409
+
+        if zaznaczone_id == id_w_partii:
+            return jsonify({'success': False,
+                            'error': 'W partii musi zostać przynajmniej jedna pozycja.'}), 400
+
+        try:
+            wysylka_stara = _kwota_z_okna(data.get('shipping_cost_stara'), 'wysyłka starej partii')
+            wysylka_nowa = _kwota_z_okna(data.get('shipping_cost_nowa'), 'wysyłka nowej partii')
+            clo_stare = _kwota_z_okna(data.get('customs_cost_stara'), 'cło starej partii')
+            clo_nowe = _kwota_z_okna(data.get('customs_cost_nowa'), 'cło nowej partii')
+        except ValueError as blad:
+            return jsonify({'success': False, 'error': str(blad)}), 400
+
+        rodzic = partia.proxy_order
+        nowy_rodzic = ProxyOrder(
+            order_number=generate_proxy_order_number(),
+            order_type=rodzic.order_type,
+            supplier_id=rodzic.supplier_id,
+            status=rodzic.status,
+            currency=rodzic.currency,
+            notes=f'Wydzielone z {rodzic.order_number} przy podziale partii {partia.order_number}',
+        )
+        db.session.add(nowy_rodzic)
+        db.session.flush()
+
+        nowy_numer = (generate_proxy_to_poland_number()
+                      if partia.order_number.startswith('PRX/PL/')
+                      else generate_poland_order_number())
+
+        nowa_partia = PolandOrder(
+            order_number=nowy_numer,
+            proxy_order_id=nowy_rodzic.id,
+            status=partia.status,
+            payment_deadline=partia.payment_deadline,
+            customs_payment_deadline=partia.customs_payment_deadline,
+            shipping_cost=wysylka_nowa,
+            customs_cost=clo_nowe,
+        )
+        # Kolejka FIFO (_allocate_product_shipping_fifo) idzie po created_at — nowa
+        # partia MUSI stanąć w miejscu oryginału, inaczej najbliższe przeliczenie
+        # przetasuje sztuki między partiami i zmieni klientom kwoty.
+        nowa_partia.created_at = partia.created_at
+        db.session.add(nowa_partia)
+        db.session.flush()
+
+        przeniesione = []
+        for item in wszystkie:
+            if item.id not in zaznaczone_id:
+                continue
+            proxy_item = item.proxy_order_item
+            if proxy_item is not None:
+                proxy_item.proxy_order_id = nowy_rodzic.id
+            item.poland_order_id = nowa_partia.id
+            przeniesione.append({
+                'poland_order_item_id': item.id,
+                'product_id': item.product_id,
+                'quantity': item.quantity,
+            })
+
+        partia.shipping_cost = wysylka_stara
+        partia.customs_cost = clo_stare
+
+        db.session.flush()
+        db.session.refresh(partia)
+        db.session.refresh(nowa_partia)
+
+        _przelicz_sumy_partii(partia)
+        _przelicz_sumy_partii(nowa_partia)
+
+        # Sumy na rodzicach — ten sam układ co przy zakładaniu partii:
+        # zadeklarowana = suma pozycji, total = kwota wpisana dla przesyłki.
+        for rodzic_partii, partia_rodzica in ((rodzic, partia), (nowy_rodzic, nowa_partia)):
+            zadeklarowana = sum(
+                (Decimal(str(it.shipping_cost or 0)) for it in partia_rodzica.items),
+                Decimal('0'),
+            )
+            faktyczna = Decimal(str(partia_rodzica.shipping_cost or 0))
+            rodzic_partii.shipping_cost_declared = zadeklarowana
+            rodzic_partii.shipping_cost_total = faktyczna
+            rodzic_partii.shipping_cost_difference = faktyczna - zadeklarowana
+
+        db.session.commit()
+
+        log_activity(
+            user=current_user,
+            action='poland_order_split',
+            entity_type='poland_order',
+            entity_id=partia.id,
+            old_value={'order_number': partia.order_number,
+                       'shipping_cost': float(wysylka_stara),
+                       'customs_cost': float(clo_stare)},
+            new_value={'order_number': nowa_partia.order_number,
+                       'poland_order_id': nowa_partia.id,
+                       'shipping_cost': float(wysylka_nowa),
+                       'customs_cost': float(clo_nowe),
+                       'pozycje': przeniesione},
+        )
+
+        return jsonify({
+            'success': True,
+            'nowy_numer': nowa_partia.order_number,
+            'nowa_partia_id': nowa_partia.id,
+            'message': (f'Utworzono partię {nowa_partia.order_number} z {len(przeniesione)} '
+                        f'pozycjami wydzielonymi z {partia.order_number}'),
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error splitting Poland order: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @products_bp.route('/poland-orders/bulk-archive', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
@@ -4015,6 +4216,29 @@ def _zapisz_incl_na_zamowieniu(order_id, product_id, incl_qty):
         przypisane = min(zostalo, efektywna)
         item.incl_only_quantity = przypisane
         zostalo -= przypisane
+
+
+def _przelicz_sumy_partii(poland_order):
+    """Ustawia `total_amount` partii: wartość zakupu pozycji + wysyłka + cło.
+
+    Zwraca samą wartość zakupu pozycji — endpoint Cła/VAT raportuje ją w odpowiedzi.
+    Nie commituje; wołający decyduje, kiedy zamknąć transakcję.
+    """
+    from decimal import Decimal
+
+    wartosc_produktow = Decimal('0')
+    for item in poland_order.items:
+        product = item.product
+        cena = (Decimal(str(product.purchase_price_pln or product.purchase_price or 0))
+                if product else Decimal('0'))
+        wartosc_produktow += cena * item.quantity
+
+    poland_order.total_amount = (
+        wartosc_produktow
+        + Decimal(str(poland_order.shipping_cost or 0))
+        + Decimal(str(poland_order.customs_cost or 0))
+    )
+    return wartosc_produktow
 
 
 def _allocate_product_shipping_fifo(product_id):
@@ -4812,15 +5036,11 @@ def update_poland_customs_vat():
                 continue
 
             total_customs = Decimal('0')
-            total_product_value = Decimal('0')
             for item in poland_order.items:
                 total_customs += item.customs_vat_amount or Decimal('0')
-                product = item.product
-                purchase_price = Decimal(str(product.purchase_price_pln or product.purchase_price or 0)) if product else Decimal('0')
-                total_product_value += purchase_price * item.quantity
 
             poland_order.customs_cost = total_customs
-            poland_order.total_amount = total_product_value + (poland_order.shipping_cost or Decimal('0')) + total_customs
+            total_product_value = _przelicz_sumy_partii(poland_order)
 
             # Termin płatności za Cło/VAT: ustawiany przy naliczeniu, czyszczony przy 'bez cła'
             poland_order.customs_payment_deadline = None if no_customs else customs_deadline
