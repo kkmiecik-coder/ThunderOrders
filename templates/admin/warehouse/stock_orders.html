@@ -427,6 +427,17 @@
                                         </span>
                                     </td>
                                     <td>
+                                        {% if current_user.role == 'admin' and order.status != 'anulowane' %}
+                                        <button class="btn btn-sm btn-secondary" title="Podziel partię" onclick="openSplitPolandOrderModal({{ order.id }})">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="6" cy="6" r="3"></circle>
+                                                <circle cx="6" cy="18" r="3"></circle>
+                                                <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+                                                <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+                                                <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+                                            </svg>
+                                        </button>
+                                        {% endif %}
                                         {% if current_user.role == 'admin' %}
                                         <button class="btn btn-sm btn-danger" title="Usuń" onclick="deletePolandOrder({{ order.id }})">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -905,6 +916,54 @@
             <button class="btn btn-primary" id="btnConfirmPolandOrder" onclick="confirmPolandOrder()">
                 Potwierdź zamówienie
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Podział partii -->
+<div id="splitPolandOrderModal" class="modal-overlay">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title" id="splitModalTitle">Podział partii</h2>
+            <button class="modal-close" onclick="closeSplitPolandOrderModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="split-hint">Zaznacz pozycje, które mają trafić do nowej partii. Kwoty u klientów nie zmienią się i nie pójdą żadne maile.</p>
+
+            <div id="splitCounter" class="split-counter">Zostaje: — · Do wydzielenia: —</div>
+
+            <div id="splitItemsContainer" class="split-items-container">
+                <div class="loading-spinner">Ładowanie danych...</div>
+            </div>
+
+            <div class="split-costs">
+                <div class="split-costs-column">
+                    <h3 class="split-costs-title">Zostaje w tej partii</h3>
+                    <label for="splitShippingStara">Wysyłka (PLN)</label>
+                    <input type="number" id="splitShippingStara" class="form-control" min="0" step="0.01" oninput="splitOznaczRecznaEdycje()">
+                    <label for="splitCustomsStara">Cło/VAT (PLN)</label>
+                    <input type="number" id="splitCustomsStara" class="form-control" min="0" step="0.01" oninput="splitOznaczRecznaEdycje()">
+                </div>
+                <div class="split-costs-column">
+                    <h3 class="split-costs-title">Nowa partia</h3>
+                    <label for="splitShippingNowa">Wysyłka (PLN)</label>
+                    <input type="number" id="splitShippingNowa" class="form-control" min="0" step="0.01" oninput="splitOznaczRecznaEdycje()">
+                    <label for="splitCustomsNowa">Cło/VAT (PLN)</label>
+                    <input type="number" id="splitCustomsNowa" class="form-control" min="0" step="0.01" oninput="splitOznaczRecznaEdycje()">
+                </div>
+            </div>
+
+            <p class="split-costs-note">Podpowiedź wyliczona po sztukach — wpisz prawdziwe koszty, jeśli je znasz. To Twoja ewidencja, klientom nic się z tego nie nalicza.</p>
+            <p id="splitSumaInfo" class="split-suma-info" hidden></p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeSplitPolandOrderModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" id="splitConfirmBtn" onclick="submitSplitPolandOrder()" disabled>Podziel</button>
         </div>
     </div>
 </div>

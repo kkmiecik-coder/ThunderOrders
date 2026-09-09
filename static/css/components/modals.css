@@ -5212,3 +5212,131 @@
     background: #201e1b;
     color: #ffffff;
 }
+
+/* ==========================================================================
+   Okno podziału partii (zakładka Polska)
+   ========================================================================== */
+
+.split-hint {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.split-counter {
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.split-items-container {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.split-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    min-height: 44px;
+}
+
+.split-item-row:last-child {
+    border-bottom: none;
+}
+
+.split-item-name {
+    flex: 1;
+    font-size: 13px;
+    color: #111827;
+}
+
+.split-item-qty {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.split-costs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.split-costs-column label {
+    display: block;
+    margin: 10px 0 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.split-costs-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.split-costs-note {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.split-suma-info {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: #fef3c7;
+    font-size: 12px;
+    color: #92400e;
+}
+
+@media (max-width: 640px) {
+    .split-costs {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-theme="dark"] .split-hint,
+[data-theme="dark"] .split-costs-note,
+[data-theme="dark"] .split-costs-column label {
+    color: #9ca3af;
+}
+
+[data-theme="dark"] .split-counter {
+    background: #374151;
+    color: #e5e7eb;
+}
+
+[data-theme="dark"] .split-items-container {
+    border-color: #4b5563;
+}
+
+[data-theme="dark"] .split-item-row {
+    border-bottom-color: #374151;
+}
+
+[data-theme="dark"] .split-item-name,
+[data-theme="dark"] .split-costs-title {
+    color: #f3f4f6;
+}
+
+[data-theme="dark"] .split-item-qty {
+    color: #9ca3af;
+}
+
+[data-theme="dark"] .split-suma-info {
+    background: #78350f;
+    color: #fde68a;
+}
