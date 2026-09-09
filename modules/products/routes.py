@@ -4017,6 +4017,29 @@ def _zapisz_incl_na_zamowieniu(order_id, product_id, incl_qty):
         zostalo -= przypisane
 
 
+def _przelicz_sumy_partii(poland_order):
+    """Ustawia `total_amount` partii: wartość zakupu pozycji + wysyłka + cło.
+
+    Zwraca samą wartość zakupu pozycji — endpoint Cła/VAT raportuje ją w odpowiedzi.
+    Nie commituje; wołający decyduje, kiedy zamknąć transakcję.
+    """
+    from decimal import Decimal
+
+    wartosc_produktow = Decimal('0')
+    for item in poland_order.items:
+        product = item.product
+        cena = (Decimal(str(product.purchase_price_pln or product.purchase_price or 0))
+                if product else Decimal('0'))
+        wartosc_produktow += cena * item.quantity
+
+    poland_order.total_amount = (
+        wartosc_produktow
+        + Decimal(str(poland_order.shipping_cost or 0))
+        + Decimal(str(poland_order.customs_cost or 0))
+    )
+    return wartosc_produktow
+
+
 def _allocate_product_shipping_fifo(product_id):
     """
     Przydziela koszty wysyłki danego produktu do zamówień klientów wg modelu
@@ -4812,15 +4835,11 @@ def update_poland_customs_vat():
                 continue
 
             total_customs = Decimal('0')
-            total_product_value = Decimal('0')
             for item in poland_order.items:
                 total_customs += item.customs_vat_amount or Decimal('0')
-                product = item.product
-                purchase_price = Decimal(str(product.purchase_price_pln or product.purchase_price or 0)) if product else Decimal('0')
-                total_product_value += purchase_price * item.quantity
 
             poland_order.customs_cost = total_customs
-            poland_order.total_amount = total_product_value + (poland_order.shipping_cost or Decimal('0')) + total_customs
+            total_product_value = _przelicz_sumy_partii(poland_order)
 
             # Termin płatności za Cło/VAT: ustawiany przy naliczeniu, czyszczony przy 'bez cła'
             poland_order.customs_payment_deadline = None if no_customs else customs_deadline
