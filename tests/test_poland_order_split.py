@@ -326,3 +326,181 @@ def test_podzial_tylko_dla_admina(db, client, login, make_user, make_product, ro
 
     assert odpowiedz.status_code in (302, 403)
     assert PolandOrder.query.count() == 1
+
+
+def test_podzial_nie_zmienia_kwot_klientow_i_nie_wysyla_powiadomien(
+        db, client, login, make_user, make_order, make_product, monkeypatch):
+    from modules.orders.models import Order
+    from modules.products import routes as trasy
+
+    admin = make_user(role='admin', email='admin-g1@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    baza = datetime(2026, 6, 1, 10, 0, 0)
+    z1 = _zamowienie_klienta(db, make_user, make_order, p1.id, 2, baza)
+    z2 = _zamowienie_klienta(db, make_user, make_order, p2.id, 3, baza + timedelta(minutes=1))
+
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 2), (p2.id, 3)], numer='PL/G1',
+                                     created_at=baza, shipping=Decimal('100.00'),
+                                     stawka_za_szt=Decimal('20.00'))
+
+    trasy._distribute_proxy_shipping_to_client_orders({p1.id: Decimal('40'), p2.id: Decimal('60')})
+    db.session.commit()
+
+    przed = {z1.id: db.session.get(Order, z1.id).proxy_shipping_cost,
+             z2.id: db.session.get(Order, z2.id).proxy_shipping_cost}
+    assert przed[z1.id] > 0 and przed[z2.id] > 0
+
+    wyslane = []
+    monkeypatch.setattr(trasy, '_notify_distributed_costs',
+                        lambda *a, **k: wyslane.append(a))
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[1].id],
+        'shipping_cost_stara': '40.00', 'shipping_cost_nowa': '60.00',
+        'customs_cost_stara': '0', 'customs_cost_nowa': '0',
+    })
+    assert odpowiedz.status_code == 200
+
+    po = {z1.id: db.session.get(Order, z1.id).proxy_shipping_cost,
+          z2.id: db.session.get(Order, z2.id).proxy_shipping_cost}
+    assert po == przed
+    assert wyslane == []
+
+
+def test_podzial_nie_rusza_kolejki_fifo(db, client, login, make_user, make_order, make_product):
+    """Ten sam produkt w dwóch partiach o RÓŻNYCH stawkach — dopiero wtedy kolejność
+    partii cokolwiek zmienia. Gdyby nowa partia dostała bieżącą datę, wskoczyłaby za
+    partię B i klienci zamieniliby się stawkami."""
+    from modules.orders.models import Order
+    from modules.products import routes as trasy
+
+    admin = make_user(role='admin', email='admin-g2@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    baza = datetime(2026, 6, 1, 10, 0, 0)
+    starszy = _zamowienie_klienta(db, make_user, make_order, p2.id, 2, baza)
+    nowszy = _zamowienie_klienta(db, make_user, make_order, p2.id, 2, baza + timedelta(days=1))
+
+    # Partia A (starsza, droga) — p1 zostaje w niej po podziale, p2 jest wydzielane.
+    partia_a, pozycje_a = _zbuduj_partie(db, [(p1.id, 1), (p2.id, 2)], numer='PL/G2A',
+                                         created_at=baza, shipping=Decimal('40.00'),
+                                         stawka_za_szt=Decimal('20.00'))
+    # Partia B (nowsza, tania) — ten sam produkt p2.
+    _zbuduj_partie(db, [(p2.id, 2)], numer='PL/G2B', created_at=baza + timedelta(days=4),
+                   shipping=Decimal('10.00'), stawka_za_szt=Decimal('5.00'))
+
+    trasy._distribute_proxy_shipping_to_client_orders({p2.id: Decimal('50')})
+    db.session.commit()
+    przed = {starszy.id: db.session.get(Order, starszy.id).proxy_shipping_cost,
+             nowszy.id: db.session.get(Order, nowszy.id).proxy_shipping_cost}
+    # FIFO: starsze zamówienie bierze sztuki z partii A (20/szt), nowsze z B (5/szt).
+    assert przed[starszy.id] == Decimal('40.00')
+    assert przed[nowszy.id] == Decimal('10.00')
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia_a.id}/split', json={
+        'item_ids': [pozycje_a[1].id],
+        'shipping_cost_stara': '0', 'shipping_cost_nowa': '40.00',
+    })
+    assert odpowiedz.status_code == 200
+
+    # Wymuszone przeliczenie PO podziale — to ono ujawniłoby przestawioną kolejkę.
+    trasy._distribute_proxy_shipping_to_client_orders({p2.id: Decimal('50')})
+    db.session.commit()
+
+    po = {starszy.id: db.session.get(Order, starszy.id).proxy_shipping_cost,
+          nowszy.id: db.session.get(Order, nowszy.id).proxy_shipping_cost}
+    assert po == przed
+
+
+def test_podzial_zachowuje_terminy_i_przypisania_sztuk(
+        db, client, login, make_user, make_order, make_product):
+    from modules.orders.models import Order
+    from modules.products.models import PolandOrderItemOrder
+
+    admin = make_user(role='admin', email='admin-g3@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    baza = datetime(2026, 6, 1, 10, 0, 0)
+    z1 = _zamowienie_klienta(db, make_user, make_order, p1.id, 2, baza)
+    z2 = _zamowienie_klienta(db, make_user, make_order, p2.id, 3, baza + timedelta(minutes=1))
+
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 2), (p2.id, 3)], numer='PL/G3', created_at=baza)
+    partia.payment_deadline = datetime(2026, 6, 20, 23, 59, 0)
+    partia.customs_payment_deadline = datetime(2026, 6, 25, 23, 59, 0)
+    db.session.add(PolandOrderItemOrder(poland_order_item_id=pozycje[0].id, order_id=z1.id, quantity=2))
+    db.session.add(PolandOrderItemOrder(poland_order_item_id=pozycje[1].id, order_id=z2.id, quantity=3))
+    db.session.commit()
+
+    termin_e2 = db.session.get(Order, z2.id).get_shipping_kr_deadline()
+    termin_e3 = db.session.get(Order, z2.id).get_customs_vat_deadline()
+
+    client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[1].id],
+    })
+
+    klient = db.session.get(Order, z2.id)
+    assert klient.get_shipping_kr_deadline() == termin_e2
+    assert klient.get_customs_vat_deadline() == termin_e3
+
+    przypisania = PolandOrderItemOrder.query.filter_by(order_id=z2.id).all()
+    assert len(przypisania) == 1
+    assert przypisania[0].poland_order_item_id == pozycje[1].id
+    assert przypisania[0].quantity == 3
+
+
+def test_podzial_nie_zmienia_listy_do_zamowienia(
+        db, client, login, make_user, make_order, make_product):
+    from modules.products.routes import get_products_to_order
+
+    admin = make_user(role='admin', email='admin-g4@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    baza = datetime(2026, 6, 1, 10, 0, 0)
+    _zamowienie_klienta(db, make_user, make_order, p1.id, 4, baza)
+    _zamowienie_klienta(db, make_user, make_order, p2.id, 6, baza + timedelta(minutes=1))
+
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 2), (p2.id, 3)], numer='PL/G4', created_at=baza)
+    przed = sorted((w['product'].id, w['to_order']) for w in get_products_to_order())
+
+    client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[1].id],
+    })
+
+    po = sorted((w['product'].id, w['to_order']) for w in get_products_to_order())
+    assert po == przed
+
+
+def test_usuniecie_jednej_partii_nie_rusza_drugiej(db, client, login, make_user, make_product):
+    from modules.products.models import PolandOrder, PolandOrderItem
+
+    admin = make_user(role='admin', email='admin-g5@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 2), (p2.id, 3)], numer='PL/G5')
+    id_starej = partia.id
+    zostajaca_pozycja = pozycje[0].id
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{id_starej}/split', json={
+        'item_ids': [pozycje[1].id],
+    })
+    id_nowej = odpowiedz.get_json()['nowa_partia_id']
+
+    usuniecie = client.delete(f'/admin/products/poland-orders/{id_nowej}/delete')
+    assert usuniecie.status_code == 200
+
+    stara = db.session.get(PolandOrder, id_starej)
+    assert stara is not None
+    assert {i.id for i in stara.items} == {zostajaca_pozycja}
+    assert db.session.get(PolandOrder, id_nowej) is None
+    assert PolandOrderItem.query.filter_by(poland_order_id=id_nowej).count() == 0
