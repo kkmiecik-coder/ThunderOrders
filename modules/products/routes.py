@@ -3737,6 +3737,61 @@ def delete_poland_order(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _kwota_z_okna(surowa, nazwa_pola):
+    """Kwota z formularza → Decimal(2 miejsca). Podnosi ValueError z polskim komunikatem."""
+    from decimal import Decimal, InvalidOperation
+
+    if surowa in (None, ''):
+        return Decimal('0.00')
+    try:
+        wartosc = Decimal(str(surowa))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError(f'Nieprawidłowa kwota: {nazwa_pola}.')
+    if wartosc < 0:
+        raise ValueError(f'Nieprawidłowa kwota: {nazwa_pola}.')
+    return wartosc.quantize(Decimal('0.01'))
+
+
+@products_bp.route('/api/poland-orders/<int:id>/split-preview', methods=['GET'])
+@login_required
+@role_required('admin')
+def poland_order_split_preview(id):
+    """Dane do okna podziału partii: pozycje z ilościami i bieżące kwoty ewidencyjne."""
+    from decimal import Decimal
+    from sqlalchemy.orm import joinedload
+
+    partia = PolandOrder.query.get_or_404(id)
+    items = (
+        PolandOrderItem.query
+        .options(joinedload(PolandOrderItem.product))
+        .filter_by(poland_order_id=partia.id)
+        .order_by(PolandOrderItem.id)
+        .all()
+    )
+
+    pozycje = []
+    for item in items:
+        product = item.product
+        cena = (Decimal(str(product.purchase_price_pln or product.purchase_price or 0))
+                if product else Decimal('0'))
+        pozycje.append({
+            'id': item.id,
+            'nazwa': product.name if product else '(produkt usunięty)',
+            'rozmiar': item.selected_size,
+            'ilosc': item.quantity,
+            'wartosc_zakupu': float(cena * item.quantity),
+        })
+
+    return jsonify({
+        'success': True,
+        'numer': partia.order_number,
+        'status': partia.status,
+        'shipping_cost': float(partia.shipping_cost or 0),
+        'customs_cost': float(partia.customs_cost or 0),
+        'pozycje': pozycje,
+    })
+
+
 @products_bp.route('/poland-orders/bulk-archive', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
