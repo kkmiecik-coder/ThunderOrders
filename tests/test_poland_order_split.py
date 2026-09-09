@@ -219,3 +219,110 @@ def test_podzial_zapisuje_kwoty_i_przelicza_sumy(db, client, login, make_user, m
     # stara: 4 x 25 = 100 zakupu + 70 + 25;  nowa: 6 x 10 = 60 zakupu + 30 + 15
     assert stara.total_amount == Decimal('195.00')
     assert nowa.total_amount == Decimal('105.00')
+
+
+@pytest.mark.parametrize('ladunek, kod, fragment', [
+    ({'item_ids': []}, 400, 'przynajmniej jedną pozycję'),
+    ({'item_ids': 'wszystkie'}, 400, 'Nieprawidłowa lista pozycji'),
+])
+def test_podzial_odrzuca_bledne_zaznaczenie(db, client, login, make_user, make_product,
+                                            ladunek, kod, fragment):
+    admin = make_user(role='admin', email=f'admin-w-{kod}-{fragment[:5]}@example.com')
+    login(admin)
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, _ = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/W1')
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json=ladunek)
+
+    assert odpowiedz.status_code == kod
+    assert fragment in odpowiedz.get_json()['error']
+
+
+def test_podzial_nie_pozwala_wydzielic_wszystkiego(db, client, login, make_user, make_product):
+    from modules.products.models import PolandOrder
+
+    admin = make_user(role='admin', email='admin-w2@example.com')
+    login(admin)
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/W2')
+    id_partii = partia.id
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{id_partii}/split', json={
+        'item_ids': [p.id for p in pozycje],
+    })
+
+    assert odpowiedz.status_code == 400
+    assert 'musi zostać przynajmniej jedna pozycja' in odpowiedz.get_json()['error']
+    assert len(list(db.session.get(PolandOrder, id_partii).items)) == 2
+    assert PolandOrder.query.count() == 1
+
+
+def test_podzial_odrzuca_obca_pozycje(db, client, login, make_user, make_product):
+    from modules.products.models import PolandOrder
+
+    admin = make_user(role='admin', email='admin-w3@example.com')
+    login(admin)
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/W3')
+    obca, obce_pozycje = _zbuduj_partie(db, [(p1.id, 1)], numer='PL/W3B')
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[0].id, obce_pozycje[0].id],
+    })
+
+    assert odpowiedz.status_code == 409
+    assert 'nie są już w tej partii' in odpowiedz.get_json()['error']
+    assert PolandOrder.query.count() == 2
+
+
+def test_podzial_odrzuca_partie_anulowana(db, client, login, make_user, make_product):
+    admin = make_user(role='admin', email='admin-w4@example.com')
+    login(admin)
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/W4',
+                                     status='anulowane')
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[0].id],
+    })
+
+    assert odpowiedz.status_code == 400
+    assert 'anulowanej partii' in odpowiedz.get_json()['error']
+
+
+def test_podzial_odrzuca_ujemna_kwote(db, client, login, make_user, make_product):
+    admin = make_user(role='admin', email='admin-w5@example.com')
+    login(admin)
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/W5')
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[0].id],
+        'shipping_cost_nowa': '-5',
+    })
+
+    assert odpowiedz.status_code == 400
+    assert 'Nieprawidłowa kwota' in odpowiedz.get_json()['error']
+
+
+@pytest.mark.parametrize('rola', ['mod', 'client'])
+def test_podzial_tylko_dla_admina(db, client, login, make_user, make_product, rola):
+    from modules.products.models import PolandOrder
+
+    uzytkownik = make_user(role=rola, email=f'{rola}-split@example.com')
+    login(uzytkownik)
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer=f'PL/W6{rola}')
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[0].id],
+    })
+
+    assert odpowiedz.status_code in (302, 403)
+    assert PolandOrder.query.count() == 1

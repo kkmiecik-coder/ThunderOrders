@@ -3807,17 +3807,38 @@ def split_poland_order(id):
     try:
         partia = PolandOrder.query.get_or_404(id)
 
+        if partia.status == 'anulowane':
+            return jsonify({'success': False,
+                            'error': 'Nie można dzielić anulowanej partii.'}), 400
+
         data = request.get_json() or {}
         item_ids = data.get('item_ids') or []
+        if not item_ids:
+            return jsonify({'success': False,
+                            'error': 'Zaznacz przynajmniej jedną pozycję do wydzielenia.'}), 400
 
         wszystkie = list(partia.items)
         id_w_partii = {it.id for it in wszystkie}
-        zaznaczone_id = {int(i) for i in item_ids}
+        try:
+            zaznaczone_id = {int(i) for i in item_ids}
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Nieprawidłowa lista pozycji.'}), 400
 
-        wysylka_stara = _kwota_z_okna(data.get('shipping_cost_stara'), 'wysyłka starej partii')
-        wysylka_nowa = _kwota_z_okna(data.get('shipping_cost_nowa'), 'wysyłka nowej partii')
-        clo_stare = _kwota_z_okna(data.get('customs_cost_stara'), 'cło starej partii')
-        clo_nowe = _kwota_z_okna(data.get('customs_cost_nowa'), 'cło nowej partii')
+        if not zaznaczone_id <= id_w_partii:
+            return jsonify({'success': False,
+                            'error': 'Te pozycje nie są już w tej partii — odśwież stronę.'}), 409
+
+        if zaznaczone_id == id_w_partii:
+            return jsonify({'success': False,
+                            'error': 'W partii musi zostać przynajmniej jedna pozycja.'}), 400
+
+        try:
+            wysylka_stara = _kwota_z_okna(data.get('shipping_cost_stara'), 'wysyłka starej partii')
+            wysylka_nowa = _kwota_z_okna(data.get('shipping_cost_nowa'), 'wysyłka nowej partii')
+            clo_stare = _kwota_z_okna(data.get('customs_cost_stara'), 'cło starej partii')
+            clo_nowe = _kwota_z_okna(data.get('customs_cost_nowa'), 'cło nowej partii')
+        except ValueError as blad:
+            return jsonify({'success': False, 'error': str(blad)}), 400
 
         rodzic = partia.proxy_order
         nowy_rodzic = ProxyOrder(
