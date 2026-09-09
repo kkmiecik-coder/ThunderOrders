@@ -118,3 +118,104 @@ def test_podglad_podzialu_zwraca_pozycje_i_kwoty(db, client, login, make_user, m
     assert [p['nazwa'] for p in dane['pozycje']] == ['Album A', 'Poca B']
     assert [p['ilosc'] for p in dane['pozycje']] == [4, 6]
     assert [p['wartosc_zakupu'] for p in dane['pozycje']] == [100.0, 60.0]
+
+
+def test_podzial_przenosi_zaznaczone_pozycje(db, client, login, make_user, make_product):
+    from modules.products.models import PolandOrder
+
+    admin = make_user(role='admin', email='admin-split2@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    p3 = make_product(purchase_price_pln=Decimal('5.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6), (p3.id, 2)], numer='PL/S3',
+                                     shipping=Decimal('100.00'), customs=Decimal('40.00'))
+    id_partii = partia.id
+    id_do_wydzielenia = [pozycje[1].id, pozycje[2].id]
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{id_partii}/split', json={
+        'item_ids': id_do_wydzielenia,
+        'shipping_cost_stara': '60.00',
+        'shipping_cost_nowa': '40.00',
+        'customs_cost_stara': '25.00',
+        'customs_cost_nowa': '15.00',
+    })
+
+    assert odpowiedz.status_code == 200
+    dane = odpowiedz.get_json()
+    assert dane['success'] is True
+
+    stara = db.session.get(PolandOrder, id_partii)
+    nowa = db.session.get(PolandOrder, dane['nowa_partia_id'])
+
+    assert {i.id for i in stara.items} == {pozycje[0].id}
+    assert {i.id for i in nowa.items} == set(id_do_wydzielenia)
+    assert nowa.order_number == dane['nowy_numer']
+    assert nowa.order_number.startswith('PL/')
+    assert nowa.proxy_order_id != stara.proxy_order_id
+
+
+def test_podzial_dziedziczy_status_date_i_terminy(db, client, login, make_user, make_product):
+    from modules.products.models import PolandOrder
+
+    admin = make_user(role='admin', email='admin-split3@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    data_zalozenia = datetime(2026, 7, 11, 18, 55, 0)
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/S4',
+                                     created_at=data_zalozenia, status='urzad_celny')
+    partia.payment_deadline = datetime(2026, 7, 20, 23, 59, 0)
+    partia.customs_payment_deadline = datetime(2026, 7, 25, 23, 59, 0)
+    partia.tracking_number = 'ABC123'
+    partia.notes = 'notatka oryginalu'
+    db.session.commit()
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{partia.id}/split', json={
+        'item_ids': [pozycje[1].id],
+        'shipping_cost_stara': '0', 'shipping_cost_nowa': '0',
+        'customs_cost_stara': '0', 'customs_cost_nowa': '0',
+    })
+
+    nowa = db.session.get(PolandOrder, odpowiedz.get_json()['nowa_partia_id'])
+    assert nowa.status == 'urzad_celny'
+    assert nowa.created_at == data_zalozenia
+    assert nowa.payment_deadline == datetime(2026, 7, 20, 23, 59, 0)
+    assert nowa.customs_payment_deadline == datetime(2026, 7, 25, 23, 59, 0)
+    assert not nowa.tracking_number
+    assert not nowa.notes
+    assert nowa.is_archived is False
+
+
+def test_podzial_zapisuje_kwoty_i_przelicza_sumy(db, client, login, make_user, make_product):
+    from modules.products.models import PolandOrder
+
+    admin = make_user(role='admin', email='admin-split4@example.com')
+    login(admin)
+
+    p1 = make_product(purchase_price_pln=Decimal('25.00'))
+    p2 = make_product(purchase_price_pln=Decimal('10.00'))
+    partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/S5',
+                                     shipping=Decimal('100.00'), customs=Decimal('40.00'))
+    id_partii = partia.id
+
+    odpowiedz = client.post(f'/admin/products/api/poland-orders/{id_partii}/split', json={
+        'item_ids': [pozycje[1].id],
+        'shipping_cost_stara': '70.00',
+        'shipping_cost_nowa': '30.00',
+        'customs_cost_stara': '25.00',
+        'customs_cost_nowa': '15.00',
+    })
+
+    stara = db.session.get(PolandOrder, id_partii)
+    nowa = db.session.get(PolandOrder, odpowiedz.get_json()['nowa_partia_id'])
+
+    assert stara.shipping_cost == Decimal('70.00')
+    assert nowa.shipping_cost == Decimal('30.00')
+    assert stara.customs_cost == Decimal('25.00')
+    assert nowa.customs_cost == Decimal('15.00')
+    # stara: 4 x 25 = 100 zakupu + 70 + 25;  nowa: 6 x 10 = 60 zakupu + 30 + 15
+    assert stara.total_amount == Decimal('195.00')
+    assert nowa.total_amount == Decimal('105.00')
