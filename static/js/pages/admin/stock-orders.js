@@ -1753,6 +1753,205 @@ function _deleteOrder(tab, orderId) {
     });
 }
 
+// ============================================
+// Podział partii Polska
+// ============================================
+
+const splitState = {
+    orderId: null,
+    numer: '',
+    pozycje: [],           // [{id, nazwa, rozmiar, ilosc, wartosc_zakupu}]
+    zaznaczone: new Set(), // id pozycji idących do nowej partii
+    wysylkaRazem: 0,
+    cloRazem: 0,
+    recznaEdycja: false,   // po ręcznej zmianie kwoty przestajemy nadpisywać propozycję
+};
+
+function openSplitPolandOrderModal(orderId) {
+    const modal = document.getElementById('splitPolandOrderModal');
+    const container = document.getElementById('splitItemsContainer');
+
+    splitState.orderId = orderId;
+    splitState.pozycje = [];
+    splitState.zaznaczone = new Set();
+    splitState.recznaEdycja = false;
+
+    container.innerHTML = '<div class="loading-spinner">Ładowanie danych...</div>';
+    document.getElementById('splitConfirmBtn').disabled = true;
+    document.getElementById('splitSumaInfo').hidden = true;
+    modal.classList.add('active');
+
+    fetch(`/admin/products/api/poland-orders/${orderId}/split-preview`)
+        .then(handleFetchResponse)
+        .then(data => {
+            if (!data || !data.success) return;
+            splitState.numer = data.numer;
+            splitState.pozycje = data.pozycje;
+            splitState.wysylkaRazem = data.shipping_cost;
+            splitState.cloRazem = data.customs_cost;
+            document.getElementById('splitModalTitle').textContent = `Podział partii ${data.numer}`;
+            renderSplitItems();
+            splitAktualizujLicznik();
+            splitPrzeliczPropozycje();
+        })
+        .catch(error => {
+            console.error('Split preview error:', error);
+            container.innerHTML = '<div class="split-hint">Nie udało się wczytać pozycji.</div>';
+        });
+}
+
+function closeSplitPolandOrderModal() {
+    const modal = document.getElementById('splitPolandOrderModal');
+    if (modal && modal.classList.contains('active')) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.classList.remove('active', 'closing');
+        }, 200);
+    }
+}
+
+function renderSplitItems() {
+    const container = document.getElementById('splitItemsContainer');
+    if (!splitState.pozycje.length) {
+        container.innerHTML = '<div class="split-hint">Ta partia nie ma pozycji.</div>';
+        return;
+    }
+
+    container.innerHTML = splitState.pozycje.map(poz => {
+        const rozmiar = poz.rozmiar ? ` (${escapeHtml(poz.rozmiar)})` : '';
+        return `
+            <label class="split-item-row">
+                <input type="checkbox" value="${poz.id}" onchange="splitPrzelacz(${poz.id}, this.checked)">
+                <span class="split-item-name">${escapeHtml(poz.nazwa)}${rozmiar}</span>
+                <span class="split-item-qty">${poz.ilosc} szt.</span>
+            </label>
+        `;
+    }).join('');
+}
+
+function splitPrzelacz(itemId, zaznaczony) {
+    if (zaznaczony) {
+        splitState.zaznaczone.add(itemId);
+    } else {
+        splitState.zaznaczone.delete(itemId);
+    }
+    splitAktualizujLicznik();
+    splitPrzeliczPropozycje();
+}
+
+function splitAktualizujLicznik() {
+    const idzie = splitState.pozycje.filter(p => splitState.zaznaczone.has(p.id));
+    const zostaje = splitState.pozycje.filter(p => !splitState.zaznaczone.has(p.id));
+    const sztuk = lista => lista.reduce((suma, p) => suma + p.ilosc, 0);
+
+    document.getElementById('splitCounter').textContent =
+        `Zostaje w ${splitState.numer}: ${zostaje.length} poz., ${sztuk(zostaje)} szt. · ` +
+        `Do nowej partii: ${idzie.length} poz., ${sztuk(idzie)} szt.`;
+
+    // Musi zostać przynajmniej jedna pozycja i przynajmniej jedna musi wyjść.
+    document.getElementById('splitConfirmBtn').disabled =
+        idzie.length === 0 || zostaje.length === 0;
+}
+
+function splitPrzeliczPropozycje() {
+    if (splitState.recznaEdycja) {
+        splitSprawdzSume();
+        return;
+    }
+
+    const sztukRazem = splitState.pozycje.reduce((suma, p) => suma + p.ilosc, 0);
+    const sztukNowa = splitState.pozycje
+        .filter(p => splitState.zaznaczone.has(p.id))
+        .reduce((suma, p) => suma + p.ilosc, 0);
+    const udzial = sztukRazem > 0 ? sztukNowa / sztukRazem : 0;
+
+    const podziel = (razem) => {
+        const nowa = Math.round(razem * udzial * 100) / 100;
+        return [Math.round((razem - nowa) * 100) / 100, nowa];
+    };
+
+    const [wysylkaStara, wysylkaNowa] = podziel(splitState.wysylkaRazem);
+    const [cloStare, cloNowe] = podziel(splitState.cloRazem);
+
+    document.getElementById('splitShippingStara').value = wysylkaStara.toFixed(2);
+    document.getElementById('splitShippingNowa').value = wysylkaNowa.toFixed(2);
+    document.getElementById('splitCustomsStara').value = cloStare.toFixed(2);
+    document.getElementById('splitCustomsNowa').value = cloNowe.toFixed(2);
+
+    splitSprawdzSume();
+}
+
+function splitOznaczRecznaEdycje() {
+    splitState.recznaEdycja = true;
+    splitSprawdzSume();
+}
+
+function splitSprawdzSume() {
+    const licz = id => parseFloat(document.getElementById(id).value || '0') || 0;
+    const info = document.getElementById('splitSumaInfo');
+
+    const wysylkaPo = licz('splitShippingStara') + licz('splitShippingNowa');
+    const cloPo = licz('splitCustomsStara') + licz('splitCustomsNowa');
+
+    const komunikaty = [];
+    if (Math.abs(wysylkaPo - splitState.wysylkaRazem) >= 0.01) {
+        komunikaty.push(`Wysyłka: suma obu partii to ${wysylkaPo.toFixed(2)} zł, przed podziałem było ${splitState.wysylkaRazem.toFixed(2)} zł.`);
+    }
+    if (Math.abs(cloPo - splitState.cloRazem) >= 0.01) {
+        komunikaty.push(`Cło/VAT: suma obu partii to ${cloPo.toFixed(2)} zł, przed podziałem było ${splitState.cloRazem.toFixed(2)} zł.`);
+    }
+
+    info.textContent = komunikaty.join(' ');
+    info.hidden = komunikaty.length === 0;
+}
+
+function submitSplitPolandOrder() {
+    const idzie = splitState.pozycje.filter(p => splitState.zaznaczone.has(p.id));
+    if (!idzie.length) return;
+
+    const sztuk = idzie.reduce((suma, p) => suma + p.ilosc, 0);
+    const pytanie = `Wydzielić ${idzie.length} poz. (${sztuk} szt.) z ${splitState.numer} do nowej partii?\n\n`
+        + 'Kwoty u klientów nie zmienią się i nie pójdą żadne maile.';
+    if (!confirm(pytanie)) return;
+
+    const przycisk = document.getElementById('splitConfirmBtn');
+    przycisk.disabled = true;
+
+    // Świadomie bez handleFetchResponse: on każdy status 400 zamienia na „sesja
+    // wygasła" i przeładowuje stronę, więc komunikaty walidacyjne (400/409) nigdy
+    // nie dotarłyby do użytkownika.
+    fetch(`/admin/products/api/poland-orders/${splitState.orderId}/split`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify({
+            item_ids: idzie.map(p => p.id),
+            shipping_cost_stara: document.getElementById('splitShippingStara').value || '0',
+            shipping_cost_nowa: document.getElementById('splitShippingNowa').value || '0',
+            customs_cost_stara: document.getElementById('splitCustomsStara').value || '0',
+            customs_cost_nowa: document.getElementById('splitCustomsNowa').value || '0',
+        }),
+    })
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (ok && data.success) {
+                if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
+                setTimeout(() => { window.location.reload(); }, 500);
+                return;
+            }
+            przycisk.disabled = false;
+            if (typeof window.showToast === 'function') {
+                window.showToast(data.error || 'Nie udało się podzielić partii', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Split error:', error);
+            przycisk.disabled = false;
+            if (typeof window.showToast === 'function') {
+                window.showToast('Wystąpił błąd podczas dzielenia partii', 'error');
+            }
+        });
+}
+
 function deleteOrder(orderId) { _deleteOrder('proxy', orderId); }
 function deletePolandOrder(orderId) { _deleteOrder('polska', orderId); }
 
