@@ -129,9 +129,11 @@
                                 {% for z in wpis.zamowienia %}
                                 <li>
                                     <a href="{{ url_for('orders.admin_detail', order_id=z.id) }}">{{ z.order_number }}</a>
-                                    <span class="unclaimed__items">
-                                        {% for it in z.items %}{{ it.product.name if it.product else (it.custom_name or 'Bez nazwy') }} &times;{{ it.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}
-                                    </span>
+                                    <ul class="unclaimed__items">
+                                        {% for it in z.items %}
+                                        <li>{{ it.product.name if it.product else (it.custom_name or 'Bez nazwy') }} &times;{{ it.quantity }}</li>
+                                        {% endfor %}
+                                    </ul>
                                 </li>
                                 {% endfor %}
                             </ul>

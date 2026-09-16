@@ -350,9 +350,16 @@
     padding: 8px 0 8px 20px;
 }
 
+.unclaimed__orders > li + li {
+    margin-top: 10px;
+}
+
 .unclaimed__items {
+    margin: 4px 0 0;
+    padding: 0 0 0 18px;
     color: var(--text-tertiary);
     font-size: 0.85rem;
+    list-style: disc;
 }
 
 .unclaimed__badge {
