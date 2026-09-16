@@ -354,10 +354,24 @@
     margin-top: 10px;
 }
 
+/* Bez tego przeglądarka używa domyślnego koloru linków (dla odwiedzonych —
+   ciemny fiolet), który na ciemnym tle jest ledwo widoczny. Reszta strony
+   ma kolor ustawiony ręcznie ze zmiennych motywu (patrz komentarz na górze
+   pliku) — tu tego brakowało. */
+.unclaimed__orders > li > a {
+    color: var(--primary-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.unclaimed__orders > li > a:hover {
+    text-decoration: underline;
+}
+
 .unclaimed__items {
     margin: 4px 0 0;
     padding: 0 0 0 18px;
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     font-size: 0.85rem;
     list-style: disc;
 }
