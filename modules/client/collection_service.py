@@ -13,6 +13,64 @@ from modules.client.models import CollectionItem, CollectionItemImage
 MAX_IMAGES_PER_ITEM = 3
 ALLOWED_SORTS = ('newest', 'oldest', 'name_asc', 'price_desc')
 
+FILTER_ALL = 'all'
+FILTER_INCOMING = 'incoming'
+FILTER_OWNED = 'owned'
+ALLOWED_FILTERS = (FILTER_ALL, FILTER_INCOMING, FILTER_OWNED)
+
+
+class MergedPagination:
+    """Odpowiednik flask-sqlalchemy Pagination dla listy scalonej w Pythonie.
+
+    Pozycji wirtualnych nie ma w żadnej tabeli, więc LIMIT/OFFSET po stronie
+    bazy nie wchodzi w grę — tniemy gotową listę i podajemy szablonowi ten sam
+    interfejs, którego używał dotąd (szablon paginacji zostaje bez zmian).
+    """
+
+    def __init__(self, items, page, per_page):
+        self.total = len(items)
+        self.per_page = per_page
+        self.pages = max(1, (self.total + per_page - 1) // per_page) if self.total else 0
+        self.page = page
+        start = (page - 1) * per_page
+        self.items = items[start:start + per_page]
+
+    @property
+    def has_prev(self):
+        return self.page > 1
+
+    @property
+    def has_next(self):
+        return self.page < self.pages
+
+    @property
+    def prev_num(self):
+        return self.page - 1 if self.has_prev else None
+
+    @property
+    def next_num(self):
+        return self.page + 1 if self.has_next else None
+
+    def iter_pages(self, left_edge=2, left_current=2, right_current=3, right_edge=2):
+        """Uproszczona wersja — kolekcja klienta nie dochodzi do setek stron."""
+        for num in range(1, self.pages + 1):
+            yield num
+
+
+def _sort_key(sort):
+    """(funkcja klucza, malejąco) dla listy scalonej — parytet z sortami SQL."""
+    from decimal import Decimal
+    if sort == 'oldest':
+        return (lambda i: i.created_at), False
+    if sort == 'name_asc':
+        return (lambda i: (i.name or '').lower()), False
+    if sort == 'price_desc':
+        # NULL-e na koniec niezależnie od kierunku — tak samo jak db.case w SQL
+        return (lambda i: (i.market_price is not None,
+                           Decimal(str(i.market_price)) if i.market_price is not None
+                           else Decimal('0'))), True
+    return (lambda i: i.created_at), True          # newest (domyślny)
+
 
 def get_owned_item(user_id, item_id):
     """Item usera albo None — cudze/nieistniejące traktowane identycznie (mobile maskuje 404)."""
@@ -22,23 +80,47 @@ def get_owned_item(user_id, item_id):
     return item
 
 
-def list_items(user_id, search=None, sort='newest', page=1, per_page=24):
-    """Pagination obiekt. Parytet web collection_list (l. 36-55): ilike, 4 sorty, NULL-e
-    cen na końcu przy price_desc."""
+def list_items(user_id, search=None, sort='newest', page=1, per_page=24,
+               include_incoming=False, stage_filter=None):
+    """Pagination obiekt. Bez `include_incoming` zachowanie jest identyczne jak
+    przed dodaniem pozycji w drodze — mobile API i publiczna kolekcja na tym stoją.
+
+    Z `include_incoming` scalamy wiersze z bazy z pozycjami wyliczonymi z zamówień,
+    sortujemy wspólnie i tniemy na strony w Pythonie (patrz MergedPagination).
+    """
     query = CollectionItem.query.filter_by(user_id=user_id)
     if search:
         query = query.filter(CollectionItem.name.ilike(f'%{search}%'))
-    if sort == 'oldest':
-        query = query.order_by(CollectionItem.created_at.asc())
-    elif sort == 'name_asc':
-        query = query.order_by(CollectionItem.name.asc())
-    elif sort == 'price_desc':
-        query = query.order_by(
-            db.case((CollectionItem.market_price.is_(None), 1), else_=0),
-            CollectionItem.market_price.desc())
-    else:  # newest (default)
-        query = query.order_by(CollectionItem.created_at.desc())
-    return query.paginate(page=page, per_page=per_page, error_out=False)
+
+    if not include_incoming:                       # ŚCIEŻKA BEZ ZMIAN
+        if sort == 'oldest':
+            query = query.order_by(CollectionItem.created_at.asc())
+        elif sort == 'name_asc':
+            query = query.order_by(CollectionItem.name.asc())
+        elif sort == 'price_desc':
+            query = query.order_by(
+                db.case((CollectionItem.market_price.is_(None), 1), else_=0),
+                CollectionItem.market_price.desc())
+        else:
+            query = query.order_by(CollectionItem.created_at.desc())
+        return query.paginate(page=page, per_page=per_page, error_out=False)
+
+    from modules.client.collection_incoming import incoming_items
+
+    stage_filter = stage_filter if stage_filter in ALLOWED_FILTERS else FILTER_ALL
+
+    owned = [] if stage_filter == FILTER_INCOMING else query.all()
+    if stage_filter == FILTER_OWNED:
+        incoming = []
+    else:
+        incoming = incoming_items(user_id)
+        if search:
+            needle = search.lower()
+            incoming = [i for i in incoming if needle in (i.name or '').lower()]
+
+    key, reverse = _sort_key(sort)
+    merged = sorted(owned + incoming, key=key, reverse=reverse)
+    return MergedPagination(merged, page=page, per_page=per_page)
 
 
 def create_item(user, name, market_price=None, notes=None, files=None, temp_uploads=None):

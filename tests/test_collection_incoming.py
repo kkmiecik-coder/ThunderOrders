@@ -330,3 +330,126 @@ def test_zmaterializowana_pozycja_ma_etap_w_kolekcji(db, make_user):
     assert item.stage == STAGE_OWNED
     assert item.stage_label == 'W kolekcji'
     assert item.dom_id == f'ci-{item.id}'
+
+
+def test_parytet_bez_include_incoming(db, make_user, make_order, make_product):
+    """Mobile API woła list_items bez nowych parametrów — nic nie może się zmienić."""
+    from modules.client.collection_service import list_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product()
+    db.session.add(CollectionItem(user_id=u.id, name='Reczna', source='manual'))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    strona = list_items(u.id)
+    assert [x.name for x in strona.items] == ['Reczna']
+    assert strona.total == 1
+
+
+def test_include_incoming_scala_obie_listy(db, make_user, make_order, make_product):
+    from modules.client.collection_service import list_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product(name='Album')
+    db.session.add(CollectionItem(user_id=u.id, name='Reczna', source='manual'))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    strona = list_items(u.id, include_incoming=True)
+    assert sorted(x.name for x in strona.items) == ['Album', 'Reczna']
+    assert strona.total == 2
+
+
+def test_filtr_w_drodze_i_w_kolekcji(db, make_user, make_order, make_product):
+    from modules.client.collection_service import list_items, FILTER_INCOMING, FILTER_OWNED
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product(name='Album')
+    db.session.add(CollectionItem(user_id=u.id, name='Reczna', source='manual'))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    w_drodze = list_items(u.id, include_incoming=True, stage_filter=FILTER_INCOMING)
+    assert [x.name for x in w_drodze.items] == ['Album']
+
+    posiadane = list_items(u.id, include_incoming=True, stage_filter=FILTER_OWNED)
+    assert [x.name for x in posiadane.items] == ['Reczna']
+
+
+def test_szukanie_obejmuje_pozycje_w_drodze(db, make_user, make_order, make_product):
+    from modules.client.collection_service import list_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product(name='Album NCT')
+    db.session.add(CollectionItem(user_id=u.id, name='Photocard Jisoo', source='manual'))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    strona = list_items(u.id, search='nct', include_incoming=True)
+    assert [x.name for x in strona.items] == ['Album NCT']
+
+
+def test_sortowanie_mieszanej_listy_po_nazwie(db, make_user, make_order, make_product):
+    from modules.client.collection_service import list_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product(name='Bravo')
+    db.session.add(CollectionItem(user_id=u.id, name='Alfa', source='manual'))
+    db.session.add(CollectionItem(user_id=u.id, name='Czarli', source='manual'))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    strona = list_items(u.id, sort='name_asc', include_incoming=True)
+    assert [x.name for x in strona.items] == ['Alfa', 'Bravo', 'Czarli']
+
+
+def test_sortowanie_po_cenie_wrzuca_braki_na_koniec(db, make_user, make_order, make_product):
+    from modules.client.collection_service import list_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product(name='Drogi')
+    db.session.add(CollectionItem(user_id=u.id, name='Bez ceny', source='manual'))
+    db.session.add(CollectionItem(user_id=u.id, name='Tania', market_price=Decimal('10.00')))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, price='999.00')
+    _potwierdzenie(db, o)
+
+    strona = list_items(u.id, sort='price_desc', include_incoming=True)
+    assert [x.name for x in strona.items][:2] == ['Drogi', 'Tania']
+    assert strona.items[-1].name == 'Bez ceny'
+
+
+def test_paginacja_mieszanej_listy(db, make_user, make_order, make_product):
+    from modules.client.collection_service import list_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product()
+    for i in range(3):
+        db.session.add(CollectionItem(user_id=u.id, name=f'Reczna {i}', source='manual'))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, quantity=4)
+    _potwierdzenie(db, o)
+
+    strona1 = list_items(u.id, page=1, per_page=3, include_incoming=True)
+    assert len(strona1.items) == 3
+    assert strona1.total == 7 and strona1.pages == 3
+    assert strona1.has_prev is False and strona1.has_next is True
+    assert strona1.next_num == 2
+
+    strona3 = list_items(u.id, page=3, per_page=3, include_incoming=True)
+    assert len(strona3.items) == 1
+    assert strona3.has_next is False and strona3.prev_num == 2
+    assert list(strona3.iter_pages()) == [1, 2, 3]
+
+
+def test_strona_poza_zakresem_daje_pusta_liste(db, make_user):
+    from modules.client.collection_service import list_items
+    u = make_user()
+    strona = list_items(u.id, page=99, include_incoming=True)
+    assert strona.items == [] and strona.total == 0
