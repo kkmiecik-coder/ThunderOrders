@@ -453,3 +453,39 @@ def test_strona_poza_zakresem_daje_pusta_liste(db, make_user):
     u = make_user()
     strona = list_items(u.id, page=99, include_incoming=True)
     assert strona.items == [] and strona.total == 0
+
+
+def test_strona_kolekcji_pokazuje_pozycje_w_drodze(db, client, login, make_user,
+                                                    make_order, make_product):
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
+    o = make_order(u, status='w_drodze_polska', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    login(u)
+    resp = client.get('/client/collection')
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert 'Album NCT' in html
+
+
+def test_filtr_w_kolekcji_ukrywa_pozycje_w_drodze(db, client, login, make_user,
+                                                   make_order, make_product):
+    from modules.client.models import CollectionItem
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
+    db.session.add(CollectionItem(user_id=u.id, name='Photocard Jisoo', source='manual'))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    login(u)
+    html = client.get('/client/collection?filter=owned').get_data(as_text=True)
+    assert 'Photocard Jisoo' in html
+    assert 'Album NCT' not in html
+
+
+def test_nieznany_filtr_nie_wywala_strony(db, client, login, make_user):
+    u = make_user(profile_completed=True)
+    login(u)
+    assert client.get('/client/collection?filter=cokolwiek').status_code == 200
