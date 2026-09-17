@@ -3,7 +3,11 @@
     <div class="card-image">
         <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy">
         <span class="collection-badge collection-badge--{{ item.stage }}">{{ item.stage_label }}</span>
-        {% if item.is_from_order %}
+        {% if item.is_from_order and not item.is_virtual %}
+        {# Pozycja wirtualna ZAWSZE pochodzi z zamówienia — badge etapu mówi więcej,
+           a przy dłuższych etykietach etapu ("W drodze do Polski") nachodziłby na
+           siebie z badge'em etapu w prawym rogu. Dla pozycji niewirtualnych etap to
+           zawsze krótkie "W kolekcji" (STAGE_OWNED), więc kolizji nie ma. #}
         <span class="card-badge badge-order">Z zamówienia</span>
         {% endif %}
     </div>

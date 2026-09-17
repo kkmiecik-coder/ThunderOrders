@@ -210,8 +210,19 @@
     justify-content: space-between;
     align-items: center;
     gap: var(--space-3);
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-3);
     flex-wrap: wrap;
+}
+
+/* Filtr etapu — własny wiersz pod paskiem narzędzi, patrz index.html: był
+   częścią .toolbar-right razem z widokiem/sortowaniem, ale na wąskich
+   ekranach ten wiersz nie mieścił się w oknie i zgniatał wyszukiwarkę
+   (zmierzone: .toolbar-right 446px przy oknie 375px, .toolbar-left ściśnięty
+   do 0px). Osobny wiersz eliminuje kolizję na każdej szerokości ekranu. */
+.collection-filter-row {
+    margin-bottom: var(--space-6);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .toolbar-left {
@@ -654,7 +665,10 @@
 
 .list-header {
     display: grid;
-    grid-template-columns: 48px minmax(120px, 1fr) 100px 140px 100px 100px 80px;
+    /* col-stage: 170px — 140px było za wąskie na najdłuższą etykietę etapu
+       ("W drodze do Polski"), badge z white-space: nowrap wylewał się na
+       kolumnę ceny (zmierzone nachodzenie do 15px). */
+    grid-template-columns: 48px minmax(120px, 1fr) 100px 999px 100px 100px 80px;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-4);
     background: var(--gray-100, #f9fafb);
@@ -674,7 +688,8 @@
 
 .collection-row {
     display: grid;
-    grid-template-columns: 48px minmax(120px, 1fr) 100px 140px 100px 100px 80px;
+    /* Musi być zgodne z .list-header (patrz komentarz tam) */
+    grid-template-columns: 48px minmax(120px, 1fr) 100px 999px 100px 100px 80px;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
     align-items: center;
@@ -1144,11 +1159,12 @@
         grid-row: 2;
     }
 
-    /* Toolbar: jeden wiersz na mobile */
+    /* Toolbar: jeden wiersz na mobile (search + widok/sortowanie — filtr etapu
+       ma teraz WŁASNY wiersz pod paskiem, patrz .collection-filter-row) */
     .collection-toolbar {
         flex-wrap: nowrap;
         gap: var(--space-2);
-        margin-bottom: var(--space-4);
+        margin-bottom: var(--space-2);
     }
 
     .toolbar-left {
@@ -1163,6 +1179,19 @@
         display: flex;
         align-items: center;
         gap: var(--space-2);
+    }
+
+    .collection-filter-row {
+        margin-bottom: var(--space-4);
+    }
+
+    .collection-filter {
+        width: 100%;
+    }
+
+    .collection-filter .filter-btn {
+        flex: 1;                       /* trzy przyciski dzielą szerokość rowno */
+        white-space: nowrap;
     }
 
     .sort-select-desktop {

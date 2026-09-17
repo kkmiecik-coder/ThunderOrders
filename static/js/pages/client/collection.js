@@ -731,6 +731,13 @@
             if (cols.image) parts.push('48px');
             parts.push('minmax(120px, 1fr)'); // nazwa - zawsze
             if (cols.source) parts.push('100px');
+            // Etap realizacji - zawsze widoczny, nie ma przełącznika w ustawieniach
+            // (dodany razem z pozycjami "w drodze"; ta funkcja go wcześniej pomijała,
+            // co przesuwało wszystkie kolejne kolumny o jedno miejsce w lewo i
+            // wypychało "Akcje" do kolejnego wiersza siatki - stąd badge etapu
+            // wjeżdżający na kolumnę ceny). Szerokość zgodna z .list-header/.collection-row
+            // w collection.css - zmieniaj oba miejsca razem.
+            parts.push('170px');
             if (cols.price) parts.push('100px');
             if (cols.date) parts.push('100px');
             parts.push('80px'); // akcje - zawsze

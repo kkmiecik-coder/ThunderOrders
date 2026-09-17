@@ -91,11 +91,6 @@
             </select>
         </div>
         <div class="toolbar-right">
-            <div class="collection-filter" role="group" aria-label="Filtr pozycji">
-                <button type="button" class="filter-btn {{ 'active' if filter_mode == 'all' }}" data-filter="all">Wszystko</button>
-                <button type="button" class="filter-btn {{ 'active' if filter_mode == 'incoming' }}" data-filter="incoming">W drodze</button>
-                <button type="button" class="filter-btn {{ 'active' if filter_mode == 'owned' }}" data-filter="owned">W kolekcji</button>
-            </div>
             <div class="view-toggle">
                 <button class="view-btn {{ 'active' if view == 'carousel' }}" onclick="setView('carousel')" title="Widok karuzeli">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -127,6 +122,18 @@
                     <button class="sort-dropdown-item {{ 'active' if sort == 'price_desc' }}" data-sort="price_desc">Cena malejąco</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Filtr etapu — osobny wiersz pod paskiem narzędzi. Wcześniej siedział w
+         .toolbar-right razem z widokiem/sortowaniem: na wąskich ekranach ten
+         wiersz nie mieścił się w oknie i zgniatał wyszukiwarkę (regresja po
+         dodaniu filtra do paska, patrz collection.css). -->
+    <div class="collection-filter-row">
+        <div class="collection-filter" role="group" aria-label="Filtr pozycji">
+            <button type="button" class="filter-btn {{ 'active' if filter_mode == 'all' }}" data-filter="all">Wszystko</button>
+            <button type="button" class="filter-btn {{ 'active' if filter_mode == 'incoming' }}" data-filter="incoming">W drodze</button>
+            <button type="button" class="filter-btn {{ 'active' if filter_mode == 'owned' }}" data-filter="owned">W kolekcji</button>
         </div>
     </div>
 
