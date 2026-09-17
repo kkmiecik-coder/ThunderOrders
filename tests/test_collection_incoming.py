@@ -317,3 +317,16 @@ def test_pozycja_bez_zdjecia_produktu_zwraca_placeholder(db, make_user, make_ord
     pozycje = incoming_items(u.id)
     assert len(pozycje) == 1
     assert pozycje[0].image_url == '/static/img/placeholders/collection-item.svg'
+
+
+def test_zmaterializowana_pozycja_ma_etap_w_kolekcji(db, make_user):
+    from modules.client.models import CollectionItem
+    from modules.client.collection_incoming import STAGE_OWNED
+    u = make_user()
+    item = CollectionItem(user_id=u.id, name='PC', source='manual')
+    db.session.add(item)
+    db.session.commit()
+    assert item.is_virtual is False
+    assert item.stage == STAGE_OWNED
+    assert item.stage_label == 'W kolekcji'
+    assert item.dom_id == f'ci-{item.id}'
