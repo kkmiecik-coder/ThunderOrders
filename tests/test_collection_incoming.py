@@ -87,3 +87,171 @@ def test_etykiety_istnieja_dla_kazdego_etapu():
     etapy = set(STAGE_BY_STATUS.values()) | {STAGE_UNPAID}
     assert etapy <= set(STAGE_LABELS)
     assert STAGE_LABELS[STAGE_UNPAID] == 'Do opłacenia'
+
+
+def _pozycja(db, order, product, quantity=1, price='50.00', **kw):
+    from modules.orders.models import OrderItem
+    oi = OrderItem(order_id=order.id, product_id=product.id, quantity=quantity,
+                   price=Decimal(price), total=Decimal(price) * quantity, **kw)
+    db.session.add(oi)
+    db.session.commit()
+    return oi
+
+
+def test_on_hand_bez_platnosci_nie_wchodzi(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    assert incoming_items(u.id) == []
+
+
+def test_on_hand_po_zatwierdzeniu_e1_wchodzi(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items, STAGE_ORDERED
+    u, p = make_user(), make_product(name='Album NCT')
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, price='79.00')
+    _potwierdzenie(db, o)
+    pozycje = incoming_items(u.id)
+    assert len(pozycje) == 1
+    assert pozycje[0].name == 'Album NCT'
+    assert pozycje[0].market_price == Decimal('79.00')
+    assert pozycje[0].stage == STAGE_ORDERED
+    assert pozycje[0].is_virtual is True and pozycje[0].id is None
+
+
+def test_pre_order_oplacony_w_statusie_nowe_wchodzi(db, make_user, make_order, make_product):
+    """Pre-order klient płaci od razu po złożeniu — status zostaje 'nowe',
+    a zamówienie jest już w produkcji. Kryterium to płatność, nie status."""
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='nowe', order_type='pre_order')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    assert len(incoming_items(u.id)) == 1
+
+
+def test_pre_order_nieoplacony_nie_wchodzi(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='nowe', order_type='pre_order')
+    _pozycja(db, o, p)
+    assert incoming_items(u.id) == []
+
+
+def test_exclusive_wchodzi_od_oczekujace_bez_platnosci(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items, STAGE_UNPAID
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='exclusive')
+    _pozycja(db, o, p)
+    pozycje = incoming_items(u.id)
+    assert len(pozycje) == 1
+    assert pozycje[0].stage == STAGE_UNPAID
+    assert pozycje[0].stage_label == 'Do opłacenia'
+
+
+def test_exclusive_w_statusie_nowe_jeszcze_nie_wchodzi(db, make_user, make_order, make_product):
+    """Exclusive przed domknięciem oferty nie ma przydziału — nie jest niczyje."""
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='nowe', order_type='exclusive')
+    _pozycja(db, o, p)
+    assert incoming_items(u.id) == []
+
+
+@pytest.mark.parametrize('status', ['anulowane', 'do_zwrotu', 'zwrocone', 'czesciowo_zwrocone'])
+def test_anulowane_i_zwroty_nie_wchodza(db, make_user, make_order, make_product, status):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status=status, order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    assert incoming_items(u.id) == []
+
+
+def test_pozycja_nieprzydzielona_w_secie_nie_wchodzi(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, is_set_fulfilled=False)
+    _potwierdzenie(db, o)
+    assert incoming_items(u.id) == []
+
+
+def test_pozycja_z_zerowa_iloscia_zrealizowana_nie_wchodzi(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, quantity=2, fulfilled_quantity=0)
+    _potwierdzenie(db, o)
+    assert incoming_items(u.id) == []
+
+
+def test_ilosc_wieksza_niz_jeden_daje_osobne_pozycje(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product(name='PC Jisoo')
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, quantity=3)
+    _potwierdzenie(db, o)
+    pozycje = incoming_items(u.id)
+    assert [x.name for x in pozycje] == ['PC Jisoo (1/3)', 'PC Jisoo (2/3)', 'PC Jisoo (3/3)']
+    assert len({x.dom_id for x in pozycje}) == 3
+
+
+def test_czesciowa_realizacja_liczy_sie_po_fulfilled_quantity(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, quantity=5, fulfilled_quantity=2)
+    _potwierdzenie(db, o)
+    assert len(incoming_items(u.id)) == 2
+
+
+def test_pozycja_juz_zmaterializowana_nie_duplikuje_sie(db, make_user, make_order, make_product):
+    """Po dostarczeniu auto_add tworzy wiersz w collection_items — pozycja
+    wirtualna musi wtedy zniknąć, inaczej klient widzi ją dwa razy."""
+    from modules.client.collection_incoming import incoming_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product()
+    o = make_order(u, status='dostarczone', order_type='on_hand')
+    oi = _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    assert len(incoming_items(u.id)) == 1          # jeszcze niezmaterializowana
+    db.session.add(CollectionItem(user_id=u.id, name=p.name, source='order', order_item_id=oi.id))
+    db.session.commit()
+    assert incoming_items(u.id) == []
+
+
+def test_dostarczone_bez_materializacji_nadal_widoczne(db, make_user, make_order, make_product):
+    """Gdyby auto_add padł, klient nie może stracić rzeczy, którą fizycznie ma."""
+    from modules.client.collection_incoming import incoming_items, STAGE_OWNED
+    u, p = make_user(), make_product()
+    o = make_order(u, status='dostarczone', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    pozycje = incoming_items(u.id)
+    assert len(pozycje) == 1 and pozycje[0].stage == STAGE_OWNED
+
+
+def test_cudze_zamowienia_nie_wchodza(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    ja, ktos_inny, p = make_user(), make_user(), make_product()
+    o = make_order(ktos_inny, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    assert incoming_items(ja.id) == []
+
+
+def test_sortowanie_malejaco_po_dacie_zamowienia(db, make_user, make_order, make_product):
+    from datetime import datetime
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    stare = make_order(u, status='oczekujace', order_type='on_hand',
+                       created_at=datetime(2026, 1, 1, 10, 0))
+    nowe = make_order(u, status='oczekujace', order_type='on_hand',
+                      created_at=datetime(2026, 6, 1, 10, 0))
+    _pozycja(db, stare, p, price='10.00')
+    _pozycja(db, nowe, p, price='20.00')
+    _potwierdzenie(db, stare)
+    _potwierdzenie(db, nowe)
+    assert [x.market_price for x in incoming_items(u.id)] == [Decimal('20.00'), Decimal('10.00')]
