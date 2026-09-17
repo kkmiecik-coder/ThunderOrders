@@ -57,7 +57,14 @@
         </div>
         {% endif %}
         {% if total_incoming %}
-        <span class="stat-incoming">W drodze: {{ total_incoming }}</span>
+        <div class="metric-card metric-card-incoming" data-stat="total_incoming">
+            <div class="metric-icon">📦</div>
+            <div class="metric-content">
+                <h3 class="metric-title">W drodze</h3>
+                <p class="metric-value">{{ total_incoming }}</p>
+                <p class="metric-subtitle">Kupione, jeszcze nieodebrane</p>
+            </div>
+        </div>
         {% endif %}
     </div>
 
@@ -155,7 +162,7 @@
                 <div class="carousel-slide"{% if not item.is_virtual %} data-item-id="{{ item.id }}"{% endif %}
                      data-dom-id="{{ item.dom_id }}">
                     <div class="carousel-slide-content">
-                        {% set has_real_image = item.primary_image or (item.product_id and item.product and item.product.primary_image) %}
+                        {% set has_real_image = item.has_real_image %}
                         <img src="{{ item.image_url }}" alt="{{ item.name }}" {% if not has_real_image %}class="square"{% endif %}>
                         <span class="carousel-slide-name">{{ item.name }}</span>
                         <span class="collection-badge collection-badge--{{ item.stage }}">{{ item.stage_label }}</span>
@@ -207,6 +214,8 @@
             <h3 class="empty-title">
                 {% if search %}
                     Brak wyników dla "{{ search }}"
+                {% elif filter_mode == 'incoming' %}
+                    Nie masz teraz nic w drodze
                 {% else %}
                     Twoja kolekcja jest pusta
                 {% endif %}
@@ -214,11 +223,13 @@
             <p class="empty-text">
                 {% if search %}
                     Spróbuj zmienić frazę wyszukiwania
+                {% elif filter_mode == 'incoming' %}
+                    Pozycje pojawią się tu same, gdy tylko coś kupisz i opłacisz
                 {% else %}
                     Dodaj swój pierwszy przedmiot K-pop lub poczekaj na dostarczenie zamówienia
                 {% endif %}
             </p>
-            {% if not search %}
+            {% if not search and filter_mode != 'incoming' %}
             <button class="btn btn-primary" onclick="openAddModal()">Dodaj pierwszy przedmiot</button>
             {% endif %}
         </div>

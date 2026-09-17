@@ -69,6 +69,10 @@
     border-left: 4px solid var(--orange-300);
 }
 
+.collection-metrics .metric-card-incoming {
+    border-left: 4px solid #3b82f6;
+}
+
 .collection-metrics .metric-icon {
     font-size: var(--text-sm);
     line-height: 1;
@@ -558,6 +562,14 @@
 .badge-order {
     background: var(--purple-300, rgba(108, 92, 231, 0.9));
     color: #fff;
+}
+
+/* Badge etapu w siatce: prawy górny róg zdjęcia (lewy zajmuje "Z zamówienia") */
+.card-image .collection-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
 }
 
 .badge-manual {
@@ -1078,6 +1090,10 @@
         border-left-color: var(--orange-300);
     }
 
+    .collection-metrics .metric-card-incoming {
+        border-left-color: #3b82f6;
+    }
+
     .collection-metrics .metric-icon {
         font-size: var(--text-xl);
     }
@@ -1271,5 +1287,3 @@
     box-shadow: none;
 }
 
-.stat-incoming { color: #6b7280; }
-[data-theme="dark"] .stat-incoming { color: rgba(255, 255, 255, 0.6); }
