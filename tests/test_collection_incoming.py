@@ -678,13 +678,18 @@ def test_filtr_wg_etapu_nie_zrodla_dla_dostarczonej_bez_materializacji(db, make_
 
 
 # ===== M6: count_incoming_items ma parytet z len(incoming_items()) =====
+#
+# UWAGA (re-recenzja po M3+M6): count_incoming_items() nie ma już konsumenta
+# w kodzie produkcyjnym — trasa przy filter=owned czyta teraz pagination.incoming_total
+# (liczone przez list_items z listy, którą i tak buduje dla merge'a stage==STAGE_OWNED),
+# żeby nie robić drugiego, niezależnego skanu zamówień w jednym żądaniu. Funkcja
+# i jej test parytetu zostają jako tania alternatywa dla przyszłych wywołań.
 
 def test_count_incoming_items_parytet_z_incoming_items(db, make_user, make_order, make_product):
-    """`count_incoming_items` (użyty w trasie przy filter=owned zamiast budowania
-    pełnej listy tylko po to, żeby ją policzyć) musi liczyć dokładnie to samo co
-    `len(incoming_items())`: te same reguły kwalifikacji, wykluczania zmaterializowanych
-    i rozbicia na sztuki. Dane: zamówienie z ilością > 1, zamówienie częściowo
-    zmaterializowane i zamówienie wykluczone."""
+    """`count_incoming_items` musi liczyć dokładnie to samo co `len(incoming_items())`:
+    te same reguły kwalifikacji, wykluczania zmaterializowanych i rozbicia na sztuki.
+    Dane: zamówienie z ilością > 1, zamówienie częściowo zmaterializowane i zamówienie
+    wykluczone."""
     from modules.client.collection_incoming import incoming_items, count_incoming_items
     from modules.client.models import CollectionItem
     u, p = make_user(), make_product()
@@ -713,10 +718,12 @@ def test_count_incoming_items_parytet_z_incoming_items(db, make_user, make_order
     assert count_incoming_items(u.id) == oczekiwane
 
 
-def test_trasa_filter_owned_zwraca_ten_sam_total_incoming(db, client, login, make_user,
-                                                            make_order, make_product, app):
-    """Trasa przy filter=owned ma teraz liczyć przez count_incoming_items zamiast
-    budować pełną incoming_items() tylko po numer — wynik ma być identyczny."""
+def test_trasa_filter_owned_total_incoming_bez_drugiego_skanu(db, client, login, make_user,
+                                                                make_order, make_product, app):
+    """Trasa przy filter=owned ma czytać pagination.incoming_total (policzony przez
+    list_items z listy, którą i tak buduje dla merge'a stage==STAGE_OWNED), a NIE
+    wołać nic dodatkowego — inaczej dwa niezależne skany zamówień w jednym żądaniu
+    (regresja M3+M6 wykryta w re-recenzji)."""
     u, p = make_user(profile_completed=True), make_product()
     o = make_order(u, status='oczekujace', order_type='on_hand')
     _pozycja(db, o, p, quantity=2)
@@ -724,3 +731,18 @@ def test_trasa_filter_owned_zwraca_ten_sam_total_incoming(db, client, login, mak
 
     login(u)
     assert _total_incoming_z_odpowiedzi(app, '/client/collection?filter=owned', client) == 2
+
+
+def test_total_incoming_ten_sam_dla_owned_i_all(db, client, login, make_user,
+                                                 make_order, make_product, app):
+    """total_incoming musi znaczyć to samo niezależnie od aktywnego filtra —
+    filter=owned i filter=all mają zwracać identyczną wartość."""
+    u, p = make_user(profile_completed=True), make_product()
+    o = make_order(u, status='w_drodze_polska', order_type='on_hand')
+    _pozycja(db, o, p, quantity=3)
+    _potwierdzenie(db, o)
+
+    login(u)
+    wartosc_owned = _total_incoming_z_odpowiedzi(app, '/client/collection?filter=owned', client)
+    wartosc_all = _total_incoming_z_odpowiedzi(app, '/client/collection?filter=all', client)
+    assert wartosc_owned == wartosc_all == 3

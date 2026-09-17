@@ -275,11 +275,19 @@ def count_incoming_items(user_id, limit=MAX_INCOMING):
     """Liczba pozycji, którą zwróciłoby `incoming_items(user_id)` — bez budowania
     obiektów `VirtualCollectionItem` i bez preloadu zdjęć.
 
-    Dla miejsc, którym wystarczy sama liczba (np. licznik „W drodze" w trasie
-    kolekcji przy `filter=owned`, gdzie lista i tak nie jest renderowana —
-    patrz `modules/client/collection.py`). Te same reguły co `incoming_items`:
-    kwalifikacja zamówienia (`_order_qualifies`), wykluczenie już zmaterializowanych
-    pozycji i rozbicie na sztuki przy `quantity > 1` (`_effective_quantity`).
+    UWAGA: obecnie BEZ konsumenta w kodzie produkcyjnym. Miała służyć trasie
+    kolekcji przy `filter=owned` (licznik „W drodze" bez budowania pełnej listy),
+    ale `collection_service.list_items()` w tej gałęzi i tak musi zbudować pełną
+    `incoming_items()` (żeby domieszać do „W kolekcji" pozycje ze
+    `stage == STAGE_OWNED` — patrz M3), więc trasa liczy licznik z tego, co
+    serwis już policzył (`pagination.incoming_total`), zamiast wołać coś
+    osobno — drugie, niezależne przejście przez zamówienia w jednym żądaniu
+    było regresją wydajnościową wykrytą w re-recenzji. Funkcja zostaje jako
+    tania alternatywa dla przyszłych miejsc, którym wystarczy sama liczba bez
+    budowania listy (i ma własny test parytetu z `incoming_items`). Te same
+    reguły co `incoming_items`: kwalifikacja zamówienia (`_order_qualifies`),
+    wykluczenie już zmaterializowanych pozycji i rozbicie na sztuki przy
+    `quantity > 1` (`_effective_quantity`).
     """
     orders = _load_qualifying_orders(user_id, limit, with_product=False)
     if not orders:

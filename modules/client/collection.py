@@ -61,18 +61,13 @@ def collection_list():
     # Znaczenie total_incoming: ŁĄCZNA liczba pozycji w drodze użytkownika,
     # NIEZALEŻNA od `search` i od aktywnego `filter_mode` (Task 6 dodaje badge —
     # licznik ma pokazywać całość, nie to, co akurat widać po filtrze/szukaniu).
-    # list_items(include_incoming=True) już liczy pozycje w drodze wewnętrznie
-    # (poza gałęzią FILTER_OWNED, gdzie w ogóle ich nie dotyka) — czytamy ten
-    # wynik z pagination.incoming_total zamiast wołać incoming_items() drugi raz.
-    if filter_mode == collection_service.FILTER_OWNED:
-        # Ta gałąź nie renderuje pozycji w drodze wcale — nie ma po co budować
-        # pełnych obiektów `VirtualCollectionItem` (i preloadu zdjęć) tylko po to,
-        # żeby je policzyć. `count_incoming_items` liczy dokładnie to samo, bez
-        # tego kosztu (patrz test porównujący obie wartości).
-        from modules.client.collection_incoming import count_incoming_items
-        total_incoming = count_incoming_items(current_user.id)
-    else:
-        total_incoming = pagination.incoming_total
+    # list_items(include_incoming=True) liczy to WEWNĘTRZNIE w każdej gałęzi
+    # filtra (łącznie z FILTER_OWNED, który i tak buduje pełną incoming_items()
+    # na potrzeby merge'a pozycji ze stage == STAGE_OWNED — patrz collection_service.py)
+    # i wystawia przez pagination.incoming_total. Czytamy WYŁĄCZNIE ten wynik:
+    # osobne wywołanie tu byłoby drugim, niezależnym skanem zamówień w jednym
+    # żądaniu (regresja wykryta w re-recenzji po M3+M6).
+    total_incoming = pagination.incoming_total
 
     # Konfiguracja publicznej strony
     from modules.client.models import PublicCollectionConfig

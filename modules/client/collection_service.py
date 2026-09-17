@@ -122,18 +122,28 @@ def list_items(user_id, search=None, sort='newest', page=1, per_page=24,
         # padła materializacja, ma stage == STAGE_OWNED mimo braku wiersza w bazie
         # (patrz test_dostarczone_bez_materializacji_nadal_widoczne) — bez tego
         # zniknęłoby z widoku „W kolekcji" całkowicie.
-        owned = owned + [i for i in incoming_items(user_id) if i.stage == STAGE_OWNED]
+        #
+        # Skoro i tak budujemy pełną listę, licznik liczymy z niej NA MIEJSCU
+        # (pozycje ze stage != STAGE_OWNED), zamiast zostawiać None i zmuszać
+        # wołającego do drugiego, niezależnego przejścia przez zamówienia
+        # (wcześniej: trasa woła count_incoming_items() osobno — dwa skany
+        # zamówień w jednym żądaniu tam, gdzie przed M3+M6 był jeden).
+        all_incoming = incoming_items(user_id)
+        owned = owned + [i for i in all_incoming if i.stage == STAGE_OWNED]
         incoming = []
-        incoming_total = None       # serwis nie liczył w tej gałęzi — wołający musi sam
+        incoming_total = len([i for i in all_incoming if i.stage != STAGE_OWNED])
     else:
         all_incoming = incoming_items(user_id)
-        # Licznik WSZYSTKICH pozycji w drodze użytkownika — przed filtrowaniem
-        # wyszukiwarką, żeby jedno wywołanie serwisowało zarówno listę, jak
-        # i licznik pokazywany niezależnie od `search`/`stage_filter`.
-        incoming_total = len(all_incoming)
         # Partycja po ETAPIE, nie po tym, że pozycja jest wirtualna: pozycja
         # wirtualna ze stage == STAGE_OWNED należy do „W kolekcji", nie do
         # „W drodze" — inaczej pokazuje się pod złym filtrem z badge'em „W kolekcji".
+        #
+        # Licznik WSZYSTKICH pozycji NAPRAWDĘ w drodze (stage != STAGE_OWNED)
+        # użytkownika — przed filtrowaniem wyszukiwarką, żeby jedno wywołanie
+        # serwisowało zarówno listę, jak i licznik pokazywany niezależnie od
+        # `search`/`stage_filter`. Ta sama definicja co w gałęzi FILTER_OWNED
+        # wyżej — inaczej total_incoming znaczyłoby co innego pod różnymi filtrami.
+        incoming_total = len([i for i in all_incoming if i.stage != STAGE_OWNED])
         if stage_filter == FILTER_ALL:
             owned = owned + [i for i in all_incoming if i.stage == STAGE_OWNED]
         incoming = [i for i in all_incoming if i.stage != STAGE_OWNED]
