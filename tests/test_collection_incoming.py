@@ -278,6 +278,36 @@ def test_pozycja_z_glownym_zdjeciem_zwraca_jego_url(db, make_user, make_order, m
     assert pozycje[0].image_url == '/static/products/compressed/okladka.jpg'
 
 
+def test_bez_zdjecia_glownego_wygrywa_najmniejsze_id_nie_sort_order(db, make_user, make_order, make_product):
+    """Fallback Product.primary_image to images.first() bez order_by — czyli
+    najmniejsze id. sort_order to numer slotu z uploadu, nie kolejność
+    wstawienia, więc nie może decydować o wyborze zdjęcia."""
+    from modules.client.collection_incoming import incoming_items
+    from modules.products.models import ProductImage
+    u, p = make_user(), make_product()
+    pierwsze = ProductImage(
+        product_id=p.id, filename='pierwsze.jpg',
+        path_original='products/original/pierwsze.jpg',
+        path_compressed='products/compressed/pierwsze.jpg',
+        is_primary=False, sort_order=5,
+    )
+    db.session.add(pierwsze)
+    db.session.commit()
+    db.session.add(ProductImage(
+        product_id=p.id, filename='drugie.jpg',
+        path_original='products/original/drugie.jpg',
+        path_compressed='products/compressed/drugie.jpg',
+        is_primary=False, sort_order=1,
+    ))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    pozycje = incoming_items(u.id)
+    assert len(pozycje) == 1
+    assert pozycje[0].image_url == '/static/products/compressed/pierwsze.jpg'
+
+
 def test_pozycja_bez_zdjecia_produktu_zwraca_placeholder(db, make_user, make_order, make_product):
     from modules.client.collection_incoming import incoming_items
     u, p = make_user(), make_product()

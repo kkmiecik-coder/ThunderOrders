@@ -137,8 +137,12 @@ def _preload_primary_images(product_ids):
     na `images` (lazy='dynamic'), więc czytanie go w pętli po pozycjach byłoby N+1.
 
     Zwraca mapę `product_id -> ProductImage`, wybierając dla każdego produktu
-    zdjęcie główne (`is_primary=True`), a w jego braku pierwsze po `sort_order` —
-    dokładnie ta sama kolejność, jaką stosuje `Product.primary_image`.
+    zdjęcie główne (`is_primary=True`), a w jego braku to o najmniejszym `id` —
+    dokładnie tak samo jak `Product.primary_image`, którego gałąź fallback to
+    `self.images.first()` na relacji bez `order_by` (czyli najmniejsze `id`).
+    Celowo BEZ `sort_order`: to numer slotu z uploadu, nie kolejność wstawienia —
+    sortowanie po nim dawałoby inny wynik niż oryginał dla produktu, który dostał
+    pierwsze zdjęcie do slotu innego niż 1.
     """
     from modules.products.models import ProductImage
 
@@ -150,7 +154,6 @@ def _preload_primary_images(product_ids):
         .filter(ProductImage.product_id.in_(product_ids))
         .order_by(ProductImage.product_id,
                   ProductImage.is_primary.desc(),
-                  ProductImage.sort_order.asc(),
                   ProductImage.id.asc())
         .all()
     )
