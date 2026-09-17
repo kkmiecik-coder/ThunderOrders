@@ -255,3 +255,35 @@ def test_sortowanie_malejaco_po_dacie_zamowienia(db, make_user, make_order, make
     _potwierdzenie(db, stare)
     _potwierdzenie(db, nowe)
     assert [x.market_price for x in incoming_items(u.id)] == [Decimal('20.00'), Decimal('10.00')]
+
+
+def test_pozycja_z_glownym_zdjeciem_zwraca_jego_url(db, make_user, make_order, make_product):
+    """image_url ma czytać z batch preloadu (_preload_primary_images), nie z
+    Product.primary_image — inaczej wraca N+1 na obrazkach przy renderowaniu listy."""
+    from modules.client.collection_incoming import incoming_items
+    from modules.products.models import ProductImage
+    u, p = make_user(), make_product()
+    db.session.add(ProductImage(
+        product_id=p.id, filename='okladka.jpg',
+        path_original='products/original/okladka.jpg',
+        path_compressed='products/compressed/okladka.jpg',
+        is_primary=True,
+    ))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    pozycje = incoming_items(u.id)
+    assert len(pozycje) == 1
+    assert pozycje[0].image_url == '/static/products/compressed/okladka.jpg'
+
+
+def test_pozycja_bez_zdjecia_produktu_zwraca_placeholder(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+    pozycje = incoming_items(u.id)
+    assert len(pozycje) == 1
+    assert pozycje[0].image_url == '/static/img/placeholders/collection-item.svg'

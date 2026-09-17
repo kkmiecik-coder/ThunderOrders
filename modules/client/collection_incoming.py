@@ -81,7 +81,7 @@ class VirtualCollectionItem:
     can_add_image = False
     primary_image = None
 
-    def __init__(self, order_item, unit_index, unit_count, stage):
+    def __init__(self, order_item, unit_index, unit_count, stage, image_row=None):
         self.order = order_item.order
         self.product = order_item.product
         self.product_id = order_item.product_id
@@ -94,6 +94,9 @@ class VirtualCollectionItem:
         self.created_at = self.order.created_at
         self.stage = stage
         self.dom_id = f'oi-{order_item.id}-{unit_index}'
+        # Zdjęcie z batch preloadu (`_preload_primary_images`) — NIE z `self.product.primary_image`,
+        # bo `Product.images` jest lazy='dynamic' i to byłby N+1 przy renderowaniu listy.
+        self._image_row = image_row
 
     @property
     def stage_label(self):
@@ -101,11 +104,9 @@ class VirtualCollectionItem:
 
     @property
     def image_url(self):
-        """Zdjęcie produktu albo placeholder — parytet z CollectionItem.image_url."""
-        if self.product is not None:
-            product_img = self.product.primary_image
-            if product_img:
-                return f'/static/{product_img.path_compressed}'
+        """Zdjęcie produktu (z batch preloadu) albo placeholder — parytet z CollectionItem.image_url."""
+        if self._image_row is not None:
+            return f'/static/{self._image_row.path_compressed}'
         return PLACEHOLDER_IMAGE
 
 
@@ -129,6 +130,33 @@ def _effective_quantity(order_item):
     if order_item.fulfilled_quantity is not None:
         return order_item.fulfilled_quantity
     return order_item.quantity
+
+
+def _preload_primary_images(product_ids):
+    """Jedno zapytanie zamiast N — `Product.primary_image` robi własny SELECT
+    na `images` (lazy='dynamic'), więc czytanie go w pętli po pozycjach byłoby N+1.
+
+    Zwraca mapę `product_id -> ProductImage`, wybierając dla każdego produktu
+    zdjęcie główne (`is_primary=True`), a w jego braku pierwsze po `sort_order` —
+    dokładnie ta sama kolejność, jaką stosuje `Product.primary_image`.
+    """
+    from modules.products.models import ProductImage
+
+    if not product_ids:
+        return {}
+    image_by_product = {}
+    rows = (
+        ProductImage.query
+        .filter(ProductImage.product_id.in_(product_ids))
+        .order_by(ProductImage.product_id,
+                  ProductImage.is_primary.desc(),
+                  ProductImage.sort_order.asc(),
+                  ProductImage.id.asc())
+        .all()
+    )
+    for img in rows:
+        image_by_product.setdefault(img.product_id, img)
+    return image_by_product
 
 
 def incoming_items(user_id, limit=MAX_INCOMING):
@@ -172,6 +200,15 @@ def incoming_items(user_id, limit=MAX_INCOMING):
         .all()
     }
 
+    # Batch preload zdjęć głównych — patrz `_preload_primary_images`.
+    product_ids = {
+        order_item.product_id
+        for order in orders
+        for order_item in order.items
+        if order_item.product_id is not None
+    }
+    image_by_product = _preload_primary_images(product_ids)
+
     result = []
     for order in orders:
         if not _order_qualifies(order):
@@ -181,8 +218,9 @@ def incoming_items(user_id, limit=MAX_INCOMING):
             if order_item.id in materialized:
                 continue
             quantity = _effective_quantity(order_item)
+            image_row = image_by_product.get(order_item.product_id)
             for unit_index in range(quantity):
-                result.append(VirtualCollectionItem(order_item, unit_index, quantity, stage))
+                result.append(VirtualCollectionItem(order_item, unit_index, quantity, stage, image_row))
                 if len(result) >= limit:
                     current_app.logger.warning(
                         'Kolekcja: użytkownik %s przekroczył limit %s pozycji w drodze — '
