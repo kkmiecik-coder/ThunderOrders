@@ -1227,6 +1227,16 @@
         width: 44px;
         height: 44px;
     }
+
+    /* Siatka na tej szerokości ma tylko 2 kolumny (.collection-grid, base rule
+       poniżej min-width:640px) - karta ~166px nie mieści obok siebie badge'a
+       "Z zamówienia" (101px) i badge'a etapu (np. "W kolekcji", 73px): zmierzone
+       nachodzenie 22px. Etap niesie więcej informacji niż samo "Z zamówienia"
+       (źródło i tak widać w widoku listy - kolumna "Źródło" - i w szczegółach
+       przedmiotu), więc na wąskiej siatce zostaje sam badge etapu. */
+    .collection-grid .card-badge.badge-order {
+        display: none;
+    }
 }
 
 /* Mobile Small (max-width: 480px) */
