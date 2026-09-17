@@ -126,6 +126,20 @@ class CollectionItem(db.Model):
         from modules.client.collection_incoming import STAGE_LABELS
         return STAGE_LABELS[self.stage]
 
+    @property
+    def has_real_image(self):
+        """Czy jest prawdziwe zdjęcie (własne albo produktu), nie placeholder.
+
+        Odtwarza logikę `image_url`, ale bez budowania URL-a — szablon karuzeli
+        używa tego do wyboru klasy `square` przy braku zdjęcia. `product.primary_image`
+        robi własny SELECT (relacja `images` jest lazy='dynamic'), więc dla pozycji
+        wirtualnych (`VirtualCollectionItem`) tej gałęzi nie wolno odpalać — tam
+        odpowiedź bierzemy z batch preloadu, patrz collection_incoming.py.
+        """
+        if self.primary_image:
+            return True
+        return bool(self.product_id and self.product and self.product.primary_image)
+
 
 class CollectionItemImage(db.Model):
     """

@@ -58,18 +58,25 @@ class MergedPagination:
 
 
 def _sort_key(sort):
-    """(funkcja klucza, malejąco) dla listy scalonej — parytet z sortami SQL."""
+    """(funkcja klucza, malejąco) dla listy scalonej — parytet z sortami SQL.
+
+    Każdy klucz kończy się `dom_id` jako tie-breakerem: `owned` pochodzi z
+    `query.all()` bez ORDER BY, a wszystkie pozycje wirtualne z jednego
+    zamówienia mają identyczny `created_at` (datę zamówienia) — bez tie-breaka
+    remisy dawałyby niedeterministyczną kolejność między wywołaniami/stronami.
+    """
     from decimal import Decimal
     if sort == 'oldest':
-        return (lambda i: i.created_at), False
+        return (lambda i: (i.created_at, i.dom_id)), False
     if sort == 'name_asc':
-        return (lambda i: (i.name or '').lower()), False
+        return (lambda i: ((i.name or '').lower(), i.dom_id)), False
     if sort == 'price_desc':
         # NULL-e na koniec niezależnie od kierunku — tak samo jak db.case w SQL
         return (lambda i: (i.market_price is not None,
                            Decimal(str(i.market_price)) if i.market_price is not None
-                           else Decimal('0'))), True
-    return (lambda i: i.created_at), True          # newest (domyślny)
+                           else Decimal('0'),
+                           i.dom_id)), True
+    return (lambda i: (i.created_at, i.dom_id)), True          # newest (domyślny)
 
 
 def get_owned_item(user_id, item_id):
@@ -105,20 +112,31 @@ def list_items(user_id, search=None, sort='newest', page=1, per_page=24,
             query = query.order_by(CollectionItem.created_at.desc())
         return query.paginate(page=page, per_page=per_page, error_out=False)
 
-    from modules.client.collection_incoming import incoming_items
+    from modules.client.collection_incoming import incoming_items, STAGE_OWNED
 
     stage_filter = stage_filter if stage_filter in ALLOWED_FILTERS else FILTER_ALL
 
     owned = [] if stage_filter == FILTER_INCOMING else query.all()
     if stage_filter == FILTER_OWNED:
+        # Nawet tu potrzebujemy pozycji wirtualnych: dostarczone zamówienie, któremu
+        # padła materializacja, ma stage == STAGE_OWNED mimo braku wiersza w bazie
+        # (patrz test_dostarczone_bez_materializacji_nadal_widoczne) — bez tego
+        # zniknęłoby z widoku „W kolekcji" całkowicie.
+        owned = owned + [i for i in incoming_items(user_id) if i.stage == STAGE_OWNED]
         incoming = []
         incoming_total = None       # serwis nie liczył w tej gałęzi — wołający musi sam
     else:
-        incoming = incoming_items(user_id)
+        all_incoming = incoming_items(user_id)
         # Licznik WSZYSTKICH pozycji w drodze użytkownika — przed filtrowaniem
         # wyszukiwarką, żeby jedno wywołanie serwisowało zarówno listę, jak
         # i licznik pokazywany niezależnie od `search`/`stage_filter`.
-        incoming_total = len(incoming)
+        incoming_total = len(all_incoming)
+        # Partycja po ETAPIE, nie po tym, że pozycja jest wirtualna: pozycja
+        # wirtualna ze stage == STAGE_OWNED należy do „W kolekcji", nie do
+        # „W drodze" — inaczej pokazuje się pod złym filtrem z badge'em „W kolekcji".
+        if stage_filter == FILTER_ALL:
+            owned = owned + [i for i in all_incoming if i.stage == STAGE_OWNED]
+        incoming = [i for i in all_incoming if i.stage != STAGE_OWNED]
         if search:
             needle = search.lower()
             incoming = [i for i in incoming if needle in (i.name or '').lower()]

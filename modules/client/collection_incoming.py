@@ -55,8 +55,12 @@ def stage_for_order(order):
 
 
 # Zapora na konto z patologiczną liczbą zamówień — scalanie i sortowanie robimy
-# w Pythonie, więc lista musi mieć sufit. Przekroczenie logujemy: to sygnał, że
-# warto wrócić do wariantu z UNION ALL opisanego w specu.
+# w Pythonie, więc lista musi mieć sufit. Limit wchodzi w dwóch miejscach:
+# `.limit()` na zapytaniu o zamówienia (chroni bazę i pamięć — nie ładujemy
+# wszystkich zamówień z pozycjami/produktami naraz) oraz cięcie pętli po
+# pozycjach (bo jedno zamówienie z ilością > 1 albo rozbiciem exclusive na
+# sztuki potrafi wygenerować więcej pozycji niż zamówień). Przekroczenie
+# logujemy: to sygnał, że warto wrócić do wariantu z UNION ALL opisanego w specu.
 MAX_INCOMING = 2000
 
 PLACEHOLDER_IMAGE = '/static/img/placeholders/collection-item.svg'
@@ -108,6 +112,16 @@ class VirtualCollectionItem:
         if self._image_row is not None:
             return f'/static/{self._image_row.path_compressed}'
         return PLACEHOLDER_IMAGE
+
+    @property
+    def has_real_image(self):
+        """Czy jest prawdziwe zdjęcie (nie placeholder) — z batch preloadu.
+
+        Celowo NIE czyta `self.product.primary_image` (to byłby N+1 z `Product.images`
+        lazy='dynamic' — patrz komentarz przy `_image_row` w `__init__`). Parytet
+        z `CollectionItem.has_real_image`, ale bez odpytywania relacji produktu.
+        """
+        return self._image_row is not None
 
 
 def _order_qualifies(order):
@@ -162,20 +176,27 @@ def _preload_primary_images(product_ids):
     return image_by_product
 
 
-def incoming_items(user_id, limit=MAX_INCOMING):
-    """Pozycje kolekcji wyliczone z zamówień użytkownika, najnowsze pierwsze."""
-    from flask import current_app
-    from sqlalchemy.orm import joinedload
+def _load_qualifying_orders(user_id, limit, with_product):
+    """Zamówienia użytkownika (bez wykluczonych statusów) gotowe do przetworzenia,
+    z preloadem potwierdzeń płatności (`order._cached_payment_confirmations`).
 
-    from extensions import db
-    from modules.client.models import CollectionItem
+    Dzielona baza dla `incoming_items` i `count_incoming_items` — ta druga nie
+    potrzebuje `OrderItem.product` (nie buduje obiektów ani nie dobiera zdjęć),
+    więc `with_product=False` pomija ten joinedload.
+    """
+    from sqlalchemy.orm import joinedload
     from modules.orders.models import Order, OrderItem, PaymentConfirmation
+
+    items_option = joinedload(Order.items)
+    if with_product:
+        items_option = items_option.joinedload(OrderItem.product)
 
     orders = (
         Order.query
         .filter(Order.user_id == user_id, ~Order.status.in_(EXCLUDED_STATUSES))
-        .options(joinedload(Order.items).joinedload(OrderItem.product))
+        .options(items_option)
         .order_by(Order.created_at.desc())
+        .limit(limit)          # zapora po stronie bazy — patrz komentarz przy MAX_INCOMING
         .all()
     )
     if not orders:
@@ -194,14 +215,32 @@ def incoming_items(user_id, limit=MAX_INCOMING):
     for order in orders:
         order._cached_payment_confirmations = confirmations_by_order.get(order.id, {})
 
-    # Pozycje już zmaterializowane przez auto_add — wykluczamy po order_item_id,
-    # a nie po statusie: gdyby materializacja padła, pozycja ma zostać widoczna.
-    materialized = {
+    return orders
+
+
+def _materialized_order_item_ids(user_id):
+    """Id `OrderItem` już zmaterializowanych przez auto_add — wykluczamy po tym,
+    a nie po statusie: gdyby materializacja padła, pozycja ma zostać widoczna."""
+    from extensions import db
+    from modules.client.models import CollectionItem
+
+    return {
         row[0] for row in db.session.query(CollectionItem.order_item_id)
         .filter(CollectionItem.user_id == user_id,
                 CollectionItem.order_item_id.isnot(None))
         .all()
     }
+
+
+def incoming_items(user_id, limit=MAX_INCOMING):
+    """Pozycje kolekcji wyliczone z zamówień użytkownika, najnowsze pierwsze."""
+    from flask import current_app
+
+    orders = _load_qualifying_orders(user_id, limit, with_product=True)
+    if not orders:
+        return []
+
+    materialized = _materialized_order_item_ids(user_id)
 
     # Batch preload zdjęć głównych — patrz `_preload_primary_images`.
     product_ids = {
@@ -230,3 +269,33 @@ def incoming_items(user_id, limit=MAX_INCOMING):
                         'lista ucięta. Rozważ przejście na UNION ALL.', user_id, limit)
                     return result
     return result
+
+
+def count_incoming_items(user_id, limit=MAX_INCOMING):
+    """Liczba pozycji, którą zwróciłoby `incoming_items(user_id)` — bez budowania
+    obiektów `VirtualCollectionItem` i bez preloadu zdjęć.
+
+    Dla miejsc, którym wystarczy sama liczba (np. licznik „W drodze" w trasie
+    kolekcji przy `filter=owned`, gdzie lista i tak nie jest renderowana —
+    patrz `modules/client/collection.py`). Te same reguły co `incoming_items`:
+    kwalifikacja zamówienia (`_order_qualifies`), wykluczenie już zmaterializowanych
+    pozycji i rozbicie na sztuki przy `quantity > 1` (`_effective_quantity`).
+    """
+    orders = _load_qualifying_orders(user_id, limit, with_product=False)
+    if not orders:
+        return 0
+
+    materialized = _materialized_order_item_ids(user_id)
+
+    total = 0
+    for order in orders:
+        if not _order_qualifies(order):
+            continue
+        for order_item in order.items:
+            if order_item.id in materialized:
+                continue
+            for _ in range(_effective_quantity(order_item)):
+                total += 1
+                if total >= limit:
+                    return total
+    return total

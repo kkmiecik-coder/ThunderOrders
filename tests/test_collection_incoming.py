@@ -570,3 +570,157 @@ def test_pozycja_wirtualna_bez_przyciskow_edycji(db, client, login, make_user,
     html = client.get('/client/collection?filter=incoming').get_data(as_text=True)
     assert 'openDeleteModal' not in html
     assert 'btn-order-link' in html
+
+
+# ===== I1: has_real_image nie odpytuje relacji produktu dla pozycji wirtualnej =====
+
+def test_has_real_image_pozycji_wirtualnej_nie_odpytuje_produktu(db, make_user, make_order, make_product):
+    """`has_real_image` jest czytane w pętli karuzeli dla KAŻDEJ pozycji przy
+    KAŻDYM widoku (grid/list/carousel renderują się zawsze, przełącznik to tylko
+    klasa `hidden`). Gdyby czytało `self.product.primary_image`, to N+1: relacja
+    `Product.images` jest lazy='dynamic' i robi własny SELECT. Wynik ma pochodzić
+    wyłącznie z batch preloadu (`_image_row`), zero dodatkowych zapytań."""
+    from sqlalchemy import event
+    from modules.client.collection_incoming import incoming_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    pozycje = incoming_items(u.id)
+    assert len(pozycje) == 1
+
+    queries = []
+
+    def _record_query(conn, cursor, statement, parameters, context, executemany):
+        queries.append(statement)
+
+    event.listen(db.engine, 'before_cursor_execute', _record_query)
+    try:
+        assert pozycje[0].has_real_image is False      # produkt bez zdjęcia w tym teście
+    finally:
+        event.remove(db.engine, 'before_cursor_execute', _record_query)
+
+    assert queries == [], f'has_real_image odpalił zapytania: {queries}'
+
+
+def test_has_real_image_pozycji_wirtualnej_ze_zdjeciem(db, make_user, make_order, make_product):
+    from modules.client.collection_incoming import incoming_items
+    from modules.products.models import ProductImage
+    u, p = make_user(), make_product()
+    db.session.add(ProductImage(
+        product_id=p.id, filename='okladka.jpg',
+        path_original='products/original/okladka.jpg',
+        path_compressed='products/compressed/okladka.jpg',
+        is_primary=True,
+    ))
+    db.session.commit()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    pozycje = incoming_items(u.id)
+    assert pozycje[0].has_real_image is True
+
+
+# ===== M2: deterministyczny tie-break po dom_id przy remisach created_at =====
+
+def test_sort_key_deterministyczny_tiebreak_dom_id():
+    """Wszystkie sztuki z jednego zamówienia (quantity > 1) mają identyczny
+    `created_at` — bez tie-breaka po `dom_id` kolejność remisów zależałaby od
+    przypadkowej kolejności wejściowej listy (`owned` z bazy nie ma ORDER BY)."""
+    from types import SimpleNamespace
+    from datetime import datetime
+    from modules.client.collection_service import _sort_key
+
+    ts = datetime(2026, 1, 1, 12, 0)
+    items = [SimpleNamespace(created_at=ts, dom_id=f'oi-1-{i}', name='x', market_price=None)
+             for i in range(5)]
+
+    for sort in ('newest', 'oldest', 'name_asc', 'price_desc'):
+        key, reverse = _sort_key(sort)
+        posortowane_a = sorted(items, key=key, reverse=reverse)
+        posortowane_b = sorted(list(reversed(items)), key=key, reverse=reverse)
+        assert [i.dom_id for i in posortowane_a] == [i.dom_id for i in posortowane_b], sort
+
+
+def test_list_items_deterministyczny_dla_remisow_created_at(db, make_user, make_order, make_product):
+    """Dwa kolejne wywołania dla tych samych danych mają dać identyczną kolejność."""
+    from modules.client.collection_service import list_items
+    u, p = make_user(), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, quantity=10)
+    _potwierdzenie(db, o)
+
+    strona1 = list_items(u.id, include_incoming=True, per_page=50)
+    strona2 = list_items(u.id, include_incoming=True, per_page=50)
+    assert [x.dom_id for x in strona1.items] == [x.dom_id for x in strona2.items]
+
+
+# ===== M3: filtr etapu dzieli po stage, nie po is_virtual =====
+
+def test_filtr_wg_etapu_nie_zrodla_dla_dostarczonej_bez_materializacji(db, make_user, make_order,
+                                                                        make_product):
+    """Zamówienie 'dostarczone', któremu padła materializacja, ma stage ==
+    STAGE_OWNED mimo braku wiersza w bazie — ma trafiać pod filtr „W kolekcji",
+    a nie pod „W drodze" (gdzie wcześniej pokazywało się z badge'em „W kolekcji")."""
+    from modules.client.collection_service import list_items, FILTER_INCOMING, FILTER_OWNED
+    u, p = make_user(), make_product(name='Album zgubiony')
+    o = make_order(u, status='dostarczone', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    w_drodze = list_items(u.id, include_incoming=True, stage_filter=FILTER_INCOMING)
+    assert [x.name for x in w_drodze.items] == []
+
+    posiadane = list_items(u.id, include_incoming=True, stage_filter=FILTER_OWNED)
+    assert [x.name for x in posiadane.items] == ['Album zgubiony']
+
+
+# ===== M6: count_incoming_items ma parytet z len(incoming_items()) =====
+
+def test_count_incoming_items_parytet_z_incoming_items(db, make_user, make_order, make_product):
+    """`count_incoming_items` (użyty w trasie przy filter=owned zamiast budowania
+    pełnej listy tylko po to, żeby ją policzyć) musi liczyć dokładnie to samo co
+    `len(incoming_items())`: te same reguły kwalifikacji, wykluczania zmaterializowanych
+    i rozbicia na sztuki. Dane: zamówienie z ilością > 1, zamówienie częściowo
+    zmaterializowane i zamówienie wykluczone."""
+    from modules.client.collection_incoming import incoming_items, count_incoming_items
+    from modules.client.models import CollectionItem
+    u, p = make_user(), make_product()
+
+    # Zamówienie z ilością > 1
+    o1 = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o1, p, quantity=3)
+    _potwierdzenie(db, o1)
+
+    # Zamówienie z dwiema pozycjami, z których jedna jest już zmaterializowana
+    o2 = make_order(u, status='dostarczone', order_type='on_hand')
+    oi_zmaterializowana = _pozycja(db, o2, p)
+    _pozycja(db, o2, p)
+    _potwierdzenie(db, o2)
+    db.session.add(CollectionItem(user_id=u.id, name=p.name, source='order',
+                                   order_item_id=oi_zmaterializowana.id))
+    db.session.commit()
+
+    # Zamówienie wykluczone — nie powinno wejść w ogóle
+    o3 = make_order(u, status='anulowane', order_type='on_hand')
+    _pozycja(db, o3, p, quantity=2)
+    _potwierdzenie(db, o3)
+
+    oczekiwane = len(incoming_items(u.id))
+    assert oczekiwane == 3 + 1     # 3 sztuki z o1 + 1 niezmaterializowana z o2
+    assert count_incoming_items(u.id) == oczekiwane
+
+
+def test_trasa_filter_owned_zwraca_ten_sam_total_incoming(db, client, login, make_user,
+                                                            make_order, make_product, app):
+    """Trasa przy filter=owned ma teraz liczyć przez count_incoming_items zamiast
+    budować pełną incoming_items() tylko po numer — wynik ma być identyczny."""
+    u, p = make_user(profile_completed=True), make_product()
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p, quantity=2)
+    _potwierdzenie(db, o)
+
+    login(u)
+    assert _total_incoming_z_odpowiedzi(app, '/client/collection?filter=owned', client) == 2

@@ -65,8 +65,12 @@ def collection_list():
     # (poza gałęzią FILTER_OWNED, gdzie w ogóle ich nie dotyka) — czytamy ten
     # wynik z pagination.incoming_total zamiast wołać incoming_items() drugi raz.
     if filter_mode == collection_service.FILTER_OWNED:
-        from modules.client.collection_incoming import incoming_items
-        total_incoming = len(incoming_items(current_user.id))
+        # Ta gałąź nie renderuje pozycji w drodze wcale — nie ma po co budować
+        # pełnych obiektów `VirtualCollectionItem` (i preloadu zdjęć) tylko po to,
+        # żeby je policzyć. `count_incoming_items` liczy dokładnie to samo, bez
+        # tego kosztu (patrz test porównujący obie wartości).
+        from modules.client.collection_incoming import count_incoming_items
+        total_incoming = count_incoming_items(current_user.id)
     else:
         total_incoming = pagination.incoming_total
 
