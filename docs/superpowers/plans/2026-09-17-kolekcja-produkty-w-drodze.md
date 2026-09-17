@@ -249,7 +249,7 @@ def test_on_hand_bez_platnosci_nie_wchodzi(db, make_user, make_order, make_produ
 
 def test_on_hand_po_zatwierdzeniu_e1_wchodzi(db, make_user, make_order, make_product):
     from modules.client.collection_incoming import incoming_items, STAGE_ORDERED
-    u, p = make_user(), make_product(name='Album NCT')
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
     o = make_order(u, status='oczekujace', order_type='on_hand')
     _pozycja(db, o, p, price='79.00')
     _potwierdzenie(db, o)
@@ -708,7 +708,7 @@ def test_filtr_w_drodze_i_w_kolekcji(db, make_user, make_order, make_product):
 def test_szukanie_obejmuje_pozycje_w_drodze(db, make_user, make_order, make_product):
     from modules.client.collection_service import list_items
     from modules.client.models import CollectionItem
-    u, p = make_user(), make_product(name='Album NCT')
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
     db.session.add(CollectionItem(user_id=u.id, name='Photocard Jisoo', source='manual'))
     db.session.commit()
     o = make_order(u, status='oczekujace', order_type='on_hand')
@@ -923,23 +923,22 @@ Dopisz do `tests/test_collection_incoming.py`:
 ```python
 def test_strona_kolekcji_pokazuje_pozycje_w_drodze(db, client, login, make_user,
                                                     make_order, make_product):
-    u, p = make_user(), make_product(name='Album NCT')
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
     o = make_order(u, status='w_drodze_polska', order_type='on_hand')
     _pozycja(db, o, p)
     _potwierdzenie(db, o)
 
     login(u)
-    resp = client.get('/collection')
+    resp = client.get('/client/collection')
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
     assert 'Album NCT' in html
-    assert 'W drodze do Polski' in html
 
 
 def test_filtr_w_kolekcji_ukrywa_pozycje_w_drodze(db, client, login, make_user,
                                                    make_order, make_product):
     from modules.client.models import CollectionItem
-    u, p = make_user(), make_product(name='Album NCT')
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
     db.session.add(CollectionItem(user_id=u.id, name='Photocard Jisoo', source='manual'))
     db.session.commit()
     o = make_order(u, status='oczekujace', order_type='on_hand')
@@ -947,7 +946,7 @@ def test_filtr_w_kolekcji_ukrywa_pozycje_w_drodze(db, client, login, make_user,
     _potwierdzenie(db, o)
 
     login(u)
-    html = client.get('/collection?filter=owned').get_data(as_text=True)
+    html = client.get('/client/collection?filter=owned').get_data(as_text=True)
     assert 'Photocard Jisoo' in html
     assert 'Album NCT' not in html
 
@@ -955,7 +954,7 @@ def test_filtr_w_kolekcji_ukrywa_pozycje_w_drodze(db, client, login, make_user,
 def test_nieznany_filtr_nie_wywala_strony(db, client, login, make_user):
     u = make_user()
     login(u)
-    assert client.get('/collection?filter=cokolwiek').status_code == 200
+    assert client.get('/client/collection?filter=cokolwiek').status_code == 200
 ```
 
 Fixture `login` z `tests/conftest.py:282` przyjmuje obiekt użytkownika i ustawia sesję Flask-Login.
@@ -1005,7 +1004,8 @@ Dopisz do `render_template(...)`:
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_collection_incoming.py -v`
-Expected: PASS (test o „W drodze do Polski" przejdzie dopiero po Task 6 — jeśli pada na brakującym badge'u, zostaw go czerwonego i dokończ w Task 6)
+Expected: PASS — komplet, bez czerwonych. Asercja o etykiecie etapu w HTML należy do Task 6,
+który dopiero dodaje badge; tutaj sprawdzamy wyłącznie, że pozycja w drodze trafia na stronę.
 
 - [ ] **Step 5: Commit**
 
@@ -1031,8 +1031,16 @@ git commit -m "feat(kolekcja): trasa podaje pozycje w drodze i filtr etapu"
 
 W `_item_card.html` zamień otwierający `<div>` oraz blok `card-image` i `card-actions`:
 
+**UWAGA — nie zmieniaj `data-item-id` na `dom_id`.** JS czyta ten atrybut w dwóch miejscach:
+`collection.js:457` robi `parseInt(slide.dataset.itemId, 10)` przy kliknięciu slajdu karuzeli,
+a `collection.js:1179` szuka po nim elementów po usunięciu pozycji. Wartość `ci-123` dałaby
+`NaN` i rozsypała edycję. Zamiast tego **pomijamy atrybut przy pozycjach wirtualnych** — wtedy
+`slide.dataset.itemId` jest `undefined`, istniejący warunek `if (slide && slide.dataset.itemId)`
+sam odfiltrowuje te pozycje i JS nie wymaga żadnej zmiany.
+
 ```html
-<div class="collection-card" data-item-id="{{ item.dom_id }}">
+<div class="collection-card"{% if not item.is_virtual %} data-item-id="{{ item.id }}"{% endif %}
+     data-dom-id="{{ item.dom_id }}">
     <div class="card-image">
         <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy">
         <span class="collection-badge collection-badge--{{ item.stage }}">{{ item.stage_label }}</span>
@@ -1071,7 +1079,15 @@ Endpoint `orders.client_detail` to trasa szczegółów zamówienia po stronie kl
 
 - [ ] **Step 2: Lista — nowa kolumna Status**
 
-W `_item_row.html` zamień atrybut `data-item-id` na `{{ item.dom_id }}` i dopisz kolumnę zaraz za `col-source`:
+W `_item_row.html` zamień otwierający `<div>` tak samo jak w siatce (atrybut `data-item-id`
+tylko dla pozycji realnych):
+
+```html
+<div class="collection-row"{% if not item.is_virtual %} data-item-id="{{ item.id }}"{% endif %}
+     data-dom-id="{{ item.dom_id }}">
+```
+
+Dopisz kolumnę zaraz za `col-source`:
 
 ```html
     <span class="list-col col-stage">
@@ -1095,7 +1111,15 @@ W `index.html`, w bloku `carousel-slide-content`, za `carousel-slide-name`:
                         <span class="collection-badge collection-badge--{{ item.stage }}">{{ item.stage_label }}</span>
 ```
 
-Zamień też `data-item-id="{{ item.id }}"` na `data-item-id="{{ item.dom_id }}"`.
+Zamień też otwierający `<div>` slajdu na wariant z warunkowym atrybutem:
+
+```html
+                <div class="carousel-slide"{% if not item.is_virtual %} data-item-id="{{ item.id }}"{% endif %}
+                     data-dom-id="{{ item.dom_id }}">
+```
+
+Dzięki temu kliknięcie slajdu pozycji wirtualnej nie otwiera modala edycji — `collection.js:457`
+odfiltrowuje je istniejącym warunkiem, bez zmian w JS.
 
 - [ ] **Step 4: Filtr etapu i statystyki**
 
@@ -1121,15 +1145,46 @@ W sekcji statystyk dopisz licznik pozycji w drodze obok istniejącego `total_ite
 
 W `index.html` w trzech miejscach (`prev_num`, `page_num`, `next_num`) dopisz `&filter={{ filter_mode }}` do każdego `href`, obok istniejących `view`, `sort`, `search`. Bez tego przejście na drugą stronę gubi filtr.
 
-- [ ] **Step 6: Run tests**
+- [ ] **Step 6: Test badge'a w wyrenderowanej stronie**
+
+Dopisz do `tests/test_collection_incoming.py`:
+
+```python
+def test_badge_etapu_widoczny_na_stronie(db, client, login, make_user, make_order, make_product):
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
+    o = make_order(u, status='w_drodze_polska', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    login(u)
+    html = client.get('/client/collection').get_data(as_text=True)
+    assert 'W drodze do Polski' in html
+    assert 'collection-badge--transit' in html
+
+
+def test_pozycja_wirtualna_bez_przyciskow_edycji(db, client, login, make_user,
+                                                  make_order, make_product):
+    # Wirtualna pozycja nie ma wiersza w bazie — edycja i usuwanie nie mają czego dotknąć.
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    login(u)
+    html = client.get('/client/collection?filter=incoming').get_data(as_text=True)
+    assert 'openDeleteModal' not in html
+    assert 'btn-order-link' in html
+```
+
+- [ ] **Step 7: Run tests**
 
 Run: `python -m pytest tests/test_collection_incoming.py -v`
 Expected: PASS — łącznie z testami trasy z Task 5
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add templates/client/collection/
+git add templates/client/collection/ tests/test_collection_incoming.py
 git commit -m "feat(kolekcja): etap pozycji widoczny w karuzeli, siatce i liscie"
 ```
 
