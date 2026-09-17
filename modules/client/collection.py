@@ -57,8 +57,18 @@ def collection_list():
     # Licznik pozycji w drodze — pokazywany obok liczby rzeczy posiadanych.
     # total_items i total_value liczą WYŁĄCZNIE rzeczy zmaterializowane: wartość
     # kolekcji to wartość tego, co klient ma, a nie tego, co dopiero jedzie.
-    from modules.client.collection_incoming import incoming_items
-    total_incoming = len(incoming_items(current_user.id))
+    #
+    # Znaczenie total_incoming: ŁĄCZNA liczba pozycji w drodze użytkownika,
+    # NIEZALEŻNA od `search` i od aktywnego `filter_mode` (Task 6 dodaje badge —
+    # licznik ma pokazywać całość, nie to, co akurat widać po filtrze/szukaniu).
+    # list_items(include_incoming=True) już liczy pozycje w drodze wewnętrznie
+    # (poza gałęzią FILTER_OWNED, gdzie w ogóle ich nie dotyka) — czytamy ten
+    # wynik z pagination.incoming_total zamiast wołać incoming_items() drugi raz.
+    if filter_mode == collection_service.FILTER_OWNED:
+        from modules.client.collection_incoming import incoming_items
+        total_incoming = len(incoming_items(current_user.id))
+    else:
+        total_incoming = pagination.incoming_total
 
     # Konfiguracja publicznej strony
     from modules.client.models import PublicCollectionConfig

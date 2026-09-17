@@ -112,15 +112,22 @@ def list_items(user_id, search=None, sort='newest', page=1, per_page=24,
     owned = [] if stage_filter == FILTER_INCOMING else query.all()
     if stage_filter == FILTER_OWNED:
         incoming = []
+        incoming_total = None       # serwis nie liczył w tej gałęzi — wołający musi sam
     else:
         incoming = incoming_items(user_id)
+        # Licznik WSZYSTKICH pozycji w drodze użytkownika — przed filtrowaniem
+        # wyszukiwarką, żeby jedno wywołanie serwisowało zarówno listę, jak
+        # i licznik pokazywany niezależnie od `search`/`stage_filter`.
+        incoming_total = len(incoming)
         if search:
             needle = search.lower()
             incoming = [i for i in incoming if needle in (i.name or '').lower()]
 
     key, reverse = _sort_key(sort)
     merged = sorted(owned + incoming, key=key, reverse=reverse)
-    return MergedPagination(merged, page=page, per_page=per_page)
+    pagination = MergedPagination(merged, page=page, per_page=per_page)
+    pagination.incoming_total = incoming_total
+    return pagination
 
 
 def create_item(user, name, market_price=None, notes=None, files=None, temp_uploads=None):

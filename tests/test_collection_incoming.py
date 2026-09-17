@@ -489,3 +489,58 @@ def test_nieznany_filtr_nie_wywala_strony(db, client, login, make_user):
     u = make_user(profile_completed=True)
     login(u)
     assert client.get('/client/collection?filter=cokolwiek').status_code == 200
+
+
+def _total_incoming_z_odpowiedzi(app, url, client):
+    """Woła trasę i wyciąga total_incoming z kontekstu szablonu (sygnał Flask —
+    badge etapu trafia dopiero w Task 6, więc wartości nie ma jeszcze w HTML)."""
+    from flask import template_rendered
+
+    captured = []
+
+    def _on_render(sender, template, context, **extra):
+        captured.append(context.get('total_incoming'))
+
+    with template_rendered.connected_to(_on_render, app):
+        resp = client.get(url)
+        assert resp.status_code == 200
+    assert len(captured) == 1
+    return captured[0]
+
+
+def test_total_incoming_niezalezny_od_filtra_i_wyszukiwania(db, client, login, make_user,
+                                                              make_order, make_product,
+                                                              app):
+    """Licznik pozycji w drodze ma znaczyć ZAWSZE 'wszystkie pozycje w drodze
+    użytkownika' — niezależnie od aktywnego ?filter= i ?search=. Bez tego testu
+    regresja w znaczeniu licznika (np. respektowanie filtra) przejdzie niezauważona."""
+    from modules.client.models import CollectionItem
+
+    u = make_user(profile_completed=True)
+    p1 = make_product(name='Album NCT')
+    p2 = make_product(name='Photocard BTS')
+    db.session.add(CollectionItem(user_id=u.id, name='Reczna pozycja', source='manual'))
+    db.session.commit()
+
+    o1 = make_order(u, status='w_drodze_polska', order_type='on_hand')
+    _pozycja(db, o1, p1)
+    _potwierdzenie(db, o1)
+
+    o2 = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o2, p2)
+    _potwierdzenie(db, o2)
+
+    login(u)
+
+    wartosci = {
+        'all': _total_incoming_z_odpowiedzi(app, '/client/collection?filter=all', client),
+        'owned': _total_incoming_z_odpowiedzi(app, '/client/collection?filter=owned', client),
+        'incoming': _total_incoming_z_odpowiedzi(app, '/client/collection?filter=incoming', client),
+        'search_dopasowujace': _total_incoming_z_odpowiedzi(
+            app, '/client/collection?search=nct', client),
+        'search_bez_wynikow': _total_incoming_z_odpowiedzi(
+            app, '/client/collection?search=cosinnego', client),
+    }
+
+    assert wartosci['all'] == 2
+    assert set(wartosci.values()) == {2}
