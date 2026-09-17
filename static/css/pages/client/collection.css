@@ -642,7 +642,7 @@
 
 .list-header {
     display: grid;
-    grid-template-columns: 48px minmax(120px, 1fr) 100px 100px 100px 80px;
+    grid-template-columns: 48px minmax(120px, 1fr) 100px 140px 100px 100px 80px;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-4);
     background: var(--gray-100, #f9fafb);
@@ -662,7 +662,7 @@
 
 .collection-row {
     display: grid;
-    grid-template-columns: 48px minmax(120px, 1fr) 100px 100px 100px 80px;
+    grid-template-columns: 48px minmax(120px, 1fr) 100px 140px 100px 100px 80px;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
     align-items: center;
@@ -1122,6 +1122,12 @@
         display: none;
     }
 
+    /* Status pozostaje widoczny na mobile - drugi wiersz pod nazwa */
+    .collection-row .col-stage {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
     /* Toolbar: jeden wiersz na mobile */
     .collection-toolbar {
         flex-wrap: nowrap;
@@ -1188,3 +1194,82 @@
         font-size: var(--text-base);
     }
 }
+
+/* ===== Badge etapu realizacji ===== */
+
+.collection-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.collection-badge--unpaid    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.collection-badge--ordered   { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+.collection-badge--transit   { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
+.collection-badge--warehouse { background: #e0e7ff; color: #3730a3; border-color: #a5b4fc; }
+.collection-badge--shipped   { background: #cffafe; color: #155e75; border-color: #67e8f9; }
+.collection-badge--owned     { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+
+[data-theme="dark"] .collection-badge {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .collection-badge--unpaid    { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
+[data-theme="dark"] .collection-badge--ordered   { color: #93c5fd; border-color: rgba(147, 197, 253, 0.3); }
+[data-theme="dark"] .collection-badge--transit   { color: #c4b5fd; border-color: rgba(196, 181, 253, 0.3); }
+[data-theme="dark"] .collection-badge--warehouse { color: #a5b4fc; border-color: rgba(165, 180, 252, 0.3); }
+[data-theme="dark"] .collection-badge--shipped   { color: #67e8f9; border-color: rgba(103, 232, 249, 0.3); }
+[data-theme="dark"] .collection-badge--owned     { color: #6ee7b7; border-color: rgba(110, 231, 183, 0.3); }
+
+/* ===== Filtr etapu ===== */
+
+.collection-filter {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    border: 1px solid #e0e0e0;
+}
+
+.collection-filter .filter-btn {
+    min-height: 44px;                  /* dotykowy cel na mobile */
+    padding: 0 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.collection-filter .filter-btn.active {
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .collection-filter {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .collection-filter .filter-btn { color: rgba(255, 255, 255, 0.6); }
+
+[data-theme="dark"] .collection-filter .filter-btn.active {
+    background: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+.stat-incoming { color: #6b7280; }
+[data-theme="dark"] .stat-incoming { color: rgba(255, 255, 255, 0.6); }

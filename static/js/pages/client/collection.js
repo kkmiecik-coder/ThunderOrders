@@ -91,6 +91,16 @@
         });
     }
 
+    // ---- Filtr etapu (Wszystko / W drodze / W kolekcji) ----
+    document.querySelectorAll('.collection-filter .filter-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var url = new URL(window.location);
+            url.searchParams.set('filter', this.getAttribute('data-filter'));
+            url.searchParams.delete('page');          // filtr zmienia liczbę stron
+            window.location.href = url.toString();
+        });
+    });
+
     // ---- Clear search ----
     window.clearSearch = function () {
         if (searchInput) searchInput.value = '';
@@ -111,6 +121,11 @@
         }
         url.searchParams.set('sort', sortVal);
         url.searchParams.delete('page');
+
+        var aktywnyFiltr = document.querySelector('.collection-filter .filter-btn.active');
+        if (aktywnyFiltr) {
+            url.searchParams.set('filter', aktywnyFiltr.getAttribute('data-filter'));
+        }
 
         window.location.href = url.toString();
     }
