@@ -677,47 +677,6 @@ def test_filtr_wg_etapu_nie_zrodla_dla_dostarczonej_bez_materializacji(db, make_
     assert [x.name for x in posiadane.items] == ['Album zgubiony']
 
 
-# ===== M6: count_incoming_items ma parytet z len(incoming_items()) =====
-#
-# UWAGA (re-recenzja po M3+M6): count_incoming_items() nie ma już konsumenta
-# w kodzie produkcyjnym — trasa przy filter=owned czyta teraz pagination.incoming_total
-# (liczone przez list_items z listy, którą i tak buduje dla merge'a stage==STAGE_OWNED),
-# żeby nie robić drugiego, niezależnego skanu zamówień w jednym żądaniu. Funkcja
-# i jej test parytetu zostają jako tania alternatywa dla przyszłych wywołań.
-
-def test_count_incoming_items_parytet_z_incoming_items(db, make_user, make_order, make_product):
-    """`count_incoming_items` musi liczyć dokładnie to samo co `len(incoming_items())`:
-    te same reguły kwalifikacji, wykluczania zmaterializowanych i rozbicia na sztuki.
-    Dane: zamówienie z ilością > 1, zamówienie częściowo zmaterializowane i zamówienie
-    wykluczone."""
-    from modules.client.collection_incoming import incoming_items, count_incoming_items
-    from modules.client.models import CollectionItem
-    u, p = make_user(), make_product()
-
-    # Zamówienie z ilością > 1
-    o1 = make_order(u, status='oczekujace', order_type='on_hand')
-    _pozycja(db, o1, p, quantity=3)
-    _potwierdzenie(db, o1)
-
-    # Zamówienie z dwiema pozycjami, z których jedna jest już zmaterializowana
-    o2 = make_order(u, status='dostarczone', order_type='on_hand')
-    oi_zmaterializowana = _pozycja(db, o2, p)
-    _pozycja(db, o2, p)
-    _potwierdzenie(db, o2)
-    db.session.add(CollectionItem(user_id=u.id, name=p.name, source='order',
-                                   order_item_id=oi_zmaterializowana.id))
-    db.session.commit()
-
-    # Zamówienie wykluczone — nie powinno wejść w ogóle
-    o3 = make_order(u, status='anulowane', order_type='on_hand')
-    _pozycja(db, o3, p, quantity=2)
-    _potwierdzenie(db, o3)
-
-    oczekiwane = len(incoming_items(u.id))
-    assert oczekiwane == 3 + 1     # 3 sztuki z o1 + 1 niezmaterializowana z o2
-    assert count_incoming_items(u.id) == oczekiwane
-
-
 def test_trasa_filter_owned_total_incoming_bez_drugiego_skanu(db, client, login, make_user,
                                                                 make_order, make_product, app):
     """Trasa przy filter=owned ma czytać pagination.incoming_total (policzony przez

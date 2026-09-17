@@ -125,9 +125,8 @@ def list_items(user_id, search=None, sort='newest', page=1, per_page=24,
         #
         # Skoro i tak budujemy pełną listę, licznik liczymy z niej NA MIEJSCU
         # (pozycje ze stage != STAGE_OWNED), zamiast zostawiać None i zmuszać
-        # wołającego do drugiego, niezależnego przejścia przez zamówienia
-        # (wcześniej: trasa woła count_incoming_items() osobno — dwa skany
-        # zamówień w jednym żądaniu tam, gdzie przed M3+M6 był jeden).
+        # wołającego do osobnego, niezależnego przejścia przez zamówienia —
+        # dwa skany zamówień w jednym żądaniu tam, gdzie powinien być jeden.
         all_incoming = incoming_items(user_id)
         owned = owned + [i for i in all_incoming if i.stage == STAGE_OWNED]
         incoming = []
