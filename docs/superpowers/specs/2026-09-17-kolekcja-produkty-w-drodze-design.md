@@ -27,7 +27,7 @@ Rozstrzygnięte z Konradem przed projektem:
 |---|---|---|
 | Model danych | **Warstwa odczytu** (pozycje wirtualne) | Zero migracji, anulowanie zamówienia samo usuwa pozycję, brak ryzyka rozjazdu statusu i kasowania zdjęć klienta |
 | Exclusive przed opłaceniem | **Widoczny od `oczekujace`, z osobnym badge** | Przy exclusive momentem „mam to" jest przydział; badge „Do opłacenia" działa jako bodziec do zapłaty |
-| Granulacja statusu | **5 etapów** zamiast 8 statusów | Klient czyta jednym rzutem oka; statusy techniczne (`dostarczone_gom`, `dostarczone_proxy`) nie wyciekają do panelu klienta |
+| Granulacja statusu | **6 etapów** zamiast 8 statusów | Klient czyta jednym rzutem oka; statusy techniczne (`dostarczone_gom`, `dostarczone_proxy`) nie wyciekają do panelu klienta |
 | Układ | **Jedna lista + filtr** | Realizuje cel Karoliny — wszystko w jednym miejscu; nie komplikuje paginacji ani karuzeli |
 | Publiczna kolekcja | **Bez zmian** | To wizytówka kolekcji, nie lista zakupów w toku; pozycje wirtualne nie mają flagi `is_public`, więc klient nie mógłby ich ukryć pojedynczo |
 
@@ -102,12 +102,13 @@ Osobna pozycja na każdą sztukę, nazwa z sufiksem `(1/2)`, `(2/2)` — parytet
 | `unpaid` | exclusive z niezatwierdzonym E1 | Do opłacenia |
 | `ordered` | `nowe`, `oczekujace`, `dostarczone_proxy` | Zamówione |
 | `transit` | `w_drodze_polska`, `urzad_celny` | W drodze do Polski |
-| `warehouse` | `dostarczone_gom`, `spakowane`, `wyslane` | U nas — w wysyłce |
+| `warehouse` | `dostarczone_gom`, `spakowane` | Gotowe do wysyłki |
+| `shipped` | `wyslane` | Wysłane |
 | `owned` | `dostarczone` (pozycje zmaterializowane) | W kolekcji |
 
-Mapowanie trzymamy w **jednym słowniku** w `collection_incoming.py`. Świadoma konsekwencja:
-`wyslane` siedzi razem z magazynowymi, choć dla klienta to osobny moment — rozbicie na szósty
-etap to zmiana jednego wpisu w słowniku plus etykieta.
+Mapowanie trzymamy w **jednym słowniku** w `collection_incoming.py`. `wyslane` dostaje własny
+etap, bo dla klienta to inny moment niż „leży u nas w magazynie" — paczka jest już w drodze
+do niego i to najczęstszy powód zaglądania w tę zakładkę.
 
 Statusy spoza mapy (dodane w przyszłości z panelu ustawień) trafiają do `ordered` jako
 bezpieczny domyślny etap — kolekcja nie może się wywalić przez nowy slug w słowniku statusów.
@@ -184,7 +185,8 @@ Nowy plik `tests/test_collection_incoming.py` (uruchamiany przez `python -m pyte
 - wykluczenia: anulowane, zwroty, `is_set_fulfilled=False`, `fulfilled_quantity=0`
 - brak duplikatu, gdy pozycja została już zmaterializowana
 - ilość > 1 → osobne pozycje z sufiksem
-- mapowanie statusów na etapy, w tym nieznany slug → `ordered`
+- mapowanie statusów na etapy, w tym rozdział `spakowane` → `warehouse` a `wyslane` → `shipped`
+- nieznany slug statusu → `ordered`
 - filtr `w drodze` / `w kolekcji` / `wszystko`
 - paginacja mieszanej listy: liczba stron, kolejność przy każdym z 4 sortów
 - brak regresji: `include_incoming=False` zwraca dokładnie to, co dziś (parytet dla mobile API)
