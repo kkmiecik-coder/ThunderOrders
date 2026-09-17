@@ -56,6 +56,9 @@
             </div>
         </div>
         {% endif %}
+        {% if total_incoming %}
+        <span class="stat-incoming">W drodze: {{ total_incoming }}</span>
+        {% endif %}
     </div>
 
     <!-- Toolbar -->
@@ -81,6 +84,11 @@
             </select>
         </div>
         <div class="toolbar-right">
+            <div class="collection-filter" role="group" aria-label="Filtr pozycji">
+                <button type="button" class="filter-btn {{ 'active' if filter_mode == 'all' }}" data-filter="all">Wszystko</button>
+                <button type="button" class="filter-btn {{ 'active' if filter_mode == 'incoming' }}" data-filter="incoming">W drodze</button>
+                <button type="button" class="filter-btn {{ 'active' if filter_mode == 'owned' }}" data-filter="owned">W kolekcji</button>
+            </div>
             <div class="view-toggle">
                 <button class="view-btn {{ 'active' if view == 'carousel' }}" onclick="setView('carousel')" title="Widok karuzeli">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -130,6 +138,7 @@
                 <span class="list-col col-image"></span>
                 <span class="list-col col-name">Nazwa</span>
                 <span class="list-col col-source">Źródło</span>
+                <span class="list-col col-stage">Status</span>
                 <span class="list-col col-price">Cena rynkowa</span>
                 <span class="list-col col-date">Data dodania</span>
                 <span class="list-col col-actions">Akcje</span>
@@ -143,11 +152,13 @@
         <div class="carousel-container {% if view != 'carousel' %}hidden{% endif %}" id="collectionCarousel">
             <div class="carousel-track">
                 {% for item in items %}
-                <div class="carousel-slide" data-item-id="{{ item.id }}">
+                <div class="carousel-slide"{% if not item.is_virtual %} data-item-id="{{ item.id }}"{% endif %}
+                     data-dom-id="{{ item.dom_id }}">
                     <div class="carousel-slide-content">
                         {% set has_real_image = item.primary_image or (item.product_id and item.product and item.product.primary_image) %}
                         <img src="{{ item.image_url }}" alt="{{ item.name }}" {% if not has_real_image %}class="square"{% endif %}>
                         <span class="carousel-slide-name">{{ item.name }}</span>
+                        <span class="collection-badge collection-badge--{{ item.stage }}">{{ item.stage_label }}</span>
                         {% if item.market_price %}
                         <span class="carousel-slide-price">{{ "%.2f"|format(item.market_price) }} zł</span>
                         {% endif %}
@@ -168,12 +179,12 @@
         <div class="collection-pagination">
             <div class="pagination">
                 {% if pagination.has_prev %}
-                <a href="?page={{ pagination.prev_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}" class="page-link">&laquo; Poprzednia</a>
+                <a href="?page={{ pagination.prev_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}&filter={{ filter_mode }}" class="page-link">&laquo; Poprzednia</a>
                 {% endif %}
 
                 {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                     {% if page_num %}
-                        <a href="?page={{ page_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}"
+                        <a href="?page={{ page_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}&filter={{ filter_mode }}"
                            class="page-link {{ 'active' if page_num == pagination.page }}">{{ page_num }}</a>
                     {% else %}
                         <span class="page-ellipsis">...</span>
@@ -181,7 +192,7 @@
                 {% endfor %}
 
                 {% if pagination.has_next %}
-                <a href="?page={{ pagination.next_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}" class="page-link">Następna &raquo;</a>
+                <a href="?page={{ pagination.next_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}&filter={{ filter_mode }}" class="page-link">Następna &raquo;</a>
                 {% endif %}
             </div>
         </div>

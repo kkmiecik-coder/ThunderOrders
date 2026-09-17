@@ -544,3 +544,29 @@ def test_total_incoming_niezalezny_od_filtra_i_wyszukiwania(db, client, login, m
 
     assert wartosci['all'] == 2
     assert set(wartosci.values()) == {2}
+
+
+def test_badge_etapu_widoczny_na_stronie(db, client, login, make_user, make_order, make_product):
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
+    o = make_order(u, status='w_drodze_polska', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    login(u)
+    html = client.get('/client/collection').get_data(as_text=True)
+    assert 'W drodze do Polski' in html
+    assert 'collection-badge--transit' in html
+
+
+def test_pozycja_wirtualna_bez_przyciskow_edycji(db, client, login, make_user,
+                                                  make_order, make_product):
+    # Wirtualna pozycja nie ma wiersza w bazie — edycja i usuwanie nie mają czego dotknąć.
+    u, p = make_user(profile_completed=True), make_product(name='Album NCT')
+    o = make_order(u, status='oczekujace', order_type='on_hand')
+    _pozycja(db, o, p)
+    _potwierdzenie(db, o)
+
+    login(u)
+    html = client.get('/client/collection?filter=incoming').get_data(as_text=True)
+    assert 'openDeleteModal' not in html
+    assert 'btn-order-link' in html
