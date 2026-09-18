@@ -154,6 +154,18 @@ def list_items(user_id, search=None, sort='newest', page=1, per_page=24,
     merged = sorted(owned + incoming, key=key, reverse=reverse)
     pagination = MergedPagination(merged, page=page, per_page=per_page)
     pagination.incoming_total = incoming_total
+
+    # Statystyki po WSZYSTKICH pozycjach wirtualnych — w drodze ORAZ tych o etapie
+    # STAGE_OWNED (dostarczone zamówienie bez materializacji) — niezależnie od
+    # `search` i od `stage_filter`: kafle mają liczyć całość widoczną w sekcji
+    # „Moja kolekcja", nie bieżący widok. `all_incoming` to ten sam wynik
+    # incoming_items() policzony wyżej w obu gałęziach (jedno wywołanie na
+    # żądanie) — świadomie NIE wołamy incoming_items() drugi raz.
+    from decimal import Decimal
+    pagination.virtual_items_count = len(all_incoming)
+    pagination.virtual_items_value = sum(
+        (i.market_price for i in all_incoming if i.market_price is not None),
+        Decimal('0'))
     return pagination
 
 

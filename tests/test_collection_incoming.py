@@ -705,3 +705,154 @@ def test_total_incoming_ten_sam_dla_owned_i_all(db, client, login, make_user,
     wartosc_owned = _total_incoming_z_odpowiedzi(app, '/client/collection?filter=owned', client)
     wartosc_all = _total_incoming_z_odpowiedzi(app, '/client/collection?filter=all', client)
     assert wartosc_owned == wartosc_all == 3
+
+
+# ===== Statystyki liczone z całości (kafle = wszystko widoczne w sekcji) =====
+
+def _stats_z_odpowiedzi(app, url, client):
+    """Woła trasę i wyciąga total_items/total_value/pagination.total z kontekstu
+    szablonu — analogicznie do `_total_incoming_z_odpowiedzi`."""
+    from flask import template_rendered
+
+    captured = []
+
+    def _on_render(sender, template, context, **extra):
+        captured.append({
+            'total_items': context.get('total_items'),
+            'total_value': context.get('total_value'),
+            'lista_total': context.get('pagination').total,
+        })
+
+    with template_rendered.connected_to(_on_render, app):
+        resp = client.get(url)
+        assert resp.status_code == 200
+    assert len(captured) == 1
+    return captured[0]
+
+
+def test_kafel_przedmiotow_rowny_liczbie_pozycji_na_liscie(db, client, login, make_user,
+                                                             make_order, make_product, app):
+    """Regresja zgłoszona przez właściciela produktu: pozycja wirtualna o etapie
+    STAGE_OWNED (dostarczone zamówienie bez materializacji) była widoczna na liście,
+    ale nie liczyła się do żadnego licznika — suma kafli nie sumowała się do listy.
+    Scenariusz MUSI zawierać taką pozycję, inaczej test nie broni tej regresji."""
+    from modules.client.models import CollectionItem
+
+    u = make_user(profile_completed=True)
+    p1 = make_product(name='Album zgubiony')
+    p2 = make_product(name='Album w drodze')
+    db.session.add(CollectionItem(user_id=u.id, name='Reczna pozycja',
+                                   source='manual', market_price=Decimal('40.00')))
+    db.session.commit()
+
+    o1 = make_order(u, status='dostarczone', order_type='on_hand')     # STAGE_OWNED, bez materializacji
+    _pozycja(db, o1, p1, price='55.00')
+    _potwierdzenie(db, o1)
+
+    o2 = make_order(u, status='w_drodze_polska', order_type='on_hand')  # STAGE_TRANSIT
+    _pozycja(db, o2, p2, price='66.00')
+    _potwierdzenie(db, o2)
+
+    login(u)
+    wynik = _stats_z_odpowiedzi(app, '/client/collection?filter=all', client)
+
+    assert wynik['total_items'] == wynik['lista_total'] == 3
+
+
+def test_wartosc_kafla_obejmuje_pozycje_wirtualne_wlacznie_ze_stage_owned(
+        db, client, login, make_user, make_order, make_product, app):
+    """Wartość kafla ma być SUMĄ wszystkiego, co widać w kolekcji — również pozycji
+    wirtualnej o etapie STAGE_OWNED (nie tylko tych w drodze)."""
+    from modules.client.models import CollectionItem
+
+    u = make_user(profile_completed=True)
+    p = make_product(name='Album zgubiony')
+    db.session.add(CollectionItem(user_id=u.id, name='Reczna pozycja',
+                                   source='manual', market_price=Decimal('40.00')))
+    db.session.commit()
+
+    o = make_order(u, status='dostarczone', order_type='on_hand')      # STAGE_OWNED, bez materializacji
+    _pozycja(db, o, p, price='55.00')
+    _potwierdzenie(db, o)
+
+    login(u)
+    wynik = _stats_z_odpowiedzi(app, '/client/collection?filter=all', client)
+
+    assert wynik['total_value'] == pytest.approx(95.00)
+
+
+def test_statystyki_niezalezne_od_search_i_filtra(db, client, login, make_user,
+                                                    make_order, make_product, app):
+    """Kafle opisują CAŁĄ kolekcję — `search` zawęża tylko listę, a filtr etapu tylko
+    widok, więc statystyki mają być identyczne pod każdą kombinacją."""
+    from modules.client.models import CollectionItem
+
+    u = make_user(profile_completed=True)
+    p1 = make_product(name='Album NCT')
+    p2 = make_product(name='Photocard BTS')
+    db.session.add(CollectionItem(user_id=u.id, name='Reczna pozycja',
+                                   source='manual', market_price=Decimal('40.00')))
+    db.session.commit()
+
+    o1 = make_order(u, status='dostarczone', order_type='on_hand')     # STAGE_OWNED
+    _pozycja(db, o1, p1, price='55.00')
+    _potwierdzenie(db, o1)
+
+    o2 = make_order(u, status='oczekujace', order_type='on_hand')      # STAGE_ORDERED
+    _pozycja(db, o2, p2, price='66.00')
+    _potwierdzenie(db, o2)
+
+    login(u)
+    warianty = [
+        '/client/collection?filter=all',
+        '/client/collection?filter=owned',
+        '/client/collection?filter=incoming',
+        '/client/collection?search=nct',
+        '/client/collection?search=cosinnego',
+    ]
+    wyniki = [_stats_z_odpowiedzi(app, url, client) for url in warianty]
+
+    total_items_set = {w['total_items'] for w in wyniki}
+    total_value_set = {w['total_value'] for w in wyniki}
+    assert len(total_items_set) == 1
+    assert len(total_value_set) == 1
+
+
+def test_pozycje_bez_ceny_nie_wywalaja_sumowania(db, client, login, make_user,
+                                                  make_order, make_product, app):
+    """market_price = None (ręczna pozycja bez ceny) nie może wywalić sumowania —
+    ma być pominięta, a suma ma dalej zawierać ceny pozostałych pozycji."""
+    from modules.client.models import CollectionItem
+
+    u = make_user(profile_completed=True)
+    p = make_product(name='Album zgubiony')
+    db.session.add(CollectionItem(user_id=u.id, name='Bez ceny',
+                                   source='manual', market_price=None))
+    db.session.commit()
+
+    o = make_order(u, status='dostarczone', order_type='on_hand')      # STAGE_OWNED
+    _pozycja(db, o, p, price='55.00')
+    _potwierdzenie(db, o)
+
+    login(u)
+    wynik = _stats_z_odpowiedzi(app, '/client/collection?filter=all', client)
+
+    assert wynik['total_items'] == 2
+    assert wynik['total_value'] == pytest.approx(55.00)
+
+
+def test_ilosc_wieksza_niz_jeden_liczy_sie_jako_tyle_pozycji(db, client, login, make_user,
+                                                              make_order, make_product, app):
+    """quantity > 1 na jednej pozycji zamówienia ma liczyć się jako tyle pozycji
+    kolekcji, ile sztuk — parytet z `incoming_items`, który rozbija je osobno."""
+    u = make_user(profile_completed=True)
+    p = make_product(name='PC Jisoo')
+    o = make_order(u, status='w_drodze_polska', order_type='on_hand')
+    _pozycja(db, o, p, quantity=3, price='10.00')
+    _potwierdzenie(db, o)
+
+    login(u)
+    wynik = _stats_z_odpowiedzi(app, '/client/collection?filter=all', client)
+
+    assert wynik['total_items'] == wynik['lista_total'] == 3
+    assert wynik['total_value'] == pytest.approx(30.00)

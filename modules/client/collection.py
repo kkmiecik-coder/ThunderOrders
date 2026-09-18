@@ -44,7 +44,8 @@ def collection_list():
         include_incoming=True, stage_filter=filter_mode)
     items = pagination.items
 
-    # Stats
+    # Stats — COUNT/SUM po user_id celowo BEZ filtra wyszukiwania: statystyki
+    # opisują całą kolekcję, nie bieżący widok (`search` zawęża tylko listę).
     total_items = CollectionItem.query.filter_by(user_id=current_user.id).count()
     total_value_result = db.session.query(
         db.func.sum(CollectionItem.market_price)
@@ -53,6 +54,16 @@ def collection_list():
         CollectionItem.market_price.isnot(None)
     ).scalar()
     total_value = float(total_value_result) if total_value_result else 0
+
+    # Kafle mają liczyć WSZYSTKO widoczne w sekcji „Moja kolekcja" — wiersze z bazy
+    # (wyżej) PLUS wszystkie pozycje wirtualne: te w drodze ORAZ te o etapie
+    # STAGE_OWNED (dostarczone zamówienie, któremu padła materializacja — mimo to
+    # widoczne na liście, patrz collection_service.list_items). Wartość ma być sumą
+    # wszystkiego, nie tylko cen rynkowych z bazy. Doliczamy pagination.virtual_items_*,
+    # policzone przez list_items() z JEDNEGO wywołania incoming_items() (to samo,
+    # które i tak budowało listę wyżej) — bez dodatkowego skanu zamówień.
+    total_items += pagination.virtual_items_count
+    total_value += float(pagination.virtual_items_value)
 
     # Licznik pozycji w drodze — pokazywany obok liczby rzeczy posiadanych.
     # total_items i total_value liczą WYŁĄCZNIE rzeczy zmaterializowane: wartość
