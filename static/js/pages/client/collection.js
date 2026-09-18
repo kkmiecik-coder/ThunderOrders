@@ -91,6 +91,16 @@
         });
     }
 
+    // ---- Filtr etapu (Wszystko / W drodze / W kolekcji) ----
+    document.querySelectorAll('.collection-filter .filter-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var url = new URL(window.location);
+            url.searchParams.set('filter', this.getAttribute('data-filter'));
+            url.searchParams.delete('page');          // filtr zmienia liczbę stron
+            window.location.href = url.toString();
+        });
+    });
+
     // ---- Clear search ----
     window.clearSearch = function () {
         if (searchInput) searchInput.value = '';
@@ -111,6 +121,11 @@
         }
         url.searchParams.set('sort', sortVal);
         url.searchParams.delete('page');
+
+        var aktywnyFiltr = document.querySelector('.collection-filter .filter-btn.active');
+        if (aktywnyFiltr) {
+            url.searchParams.set('filter', aktywnyFiltr.getAttribute('data-filter'));
+        }
 
         window.location.href = url.toString();
     }
@@ -716,6 +731,13 @@
             if (cols.image) parts.push('48px');
             parts.push('minmax(120px, 1fr)'); // nazwa - zawsze
             if (cols.source) parts.push('100px');
+            // Etap realizacji - zawsze widoczny, nie ma przełącznika w ustawieniach
+            // (dodany razem z pozycjami "w drodze"; ta funkcja go wcześniej pomijała,
+            // co przesuwało wszystkie kolejne kolumny o jedno miejsce w lewo i
+            // wypychało "Akcje" do kolejnego wiersza siatki - stąd badge etapu
+            // wjeżdżający na kolumnę ceny). Szerokość zgodna z .list-header/.collection-row
+            // w collection.css - zmieniaj oba miejsca razem.
+            parts.push('170px');
             if (cols.price) parts.push('100px');
             if (cols.date) parts.push('100px');
             parts.push('80px'); // akcje - zawsze

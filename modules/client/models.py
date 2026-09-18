@@ -103,6 +103,43 @@ class CollectionItem(db.Model):
         """Returns True if more images can be added (max 3)."""
         return self.images_count < 3
 
+    # --- Dopełnienie interfejsu VirtualCollectionItem ---
+    # Kolekcja miesza wiersze z bazy z pozycjami wyliczanymi z zamówień. Żeby
+    # szablony nie rozgałęziały się przy każdym polu, oba rodzaje pozycji
+    # odpowiadają na ten sam zestaw pytań.
+
+    is_virtual = False
+
+    @property
+    def dom_id(self):
+        """Identyfikator dla DOM — pozycje wirtualne nie mają id z bazy."""
+        return f'ci-{self.id}'
+
+    @property
+    def stage(self):
+        """Wiersz w collection_items znaczy, że klient to fizycznie ma."""
+        from modules.client.collection_incoming import STAGE_OWNED
+        return STAGE_OWNED
+
+    @property
+    def stage_label(self):
+        from modules.client.collection_incoming import STAGE_LABELS
+        return STAGE_LABELS[self.stage]
+
+    @property
+    def has_real_image(self):
+        """Czy jest prawdziwe zdjęcie (własne albo produktu), nie placeholder.
+
+        Odtwarza logikę `image_url`, ale bez budowania URL-a — szablon karuzeli
+        używa tego do wyboru klasy `square` przy braku zdjęcia. `product.primary_image`
+        robi własny SELECT (relacja `images` jest lazy='dynamic'), więc dla pozycji
+        wirtualnych (`VirtualCollectionItem`) tej gałęzi nie wolno odpalać — tam
+        odpowiedź bierzemy z batch preloadu, patrz collection_incoming.py.
+        """
+        if self.primary_image:
+            return True
+        return bool(self.product_id and self.product and self.product.primary_image)
+
 
 class CollectionItemImage(db.Model):
     """

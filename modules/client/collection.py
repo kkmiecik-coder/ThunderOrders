@@ -29,13 +29,19 @@ def collection_list():
     # Sort
     sort = request.args.get('sort', 'newest')
 
+    # Filtr etapu: wszystko / w drodze / w kolekcji
+    filter_mode = request.args.get('filter', collection_service.FILTER_ALL)
+    if filter_mode not in collection_service.ALLOWED_FILTERS:
+        filter_mode = collection_service.FILTER_ALL
+
     # Pagination
     page = request.args.get('page', 1, type=int)
     per_page = 24
 
     # Build query (ekstrakcja: serwis kolekcji — parytet zachowania)
     pagination = collection_service.list_items(
-        current_user.id, search=search or None, sort=sort, page=page, per_page=per_page)
+        current_user.id, search=search or None, sort=sort, page=page, per_page=per_page,
+        include_incoming=True, stage_filter=filter_mode)
     items = pagination.items
 
     # Stats
@@ -47,6 +53,21 @@ def collection_list():
         CollectionItem.market_price.isnot(None)
     ).scalar()
     total_value = float(total_value_result) if total_value_result else 0
+
+    # Licznik pozycji w drodze — pokazywany obok liczby rzeczy posiadanych.
+    # total_items i total_value liczą WYŁĄCZNIE rzeczy zmaterializowane: wartość
+    # kolekcji to wartość tego, co klient ma, a nie tego, co dopiero jedzie.
+    #
+    # Znaczenie total_incoming: ŁĄCZNA liczba pozycji w drodze użytkownika,
+    # NIEZALEŻNA od `search` i od aktywnego `filter_mode` (Task 6 dodaje badge —
+    # licznik ma pokazywać całość, nie to, co akurat widać po filtrze/szukaniu).
+    # list_items(include_incoming=True) liczy to WEWNĘTRZNIE w każdej gałęzi
+    # filtra (łącznie z FILTER_OWNED, który i tak buduje pełną incoming_items()
+    # na potrzeby merge'a pozycji ze stage == STAGE_OWNED — patrz collection_service.py)
+    # i wystawia przez pagination.incoming_total. Czytamy WYŁĄCZNIE ten wynik:
+    # osobne wywołanie tu byłoby drugim, niezależnym skanem zamówień w jednym
+    # żądaniu (regresja wykryta w re-recenzji po M3+M6).
+    total_incoming = pagination.incoming_total
 
     # Konfiguracja publicznej strony
     from modules.client.models import PublicCollectionConfig
@@ -60,6 +81,8 @@ def collection_list():
                            sort=sort,
                            total_items=total_items,
                            total_value=total_value,
+                           filter_mode=filter_mode,
+                           total_incoming=total_incoming,
                            public_config=public_config)
 
 
