@@ -43,16 +43,16 @@
             <div class="metric-content">
                 <h3 class="metric-title">Przedmioty</h3>
                 <p class="metric-value">{{ total_items }}</p>
-                <p class="metric-subtitle">W kolekcji</p>
+                <p class="metric-subtitle">Razem</p>
             </div>
         </div>
         {% if total_value > 0 %}
         <div class="metric-card metric-card-progress" data-stat="total_value">
             <div class="metric-icon">💰</div>
             <div class="metric-content">
-                <h3 class="metric-title">Łączna wartość</h3>
+                <h3 class="metric-title">Wartość kolekcji</h3>
                 <p class="metric-value">{{ "%.2f"|format(total_value) }} zł</p>
-                <p class="metric-subtitle">Cena rynkowa</p>
+                <p class="metric-subtitle">W cenach zakupu</p>
             </div>
         </div>
         {% endif %}
