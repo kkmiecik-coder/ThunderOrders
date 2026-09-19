@@ -3302,13 +3302,14 @@ def create_group_proxy_order():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def _apply_coverage_status_update(product_quantities, client_orders, new_status):
+def _apply_coverage_status_update(product_quantities, client_orders, new_status, notify=True):
     """Check coverage and update status for client orders whose products are fully covered.
 
     Iterates through client_orders, checking if every item can be satisfied by
     product_quantities (dict {product_id: available_qty}). Orders that are fully
     covered get their status set to new_status, and available quantities are consumed.
-    Sends email notification to each client whose order status changed.
+    Sends email notification to each client whose order status changed, unless
+    notify=False (used for dry-run previews, e.g. the reconciliation CLI command).
     """
     from modules.orders.models import OrderItem
 
@@ -3367,7 +3368,7 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
 
     # Emaile wysylane po uzyciu (caller robi commit, wiec status_display_name bedzie aktualny)
     emails_sent = 0
-    if email_queue:
+    if email_queue and notify:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         # Flush zeby order.status_display_name zwrocil nowa nazwe
@@ -3391,7 +3392,7 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
     return emails_sent
 
 
-def _update_client_orders_on_polska_ordered():
+def _update_client_orders_on_polska_ordered(notify=True):
     """
     Gdy produkty trafiają do zakładki Polska (PolandOrder), zmień status zamówień klientów na 'w_drodze_polska'.
     Sprawdza czy WSZYSTKIE produkty w zamówieniu klienta są pokryte przez produkty
@@ -3427,10 +3428,10 @@ def _update_client_orders_on_polska_ordered():
         )
     ).all()
 
-    return _apply_coverage_status_update(ordered, client_orders, 'w_drodze_polska')
+    return _apply_coverage_status_update(ordered, client_orders, 'w_drodze_polska', notify=notify)
 
 
-def _update_client_orders_if_fully_delivered(proxy_order_type):
+def _update_client_orders_if_fully_delivered(proxy_order_type, notify=True):
     """
     Sprawdź czy zamówienia klientów mają wszystkie produkty dostarczone do proxy.
     Mapowanie: proxy order type 'polska' → payment_stages=3, 'proxy' → payment_stages=4.
@@ -3463,10 +3464,10 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
         )
     ).all()
 
-    return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_proxy')
+    return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_proxy', notify=notify)
 
 
-def _update_client_orders_on_customs():
+def _update_client_orders_on_customs(notify=True):
     """
     Gdy zamówienie Poland przechodzi na 'urzad_celny', zmień status zamówień klientów
     których produkty są w tej paczce na 'urzad_celny'.
@@ -3497,10 +3498,10 @@ def _update_client_orders_on_customs():
         )
     ).all()
 
-    return _apply_coverage_status_update(at_customs, client_orders, 'urzad_celny')
+    return _apply_coverage_status_update(at_customs, client_orders, 'urzad_celny', notify=notify)
 
 
-def _update_client_orders_on_gom_delivery():
+def _update_client_orders_on_gom_delivery(notify=True):
     """
     Sprawdź czy zamówienia klientów mają wszystkie produkty dostarczone do GOM.
     Dotyczy zamówień klientów z payment_stages=3 (polska) i statusem 'dostarczone_proxy'.
@@ -3531,7 +3532,7 @@ def _update_client_orders_on_gom_delivery():
         )
     ).all()
 
-    return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_gom')
+    return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_gom', notify=notify)
 
 
 @products_bp.route('/proxy-orders/<int:order_id>/status', methods=['PUT'])
