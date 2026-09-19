@@ -160,6 +160,36 @@ def test_gom_nie_rusza_anulowanych_i_nowych_exclusive(db, make_user, make_produc
     assert o_nowe.status == 'nowe'
 
 
+def test_gom_gratis_w_jednym_zamowieniu_nie_blokuje_innego(db, make_user, make_product, make_order):
+    """Regresja: zamówienie A ma 1 szt. płatną + 1 szt. gratisową tego samego
+    produktu, zamówienie B (innego klienta) ma 1 szt. płatną. Dostarczone są
+    2 szt. — dokładnie tyle, ile wynosi zapotrzebowanie PŁATNE (gratisy nie są
+    osobno zamawiane u dostawcy, patrz get_products_to_order). Oba zamówienia
+    mają swoją płatną sztukę pokrytą i obydwa MUSZĄ dostać 'dostarczone_gom'.
+
+    Przed poprawką gratisowa pozycja z zamówienia A była też odejmowana z puli
+    dostarczonych sztuk, więc zjadała towar należny zamówieniu B — B zostawało
+    w 'oczekujace', mimo że jego płatna sztuka fizycznie dotarła."""
+    from modules.products.routes import _update_client_orders_on_gom_delivery
+    from modules.orders.models import OrderItem
+
+    p = make_product()
+    o_a = _client_order(db, make_user, make_order, p.id, qty=1)
+    db.session.add(OrderItem(order_id=o_a.id, product_id=p.id, quantity=1,
+                             price=Decimal('0'), total=Decimal('0'), is_bonus=True))
+    db.session.commit()
+    o_b = _client_order(db, make_user, make_order, p.id, qty=1)
+    _make_poland_batch(db, p.id, 2, status='dostarczone_gom')
+
+    _update_client_orders_on_gom_delivery()
+    db.session.commit()
+
+    db.session.refresh(o_a)
+    db.session.refresh(o_b)
+    assert o_a.status == 'dostarczone_gom'
+    assert o_b.status == 'dostarczone_gom'
+
+
 def test_gom_dziala_dalej_dla_dostarczone_proxy(db, make_user, make_product, make_order):
     """Dotychczasowa ścieżka (pełny łańcuch) nadal działa."""
     from modules.products.routes import _update_client_orders_on_gom_delivery

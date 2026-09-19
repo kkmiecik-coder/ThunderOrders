@@ -3321,14 +3321,18 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
         items = OrderItem.query.filter_by(order_id=order.id).all()
         all_covered = True
         for item in items:
-            if item.quantity <= 0:
+            # Gratisy (is_bonus) są pomijane tak samo jak przy liczeniu zapotrzebowania
+            # w get_products_to_order() — nigdy nie są osobno zamawiane u dostawcy,
+            # więc wymaganie ich pokrycia z dostarczonej puli permanentnie blokowałoby
+            # status zamówienia, mimo że płatne pozycje już dotarły.
+            if item.quantity <= 0 or item.is_bonus:
                 continue
             if remaining.get(item.product_id, 0) < item.quantity:
                 all_covered = False
                 break
         if all_covered:
             for item in items:
-                if item.quantity > 0:
+                if item.quantity > 0 and not item.is_bonus:
                     remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
             old_status = order.status
             old_status_name = order.status_display_name
