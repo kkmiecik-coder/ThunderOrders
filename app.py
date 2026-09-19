@@ -1274,7 +1274,9 @@ def register_cli_commands(app):
     @click.option('--dry-run', is_flag=True, help='Tylko wyswietl, bez wysylki')
     @click.option('--since', default=None, help='Dolna granica czasu ActivityLog, np. "2026-09-19 15:39:00"')
     @click.option('--until', default=None, help='Gorna granica czasu ActivityLog, np. "2026-09-19 15:41:00"')
-    def resend_reconcile_notifications(dry_run, since, until):
+    @click.option('--only-orders', default=None, help='Numery zamowien po przecinku (np. EX/1631,EX/1637) - do ponowienia tylko tych, ktore wczesniej sie nie udaly')
+    @click.option('--delay', default=0.0, type=float, help='Sekundy odstepu miedzy wysylkami (unika rate-limitu SMTP przy duzej paczce)')
+    def resend_reconcile_notifications(dry_run, since, until, only_orders, delay):
         """Jednorazowa naprawa: reconcile-gratis-blocked-statuses wywolane z 'flask' CLI
         nie ma kontekstu zadania HTTP, wiec url_for() w szablonie maila/push rzucal
         RuntimeError ('Working outside of request context' / brak SERVER_NAME) -
@@ -1289,6 +1291,7 @@ def register_cli_commands(app):
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         import json as _json
+        import time
 
         query = ActivityLog.query.filter(
             ActivityLog.action == 'order_status_auto_updated',
@@ -1307,6 +1310,10 @@ def register_cli_commands(app):
 
         status_names = {s.slug: s.name for s in OrderStatus.query.all()}
 
+        wanted_numbers = None
+        if only_orders:
+            wanted_numbers = {n.strip() for n in only_orders.split(',') if n.strip()}
+
         sent = 0
         skipped = 0
         # base_url jawnie ustawiony - bez tego test_request_context() domyslnie
@@ -1318,11 +1325,15 @@ def register_cli_commands(app):
                 if not order or not order.customer_email:
                     skipped += 1
                     continue
+                if wanted_numbers is not None and order.order_number not in wanted_numbers:
+                    continue
                 old_display = status_names.get(old_slug, old_slug)
                 new_display = order.status_display_name
                 if dry_run:
                     click.echo(f"  {order.order_number}: {old_display} -> {new_display}")
                     continue
+                if delay and sent > 0:
+                    time.sleep(delay)
                 try:
                     EmailManager.notify_status_change(order, old_display, new_display)
                     PushManager.notify_status_change(order, old_display, new_display)
