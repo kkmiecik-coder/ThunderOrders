@@ -1246,12 +1246,17 @@ def register_cli_commands(app):
             lambda: _update_client_orders_on_customs(notify=notify),
             lambda: _update_client_orders_on_gom_delivery(notify=notify),
         ]
-        for stage in stages:
-            stage()
-            if dry_run:
-                db.session.flush()
-            else:
-                db.session.commit()
+        # base_url jawnie ustawiony - bez tego url_for() w szablonie maila/push wewnatrz
+        # notify_status_change rzuca RuntimeError (brak request contextu w 'flask' CLI)
+        # albo (gdyby ktos uzyl golego test_request_context()) buduje linki na
+        # "http://localhost/...", bo appka nie ma skonfigurowanego SERVER_NAME.
+        with app.test_request_context(base_url='https://thunderorders.cloud'):
+            for stage in stages:
+                stage()
+                if dry_run:
+                    db.session.flush()
+                else:
+                    db.session.commit()
 
         changed = [
             (o.order_number, before_status[o.id], o.status)
@@ -1264,6 +1269,72 @@ def register_cli_commands(app):
         click.echo(f"{'[DRY RUN] ' if dry_run else ''}Zmienionych zamowien: {len(changed)}")
         for number, old, new in changed:
             click.echo(f"  {number}: {old} -> {new}")
+
+    @app.cli.command('resend-reconcile-notifications')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyswietl, bez wysylki')
+    @click.option('--since', default=None, help='Dolna granica czasu ActivityLog, np. "2026-09-19 15:39:00"')
+    @click.option('--until', default=None, help='Gorna granica czasu ActivityLog, np. "2026-09-19 15:41:00"')
+    def resend_reconcile_notifications(dry_run, since, until):
+        """Jednorazowa naprawa: reconcile-gratis-blocked-statuses wywolane z 'flask' CLI
+        nie ma kontekstu zadania HTTP, wiec url_for() w szablonie maila/push rzucal
+        RuntimeError ('Working outside of request context' / brak SERVER_NAME) -
+        EmailManager i PushManager polykaly ten blad, wiec log mowil "wyslano", a
+        klienci nie dostali nic. Statusy zamowien sa juz poprawnie zapisane w bazie
+        (to nie jest cofane) - ta komenda tylko wysyla zalegle powiadomienia, po
+        jednym na zamowienie (od statusu SPRZED calego przeliczenia do aktualnego,
+        pomijajac posrednie etapy zeby nie zasypac klienta kilkoma mailami naraz).
+        """
+        from modules.admin.models import ActivityLog
+        from modules.orders.models import Order, OrderStatus
+        from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        import json as _json
+
+        query = ActivityLog.query.filter(
+            ActivityLog.action == 'order_status_auto_updated',
+            ActivityLog.entity_type == 'order',
+        )
+        if since:
+            query = query.filter(ActivityLog.created_at >= since)
+        if until:
+            query = query.filter(ActivityLog.created_at <= until)
+        logs = query.order_by(ActivityLog.created_at.asc()).all()
+
+        first_old_status = {}
+        for log in logs:
+            if log.entity_id not in first_old_status:
+                first_old_status[log.entity_id] = _json.loads(log.old_value)['status']
+
+        status_names = {s.slug: s.name for s in OrderStatus.query.all()}
+
+        sent = 0
+        skipped = 0
+        # base_url jawnie ustawiony - bez tego test_request_context() domyslnie
+        # buduje linki na "http://localhost/...", bo appka nie ma skonfigurowanego
+        # SERVER_NAME (normalne requesty HTTP nie tego potrzebuja, biora Host z requestu).
+        with app.test_request_context(base_url='https://thunderorders.cloud'):
+            for order_id, old_slug in first_old_status.items():
+                order = db.session.get(Order, order_id)
+                if not order or not order.customer_email:
+                    skipped += 1
+                    continue
+                old_display = status_names.get(old_slug, old_slug)
+                new_display = order.status_display_name
+                if dry_run:
+                    click.echo(f"  {order.order_number}: {old_display} -> {new_display}")
+                    continue
+                try:
+                    EmailManager.notify_status_change(order, old_display, new_display)
+                    PushManager.notify_status_change(order, old_display, new_display)
+                    sent += 1
+                except Exception as e:
+                    click.echo(f"  BLAD {order.order_number}: {e}")
+                    skipped += 1
+
+        click.echo(
+            f"{'[DRY RUN] ' if dry_run else ''}Zamowien do powiadomienia: {len(first_old_status)}, "
+            f"wyslano: {sent}, pominieto: {skipped}"
+        )
 
     @app.cli.command('refresh-rates')
     def refresh_rates():
