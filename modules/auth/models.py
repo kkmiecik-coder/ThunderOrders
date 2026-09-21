@@ -13,12 +13,16 @@ import random
 from extensions import db
 
 
-# Data wdrożenia liczenia serii logowań w czasie polskim zamiast UTC.
-# Używane WYŁĄCZNIE jako bufor migracyjny w User.update_login_streak — wpisy
-# starsze niż ta data pochodzą ze starego kodu i mogą być o dobę przesunięte.
-# PRZED WDROŻENIEM: ustaw na faktyczną datę pushu, inaczej bufor nie zadziała
-# (za wcześnie) albo będzie działał dłużej, niż trzeba (za późno).
-DATA_WDROZENIA_STREAK_LOKALNY = date(2026, 9, 22)
+# Granica bufora migracyjnego przy przejściu z UTC na czas polski w liczeniu
+# serii logowań. Używane WYŁĄCZNIE w User.update_login_streak: wpisy z datą
+# WCZEŚNIEJSZĄ niż ta pochodzą ze starego kodu i mogą być o dobę przesunięte.
+#
+# Data z zapasem względem planowanego pushu (21.09.2026). Ustawienie jej ZA
+# PÓŹNO jest niegroźne — bufor ratuje wyłącznie lukę dokładnie dwóch dni, a przy
+# rekordzie serii 40 dni i jednej osobie z serią >= 7 koszt ewentualnej pomyłki
+# jest zerowy. Ustawienie ZA WCZEŚNIE (przed pushem) wyłącza bufor i komuś
+# zeruje serię bezpowrotnie, bo historii logowań nie ma. Stąd zapas w tę stronę.
+DATA_WDROZENIA_STREAK_LOKALNY = date(2026, 9, 25)
 
 
 def get_local_now():
