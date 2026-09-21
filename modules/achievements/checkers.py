@@ -43,16 +43,26 @@ def _items_with_photos(user, config, context):
 
 
 def _total_spent(user, config, context):
-    """Suma tego, co klient ma do zapłacenia za zamówienia — WSZYSTKIE cztery etapy.
+    """Suma tego, co klient FAKTYCZNIE WPŁACIŁ — `paid_amount` akumuluje
+    zatwierdzone etapy E1–E4 (patrz `Order.remaining_to_pay`).
 
-    Wcześniej sumowało samo `total_amount`, czyli etap E1 (produkt). Klient na
-    dashboardzie widzi `total_to_pay` (E1 produkt + E2 wysyłka KR + E3 cło/VAT
-    + E4 wysyłka do klienta), więc odznaka spóźniała się względem liczby, którą
-    miał przed oczami.
+    Dwie rzeczy, których ta funkcja świadomie NIE robi:
+    - nie liczy `total_amount` (sam etap E1) — tak było do 09.2026 i odznaka
+      spóźniała się względem kafla „Wydane" na dashboardzie klienta,
+    - nie liczy `total_to_pay` (należności) — odznaka „Wydaj łącznie X zł"
+      wpadałaby za pieniądze, których klient nigdy nie przelał.
+
+    Filtr statusów jest tym samym, którego używa dashboard klienta
+    (`dashboard_service`): zamówienie anulowane albo zwrócone nie jest wydatkiem.
+    Odznaki nie da się odebrać, więc lepiej przyznać ją za późno niż za coś,
+    czego nie było.
     """
     from modules.orders.models import Order
-    result = db.session.query(db.func.coalesce(db.func.sum(Order.total_to_pay), 0)).filter(
-        Order.user_id == user.id
+    from utils.offer_closure import CLOSED_ORDER_STATUSES
+
+    result = db.session.query(db.func.coalesce(db.func.sum(Order.paid_amount), 0)).filter(
+        Order.user_id == user.id,
+        ~Order.status.in_(CLOSED_ORDER_STATUSES),
     ).scalar()
     total = float(result)
     return (total, total >= config['threshold'])

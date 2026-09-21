@@ -3,7 +3,7 @@ Auth Module - User Model
 Model użytkownika z metodami autentykacji
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
@@ -11,6 +11,14 @@ import random
 
 # Import db z extensions.py (unika circular import)
 from extensions import db
+
+
+# Data wdrożenia liczenia serii logowań w czasie polskim zamiast UTC.
+# Używane WYŁĄCZNIE jako bufor migracyjny w User.update_login_streak — wpisy
+# starsze niż ta data pochodzą ze starego kodu i mogą być o dobę przesunięte.
+# PRZED WDROŻENIEM: ustaw na faktyczną datę pushu, inaczej bufor nie zadziała
+# (za wcześnie) albo będzie działał dłużej, niż trzeba (za późno).
+DATA_WDROZENIA_STREAK_LOKALNY = date(2026, 9, 22)
 
 
 def get_local_now():
@@ -213,11 +221,21 @@ class User(UserMixin, db.Model):
         if self.last_login_date == today:
             return  # Already logged in today
 
-        if self.last_login_date == today - timedelta(days=1):
-            self.login_streak = (self.login_streak or 0) + 1
-        else:
-            self.login_streak = 1
+        wczoraj = today - timedelta(days=1)
+        ciagla = self.last_login_date == wczoraj
 
+        # Bufor przejścia UTC → czas polski. W bazie leżą daty zapisane starym
+        # kodem (date.today() = UTC), więc dla logowań z okna 22:00–24:00 UTC
+        # zapisana data jest o dobę wstecz względem nowego „dziś". Bez tego
+        # takiemu użytkownikowi pierwsze logowanie po wdrożeniu pokazałoby lukę
+        # dwóch dni i wyzerowało serię — bezpowrotnie, bo historii logowań nie ma.
+        # Warunek WYGASA SAM: dotyczy wyłącznie wpisów starszych niż wdrożenie.
+        if (not ciagla
+                and self.last_login_date == today - timedelta(days=2)
+                and self.last_login_date < DATA_WDROZENIA_STREAK_LOKALNY):
+            ciagla = True
+
+        self.login_streak = (self.login_streak or 0) + 1 if ciagla else 1
         self.last_login_date = today
         db.session.commit()
 

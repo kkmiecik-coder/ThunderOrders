@@ -534,8 +534,17 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True, status_juz_ustawi
         try:
             uzytkownicy_kolekcji.append(auto_add_order_to_collection(o))
         except Exception as err:
+            # Tu NIE WOLNO połknąć błędu i lecieć dalej. Rollback cofa wszystko,
+            # co ta funkcja zdążyła ustawić — sr.status, delivered_at, propagację
+            # na źródła i statusy zamówień — bo commit jest dopiero niżej.
+            # Gdybyśmy po rollbacku szli dalej, commit byłby pusty, a blok
+            # `powiadom` wysłałby maile i pushe o dostawie, której nikt nie
+            # zapisał. Kontrakt tej funkcji brzmi „razem ze statusami albo
+            # wcale", więc jedyne poprawne wyjście to przerwanie.
+            db.session.rollback()
             current_app.logger.error(
-                f'Dopisanie do kolekcji dla {o.order_number}: {err}')
+                f'Dopisanie do kolekcji dla {o.order_number}: {err}', exc_info=True)
+            raise
 
     db.session.commit()
 

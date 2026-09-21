@@ -101,6 +101,52 @@ def test_odznaki_exclusive_nie_licza_preorderow(app, db, make_user, make_order):
     assert get_metric_value(klient, konfig_zamowien['metric'], konfig_zamowien) == (3, True)
 
 
+def test_total_spent_liczy_wplacone_a_nie_naleznosc(app, db, make_user, make_order):
+    """Odznaki spent-* liczą `paid_amount`, nie `total_amount` ani `total_to_pay`.
+
+    Trzy różne liczby na jednym zamówieniu:
+    - total_amount 1000 zł  — sam etap E1 (tak liczyło do 09.2026, za mało),
+    - total_to_pay 1200 zł  — należność z etapów, które przy tym zamówieniu wchodzą,
+    - paid_amount   400 zł  — ile klient faktycznie przelał.
+    Odznaka „Wydaj łącznie X zł" musi brać ostatnią z nich.
+    """
+    konfig = _konfig('spent-500')
+    klient = make_user(email='platnik@example.com')
+    make_order(klient, total_amount=1000, paid_amount=400,
+               proxy_shipping_cost=100, customs_vat_sale_cost=100,
+               shipping_cost=100, payment_stages=4)
+
+    ile, spelnia = get_metric_value(klient, konfig['metric'], konfig)
+    assert (ile, spelnia) == (400.0, False), (
+        'Metryka nie liczy paid_amount — 1000 oznacza total_amount, 1300 total_to_pay.'
+    )
+
+
+def test_total_spent_pomija_anulowane_i_zwroty(app, db, make_user, make_order):
+    """Anulowane i zwrócone zamówienie to nie wydatek.
+
+    Odznaki nie da się odebrać, więc przyznanie jej za pieniądze, które wróciły
+    do klienta, jest nieodwracalne.
+    """
+    from utils.offer_closure import CLOSED_ORDER_STATUSES
+
+    konfig = _konfig('spent-500')
+    klient = make_user(email='zwrot@example.com')
+    make_order(klient, total_amount=600, paid_amount=600, status='anulowane')
+
+    assert get_metric_value(klient, konfig['metric'], konfig) == (0.0, False)
+
+    for status in CLOSED_ORDER_STATUSES:
+        make_order(klient, total_amount=600, paid_amount=600, status=status)
+    assert get_metric_value(klient, konfig['metric'], konfig) == (0.0, False), (
+        f'Któryś ze statusów {CLOSED_ORDER_STATUSES} przecieka do sumy wydatków.'
+    )
+
+    make_order(klient, total_amount=600, paid_amount=600, status='nowe')
+    ile, spelnia = get_metric_value(klient, konfig['metric'], konfig)
+    assert (ile, spelnia) == (600.0, True)
+
+
 def test_drabinki_maja_spojne_poziomy():
     """W każdej drabince rosnący `tier` musi znaczyć rosnący próg.
 

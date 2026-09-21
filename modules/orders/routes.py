@@ -638,7 +638,15 @@ def admin_update_status(order_id):
                 uzytkownik = auto_add_order_to_collection(order)
                 db.session.commit()
             except Exception as e:
-                current_app.logger.error(f'Collection auto-add error: {e}')
+                # Rollback JEST konieczny: bez niego sesja zostaje zatruta i każde
+                # kolejne dotknięcie ORM (log_activity poniżej, wysyłka maila) rzuca
+                # PendingRollbackError. Status zamówienia jest już zacommitowany
+                # linijkę wyżej, więc admin dostaje 500, klika ponownie — i wtedy
+                # old_status == 'dostarczone' wycina całą tę gałąź razem z mailem
+                # i pushem o dostawie. Klient nie dowiaduje się nigdy.
+                db.session.rollback()
+                uzytkownik = order.user_id     # część pozycji mogła się zapisać
+                current_app.logger.error(f'Collection auto-add error: {e}', exc_info=True)
             # Po commicie — unlock() commituje sesję, więc wcześniej zapisałoby
             # odznakę razem z niedokończoną zmianą statusu.
             sprawdz_odznaki_kolekcji([uzytkownik])
@@ -1351,7 +1359,17 @@ def bulk_status_change():
                     try:
                         uzytkownicy.append(auto_add_order_to_collection(o))
                     except Exception as e:
-                        current_app.logger.error(f'Collection auto-add error for order {oid}: {e}')
+                        # Bez rollbacku sesja zostaje zatruta i KAŻDA kolejna
+                        # iteracja oraz końcowy commit lecą PendingRollbackError —
+                        # czyli jedno felerne zamówienie przewraca całą paczkę
+                        # i zwraca 500 mimo zapisanych już statusów.
+                        # Rollback gubi pozycje dopisane w poprzednich obrotach
+                        # pętli, ale one i tak by przepadły na wywalonym commicie,
+                        # a auto_add jest idempotentne — ponowne uruchomienie je odzyska.
+                        db.session.rollback()
+                        uzytkownicy.append(o.user_id)
+                        current_app.logger.error(
+                            f'Collection auto-add error for order {oid}: {e}', exc_info=True)
             db.session.commit()
             sprawdz_odznaki_kolekcji(uzytkownicy)
 

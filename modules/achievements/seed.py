@@ -320,7 +320,10 @@ ACHIEVEMENTS = [
         # klientów, a rekordzista odwiedził 76 różnych dropów. Cała progresja
         # marnowała się w jednym progu.
         'description': 'Zamów z 3 różnych dropów exclusive',
-        'category': 'exclusive', 'rarity': 'rare',
+        # rarity ZOSTAJE 'epic' — odznakę ma już 108 osób, a obniżenie do 'rare'
+        # zmieniłoby im wygląd karty i kolor animacji za coś, co zdobyli dawno.
+        # Dwa kolejne stopnie i tak są wyżej (legendary, cosmic).
+        'category': 'exclusive', 'rarity': 'epic',
         'tier': 1, 'tier_group': 'exclusive-pages',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'distinct_exclusive_pages', 'threshold': 3},
