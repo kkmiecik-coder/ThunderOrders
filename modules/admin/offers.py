@@ -624,6 +624,71 @@ def _validate_section_data(section_data):
     return True, None
 
 
+def _validate_set_products_unique(page, sections_data):
+    """
+    Pilnuje, zeby jeden produkt-komplet nalezal do dokladnie jednej sekcji setu.
+
+    W danych nie ma nic, co wiazaloby produkt-komplet z albumem: produkty roznych
+    albumow maja te sama serie, kategorie, producenta i typ, a grupa wariantowa nie
+    trzyma odniesienia do swojego OT8. Jedyna pewna regula jest strukturalna —
+    ten sam produkt-komplet na dwoch stronach to zawsze pomylka (zwykle niedokonczona
+    edycja po zduplikowaniu strony). Kosztuje to tyle, ze lista „Do zamowienia"
+    agreguje po produkcie PONAD stronami, wiec taka pomylka konczy sie zlym
+    zamowieniem u dostawcy.
+
+    Args:
+        page: OfferPage, ktora wlasnie jest zapisywana
+        sections_data: lista danych sekcji z frontendu
+
+    Raises:
+        ValueError: gdy produkt-komplet jest uzyty dwa razy
+    """
+    # Sekcje setu z wybranym produktem-kompletem: [(id sekcji lub None, id produktu)]
+    wybrane = []
+    for section_data in sections_data:
+        if section_data.get('type') != 'set':
+            continue
+        set_product_id = section_data.get('set_product_id')
+        if set_product_id:
+            wybrane.append((section_data.get('id'), int(set_product_id)))
+
+    if not wybrane:
+        return
+
+    def _nazwa_produktu(product_id):
+        produkt = db.session.get(Product, product_id)
+        return produkt.name if produkt else f'#{product_id}'
+
+    # 1. Kolizja w obrebie zapisywanej strony — sekcje moga jeszcze nie istniec
+    #    w bazie, wiec porownujemy same przychodzace dane.
+    widziane = set()
+    for _, set_product_id in wybrane:
+        if set_product_id in widziane:
+            raise ValueError(
+                f'Produkt-komplet „{_nazwa_produktu(set_product_id)}" jest wybrany '
+                'w dwóch setach na tej stronie. Każdy komplet może należeć tylko '
+                'do jednego setu.'
+            )
+        widziane.add(set_product_id)
+
+    # 2. Kolizja z inna strona. Sekcje tej samej strony pomijamy: albo wlasnie je
+    #    zapisujemy, albo zostana skasowane na koncu _update_sections().
+    kolizja = db.session.query(OfferSection, OfferPage).join(
+        OfferPage, OfferPage.id == OfferSection.offer_page_id
+    ).filter(
+        OfferSection.set_product_id.in_([pid for _, pid in wybrane]),
+        OfferSection.offer_page_id != page.id,
+    ).first()
+
+    if kolizja:
+        sekcja, strona_kolidujaca = kolizja
+        raise ValueError(
+            f'Produkt-komplet „{_nazwa_produktu(sekcja.set_product_id)}" jest już '
+            f'użyty na stronie „{strona_kolidujaca.name}". Każdy komplet może '
+            'należeć tylko do jednej strony.'
+        )
+
+
 def _update_sections(page, sections_data):
     """
     Aktualizuje sekcje strony
@@ -635,6 +700,10 @@ def _update_sections(page, sections_data):
     Returns:
         list: Lista krotek (section, old_max, new_max, section_type) dla sekcji z zmienionymi limitami
     """
+    # Unikalnosc produktu-kompletu sprawdzamy raz dla calego zapisu, a nie per
+    # sekcja — kolizja moze byc miedzy dwiema sekcjami tego samego zadania.
+    _validate_set_products_unique(page, sections_data)
+
     # Pobierz istniejące sekcje
     existing_sections = {s.id: s for s in page.sections.all()}
     existing_ids = set(existing_sections.keys())
