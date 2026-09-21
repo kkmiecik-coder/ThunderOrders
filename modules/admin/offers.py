@@ -1718,7 +1718,12 @@ def offers_duplicate(page_id):
             set_image=_copy_offer_upload(section.set_image),
             set_max_sets=section.set_max_sets,
             set_max_per_product=section.set_max_per_product,
-            set_product_id=section.set_product_id,
+            # Produkt-komplet celowo NIE jest kopiowany: kazdy moze nalezec tylko
+            # do jednej strony (_validate_set_products_unique). Kopia z przepisanym
+            # OT8 nie przeszlaby zapisu, a gdy ktos podmieni same produkty setu
+            # i zapomni o tym polu, blad idzie dalej — tak powstal przypadek
+            # „Whos fans" wskazujacego na OT8 z „Jump up".
+            set_product_id=None,
             variant_group_id=section.variant_group_id
         )
         db.session.add(new_section)
