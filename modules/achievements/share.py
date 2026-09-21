@@ -263,17 +263,26 @@ def generate_share_image(achievement, fmt='1:1', unlocked_at=None, stat_percenta
     )
 
     # Icon image
-    icon_file = f'{achievement.slug}@512.png'
-    icon_path = os.path.join(
-        current_app.static_folder, 'uploads', 'achievements', icon_file
+    # @512 to docelowy rozmiar, ale i tak skalujemy do 172 px — więc gdy go nie
+    # ma, @256 jest w pełni wystarczającym zamiennikiem. Bez tego fallbacku
+    # odznaka bez pliku @512 dawała PUSTE kółko na grafice do udostępnienia
+    # (tak wyglądały 22 z 48 odznak do 09.2026).
+    katalog_ikon = os.path.join(current_app.static_folder, 'uploads', 'achievements')
+    icon_path = next(
+        (p for p in (os.path.join(katalog_ikon, f'{achievement.slug}@{rozmiar}.png')
+                     for rozmiar in (512, 256))
+         if os.path.exists(p)),
+        None,
     )
-    if os.path.exists(icon_path):
+    if icon_path:
         try:
             icon = Image.open(icon_path).convert('RGBA')
             icon = icon.resize((172, 172), Image.LANCZOS)
             img.paste(icon, (cx - 86, icon_cy - 86), icon)
         except Exception:
-            pass
+            current_app.logger.warning(
+                f'Nie udało się wkleić ikony {icon_path} na grafikę do udostępnienia',
+                exc_info=True)
 
     # --- Text content (positioned from centered block) ---
     text_y = icon_cy + ring_r + gap_icon_name

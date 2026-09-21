@@ -19,6 +19,8 @@ ALLOWED_IMAGE_MIMES = {'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'im
 SLUG_RE = re.compile(r'^[a-z0-9-]+$')
 MAX_ICON_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 MIN_ICON_DIMENSION = 64
+# 256 = ikona w galerii, 512 = obrazek do udostępniania (share.py szuka @512).
+ICON_SIZES = (256, 512)
 
 
 def _slugify(name):
@@ -50,10 +52,17 @@ def _ensure_unique_slug(base_slug, exclude_id=None):
 
 def _process_icon_upload(file_storage, slug):
     """
-    Waliduje obraz i zapisuje go do TYMCZASOWEGO pliku obok docelowego.
-    Zwraca tuple (tmp_path, final_path). Wywołujący musi:
+    Waliduje obraz i zapisuje go do TYMCZASOWYCH plików obok docelowych.
+    Zwraca listę par [(tmp_path, final_path), ...] — po jednej na rozmiar.
+    Wywołujący musi:
     - po sukcesie DB: os.replace(tmp_path, final_path) + invalidate cache
     - po porażce: os.unlink(tmp_path)
+
+    Rozmiary: 256 px to ikona w galerii, 512 px to obrazek do udostępniania
+    w social mediach (`share.py` szuka `{slug}@512.png`). Do 09.2026 panel
+    zapisywał WYŁĄCZNIE 256 px, a 512 px nie generowało nic w całym kodzie —
+    więc każda odznaka wgrana ręcznie miała puste kółko na grafice do
+    udostępnienia. Widać to było na `cancer-fighter`.
     Rzuca ValueError przy błędzie walidacji.
     """
     if not file_storage or not file_storage.filename:
@@ -80,33 +89,50 @@ def _process_icon_upload(file_storage, slug):
     if img.width < MIN_ICON_DIMENSION or img.height < MIN_ICON_DIMENSION:
         raise ValueError(f'Obraz za mały ({img.width}×{img.height}), min {MIN_ICON_DIMENSION}×{MIN_ICON_DIMENSION}')
 
-    img.thumbnail((256, 256), Image.LANCZOS)
-    canvas = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
-    x = (256 - img.width) // 2
-    y = (256 - img.height) // 2
-    canvas.paste(img, (x, y), img)
-
     if not SLUG_RE.match(slug):
         raise ValueError(f'Nieprawidłowy slug: {slug}')
 
     upload_dir = os.path.join(current_app.static_folder, 'uploads', 'achievements')
     os.makedirs(upload_dir, exist_ok=True)
-    final_path = os.path.join(upload_dir, f'{slug}@256.png')
-    tmp_path = os.path.join(upload_dir, f'.{slug}@256.tmp.png')
-    canvas.save(tmp_path, 'PNG', optimize=True)
 
-    return tmp_path, final_path
+    pary = []
+    for rozmiar in ICON_SIZES:
+        # Skalujemy ZAWSZE z oryginału i w obie strony. `thumbnail()` działa
+        # w miejscu i tylko pomniejsza — użyte tu wprost dałoby dla 512 albo
+        # obrazek już zmniejszony do 256, albo (przy źródle 64 px, bo tyle
+        # wynosi MIN_ICON_DIMENSION) kropkę pośrodku pustego płótna 512.
+        skala = min(rozmiar / img.width, rozmiar / img.height)
+        warstwa = img.resize(
+            (max(1, round(img.width * skala)), max(1, round(img.height * skala))),
+            Image.LANCZOS)
+        canvas = Image.new('RGBA', (rozmiar, rozmiar), (0, 0, 0, 0))
+        canvas.paste(warstwa,
+                     ((rozmiar - warstwa.width) // 2, (rozmiar - warstwa.height) // 2),
+                     warstwa)
+
+        final_path = os.path.join(upload_dir, f'{slug}@{rozmiar}.png')
+        tmp_path = os.path.join(upload_dir, f'.{slug}@{rozmiar}.tmp.png')
+        canvas.save(tmp_path, 'PNG', optimize=True)
+        pary.append((tmp_path, final_path))
+
+    return pary
 
 
-def _commit_icon_upload(tmp_path, final_path, slug):
-    """Atomically replace final_path with tmp_path; invalidate cache."""
-    os.replace(tmp_path, final_path)
+def _commit_icon_upload(pary, slug):
+    """Atomically replace each final_path with its tmp_path; invalidate cache."""
+    for tmp_path, final_path in pary:
+        os.replace(tmp_path, final_path)
     from modules.achievements.services import _icon_cache
     _icon_cache.pop(slug, None)
 
 
-def _abort_icon_upload(tmp_path):
-    """Cleanup tmp file after failed DB commit."""
+def _abort_icon_upload(pary):
+    """Cleanup tmp files after failed DB commit."""
+    for tmp_path, _final_path in (pary or []):
+        _usun_plik_tymczasowy(tmp_path)
+
+
+def _usun_plik_tymczasowy(tmp_path):
     try:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -215,11 +241,10 @@ def _save_achievement(achievement):
         flash('Ikona jest wymagana przy tworzeniu odznaki.', 'error')
         return render_template('admin/achievements/form.html', achievement=achievement, holders_count=holders_count), 400
 
-    tmp_icon_path = None
-    final_icon_path = None
+    pary_ikon = None
     if icon_file and icon_file.filename:
         try:
-            tmp_icon_path, final_icon_path = _process_icon_upload(icon_file, final_slug)
+            pary_ikon = _process_icon_upload(icon_file, final_slug)
         except ValueError as e:
             flash(f'Błąd ikony: {e}', 'error')
             return render_template('admin/achievements/form.html', achievement=achievement, holders_count=holders_count), 400
@@ -253,15 +278,15 @@ def _save_achievement(achievement):
         db.session.commit()
     except Exception:
         db.session.rollback()
-        _abort_icon_upload(tmp_icon_path)
+        _abort_icon_upload(pary_ikon)
         current_app.logger.exception(f'Failed to save achievement (is_new={is_new})')
         flash('Błąd zapisu odznaki w bazie. Sprawdź logi.', 'error')
         return render_template('admin/achievements/form.html', achievement=achievement, holders_count=holders_count), 500
 
     # Po sukcesie commit'u — atomic rename tmp -> final
-    if tmp_icon_path and final_icon_path:
+    if pary_ikon:
         try:
-            _commit_icon_upload(tmp_icon_path, final_icon_path, final_slug)
+            _commit_icon_upload(pary_ikon, final_slug)
         except OSError as e:
             current_app.logger.exception(f'Failed to finalize icon upload for slug={final_slug}: {e}')
             flash('Odznaka zapisana, ale wystąpił problem z zapisem ikony — wgraj ją ponownie.', 'warning')
