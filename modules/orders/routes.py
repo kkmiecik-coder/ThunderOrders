@@ -631,12 +631,17 @@ def admin_update_status(order_id):
 
         # Auto-add to collection when delivered
         if new_status == 'dostarczone' and old_status != 'dostarczone':
-            from modules.client.collection_utils import auto_add_order_to_collection
+            from modules.client.collection_utils import (
+                auto_add_order_to_collection, sprawdz_odznaki_kolekcji)
+            uzytkownik = None
             try:
-                auto_add_order_to_collection(order)
+                uzytkownik = auto_add_order_to_collection(order)
                 db.session.commit()
             except Exception as e:
                 current_app.logger.error(f'Collection auto-add error: {e}')
+            # Po commicie — unlock() commituje sesję, więc wcześniej zapisałoby
+            # odznakę razem z niedokończoną zmianą statusu.
+            sprawdz_odznaki_kolekcji([uzytkownik])
 
         # Activity log
         log_activity(
@@ -1337,15 +1342,18 @@ def bulk_status_change():
 
         # Auto-add to collection when delivered (bulk)
         if new_status == 'dostarczone':
-            from modules.client.collection_utils import auto_add_order_to_collection
+            from modules.client.collection_utils import (
+                auto_add_order_to_collection, sprawdz_odznaki_kolekcji)
+            uzytkownicy = []
             for oid in order_ids:
                 o = db.session.get(Order, oid)
                 if o:
                     try:
-                        auto_add_order_to_collection(o)
+                        uzytkownicy.append(auto_add_order_to_collection(o))
                     except Exception as e:
                         current_app.logger.error(f'Collection auto-add error for order {oid}: {e}')
             db.session.commit()
+            sprawdz_odznaki_kolekcji(uzytkownicy)
 
         # Send email + push notifications after successful commit
         from utils.email_manager import EmailManager

@@ -1,23 +1,41 @@
 import os
 
-from flask import current_app, url_for
+from flask import current_app, g, url_for
 from sqlalchemy.exc import IntegrityError
 from extensions import db
 from modules.achievements.models import Achievement, UserAchievement, AchievementStat
 from modules.achievements.checkers import get_metric_value
 from modules.auth.models import User, get_local_now
 
-# Cache: slug -> bool (file exists on disk)
+# Zachowane dla zgodności — panel admina po wgraniu ikony robi tu pop().
+# Właściwy cache siedzi teraz w `flask.g`, czyli żyje tylko na czas requestu.
 _icon_cache = {}
 
 
 def has_achievement_icon(slug):
-    """Check if an achievement icon file exists on disk (cached)."""
-    if slug in _icon_cache:
-        return _icon_cache[slug]
+    """Czy plik ikony odznaki leży na dysku (cache na czas jednego requestu).
+
+    Wcześniej cache był słownikiem na poziomie modułu, czyszczonym wyłącznie
+    w workerze, który obsłużył upload. Przy kilku workerach gunicorna świeżo
+    wgrana ikona pokazywała się więc części klientów, a reszcie dopiero po
+    reloadzie usługi — i odwrotnie: usunięta ikona wisiała w cache'u w nieskończoność.
+    Galeria to ~50 wywołań na odsłonę, więc os.path.isfile raz na request
+    jest tańsze niż ta niespójność.
+    """
+    try:
+        cache = g._cache_ikon_odznak
+    except AttributeError:
+        cache = g._cache_ikon_odznak = {}
+    except RuntimeError:
+        cache = None                      # poza kontekstem requestu (CLI, cron)
+
+    if cache is not None and slug in cache:
+        return cache[slug]
+
     upload_dir = os.path.join(current_app.static_folder, 'uploads', 'achievements')
     exists = os.path.isfile(os.path.join(upload_dir, f'{slug}@256.png'))
-    _icon_cache[slug] = exists
+    if cache is not None:
+        cache[slug] = exists
     return exists
 
 
@@ -122,14 +140,43 @@ class AchievementService:
         """
         One-time retroactive check for all users against all achievements.
         Marks unlocked achievements as seen=True (no animation for past achievements).
+
+        Returns:
+            dict: unlocked, users, pominiete (slug -> powód pominięcia)
         """
         all_achievements = Achievement.query.filter(
             Achievement.is_active == True,  # noqa: E712
             Achievement.trigger_type.in_(['event', 'cron']),
         ).all()
-        users = User.query.filter_by(is_active=True).all()
+        # role='client' tak samo jak w run_daily_checks. Bez tego filtra backfill
+        # z 08.09.2026 rozdał 49 odznak klienckich dwóm kontom admin — stąd m.in.
+        # „2 osoby mają member-180d", mimo że żaden klient się nie kwalifikował.
+        users = User.query.filter_by(is_active=True, role='client').all()
         total_unlocked = 0
         users_affected = set()
+        pominiete = {}
+
+        # Metryki, których nie wolno liczyć wstecz bez kontekstu zdarzenia.
+        # order_hour_range jest wprost groźna: nie patrzy na użytkownika w ogóle,
+        # tylko na godzinę URUCHOMIENIA — backfill odpalony w nocy przyznałby
+        # „Nocnego marka" wszystkim klientom naraz.
+        METRYKI_BEZ_BACKFILLU = {
+            'order_hour_range': 'zależy od godziny uruchomienia, nie od klienta',
+            'orders_in_weekend': 'zależy od dnia uruchomienia',
+            'single_order_items': 'wymaga danych pojedynczego zamówienia',
+            'time_since_drop': 'wymaga kontekstu momentu zamówienia',
+            'time_since_page_visit': 'wymaga kontekstu wizyty na stronie',
+            'shared_full_collection': 'wymaga kontekstu udostępnienia',
+        }
+        do_sprawdzenia = []
+        for achievement in all_achievements:
+            powod = METRYKI_BEZ_BACKFILLU.get(
+                (achievement.trigger_config or {}).get('metric'))
+            if powod:
+                pominiete[achievement.slug] = powod
+            else:
+                do_sprawdzenia.append(achievement)
+        all_achievements = do_sprawdzenia
 
         for user in users:
             already_unlocked_ids = {
@@ -149,7 +196,11 @@ class AchievementService:
                     users_affected.add(user.id)
 
         self.recalculate_stats()
-        return {'unlocked': total_unlocked, 'users': len(users_affected)}
+        return {
+            'unlocked': total_unlocked,
+            'users': len(users_affected),
+            'pominiete': pominiete,
+        }
 
     def unlock(self, user, achievement, seen=False):
         """Create UserAchievement record."""
@@ -169,9 +220,21 @@ class AchievementService:
             db.session.add(ua)
             nested.commit()
             db.session.commit()
-        except Exception:
+        except IntegrityError:
+            # Wyścig: równoległy request zdążył wstawić ten sam wiersz. UNIQUE
+            # (user_id, achievement_id) zadziałał zgodnie z projektem — cisza OK.
             db.session.rollback()
-            return  # Duplicate from race condition, safe to ignore
+            return
+        except Exception:
+            # Wszystko inne to realna awaria zapisu. Wcześniej ten `except`
+            # łapał też IntegrityError i milczał, więc odznaki potrafiły ginąć
+            # bez jednej linijki w logach — dokładnie dlatego problem
+            # z odblokowywaniem przeżył miesiące niezauważony.
+            db.session.rollback()
+            current_app.logger.error(
+                f'Nie udało się odblokować odznaki {achievement.slug} '
+                f'dla user_id={user.id}', exc_info=True)
+            return
 
     def grant_manual(self, user, achievement, granted_by, send_animation=True):
         """

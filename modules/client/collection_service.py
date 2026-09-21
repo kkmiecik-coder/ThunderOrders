@@ -7,6 +7,8 @@ zostaje w kanałach. QR temp_uploads (web-only) wchodzą parametrem do create_it
 webowy add zachował JEDEN commit.
 """
 
+from flask import current_app
+
 from extensions import db
 from modules.client.models import CollectionItem, CollectionItemImage
 
@@ -207,9 +209,16 @@ def create_item(user, name, market_price=None, notes=None, files=None, temp_uplo
         return False, {'code': 'invalid_file', 'message': str(e)}, None
     try:                                                      # achievement (parytet l. 149-153)
         from modules.achievements.services import AchievementService
-        AchievementService().check_event(user, 'collection_add')
+        service = AchievementService()
+        service.check_event(user, 'collection_add')
+        # Zdjęcia dołączone od razu do nowej pozycji liczą się do photos-*, ale
+        # metryka items_with_photos wisi wyłącznie na evencie 'photo_upload',
+        # który do tej pory leciał tylko z osobnego uploadu do istniejącej pozycji.
+        if item.images_count:
+            service.check_event(user, 'photo_upload')
     except Exception:
-        pass
+        current_app.logger.error(
+            f'Odznaki kolekcji dla user_id={user.id}', exc_info=True)
     return True, None, item
 
 
@@ -270,7 +279,8 @@ def add_image(user, item_id, file):
         from modules.achievements.services import AchievementService
         AchievementService().check_event(user, 'photo_upload')
     except Exception:
-        pass
+        current_app.logger.error(
+            f'Odznaki za zdjęcia dla user_id={user.id}', exc_info=True)
     return True, None, image
 
 
@@ -335,7 +345,8 @@ def create_public_config(user):
         from modules.achievements.services import AchievementService
         AchievementService().check_event(user, 'collection_public_toggle')
     except Exception:
-        pass
+        current_app.logger.error(
+            f'Odznaka za publiczną kolekcję dla user_id={user.id}', exc_info=True)
     return True, None, config
 
 

@@ -1381,7 +1381,7 @@ def register_cli_commands(app):
 
     @achievements.command('seed')
     def seed_command():
-        """Seed all 47 achievements into the database."""
+        """Seed all achievements into the database."""
         from modules.achievements.seed import seed_achievements
         created, updated = seed_achievements()
         click.echo(f'Achievements seeded: {created} created, {updated} updated.')
@@ -1394,6 +1394,58 @@ def register_cli_commands(app):
         results = service.run_daily_checks()
         click.echo(f'Daily check complete: {results["unlocked"]} new unlocks, stats updated.')
 
+    @achievements.command('generate-share-icons')
+    @click.option('--dry-run', is_flag=True, help='Tylko pokaż, czego brakuje.')
+    @click.option('--force', is_flag=True, help='Nadpisz istniejące pliki @512.')
+    def generate_share_icons(dry_run, force):
+        """Douzupełnia brakujące {slug}@512.png na podstawie {slug}@256.png.
+
+        Panel admina do 09.2026 zapisywał wyłącznie 256 px, a obrazek do
+        udostępniania w social mediach (share.py) szuka @512 — 22 odznaki
+        miały przez to puste kółko na grafice do udostępnienia.
+        """
+        import os
+        from PIL import Image
+        from modules.achievements.models import Achievement
+
+        katalog = os.path.join(app.static_folder, 'uploads', 'achievements')
+        if not os.path.isdir(katalog):
+            click.echo(f'Brak katalogu {katalog}')
+            return
+
+        utworzone, pominiete, bez_zrodla = 0, 0, []
+        for slug, in db.session.query(Achievement.slug).order_by(Achievement.slug):
+            zrodlo = os.path.join(katalog, f'{slug}@256.png')
+            cel = os.path.join(katalog, f'{slug}@512.png')
+            if not os.path.isfile(zrodlo):
+                bez_zrodla.append(slug)
+                continue
+            if os.path.isfile(cel) and not force:
+                pominiete += 1
+                continue
+            if dry_run:
+                click.echo(f'  [dry-run] utworzyłbym {slug}@512.png')
+                utworzone += 1
+                continue
+            obraz = Image.open(zrodlo).convert('RGBA').resize((512, 512), Image.LANCZOS)
+            tmp = os.path.join(katalog, f'.{slug}@512.tmp.png')
+            obraz.save(tmp, 'PNG', optimize=True)
+            os.replace(tmp, cel)          # podmiana atomowa, jak w panelu admina
+            utworzone += 1
+
+        click.echo(f'Utworzone: {utworzone}, pominięte (już były): {pominiete}')
+        if bez_zrodla:
+            click.echo(f'Bez pliku @256 (nic do przeskalowania): {", ".join(bez_zrodla)}')
+
+        # Pliki bez odpowiadającej odznaki — zwykle literówka w slugu.
+        slugi = {s for s, in db.session.query(Achievement.slug)}
+        sieroty = sorted(
+            p for p in os.listdir(katalog)
+            if p.endswith('@256.png') and p[:-len('@256.png')] not in slugi
+        )
+        if sieroty:
+            click.echo(f'Pliki bez odznaki w bazie (do ręcznego usunięcia): {", ".join(sieroty)}')
+
     @achievements.command('backfill')
     def backfill_command():
         """One-time retroactive check — unlock achievements for existing users."""
@@ -1401,6 +1453,11 @@ def register_cli_commands(app):
         service = AchievementService()
         results = service.backfill_all()
         click.echo(f'Backfill complete: {results["unlocked"]} achievements unlocked for {results["users"]} users.')
+        pominiete = results.get('pominiete') or {}
+        if pominiete:
+            click.echo(f'Pominięto {len(pominiete)} odznak, których nie da się policzyć wstecz:')
+            for slug, powod in sorted(pominiete.items()):
+                click.echo(f'  - {slug}: {powod}')
 
     @app.cli.command('process-account-deletions')
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl konta do anonimizacji, nie wykonuj')

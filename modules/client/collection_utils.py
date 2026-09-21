@@ -20,8 +20,14 @@ def auto_add_order_to_collection(order):
 
     Args:
         order: Order model instance
+
+    Returns:
+        int|None: user_id, jeśli dopisano choć jedną pozycję (wtedy trzeba po
+            commicie wywołać `sprawdz_odznaki_kolekcji`); None, gdy nic nie doszło.
     """
     from modules.client.models import CollectionItem
+
+    dopisano = False
 
     for item in order.items:
         # Check if already added (idempotent)
@@ -60,3 +66,37 @@ def auto_add_order_to_collection(order):
                 notes=None
             )
             db.session.add(collection_item)
+            dopisano = True
+
+    return order.user_id if dopisano else None
+
+
+def sprawdz_odznaki_kolekcji(user_ids):
+    """
+    Odpala `check_event('collection_add')` dla użytkowników, którym auto-dodawanie
+    dopisało pozycje.
+
+    WOŁAĆ DOPIERO PO `db.session.commit()`. `AchievementService.unlock()` robi
+    własny `db.session.commit()`, więc wywołane wcześniej zatwierdziłoby razem
+    z odznaką niedokończoną zmianę statusu zamówienia. To ten sam układ, co
+    w `collection_service.add_item` (commit → check_event).
+
+    Bez tego wywołania kolekcja rośnie sama przy dostawie, licznik na ekranie
+    klienta rośnie, a odznaki collection-* nie odblokowują się NIGDY — bo nic
+    innego nie porównuje postępu z faktem odblokowania.
+
+    Args:
+        user_ids: iterowalne z id użytkowników (None-y są pomijane)
+    """
+    from modules.achievements.services import AchievementService
+    from modules.auth.models import User
+
+    service = AchievementService()
+    for user_id in {uid for uid in user_ids if uid}:
+        try:
+            user = db.session.get(User, user_id)
+            if user is not None:
+                service.check_event(user, 'collection_add')
+        except Exception as err:
+            current_app.logger.error(
+                f'Odznaki kolekcji dla user_id={user_id}: {err}', exc_info=True)

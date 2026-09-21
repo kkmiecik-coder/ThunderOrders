@@ -475,7 +475,8 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True, status_juz_ustawi
     from flask import current_app
 
     from extensions import db
-    from modules.client.collection_utils import auto_add_order_to_collection
+    from modules.client.collection_utils import (
+        auto_add_order_to_collection, sprawdz_odznaki_kolekcji)
     from modules.orders.consolidation import propaguj_na_zrodla
     from modules.orders.models import OrderStatus, get_local_now
     from utils.activity_logger import log_activity
@@ -528,14 +529,19 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True, status_juz_ustawi
 
     # Kolekcja przed commitem — razem ze statusami albo wcale. To właśnie gubiła
     # dotychczasowa synchronizacja statusów zlecenia w adminie.
+    uzytkownicy_kolekcji = []
     for o in zmienione:
         try:
-            auto_add_order_to_collection(o)
+            uzytkownicy_kolekcji.append(auto_add_order_to_collection(o))
         except Exception as err:
             current_app.logger.error(
                 f'Dopisanie do kolekcji dla {o.order_number}: {err}')
 
     db.session.commit()
+
+    # Odznaki kolekcji dopiero po commicie — unlock() commituje sesję, więc
+    # przed commitem zatwierdziłoby odznakę razem ze statusami w trakcie zmiany.
+    sprawdz_odznaki_kolekcji(uzytkownicy_kolekcji)
 
     if powiadom:
         try:

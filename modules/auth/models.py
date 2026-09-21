@@ -203,8 +203,12 @@ class User(UserMixin, db.Model):
 
     def update_login_streak(self):
         """Update login streak on login. Call after login_user()."""
-        from datetime import date, timedelta
-        today = date.today()
+        from datetime import timedelta
+        # Czas POLSKI, nie serwerowy. Serwer chodzi w UTC, więc date.today()
+        # przełączał dobę o 01:00/02:00 czasu polskiego — logowanie tuż po
+        # północy lądowało pod datą dnia poprzedniego i seria stawała w miejscu
+        # albo zerowała się mimo codziennych wizyt.
+        today = get_local_now().date()
 
         if self.last_login_date == today:
             return  # Already logged in today
