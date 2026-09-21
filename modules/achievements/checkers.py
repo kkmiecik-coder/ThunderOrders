@@ -43,8 +43,15 @@ def _items_with_photos(user, config, context):
 
 
 def _total_spent(user, config, context):
+    """Suma tego, co klient ma do zapłacenia za zamówienia — WSZYSTKIE cztery etapy.
+
+    Wcześniej sumowało samo `total_amount`, czyli etap E1 (produkt). Klient na
+    dashboardzie widzi `total_to_pay` (E1 produkt + E2 wysyłka KR + E3 cło/VAT
+    + E4 wysyłka do klienta), więc odznaka spóźniała się względem liczby, którą
+    miał przed oczami.
+    """
     from modules.orders.models import Order
-    result = db.session.query(db.func.coalesce(db.func.sum(Order.total_amount), 0)).filter(
+    result = db.session.query(db.func.coalesce(db.func.sum(Order.total_to_pay), 0)).filter(
         Order.user_id == user.id
     ).scalar()
     total = float(result)
@@ -139,12 +146,42 @@ def _offer_orders(user, config, context):
     return (count, count >= config['threshold'])
 
 
+def _exclusive_orders(user, config, context):
+    """Liczba zamówień z DROPÓW (order_type='exclusive'), bez pre-orderów.
+
+    Wcześniej liczyło każde zamówienie ze stroną sprzedaży, a taką stronę ma
+    3007 z 3008 zamówień — więc drabinka exclusive-* miała co do jednej osoby
+    tych samych posiadaczy co orders-* (185/81/61/40) i nagradzała to samo dwa razy.
+    """
+    from modules.orders.models import Order
+    count = Order.query.filter(
+        Order.user_id == user.id,
+        Order.offer_page_id.isnot(None),
+        Order.order_type == 'exclusive',
+    ).count()
+    return (count, count >= config['threshold'])
+
+
 def _distinct_offer_pages(user, config, context):
     """Liczba unikalnych stron sprzedaży na których użytkownik złożył zamówienie"""
     from modules.orders.models import Order
     count = db.session.query(db.func.count(db.func.distinct(Order.offer_page_id))).filter(
         Order.user_id == user.id,
         Order.offer_page_id.isnot(None)
+    ).scalar()
+    return (count, count >= config['threshold'])
+
+
+def _distinct_exclusive_pages(user, config, context):
+    """Liczba różnych DROPÓW, na których użytkownik złożył zamówienie.
+
+    Spójnie z `_exclusive_orders` — pre-order to nie drop.
+    """
+    from modules.orders.models import Order
+    count = db.session.query(db.func.count(db.func.distinct(Order.offer_page_id))).filter(
+        Order.user_id == user.id,
+        Order.offer_page_id.isnot(None),
+        Order.order_type == 'exclusive',
     ).scalar()
     return (count, count >= config['threshold'])
 
@@ -213,9 +250,11 @@ METRIC_EVALUATORS = {
     'orders_in_weekend': _orders_in_weekend,
     'time_since_drop': _time_since_drop,
     'time_since_page_visit': _time_since_page_visit,
-    'exclusive_orders': _offer_orders,  # backward compat alias
+    # exclusive_* = wyłącznie dropy; offer_* = wszystkie strony sprzedaży
+    # (dropy + pre-ordery). To NIE są już aliasy tej samej funkcji.
+    'exclusive_orders': _exclusive_orders,
     'offer_orders': _offer_orders,
-    'distinct_exclusive_pages': _distinct_offer_pages,  # backward compat alias
+    'distinct_exclusive_pages': _distinct_exclusive_pages,
     'distinct_offer_pages': _distinct_offer_pages,
     'profile_completed': _profile_completed,
     'email_verified': _email_verified,

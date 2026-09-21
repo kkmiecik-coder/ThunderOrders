@@ -11,7 +11,6 @@ ACHIEVEMENTS = [
         'tier': 1, 'tier_group': 'order-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_count', 'threshold': 1},
-        'sort_order': 1,
     },
     {
         'slug': 'orders-5', 'name': 'Stały bywalec',
@@ -20,7 +19,6 @@ ACHIEVEMENTS = [
         'tier': 2, 'tier_group': 'order-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_count', 'threshold': 5},
-        'sort_order': 2,
     },
     {
         'slug': 'orders-10', 'name': 'Wierny klient',
@@ -29,7 +27,6 @@ ACHIEVEMENTS = [
         'tier': 3, 'tier_group': 'order-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_count', 'threshold': 10},
-        'sort_order': 3,
     },
     {
         'slug': 'orders-25', 'name': 'Zakupoholik',
@@ -38,23 +35,38 @@ ACHIEVEMENTS = [
         'tier': 4, 'tier_group': 'order-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_count', 'threshold': 25},
-        'sort_order': 4,
     },
     {
         'slug': 'orders-50', 'name': 'Legenda zamówień',
         'description': 'Złóż 50 zamówień',
         'category': 'orders', 'rarity': 'legendary',
+        'tier': 5, 'tier_group': 'order-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_count', 'threshold': 50},
-        'sort_order': 5,
     },
     {
         'slug': 'orders-100', 'name': 'Sto razy tak!',
         'description': 'Złóż 100 zamówień',
         'category': 'orders', 'rarity': 'legendary',
+        'tier': 6, 'tier_group': 'order-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_count', 'threshold': 100},
-        'sort_order': 6,
+    },
+    {
+        'slug': 'orders-150', 'name': 'Poza skalą',
+        'description': 'Złóż 150 zamówień',
+        'category': 'orders', 'rarity': 'legendary',
+        'tier': 7, 'tier_group': 'order-count',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'orders_count', 'threshold': 150},
+    },
+    {
+        'slug': 'orders-250', 'name': 'Instytucja',
+        'description': 'Złóż 250 zamówień',
+        'category': 'orders', 'rarity': 'cosmic',
+        'tier': 8, 'tier_group': 'order-count',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'orders_count', 'threshold': 250},
     },
     {
         'slug': 'bulk-order', 'name': 'Hurtownik',
@@ -62,15 +74,16 @@ ACHIEVEMENTS = [
         'category': 'orders', 'rarity': 'rare',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'single_order_items', 'threshold': 10},
-        'sort_order': 7,
     },
     {
         'slug': 'mega-order', 'name': 'Mega paczka',
-        'description': 'Złóż zamówienie z 25+ pozycjami',
+        # Próg 25 był nieosiągalny: rekord na produkcji to 22 pozycje i nikt
+        # nigdy tej odznaki nie zdobył. Przy 15 wpada 6 osób, a odstęp od
+        # „Hurtownika" (10) zostaje wyraźny.
+        'description': 'Złóż zamówienie z 15+ pozycjami',
         'category': 'orders', 'rarity': 'epic',
         'trigger_type': 'event',
-        'trigger_config': {'metric': 'single_order_items', 'threshold': 25},
-        'sort_order': 8,
+        'trigger_config': {'metric': 'single_order_items', 'threshold': 15},
     },
     {
         'slug': 'repeat-week', 'name': 'Powrót po więcej',
@@ -78,7 +91,6 @@ ACHIEVEMENTS = [
         'category': 'orders', 'rarity': 'rare',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_in_window', 'threshold': 2, 'window_days': 7},
-        'sort_order': 9,
     },
 
     # === KOLEKCJONERSKIE (collection) ===
@@ -89,7 +101,6 @@ ACHIEVEMENTS = [
         'tier': 1, 'tier_group': 'collection-size',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'collection_items', 'threshold': 1},
-        'sort_order': 10,
     },
     {
         'slug': 'collection-10', 'name': 'Rosnąca kolekcja',
@@ -98,7 +109,6 @@ ACHIEVEMENTS = [
         'tier': 2, 'tier_group': 'collection-size',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'collection_items', 'threshold': 10},
-        'sort_order': 11,
     },
     {
         'slug': 'collection-25', 'name': 'Kolekcjoner',
@@ -107,7 +117,6 @@ ACHIEVEMENTS = [
         'tier': 3, 'tier_group': 'collection-size',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'collection_items', 'threshold': 25},
-        'sort_order': 12,
     },
     {
         'slug': 'collection-50', 'name': 'Muzeum K-pop',
@@ -116,15 +125,14 @@ ACHIEVEMENTS = [
         'tier': 4, 'tier_group': 'collection-size',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'collection_items', 'threshold': 50},
-        'sort_order': 13,
     },
     {
         'slug': 'collection-100', 'name': 'Skarbiec',
         'description': 'Zgromadź 100 itemów w kolekcji',
         'category': 'collection', 'rarity': 'legendary',
+        'tier': 5, 'tier_group': 'collection-size',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'collection_items', 'threshold': 100},
-        'sort_order': 14,
     },
     {
         'slug': 'photos-10', 'name': 'Fotograf',
@@ -132,7 +140,6 @@ ACHIEVEMENTS = [
         'category': 'collection', 'rarity': 'common',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'items_with_photos', 'threshold': 10},
-        'sort_order': 15,
     },
     {
         'slug': 'photos-50', 'name': 'Galeria sztuki',
@@ -140,7 +147,6 @@ ACHIEVEMENTS = [
         'category': 'collection', 'rarity': 'rare',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'items_with_photos', 'threshold': 50},
-        'sort_order': 16,
     },
     {
         'slug': 'collection-public', 'name': 'Chwalipięta',
@@ -148,7 +154,6 @@ ACHIEVEMENTS = [
         'category': 'collection', 'rarity': 'rare',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'collection_public', 'value': True},
-        'sort_order': 17,
     },
 
     # === LOJALNOŚCIOWE (loyalty) ===
@@ -159,7 +164,6 @@ ACHIEVEMENTS = [
         'tier': 1, 'tier_group': 'account-age',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'account_age_days', 'threshold': 30},
-        'sort_order': 18,
     },
     {
         'slug': 'member-90d', 'name': 'Zadomowiony',
@@ -168,7 +172,6 @@ ACHIEVEMENTS = [
         'tier': 2, 'tier_group': 'account-age',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'account_age_days', 'threshold': 90},
-        'sort_order': 19,
     },
     {
         'slug': 'member-180d', 'name': 'Pół roku razem',
@@ -177,7 +180,6 @@ ACHIEVEMENTS = [
         'tier': 3, 'tier_group': 'account-age',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'account_age_days', 'threshold': 180},
-        'sort_order': 20,
     },
     {
         'slug': 'member-365d', 'name': 'Rocznica',
@@ -186,39 +188,67 @@ ACHIEVEMENTS = [
         'tier': 4, 'tier_group': 'account-age',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'account_age_days', 'threshold': 365},
-        'sort_order': 21,
+    },
+    {
+        'slug': 'member-545d', 'name': 'Półtora roku',
+        # Dziura 365 → 730 to cały rok bez żadnego celu po drodze.
+        'description': 'Z nami od półtora roku',
+        'category': 'loyalty', 'rarity': 'epic',
+        'tier': 5, 'tier_group': 'account-age',
+        'trigger_type': 'cron',
+        'trigger_config': {'metric': 'account_age_days', 'threshold': 545},
     },
     {
         'slug': 'member-730d', 'name': 'OG',
         'description': 'Z nami od 2 lat — jesteś legendą',
         'category': 'loyalty', 'rarity': 'legendary',
+        'tier': 6, 'tier_group': 'account-age',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'account_age_days', 'threshold': 730},
-        'sort_order': 22,
     },
     {
         'slug': 'login-streak-7', 'name': 'Codziennik',
         'description': 'Zaloguj się 7 dni z rzędu',
         'category': 'loyalty', 'rarity': 'rare',
+        'tier': 1, 'tier_group': 'login-streak',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'login_streak', 'threshold': 7},
-        'sort_order': 23,
+    },
+    {
+        'slug': 'login-streak-14', 'name': 'Dwa tygodnie z rzędu',
+        # Skok 7 → 30 był największy w całej drabince; przy rekordzie 40 dni
+        # praktycznie nikt nie miał szans zobaczyć kolejnego progu.
+        'description': 'Zaloguj się 14 dni z rzędu',
+        'category': 'loyalty', 'rarity': 'rare',
+        'tier': 2, 'tier_group': 'login-streak',
+        'trigger_type': 'cron',
+        'trigger_config': {'metric': 'login_streak', 'threshold': 14},
     },
     {
         'slug': 'login-streak-30', 'name': 'Nałogowiec',
         'description': 'Zaloguj się 30 dni z rzędu',
         'category': 'loyalty', 'rarity': 'epic',
+        'tier': 3, 'tier_group': 'login-streak',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'login_streak', 'threshold': 30},
-        'sort_order': 24,
+    },
+    {
+        'slug': 'login-streak-60', 'name': 'Żelazna konsekwencja',
+        # Skok 30 → 90 przy rekordzie 40 dni oznaczał, że po „Nałogowcu" nie ma
+        # już realnie nic. Próg 90 zostaje jako cel, ale nie jako następny krok.
+        'description': 'Zaloguj się 60 dni z rzędu',
+        'category': 'loyalty', 'rarity': 'epic',
+        'tier': 4, 'tier_group': 'login-streak',
+        'trigger_type': 'cron',
+        'trigger_config': {'metric': 'login_streak', 'threshold': 60},
     },
     {
         'slug': 'login-streak-90', 'name': 'Niezniszczalny',
         'description': 'Zaloguj się 90 dni z rzędu — jesteś nie do zatrzymania!',
         'category': 'loyalty', 'rarity': 'legendary',
+        'tier': 5, 'tier_group': 'login-streak',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'login_streak', 'threshold': 90},
-        'sort_order': 48,
     },
 
     # === SZYBKOŚCIOWE (speed) ===
@@ -228,7 +258,6 @@ ACHIEVEMENTS = [
         'category': 'speed', 'rarity': 'legendary',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'time_since_drop', 'max_minutes': 5},
-        'sort_order': 25,
     },
     {
         'slug': 'speed-order', 'name': 'Błyskawica',
@@ -236,7 +265,6 @@ ACHIEVEMENTS = [
         'category': 'speed', 'rarity': 'rare',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'time_since_page_visit', 'max_minutes': 2},
-        'sort_order': 26,
     },
     {
         'slug': 'night-owl', 'name': 'Nocny marek',
@@ -244,7 +272,6 @@ ACHIEVEMENTS = [
         'category': 'speed', 'rarity': 'rare',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'order_hour_range', 'start': 0, 'end': 5},
-        'sort_order': 27,
     },
     {
         'slug': 'weekend-warrior', 'name': 'Weekendowy wojownik',
@@ -252,7 +279,6 @@ ACHIEVEMENTS = [
         'category': 'speed', 'rarity': 'epic',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'orders_in_weekend', 'threshold': 3},
-        'sort_order': 28,
     },
 
     # === EXCLUSIVE ===
@@ -263,7 +289,6 @@ ACHIEVEMENTS = [
         'tier': 1, 'tier_group': 'exclusive-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'exclusive_orders', 'threshold': 1},
-        'sort_order': 29,
     },
     {
         'slug': 'exclusive-5', 'name': 'Drop? Biorę!',
@@ -272,7 +297,6 @@ ACHIEVEMENTS = [
         'tier': 2, 'tier_group': 'exclusive-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'exclusive_orders', 'threshold': 5},
-        'sort_order': 30,
     },
     {
         'slug': 'exclusive-10', 'name': 'VIP',
@@ -281,7 +305,6 @@ ACHIEVEMENTS = [
         'tier': 3, 'tier_group': 'exclusive-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'exclusive_orders', 'threshold': 10},
-        'sort_order': 31,
     },
     {
         'slug': 'exclusive-25', 'name': 'Exclusive Elite',
@@ -290,15 +313,41 @@ ACHIEVEMENTS = [
         'tier': 4, 'tier_group': 'exclusive-count',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'exclusive_orders', 'threshold': 25},
-        'sort_order': 32,
     },
     {
         'slug': 'exclusive-veteran', 'name': 'Exclusive Veteran',
+        # Do 09.2026 to była JEDYNA odznaka w tej grupie: próg 3 miało 108 z ~300
+        # klientów, a rekordzista odwiedził 76 różnych dropów. Cała progresja
+        # marnowała się w jednym progu.
         'description': 'Zamów z 3 różnych dropów exclusive',
-        'category': 'exclusive', 'rarity': 'epic',
+        'category': 'exclusive', 'rarity': 'rare',
+        'tier': 1, 'tier_group': 'exclusive-pages',
         'trigger_type': 'cron',
         'trigger_config': {'metric': 'distinct_exclusive_pages', 'threshold': 3},
-        'sort_order': 33,
+    },
+    {
+        'slug': 'exclusive-pages-10', 'name': 'Stały bywalec dropów',
+        'description': 'Zamów z 10 różnych dropów exclusive',
+        'category': 'exclusive', 'rarity': 'epic',
+        'tier': 2, 'tier_group': 'exclusive-pages',
+        'trigger_type': 'cron',
+        'trigger_config': {'metric': 'distinct_exclusive_pages', 'threshold': 10},
+    },
+    {
+        'slug': 'exclusive-pages-25', 'name': 'Łowca dropów',
+        'description': 'Zamów z 25 różnych dropów exclusive',
+        'category': 'exclusive', 'rarity': 'legendary',
+        'tier': 3, 'tier_group': 'exclusive-pages',
+        'trigger_type': 'cron',
+        'trigger_config': {'metric': 'distinct_exclusive_pages', 'threshold': 25},
+    },
+    {
+        'slug': 'exclusive-pages-50', 'name': 'Nie przegapia nic',
+        'description': 'Zamów z 50 różnych dropów exclusive',
+        'category': 'exclusive', 'rarity': 'cosmic',
+        'tier': 4, 'tier_group': 'exclusive-pages',
+        'trigger_type': 'cron',
+        'trigger_config': {'metric': 'distinct_exclusive_pages', 'threshold': 50},
     },
 
     # === SPOŁECZNOŚCIOWE (social) ===
@@ -306,17 +355,33 @@ ACHIEVEMENTS = [
         'slug': 'first-share', 'name': 'Pierwszy share',
         'description': 'Udostępnij swoją pierwszą odznakę w social media',
         'category': 'social', 'rarity': 'common',
+        'tier': 1, 'tier_group': 'shared-badges',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'shared_achievements', 'threshold': 1},
-        'sort_order': 34,
     },
     {
         'slug': 'share-5', 'name': 'Influencer',
         'description': 'Udostępnij 5 odznak',
         'category': 'social', 'rarity': 'rare',
+        'tier': 2, 'tier_group': 'shared-badges',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'shared_achievements', 'threshold': 5},
-        'sort_order': 35,
+    },
+    {
+        'slug': 'share-10', 'name': 'Głos społeczności',
+        'description': 'Udostępnij 10 odznak',
+        'category': 'social', 'rarity': 'epic',
+        'tier': 3, 'tier_group': 'shared-badges',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'shared_achievements', 'threshold': 10},
+    },
+    {
+        'slug': 'share-20', 'name': 'Twarz ThunderOrders',
+        'description': 'Udostępnij 20 odznak',
+        'category': 'social', 'rarity': 'legendary',
+        'tier': 4, 'tier_group': 'shared-badges',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'shared_achievements', 'threshold': 20},
     },
     {
         'slug': 'share-all', 'name': 'Ambasador',
@@ -324,7 +389,6 @@ ACHIEVEMENTS = [
         'category': 'social', 'rarity': 'epic',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'shared_full_collection', 'value': True},
-        'sort_order': 36,
     },
     # === FINANSOWE (financial) ===
     {
@@ -334,7 +398,6 @@ ACHIEVEMENTS = [
         'tier': 1, 'tier_group': 'total-spent',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'total_spent', 'threshold': 100},
-        'sort_order': 38,
     },
     {
         'slug': 'spent-500', 'name': 'Pięć stów',
@@ -343,7 +406,6 @@ ACHIEVEMENTS = [
         'tier': 2, 'tier_group': 'total-spent',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'total_spent', 'threshold': 500},
-        'sort_order': 39,
     },
     {
         'slug': 'spent-1000', 'name': 'Tysięcznik',
@@ -352,7 +414,6 @@ ACHIEVEMENTS = [
         'tier': 3, 'tier_group': 'total-spent',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'total_spent', 'threshold': 1000},
-        'sort_order': 40,
     },
     {
         'slug': 'spent-5000', 'name': 'Portfel płacze',
@@ -361,15 +422,30 @@ ACHIEVEMENTS = [
         'tier': 4, 'tier_group': 'total-spent',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'total_spent', 'threshold': 5000},
-        'sort_order': 41,
     },
     {
         'slug': 'spent-10000', 'name': 'Sponsor ThunderOrders',
         'description': 'Wydaj łącznie 10 000 zł',
         'category': 'financial', 'rarity': 'legendary',
+        'tier': 5, 'tier_group': 'total-spent',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'total_spent', 'threshold': 10000},
-        'sort_order': 42,
+    },
+    {
+        'slug': 'spent-25000', 'name': 'Filar sklepu',
+        'description': 'Wydaj łącznie 25 000 zł',
+        'category': 'financial', 'rarity': 'legendary',
+        'tier': 6, 'tier_group': 'total-spent',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'total_spent', 'threshold': 25000},
+    },
+    {
+        'slug': 'spent-50000', 'name': 'Poza konkurencją',
+        'description': 'Wydaj łącznie 50 000 zł',
+        'category': 'financial', 'rarity': 'cosmic',
+        'tier': 7, 'tier_group': 'total-spent',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'total_spent', 'threshold': 50000},
     },
 
     # === PROFILOWE (profile) ===
@@ -379,7 +455,6 @@ ACHIEVEMENTS = [
         'category': 'profile', 'rarity': 'common',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'profile_completed', 'value': True},
-        'sort_order': 43,
     },
     {
         'slug': 'avatar-selected', 'name': 'Stylowy',
@@ -387,7 +462,6 @@ ACHIEVEMENTS = [
         'category': 'profile', 'rarity': 'common',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'has_avatar', 'value': True},
-        'sort_order': 44,
     },
     {
         'slug': 'first-address', 'name': 'Gotowy do odbioru',
@@ -395,7 +469,6 @@ ACHIEVEMENTS = [
         'category': 'profile', 'rarity': 'common',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'shipping_addresses', 'threshold': 1},
-        'sort_order': 45,
     },
     {
         'slug': 'email-verified', 'name': 'Zweryfikowany',
@@ -403,7 +476,6 @@ ACHIEVEMENTS = [
         'category': 'profile', 'rarity': 'common',
         'trigger_type': 'event',
         'trigger_config': {'metric': 'email_verified', 'value': True},
-        'sort_order': 46,
     },
     {
         'slug': 'profile-all', 'name': 'Pełna gotowość',
@@ -414,13 +486,19 @@ ACHIEVEMENTS = [
             'metric': 'all_badges_unlocked',
             'slugs': ['profile-complete', 'avatar-selected', 'first-address', 'email-verified']
         },
-        'sort_order': 47,
     },
 ]
 
+# sort_order wynika z KOLEJNOŚCI na liście powyżej. Wcześniej każdy wpis miał
+# numer wpisany ręcznie, więc dołożenie poziomu w środku drabinki wymagałoby
+# przenumerowania wszystkiego poniżej — i tego nie robiono: w numeracji brakowało
+# 37, a login-streak-90 miał 48 i odrywał się w galerii od swojej grupy.
+for _pozycja, _odznaka in enumerate(ACHIEVEMENTS, start=1):
+    _odznaka['sort_order'] = _pozycja
+
 
 def seed_achievements():
-    """Seed or update all 47 achievements. Safe to re-run."""
+    """Seed or update all achievements. Safe to re-run."""
     created = 0
     updated = 0
 
