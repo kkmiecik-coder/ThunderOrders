@@ -1178,7 +1178,7 @@ function renderCustomsVatItems() {
             <thead>
                 <tr>
                     <th>Produkt</th>
-                    <th class="text-right">Cena zakupu</th>
+                    <th class="text-right">Cena sprzedaży</th>
                     <th class="text-center">Ilość</th>
                     <th class="text-right">Wartość</th>
                     <th class="text-center">Cło/VAT %</th>
@@ -1207,7 +1207,7 @@ function renderCustomsVatItems() {
                         <span class="customs-vat-product-name">${item.product_name}</span>
                     </div>
                 </td>
-                <td class="text-right text-nowrap">${item.purchase_price_pln.toFixed(2)} zł</td>
+                <td class="text-right text-nowrap">${item.unit_value.toFixed(2)} zł</td>
                 <td class="text-center">${item.quantity}</td>
                 <td class="text-right text-nowrap font-semibold">${productValue.toFixed(2)} zł</td>
                 <td class="text-center">

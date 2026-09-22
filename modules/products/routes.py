@@ -4869,6 +4869,25 @@ def create_poland_order():
 # ==========================================
 # Poland Orders - Cło/VAT
 # ==========================================
+def _wartosc_jednostkowa_do_cla(product):
+    """
+    Wartosc jednej sztuki, od ktorej liczy sie Clo/VAT.
+
+    Bierzemy cene sprzedazy, czyli to, co placa klienci. Ten ekran sluzy do
+    rozdzielenia kosztu cla na zamowienia klientow, a NIE do deklaracji celnej.
+
+    Wczesniej brano `purchase_price_pln`, ktore potrafi rozjechac sie z cena
+    w walucie: pole jest w formularzu produktu tylko do odczytu, ale masowa
+    edycja pozwala wpisac je recznie, a duplikowanie produktu kopiuje je 1:1.
+    OT8 „Hello Live" mial tam 49 zl (cena jednej karty) zamiast 392 zl za caly
+    zestaw osmiu, wiec clo liczylo sie od zlej kwoty.
+    """
+    from decimal import Decimal
+    if product is None or product.sale_price is None:
+        return Decimal('0')
+    return Decimal(str(product.sale_price))
+
+
 @products_bp.route('/api/poland-order-customs/<int:order_id>', methods=['GET'])
 @login_required
 @role_required('admin', 'mod')
@@ -4879,7 +4898,7 @@ def get_poland_order_customs(order_id):
         items_data = []
         for item in poland_order.items:
             product = item.product
-            purchase_price = float(product.purchase_price_pln or product.purchase_price or 0) if product else 0
+            wartosc_jednostkowa = _wartosc_jednostkowa_do_cla(product)
             primary_image = product.primary_image if product else None
             image_url = None
             if primary_image:
@@ -4889,9 +4908,9 @@ def get_poland_order_customs(order_id):
                 'id': item.id,
                 'product_name': product.name if product else '-',
                 'product_image': image_url,
-                'purchase_price_pln': purchase_price,
+                'unit_value': float(wartosc_jednostkowa),
                 'quantity': item.quantity,
-                'product_value': round(purchase_price * item.quantity, 2),
+                'product_value': float(wartosc_jednostkowa * item.quantity),
                 'customs_vat_percentage': float(item.customs_vat_percentage or 0),
                 'customs_vat_amount': float(item.customs_vat_amount or 0),
             })
@@ -4927,7 +4946,7 @@ def get_poland_orders_customs_bulk():
             items_data = []
             for item in poland_order.items:
                 product = item.product
-                purchase_price = float(product.purchase_price_pln or product.purchase_price or 0) if product else 0
+                wartosc_jednostkowa = _wartosc_jednostkowa_do_cla(product)
                 primary_image = product.primary_image if product else None
                 image_url = None
                 if primary_image:
@@ -4937,9 +4956,9 @@ def get_poland_orders_customs_bulk():
                     'id': item.id,
                     'product_name': product.name if product else '-',
                     'product_image': image_url,
-                    'purchase_price_pln': purchase_price,
+                    'unit_value': float(wartosc_jednostkowa),
                     'quantity': item.quantity,
-                    'product_value': round(purchase_price * item.quantity, 2),
+                    'product_value': float(wartosc_jednostkowa * item.quantity),
                     'customs_vat_percentage': float(item.customs_vat_percentage or 0),
                     'customs_vat_amount': float(item.customs_vat_amount or 0),
                 })
@@ -5013,8 +5032,8 @@ def update_poland_customs_vat():
                 continue
 
             product = item.product
-            purchase_price = Decimal(str(product.purchase_price_pln or product.purchase_price or 0)) if product else Decimal('0')
-            product_value = purchase_price * item.quantity
+            wartosc_jednostkowa = _wartosc_jednostkowa_do_cla(product)
+            product_value = wartosc_jednostkowa * item.quantity
             customs_amount = (product_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
 
             item.customs_vat_percentage = percentage
