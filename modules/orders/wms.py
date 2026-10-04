@@ -14,7 +14,7 @@ from datetime import timedelta
 
 import qrcode
 from PIL import Image, ImageOps
-from flask import request, jsonify, abort, render_template, redirect, url_for, current_app
+from flask import request, jsonify, abort, render_template, redirect, url_for, current_app, session
 from flask_login import login_required, current_user
 
 from extensions import csrf
@@ -350,6 +350,11 @@ def shipping_requests_filtered_ids():
     })
 
 
+WMS_SR_FILTERS_SESSION_KEY = 'wms_sr_filters'
+# Wyszukiwarka i numer strony celowo poza listą — stare hasło mylące po powrocie.
+WMS_SR_FILTER_KEYS = ('status', 'order_type', 'consolidation')
+
+
 @orders_bp.route('/admin/orders/wms')
 @login_required
 @role_required('admin', 'mod')
@@ -363,6 +368,23 @@ def wms_dashboard():
     today_start = datetime.combine(now.date(), dt_time.min)
 
     active_tab = request.args.get('tab', 'shipping')
+
+    # Filtry z lewej kolumny przeżywają wyjście z panelu (np. pakowanie).
+    # Przywracamy je tylko dla gołego adresu — każdy link filtra niesie `tab`,
+    # więc „Wszystkie" nadal czyści zapisany wybór.
+    if active_tab == 'shipping':
+        if request.args:
+            session[WMS_SR_FILTERS_SESSION_KEY] = {
+                key: request.args.get(key, '') for key in WMS_SR_FILTER_KEYS
+            }
+        else:
+            saved = {
+                key: value
+                for key, value in session.get(WMS_SR_FILTERS_SESSION_KEY, {}).items()
+                if key in WMS_SR_FILTER_KEYS and value
+            }
+            if saved:
+                return redirect(url_for('orders.wms_dashboard', tab='shipping', **saved))
 
     # Active sessions (always show all)
     active_sessions_list = WmsSession.query.filter_by(status='active').order_by(
