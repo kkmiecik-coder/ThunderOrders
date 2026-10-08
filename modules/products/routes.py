@@ -4110,6 +4110,10 @@ def get_proxy_orders_details():
                         # wysłanie kolejnej partii po cichu obniżałoby wcześniej zapisane incl
                         # (zapis w _zapisz_incl_na_zamowieniu jest absolutny, nie doda tego z powrotem).
                         'incl_only_quantity': incl,
+                        # Samo incl ma sens tylko przy dropach exclusive (album da się
+                        # rozdzielić). Preordery to np. pluszaki — okno pokazuje ich
+                        # klientów, ale bez pól „samo incl”.
+                        'incl_mozliwe': zam.order_type != 'pre_order',
                     })
                 offsety[pid] = offset + (item.quantity or 0)
 
@@ -4597,6 +4601,7 @@ def _notify_distributed_costs(distributed, cost_type):
 def create_poland_order():
     """Create a Poland order from proxy orders with shipping costs"""
     from decimal import Decimal
+    from modules.orders.models import Order
     try:
         data = request.get_json()
         proxy_order_ids = data.get('proxy_order_ids', [])
@@ -4702,6 +4707,16 @@ def create_poland_order():
                         'success': False,
                         'error': 'Liczba sztuk „samo incl" nie może być ujemna.'
                     }), 400
+
+                if incl_klienta > 0:
+                    zam_klienta = db.session.get(Order, order_id)
+                    if zam_klienta and zam_klienta.order_type == 'pre_order':
+                        db.session.rollback()
+                        return jsonify({
+                            'success': False,
+                            'error': (f'Zamówienie {zam_klienta.order_number} to preorder — '
+                                      '„samo incl" dotyczy tylko dropów exclusive.')
+                        }), 400
 
                 # incl_w_partii: ile z incl_klienta (pełnej wartości CAŁEGO zamówienia)
                 # mieści się w TEJ partii — może być mniejsze niż incl_klienta, gdy
