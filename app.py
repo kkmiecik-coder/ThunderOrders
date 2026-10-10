@@ -381,6 +381,11 @@ def register_blueprints(app):
     from modules.contests import contests_bp
     app.register_blueprint(contests_bp)
 
+    # Pupile (tamagotchi) — etap 1: same modele; trasy dochodzą w etapie 4
+    from modules.pets import pets_bp, pets_admin_bp
+    app.register_blueprint(pets_bp)
+    app.register_blueprint(pets_admin_bp)
+
     # Shop module (client on-hand shop — no url_prefix, routes have full paths)
     from modules.client.shop import shop_bp
     app.register_blueprint(shop_bp)
