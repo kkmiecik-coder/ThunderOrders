@@ -187,16 +187,23 @@ function renderPolandModal(orders) {
         html += `<div class="poland-package" data-order-id="${order.id}">`;
         html += `<div class="poland-package-header">`;
         html += `<span class="poland-package-title">Paczka: ${escapeHtml(order.order_number)}</span>`;
+        // Samo incl dotyczy tylko dropów exclusive (album da się rozdzielić).
+        // Paczka z samymi preorderami (np. pluszaki) nie dostaje przełącznika ani
+        // stawek album/incl — wysyłkę wpisuje się jak dawniej, Cena/szt i Wartość.
+        const paczkaMaIncl = order.items.some(
+            item => (item.clients || []).some(c => c.incl_mozliwe !== false));
         // Skrót na częsty przypadek: cała paczka jedzie jako samo incl. Ustawia
         // maksimum u wszystkich klientów wszystkich produktów tej paczki, żeby nie
         // klikać każdego z osobna. Nie zmienia niczego w kontrakcie wysyłanym do
         // serwera — wpisuje te same liczby, które admin wpisałby ręcznie.
-        html += `<label class="poland-package-incl">`;
-        html += `<input type="checkbox" class="poland-package-incl-input" `;
-        html += `data-order-index="${orderIndex}" `;
-        html += `onchange="handlePackageInclToggle(${orderIndex})">`;
-        html += `<span>cała paczka na samo incl</span>`;
-        html += `</label>`;
+        if (paczkaMaIncl) {
+            html += `<label class="poland-package-incl">`;
+            html += `<input type="checkbox" class="poland-package-incl-input" `;
+            html += `data-order-index="${orderIndex}" `;
+            html += `onchange="handlePackageInclToggle(${orderIndex})">`;
+            html += `<span>cała paczka na samo incl</span>`;
+            html += `</label>`;
+        }
         html += `<div class="poland-package-shipping">`;
         html += `<label>Wysyłka:</label>`;
         html += `<input type="number" class="form-input package-shipping-input" `;
@@ -216,22 +223,24 @@ function renderPolandModal(orders) {
         // Pola przy produktach nie znikają z kodu, tylko z widoku: wartość stąd jest
         // do nich wpisywana, dzięki czemu walidacja, payload i licznik różnicy czytają
         // dokładnie to co dotąd i nie wymagają żadnej zmiany.
-        html += `<div class="poland-package-rates" data-order-index="${orderIndex}">`;
-        html += `<span class="poland-package-rates-label">Stawki paczki:</span>`;
-        html += `<label class="poland-package-rate">cały album`;
-        html += `<input type="number" class="form-input poland-package-rate-input" `;
-        html += `data-order-index="${orderIndex}" data-role="pkg-album-rate" `;
-        html += `placeholder="0,00" step="0.01" min="0" `;
-        html += `oninput="handlePackageRateChange(${orderIndex})">`;
-        html += `<span class="poland-package-rate-unit">zł/szt</span></label>`;
-        html += `<label class="poland-package-rate">samo incl`;
-        html += `<input type="number" class="form-input poland-package-rate-input" `;
-        html += `data-order-index="${orderIndex}" data-role="pkg-incl-rate" `;
-        html += `placeholder="0,00" step="0.01" min="0" `;
-        html += `oninput="handlePackageRateChange(${orderIndex})">`;
-        html += `<span class="poland-package-rate-unit">zł/szt</span></label>`;
-        html += `<div class="poland-rate-warning" data-role="pkg-rate-warning" style="display: none"></div>`;
-        html += `</div>`;
+        if (paczkaMaIncl) {
+            html += `<div class="poland-package-rates" data-order-index="${orderIndex}">`;
+            html += `<span class="poland-package-rates-label">Stawki paczki:</span>`;
+            html += `<label class="poland-package-rate">cały album`;
+            html += `<input type="number" class="form-input poland-package-rate-input" `;
+            html += `data-order-index="${orderIndex}" data-role="pkg-album-rate" `;
+            html += `placeholder="0,00" step="0.01" min="0" `;
+            html += `oninput="handlePackageRateChange(${orderIndex})">`;
+            html += `<span class="poland-package-rate-unit">zł/szt</span></label>`;
+            html += `<label class="poland-package-rate">samo incl`;
+            html += `<input type="number" class="form-input poland-package-rate-input" `;
+            html += `data-order-index="${orderIndex}" data-role="pkg-incl-rate" `;
+            html += `placeholder="0,00" step="0.01" min="0" `;
+            html += `oninput="handlePackageRateChange(${orderIndex})">`;
+            html += `<span class="poland-package-rate-unit">zł/szt</span></label>`;
+            html += `<div class="poland-rate-warning" data-role="pkg-rate-warning" style="display: none"></div>`;
+            html += `</div>`;
+        }
 
         html += `<table class="data-table poland-products-table">`;
         // Szerokości w procentach, nie `auto` + piksele. Tabela ma
@@ -269,7 +278,10 @@ function renderPolandModal(orders) {
                     client_name: c.client_name,
                     quantity: c.quantity,
                     order_total_quantity: c.order_total_quantity,
-                    incl_only_quantity: c.incl_only_quantity || 0
+                    // Preorder nie ma samo incl — wymuszamy 0, żeby żadne liczenie
+                    // album/incl w oknie go nie złapało, a serwer dostał 0.
+                    incl_mozliwe: c.incl_mozliwe !== false,
+                    incl_only_quantity: c.incl_mozliwe === false ? 0 : (c.incl_only_quantity || 0)
                 }))
             });
 
@@ -304,6 +316,11 @@ function renderPolandModal(orders) {
                     html += `<span class="poland-incl-client-name">${escapeHtml(k.client_name)}</span>`;
                     html += `<span class="poland-incl-client-order">${escapeHtml(k.order_number)}</span>`;
                     html += `<span class="poland-incl-client-qty">${k.quantity} szt</span>`;
+                    if (!k.incl_mozliwe) {
+                        // Preorder: sam podgląd, kto dostanie sztuki z tej partii.
+                        html += `</div>`;
+                        return;
+                    }
                     if (k.order_total_quantity > k.quantity) {
                         html += `<span class="poland-incl-warning" title="Reszta sztuk tego klienta jest w innej partii. Liczba „samo incl” dotyczy całego zamówienia (${k.order_total_quantity} szt.), nie tylko tej partii.">⚠ ${k.quantity} z ${k.order_total_quantity} szt. w tej partii</span>`;
                     }
@@ -318,31 +335,33 @@ function renderPolandModal(orders) {
                 });
                 html += `</div>`;
 
-                html += `<div class="poland-rates" data-item-index="${globalItemIndex}">`;
-                html += `<div class="poland-rate-line" data-role="album-line">`;
-                html += `<span class="poland-rate-label">cały album</span>`;
-                html += `<span class="poland-rate-qty" data-role="album-qty">0 szt</span>`;
-                html += `<span class="poland-rate-times">×</span>`;
-                html += `<input type="number" class="form-input poland-rate-input" `;
-                html += `data-item-index="${globalItemIndex}" data-role="album-rate" `;
-                html += `placeholder="0,00" step="0.01" min="0" `;
-                html += `oninput="handleRateChange(${globalItemIndex}, this)">`;
-                html += `<span class="poland-rate-value" data-role="album-rate-text"></span>`;
-                html += `<span class="poland-rate-sum" data-role="album-sum">0,00 zł</span>`;
-                html += `</div>`;
-                html += `<div class="poland-rate-line">`;
-                html += `<span class="poland-rate-label">samo incl</span>`;
-                html += `<span class="poland-rate-qty" data-role="incl-qty">0 szt</span>`;
-                html += `<span class="poland-rate-times">×</span>`;
-                html += `<input type="number" class="form-input poland-rate-input" `;
-                html += `data-item-index="${globalItemIndex}" data-role="incl-rate" `;
-                html += `placeholder="0,00" step="0.01" min="0" `;
-                html += `oninput="handleRateChange(${globalItemIndex}, this)">`;
-                html += `<span class="poland-rate-value" data-role="incl-rate-text"></span>`;
-                html += `<span class="poland-rate-sum" data-role="incl-sum">0,00 zł</span>`;
-                html += `</div>`;
-                html += `<div class="poland-rate-warning" data-role="rate-warning" style="display: none"></div>`;
-                html += `</div>`;
+                if (klienci.some(k => k.incl_mozliwe)) {
+                    html += `<div class="poland-rates" data-item-index="${globalItemIndex}">`;
+                    html += `<div class="poland-rate-line" data-role="album-line">`;
+                    html += `<span class="poland-rate-label">cały album</span>`;
+                    html += `<span class="poland-rate-qty" data-role="album-qty">0 szt</span>`;
+                    html += `<span class="poland-rate-times">×</span>`;
+                    html += `<input type="number" class="form-input poland-rate-input" `;
+                    html += `data-item-index="${globalItemIndex}" data-role="album-rate" `;
+                    html += `placeholder="0,00" step="0.01" min="0" `;
+                    html += `oninput="handleRateChange(${globalItemIndex}, this)">`;
+                    html += `<span class="poland-rate-value" data-role="album-rate-text"></span>`;
+                    html += `<span class="poland-rate-sum" data-role="album-sum">0,00 zł</span>`;
+                    html += `</div>`;
+                    html += `<div class="poland-rate-line">`;
+                    html += `<span class="poland-rate-label">samo incl</span>`;
+                    html += `<span class="poland-rate-qty" data-role="incl-qty">0 szt</span>`;
+                    html += `<span class="poland-rate-times">×</span>`;
+                    html += `<input type="number" class="form-input poland-rate-input" `;
+                    html += `data-item-index="${globalItemIndex}" data-role="incl-rate" `;
+                    html += `placeholder="0,00" step="0.01" min="0" `;
+                    html += `oninput="handleRateChange(${globalItemIndex}, this)">`;
+                    html += `<span class="poland-rate-value" data-role="incl-rate-text"></span>`;
+                    html += `<span class="poland-rate-sum" data-role="incl-sum">0,00 zł</span>`;
+                    html += `</div>`;
+                    html += `<div class="poland-rate-warning" data-role="rate-warning" style="display: none"></div>`;
+                    html += `</div>`;
+                }
                 html += `</td></tr>`;
             }
         });
@@ -2984,6 +3003,7 @@ function handlePackageInclToggle(orderIndex) {
     polandOrderData.items.forEach((item, idx) => {
         if (item.order_index !== orderIndex) return;
         item.clients.forEach((klient, clientIndex) => {
+            if (!klient.incl_mozliwe) return;
             const wartosc = wlaczony ? maksInclKlienta(klient) : 0;
             klient.incl_only_quantity = wartosc;
             const input = document.querySelector(
@@ -3011,6 +3031,7 @@ function refreshPackageInclToggle(orderIndex) {
     polandOrderData.items.forEach((item) => {
         if (item.order_index !== orderIndex) return;
         item.clients.forEach((klient) => {
+            if (!klient.incl_mozliwe) return;
             maKlientow = true;
             if ((klient.incl_only_quantity || 0) < maksInclKlienta(klient)) {
                 wszyscyNaMaksie = false;

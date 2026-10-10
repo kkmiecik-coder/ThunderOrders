@@ -346,6 +346,7 @@ def test_endpoint_szczegolow_zwraca_klientow(db, client, login, make_user, make_
         'quantity': 2,
         'order_total_quantity': 2,
         'incl_only_quantity': 1,
+        'incl_mozliwe': True,
     }]
 
 
@@ -1218,3 +1219,108 @@ def test_dziennik_zapisuje_stawki_partii(db, client, login, make_user, make_orde
     assert pozycje[0]['album_rate'] == 45.0
     assert pozycje[0]['incl_rate'] == 12.0
     assert pozycje[0]['incl_w_partii'] == 1
+
+
+def test_endpoint_preorder_bez_incl_a_exclusive_z_incl(db, client, login, make_user,
+                                                      make_order, make_product):
+    """Samo incl dotyczy tylko dropów exclusive (album da się rozdzielić). Preordery
+    to np. pluszaki — okno partii ma ich klientów pokazać, ale bez pól „samo incl”."""
+    from modules.orders.models import OrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    pre = make_order(make_user(), offer_page_id=1, order_type='pre_order',
+                     created_at=baza - timedelta(days=3))
+    exc = make_order(make_user(), offer_page_id=1, order_type='exclusive',
+                     created_at=baza - timedelta(days=2))
+    for zam in (pre, exc):
+        db.session.add(OrderItem(
+            order_id=zam.id, product_id=produkt.id, quantity=1,
+            price=Decimal('130'), total=Decimal('130'),
+        ))
+    db.session.commit()
+    proxy, _ = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T70')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/get-proxy-orders-details',
+                      json={'proxy_order_ids': [proxy.id]})
+
+    assert odp.status_code == 200
+    klienci = {k['order_id']: k for k in odp.get_json()['orders'][0]['items'][0]['clients']}
+    assert klienci[pre.id]['incl_mozliwe'] is False
+    assert klienci[exc.id]['incl_mozliwe'] is True
+
+
+def test_odrzuca_samo_incl_dla_preorderu(db, client, login, make_user, make_order,
+                                         make_product):
+    """Serwer nie przyjmuje „samo incl” dla preorderu, nawet gdyby front je wysłał —
+    i nic nie zapisuje (ani partii, ani incl na zamówieniu)."""
+    from modules.orders.models import OrderItem
+    from modules.products.models import PolandOrder
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    pre = make_order(make_user(), offer_page_id=1, order_type='pre_order',
+                     created_at=baza - timedelta(days=3))
+    db.session.add(OrderItem(
+        order_id=pre.id, product_id=produkt.id, quantity=1,
+        price=Decimal('130'), total=Decimal('130'),
+    ))
+    db.session.commit()
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T71')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 12,
+        'tracking_number': 'KB88900-RS71',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': 12,
+            'album_rate': 45,
+            'incl_rate': 12,
+            'clients': [{'order_id': pre.id, 'incl_only_quantity': 1}],
+        }],
+    })
+
+    assert odp.status_code == 400
+    assert 'preorder' in odp.get_json()['error'].lower()
+    assert PolandOrder.query.count() == 0
+    assert OrderItem.query.filter_by(order_id=pre.id).one().incl_only_quantity == 0
+
+
+def test_preorder_z_zerowym_incl_tworzy_partie_jak_dotad(db, client, login, make_user,
+                                                         make_order, make_product):
+    """Okno wysyła klientów preorderu z incl = 0 — partia powstaje normalnie, a koszt
+    wysyłki trafia do klienta preorderu (podział na klientów zostaje bez zmian)."""
+    from modules.orders.models import Order, OrderItem
+
+    produkt = make_product()
+    baza = datetime(2026, 8, 1, 10, 0)
+    pre = make_order(make_user(), offer_page_id=1, order_type='pre_order',
+                     created_at=baza - timedelta(days=3))
+    db.session.add(OrderItem(
+        order_id=pre.id, product_id=produkt.id, quantity=1,
+        price=Decimal('130'), total=Decimal('130'),
+    ))
+    db.session.commit()
+    proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T72')
+
+    login(make_user(role='admin'))
+    odp = client.post('/admin/products/api/create-poland-order', json={
+        'proxy_order_ids': [proxy.id],
+        'shipping_cost_total': 28.76,
+        'tracking_number': 'KB88900-RS72',
+        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'note': '',
+        'items': [{
+            'proxy_order_item_id': poz.id,
+            'shipping_cost': 28.76,
+            'clients': [{'order_id': pre.id, 'incl_only_quantity': 0}],
+        }],
+    })
+
+    assert odp.status_code == 200, odp.get_json()
+    assert db.session.get(Order, pre.id).proxy_shipping_cost == Decimal('28.76')
