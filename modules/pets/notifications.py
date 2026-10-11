@@ -175,3 +175,114 @@ def collect_for_user(user, now, cfg):
         profil.monthly_notified_at = now
         basket['monthly'] = True
     return basket
+
+
+# ---------------------------------------------------------------------------
+# Przebieg crona (spec §3.6)
+# ---------------------------------------------------------------------------
+
+def users_to_check(now, cfg):
+    """Jedno zapytanie o listę użytkowników, u których może być coś do zgłoszenia (bez yield_per)."""
+    from sqlalchemy import and_, or_
+    from modules.auth.models import User
+    prog_ratunkowe = now - timedelta(days=int(cfg.rescue_reminder_days))
+    z_pupilami = db.session.query(Pet.user_id).filter(or_(
+        Pet.status.in_(('alive', 'egg')),
+        and_(Pet.status == 'dead', Pet.death_notified_at.is_(None)),
+        and_(Pet.status == 'dead', Pet.rescue_egg_claimed_at.is_(None),
+             Pet.rescue_reminder_sent_at.is_(None), Pet.died_at <= prog_ratunkowe),
+    )).distinct()
+    z_miesiecznym = db.session.query(PetProfile.user_id).filter(
+        PetProfile.monthly_notified_at.is_(None),
+        PetProfile.last_monthly_egg_at <= now - timedelta(days=int(cfg.monthly_days)),
+    )
+    ids = {r[0] for r in z_pupilami.all()} | {r[0] for r in z_miesiecznym.all()}
+    if not ids:
+        return []
+    return (User.query.filter(User.id.in_(ids), User.is_active == True, User.role == 'client')  # noqa: E712
+            .order_by(User.id).all())
+
+
+def prune_events(now, days=PRUNE_DAYS):
+    """Porządki: zdarzenia akcji starsze niż `days`; trwałe (claim/grant/hatch/merge/die/rename/milestone) zostają."""
+    prog = now - timedelta(days=days)
+    usuniete = (PetEvent.query.filter(PetEvent.type.in_(PRUNABLE_EVENT_TYPES), PetEvent.created_at < prog)
+                .delete(synchronize_session=False))
+    db.session.commit()
+    return int(usuniete or 0)
+
+
+def _wyslij_push(user, basket):
+    from utils.push_manager import PushManager
+    tytul, tresc = build_push_text(basket)
+    if not tresc:
+        return False
+    # Synchronicznie: _fire_and_forget to wątek daemon, który ginie z procesem CLI
+    PushManager.send_to_user(user.id, tytul, tresc, url=PETS_URL_PATH, tag=PUSH_TAG,
+                             notification_type=PREF_FIELD)
+    return True
+
+
+def run_tick(now=None, cfg=None, dry_run=False):
+    """Godzinny przebieg: koszyki per użytkownik → push → jeden batch maili → flagi → porządki.
+
+    Liczniki: `pushes` = użytkownicy, dla których zawołano send_to_user (wpis w dzwonku powstaje
+    także bez subskrypcji push); `emails_prepared` = zbudowane wiadomości; `emails_sent` =
+    potwierdzone przez SMTP.
+    """
+    from utils.email_manager import EmailManager
+    now, cfg = now_or(now), cfg_or(cfg)
+    wynik = {'users': 0, 'pushes': 0, 'emails_prepared': 0, 'emails_sent': 0, 'deaths': 0,
+             'eggs_ready': 0, 'monthly': 0, 'rescue_reminders': 0, 'pruned': 0, 'dry_run': dry_run,
+             'koszyki': []}
+    maile_wlaczone = EmailManager.is_email_enabled(EMAIL_SWITCH)
+    do_wyslania = []   # (user, basket, Message)
+
+    for user in users_to_check(now, cfg):
+        basket = collect_for_user(user, now, cfg)
+        if basket_is_empty(basket):
+            # Mogły zostać zmiany bez powiadomienia (reset epizodu) — zapisujemy je mimo pustego koszyka
+            if dry_run:
+                db.session.rollback()
+            else:
+                db.session.commit()
+            continue
+        wynik['users'] += 1
+        wynik['deaths'] += len(basket['deaths'])
+        wynik['eggs_ready'] += len(basket['eggs_ready'])
+        wynik['monthly'] += int(basket['monthly'])
+        wynik['rescue_reminders'] += len(basket['rescue_reminders'])
+        if dry_run:
+            wynik['koszyki'].append((user.email, build_push_text(basket)[1], needs_email(basket)))
+            db.session.rollback()
+            continue
+        db.session.commit()   # krok 2: zapis poziomów/odejść/flag jajek, zanim cokolwiek wyślemy
+
+        if pet_updates_enabled(user.id):
+            if _wyslij_push(user, basket):
+                wynik['pushes'] += 1
+            if maile_wlaczone and needs_email(basket):
+                msg = build_email_message(user, basket)
+                if msg is not None:
+                    do_wyslania.append((user, basket, msg))
+                    wynik['emails_prepared'] += 1
+        # Odejście oznaczamy niezależnie od maila/preferencji — inaczej cron próbowałby co godzinę
+        for pet in basket['deaths']:
+            pet.death_notified_at = now
+        db.session.commit()
+
+    if dry_run:
+        return wynik
+
+    if do_wyslania:
+        from utils.email_sender import send_email_batch_sync   # import w funkcji: testy monkeypatchują moduł
+        wyniki = send_email_batch_sync([msg for _, _, msg in do_wyslania])
+        for (user, basket, _), ok in zip(do_wyslania, wyniki):
+            if ok:
+                wynik['emails_sent'] += 1
+                for pet in basket['rescue_reminders']:
+                    pet.rescue_reminder_sent_at = now   # tylko po udanej wysyłce — jedyny kanał tego przypomnienia
+        db.session.commit()
+
+    wynik['pruned'] = prune_events(now)
+    return wynik

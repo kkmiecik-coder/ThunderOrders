@@ -23,6 +23,7 @@ def test_anonymize_user_pets(db, make_user):
 
     assert zywy.status == 'dead' and zywy.died_at == T0 + timedelta(days=1)
     assert zywy.notify_level == 4 and zywy.death_notified_at == T0 + timedelta(days=1)
+    assert zywy.rescue_reminder_sent_at == T0 + timedelta(days=1)   # cron nie przypomni o ratunkowym
     assert zywy.name is None and zmarly.name is None
     assert zmarly.died_at == T0                      # stare odejście nietknięte
     assert jajko.status == 'egg'                     # jajko zostaje (bez danych osobowych)

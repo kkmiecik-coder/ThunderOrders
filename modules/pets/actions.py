@@ -173,7 +173,8 @@ def anonymize_user_pets(user, now=None):
     imiona (dane użytkownika) znikają, towarzysz wyłączony, zdarzenia usunięte. Bez commitu."""
     now = now_or(now)
     Pet.query.filter_by(user_id=user.id, status='alive').update(
-        {'status': 'dead', 'died_at': now, 'notify_level': 4, 'death_notified_at': now},
+        {'status': 'dead', 'died_at': now, 'notify_level': 4, 'death_notified_at': now,
+         'rescue_reminder_sent_at': now},
         synchronize_session='fetch')
     Pet.query.filter_by(user_id=user.id).update({'name': None}, synchronize_session='fetch')
     PetProfile.query.filter_by(user_id=user.id).update(

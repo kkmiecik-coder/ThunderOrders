@@ -1399,6 +1399,33 @@ def register_cli_commands(app):
         results = service.run_daily_checks()
         click.echo(f'Daily check complete: {results["unlocked"]} new unlocks, stats updated.')
 
+    # ============================================
+    # PUPILE (tamagotchi) — cron co godzinę: 10 * * * *
+    # ============================================
+    @app.cli.group()
+    def pets():
+        """Pupile: zadania cron (powiadomienia, porządki)."""
+        pass
+
+    @pets.command('tick')
+    @_with_request_context
+    @click.option('--dry-run', is_flag=True, help='Tylko wypisz koszyki, nic nie zapisuj i nie wysyłaj')
+    def pets_tick(dry_run):
+        """Przebieg powiadomień o pupilach: zbiorczy push + mail per użytkownik, raz na epizod."""
+        from modules.pets.notifications import run_tick
+        wynik = run_tick(dry_run=dry_run)
+        if dry_run:
+            click.echo(f'[DRY-RUN] Użytkowników z czymś do zgłoszenia: {wynik["users"]}')
+            for email, tresc, mail in wynik['koszyki']:
+                click.echo(f'  {email}: {tresc}' + (' [+mail]' if mail else ''))
+            return
+        click.echo(
+            f'Użytkowników: {wynik["users"]}, pushe: {wynik["pushes"]}, '
+            f'maile: {wynik["emails_sent"]}/{wynik["emails_prepared"]}, odejścia: {wynik["deaths"]}, '
+            f'jajka gotowe: {wynik["eggs_ready"]}, miesięczne: {wynik["monthly"]}, '
+            f'przypomnienia o ratunkowym: {wynik["rescue_reminders"]}, porządki: {wynik["pruned"]}'
+        )
+
     @achievements.command('generate-share-icons')
     @click.option('--dry-run', is_flag=True, help='Tylko pokaż, czego brakuje.')
     @click.option('--force', is_flag=True, help='Nadpisz istniejące pliki @512.')

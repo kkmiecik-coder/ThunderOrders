@@ -208,3 +208,186 @@ def test_bez_profilu_koszyk_pusty(db, make_user):
     from modules.pets.notifications import collect_for_user, basket_is_empty
     user = make_user()
     assert basket_is_empty(collect_for_user(user, T0, _cfg()))
+
+
+# --- przebieg ---
+
+@pytest.fixture
+def maile_zebrane(monkeypatch):
+    """Przechwytuje send_email_batch_sync (tak jak test_dostawa_cron); domyślnie wszystko „wysłane"."""
+    skrzynka = {'wiadomosci': [], 'wynik': None}
+
+    def _sync(messages):
+        skrzynka['wiadomosci'].extend(messages)
+        return skrzynka['wynik'] if skrzynka['wynik'] is not None else [True] * len(messages)
+
+    monkeypatch.setattr('utils.email_sender.send_email_batch_sync', _sync)
+    return skrzynka
+
+
+def _dzwonek(user_id):
+    from modules.notifications.models import Notification
+    return Notification.query.filter_by(user_id=user_id, notification_type='pet_updates').all()
+
+
+def test_tick_jeden_push_na_uzytkownika_i_wpis_w_dzwonku(app, db, make_user, maile_zebrane):
+    """Review Focus 1 i 5: bez subskrypcji push i bez wiersza preferencji — wpis w dzwonku, zero wyjątków."""
+    from modules.pets.notifications import run_tick
+    user = make_user()
+    zaloz_profil(user)
+    a = zaloz_pupila(user, species='kotek', name='Mruczek', fun=0.0)
+    b = zaloz_pupila(user, species='mis', name='Puszek', clean=0.0)
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert wynik['users'] == 1 and wynik['pushes'] == 1 and wynik['emails_prepared'] == 0
+    wpisy = _dzwonek(user.id)
+    assert len(wpisy) == 1 and 'Mruczek' in wpisy[0].body and 'Puszek' in wpisy[0].body
+    assert wpisy[0].url == '/client/pupile' and wpisy[0].tag == 'pets'
+    assert maile_zebrane['wiadomosci'] == []
+
+
+def test_tick_drugi_raz_w_tej_samej_godzinie_nic_nie_dubluje(app, db, make_user, maile_zebrane):
+    """Review Focus 4."""
+    from modules.pets.notifications import run_tick
+    user = make_user()
+    zaloz_profil(user)
+    zaloz_pupila(user, species='kotek', hunger=0.0, health=10.0)      # krytyczny → push + mail
+    zaloz_jajko(user, now=T0 - timedelta(hours=200))
+    with app.test_request_context():
+        w1 = run_tick(now=T0, cfg=_cfg())
+        w2 = run_tick(now=T0 + timedelta(minutes=20), cfg=_cfg())
+    assert w1['pushes'] == 1 and w1['emails_prepared'] == 1
+    assert w2['pushes'] == 0 and w2['emails_prepared'] == 0 and w2['users'] == 0
+    assert len(_dzwonek(user.id)) == 1 and len(maile_zebrane['wiadomosci']) == 1
+
+
+def test_tick_mail_tylko_krytyczny_odejscie_ratunkowe(app, db, make_user, maile_zebrane):
+    from modules.pets.notifications import run_tick
+    smutny = make_user()
+    zaloz_profil(smutny)
+    zaloz_pupila(smutny, fun=0.0)
+    krytyczny = make_user()
+    zaloz_profil(krytyczny)
+    zaloz_pupila(krytyczny, name='Mruczek', hunger=0.0, health=10.0)
+    zalobnik = make_user()
+    zaloz_profil(zalobnik)
+    zmarly = zaloz_zmarlego(zalobnik, name='Puszek', died_at=T0 - timedelta(hours=1))
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert wynik['users'] == 3 and wynik['pushes'] == 3 and wynik['emails_prepared'] == 2 and wynik['emails_sent'] == 2
+    odbiorcy = sorted(m.recipients[0] for m in maile_zebrane['wiadomosci'])
+    assert odbiorcy == sorted([krytyczny.email, zalobnik.email])
+    assert zmarly.death_notified_at == T0 + timedelta(hours=1)
+
+
+def test_tick_pet_updates_wylaczone_zero_wpisow_i_maili(app, db, make_user, maile_zebrane):
+    from modules.notifications.models import NotificationPreference
+    from modules.pets.notifications import run_tick
+    user = make_user()
+    zaloz_profil(user)
+    db.session.add(NotificationPreference(user_id=user.id, pet_updates=False))
+    db.session.commit()
+    pet = zaloz_pupila(user, hunger=0.0, health=10.0)
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert wynik['users'] == 1 and wynik['pushes'] == 0 and wynik['emails_prepared'] == 0
+    assert _dzwonek(user.id) == [] and maile_zebrane['wiadomosci'] == []
+    assert pet.notify_level == 3            # poziom i tak zapisany — epizod liczy się niezależnie od kanału
+
+
+def test_tick_kill_switch_maila(app, db, make_user, maile_zebrane):
+    from modules.auth.models import Settings
+    from modules.pets.notifications import run_tick
+    from utils.email_manager import EmailManager
+    import json
+    Settings.set_value('email_notifications_config', json.dumps({'notify_pet_alert': False}), type='json')
+    db.session.commit()
+    EmailManager.clear_email_config_cache()
+    user = make_user()
+    zaloz_profil(user)
+    zaloz_pupila(user, hunger=0.0, health=10.0)
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert wynik['pushes'] == 1 and wynik['emails_prepared'] == 0 and maile_zebrane['wiadomosci'] == []
+
+
+def test_tick_nieudany_mail_ratunkowy_powtarza_sie_odejscie_nie(app, db, make_user, maile_zebrane):
+    """Review Focus 3."""
+    from modules.pets.notifications import run_tick
+    maile_zebrane['wynik'] = [False]
+    user = make_user()
+    zaloz_profil(user)
+    stary = zaloz_zmarlego(user, species='mis', died_at=T0 - timedelta(days=8), death_notified_at=T0 - timedelta(days=8))
+    with app.test_request_context():
+        w1 = run_tick(now=T0, cfg=_cfg())
+    assert w1['emails_prepared'] == 1 and w1['emails_sent'] == 0
+    assert stary.rescue_reminder_sent_at is None             # powtórka następnym przebiegiem
+    maile_zebrane['wynik'] = None
+    with app.test_request_context():
+        w2 = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert w2['emails_sent'] == 1 and stary.rescue_reminder_sent_at == T0 + timedelta(hours=1)
+    # odejście: mail może paść, ale push/dzwonek wyszły → oznaczone
+    maile_zebrane['wynik'] = [False]
+    zalobnik = make_user()
+    zaloz_profil(zalobnik)
+    zmarly = zaloz_zmarlego(zalobnik, died_at=T0 + timedelta(hours=1))
+    with app.test_request_context():
+        run_tick(now=T0 + timedelta(hours=2), cfg=_cfg())
+    assert zmarly.death_notified_at == T0 + timedelta(hours=2)
+
+
+def test_tick_pomija_nieaktywnych_i_nieklientow(app, db, make_user, maile_zebrane):
+    from modules.pets.notifications import run_tick
+    nieaktywny = make_user()
+    zaloz_profil(nieaktywny)
+    zaloz_pupila(nieaktywny, fun=0.0)
+    nieaktywny.is_active = False
+    admin = make_user(role='admin')
+    zaloz_profil(admin)
+    zaloz_pupila(admin, fun=0.0)
+    db.session.commit()
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert wynik['users'] == 0 and _dzwonek(nieaktywny.id) == [] and _dzwonek(admin.id) == []
+
+
+def test_tick_dry_run_nic_nie_zapisuje(app, db, make_user, maile_zebrane):
+    from modules.pets.notifications import run_tick
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user, hunger=0.0)
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=80), cfg=_cfg(), dry_run=True)
+    assert wynik['dry_run'] is True and wynik['deaths'] == 1 and wynik['pushes'] == 0
+    db.session.expire_all()
+    assert pet.status == 'alive' and pet.notify_level == 0
+    assert _dzwonek(user.id) == [] and maile_zebrane['wiadomosci'] == []
+
+
+def test_prune_events_90_dni_z_wyjatkami(db, make_user):
+    from modules.pets.notifications import prune_events
+    from modules.pets.models import PetEvent
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user)
+    stare = T0 - timedelta(days=91)
+    for typ in ('feed', 'pat', 'light', 'warm', 'milestone', 'hatch_new', 'die', 'claim'):
+        db.session.add(PetEvent(pet_id=pet.id, user_id=user.id, type=typ, created_at=stare))
+    db.session.add(PetEvent(pet_id=pet.id, user_id=user.id, type='feed', created_at=T0 - timedelta(days=89)))
+    db.session.commit()
+    assert prune_events(T0) == 4
+    zostaly = sorted(e.type for e in PetEvent.query.filter_by(pet_id=pet.id).all())
+    assert zostaly == ['claim', 'die', 'feed', 'hatch_new', 'milestone']
+
+
+def test_komenda_cli_pets_tick(app, db, make_user, maile_zebrane):
+    user = make_user()
+    zaloz_profil(user)
+    zaloz_pupila(user, fun=0.0, now=T0 - timedelta(days=400))   # dawno temu → na pewno coś do zgłoszenia
+    runner = app.test_cli_runner()
+    sucho = runner.invoke(args=['pets', 'tick', '--dry-run'])
+    assert sucho.exit_code == 0, sucho.output + str(sucho.exception)
+    assert 'dry-run' in sucho.output.lower() and _dzwonek(user.id) == []
+    wynik = runner.invoke(args=['pets', 'tick'])
+    assert wynik.exit_code == 0, wynik.output + str(wynik.exception)
+    assert 'Użytkowników: 1' in wynik.output
