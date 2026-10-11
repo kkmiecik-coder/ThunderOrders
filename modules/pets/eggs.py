@@ -12,16 +12,16 @@ from modules.pets import rules
 from modules.pets.common import (
     MILESTONE_FIRST_STAR, achievements_after_commit, add_event, add_milestone, alive_pets_lock_query,
     apply_state, cfg_or, egg_progress, lock_profile, next_monthly_at, now_or, own_pet, persist_death,
-    rng_or, simulate_pet,
+    persist_discharge, rng_or, simulate_pet,
 )
 from modules.pets.errors import PetError
-from modules.pets.models import EGG_SOURCES, Pet, PetProfile
+from modules.pets.models import EGG_SKINS, EGG_SOURCES, Pet, PetProfile
 from modules.pets.species import SPECIES_BY_SLUG, SPECIES_SLUGS
 
 
-def claim_egg(user, source, pet_id=None, now=None, cfg=None):
-    """Odbiór jajka. Zwraca nowy wiersz Pet ze statusem `egg`."""
-    now, cfg = now_or(now), cfg_or(cfg)
+def claim_egg(user, source, pet_id=None, now=None, cfg=None, rng=None):
+    """Odbiór jajka. Zwraca nowy wiersz Pet ze statusem `egg` (skórka losowana — spec v3 §2)."""
+    now, cfg, rng = now_or(now), cfg_or(cfg), rng_or(rng)
     if source not in EGG_SOURCES:
         raise PetError('bad_source', 'Nieznane źródło jajka.')
     profil = lock_profile(user, required=(source != 'start'))
@@ -61,6 +61,7 @@ def claim_egg(user, source, pet_id=None, now=None, cfg=None):
         godziny = int(cfg.egg_hours)
 
     jajko = Pet(user_id=user.id, status='egg', egg_source=source, egg_hours=godziny,
+                egg_skin=rng.randrange(len(EGG_SKINS)),
                 egg_progress_sec=0, egg_progress_at=now, state_at=now, created_at=now)
     db.session.add(jajko)
     db.session.flush()
@@ -97,6 +98,8 @@ def hatch_egg(user, pet_id, now=None, cfg=None, rng=None):
     zywe = {}
     for zywy in alive_pets_lock_query(user.id).all():
         sim = simulate_pet(zywy, now, cfg)
+        if sim.discharged_at is not None:
+            persist_discharge(zywy, sim, now)
         if sim.died_at is not None:
             persist_death(zywy, sim, now)
             continue

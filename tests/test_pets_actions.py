@@ -54,28 +54,7 @@ def test_zabawa_i_mycie(db, make_user):
     assert pet.clean == 100.0
 
 
-# --- leczenie ---
-
-def test_wylecz_plus_40_co_12h_tylko_chory(db, make_user):
-    from modules.pets.errors import PetError
-    user = make_user()
-    zaloz_profil(user)
-    pet = zaloz_pupila(user, hunger=0.0, health=50.0)
-    _akcja(user, pet, 'heal')
-    assert pet.health == 90.0 and pet.last_heal_at == T0
-    pet.health = 50.0
-    db.session.commit()
-    with pytest.raises(PetError) as e:
-        _akcja(user, pet, 'heal', now=T0 + timedelta(hours=11))
-    assert e.value.message == 'lek już podany'
-    pet.health = 60.0
-    pet.state_at = T0 + timedelta(hours=12)
-    db.session.commit()
-    _akcja(user, pet, 'heal', now=T0 + timedelta(hours=12))
-    assert pet.health == 100.0
-    with pytest.raises(PetError) as e:
-        _akcja(user, pet, 'heal', now=T0 + timedelta(hours=25))
-    assert e.value.message == 'zdrowy'
+# --- leczenie: od spec v3 pobyt w szpitalu — testy w tests/test_pets_szpital.py ---
 
 
 # --- pat pat ---

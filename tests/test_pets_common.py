@@ -105,7 +105,7 @@ def test_egg_dict_i_pet_dict(db, make_user):
     assert p['rates_per_hour']['hunger'] == -3.33 and p['mood'] == 'znudzony' and p['asleep'] is False
     assert p['can']['play'] is True and p['reasons']['wash'] == 'czysty'
     assert p['care_days'] == 12 and p['stars'] == 2 and p['gestures'] == ['jump', 'blink', 'sway']
-    assert p['heal_available_at'] is None and p['awake_until'] is None
+    assert p['hospital'] is None and p['awake_until'] is None
     zmarly = zaloz_zmarlego(user, died_at=T0, hatched_at=T0 - timedelta(days=60), care_days=41, lights_count=3)
     m = memorial_dict(zmarly, T0 + timedelta(days=1))
     assert m == {'species': 'mis', 'status': 'memorial', 'pet_id': zmarly.id, 'name': 'Puszek',

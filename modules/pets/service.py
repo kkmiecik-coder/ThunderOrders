@@ -3,7 +3,8 @@
 Implementacja w plikach o jednej odpowiedzialności: eggs.py, actions.py, state.py, common.py.
 """
 from modules.pets.actions import (  # noqa: F401
-    admin_grant_egg, anonymize_user_pets, light_candle, perform_action, rename_pet, set_companion,
+    admin_grant_egg, admit_pet, anonymize_user_pets, discharge_pet, light_candle, perform_action, rename_pet,
+    set_companion,
     validate_name,
 )
 from modules.pets.common import eggs_available, get_profile, next_monthly_at  # noqa: F401

@@ -147,4 +147,4 @@ def test_stan_ma_config_dla_tekstow_ui(db, make_user):
     for lite in (False, True):
         stan = state_for_user(user, lite=lite, cfg=cfg)
         assert stan['config'] == {'night_factor': 0.5, 'boost_factor': 3, 'boost_hours': 6,
-                                  'wake_penalty': 7, 'awake_minutes': 15}
+                                  'wake_penalty': 7, 'awake_minutes': 15, 'hospital_hours': 8}

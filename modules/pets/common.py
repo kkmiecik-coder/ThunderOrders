@@ -24,7 +24,7 @@ from modules.pets.config import PetConfig
 from modules.pets.errors import PetError
 from modules.pets.models import Pet, PetEvent, PetProfile
 
-CARE_ACTIONS = ('feed', 'play', 'wash', 'heal', 'pat')
+CARE_ACTIONS = ('feed', 'play', 'wash', 'pat')
 MILESTONE_CARE_DAYS = (7, 14, 30, 50, 100)
 MILESTONE_FIRST_STAR = 1001
 MILESTONE_STAGE = {'dziecko': 2001, 'dorosly': 2002}
@@ -98,8 +98,47 @@ def state_of(pet):
                           stars=pet.stars, awake_until=pet.awake_until)
 
 
+def auto_discharge_at(pet, cfg):
+    if pet.hospital_since is None or pet.hospital_healed_at is None:
+        return None
+    return pet.hospital_healed_at + timedelta(hours=float(cfg.hospital['wait_hours']))
+
+
 def simulate_pet(pet, now, cfg):
-    return rules.simulate(state_of(pet), cfg, pet.state_at, now)
+    """Stan „na teraz”. W szpitalu: odcinek szpitalny do auto-wypisu, potem zwykła symulacja (spec v3 §4.4)."""
+    if pet.hospital_since is None:
+        return rules.simulate(state_of(pet), cfg, pet.state_at, now)
+    wypis = auto_discharge_at(pet, cfg)
+    do = min(now, wypis)
+    stan = rules.hospital_state(state_of(pet), cfg, pet.state_at, do, pet.hospital_healed_at)
+    if now <= wypis:
+        return rules.SimResult(stan, None)
+    dalej = rules.simulate(stan, cfg, wypis, now)
+    return rules.SimResult(dalej.state, dalej.died_at, discharged_at=wypis)
+
+
+def persist_discharge(pet, sim, now, manual=False):
+    """Wypis ze szpitala warunkowym UPDATE (jak persist_death): dwa równoległe wypisy = jedno zdarzenie.
+
+    Zapisuje stan `sim.state` na `now`. Zdarzenie `discharge` ma created_at = chwila wypisu
+    (auto: `sim.discharged_at`, ręczny: `now`) i value 1 = ręczny, 0 = automatyczny. Wołający commituje.
+    """
+    od_kiedy = pet.hospital_since
+    if od_kiedy is None:
+        return False
+    stan = sim.state
+    wynik = db.session.execute(
+        update(Pet)
+        .where(Pet.id == pet.id, Pet.hospital_since == od_kiedy)
+        .values(hospital_since=None, hospital_healed_at=None, hospital_ready_notified_at=None,
+                hunger=stan.hunger, fun=stan.fun, clean=stan.clean, health=stan.health, state_at=now)
+    )
+    db.session.expire(pet)
+    if wynik.rowcount != 1:
+        return False
+    chwila = now if manual else (sim.discharged_at or now)
+    add_event(pet.user_id, 'discharge', chwila, pet_id=pet.id, value=1 if manual else 0)
+    return True
 
 
 def apply_state(pet, state, now):
@@ -123,10 +162,12 @@ def checkpoint_alive_pets(now, cfg):
             continue
         for pet in alive_pets_lock_query(uid).all():
             sim = simulate_pet(pet, now, cfg)
+            if sim.discharged_at is not None:
+                persist_discharge(pet, sim, now)
             if sim.died_at is not None:
                 persist_death(pet, sim, now)
-            else:
-                apply_state(pet, sim.state, now)
+            elif sim.discharged_at is None:
+                apply_state(pet, sim.state, now)     # w szpitalu: hospital_healed_at zostaje (Review Focus 4)
             n += 1
         db.session.commit()
     return n
@@ -250,16 +291,32 @@ def egg_dict(pet, now, cfg):
         'ready': rules.egg_is_ready(postep, pet.egg_hours),
         'boost_until': iso(pet.boost_until) if boost_aktywny else None,
         'can_warm': not boost_aktywny,
+        'skin': int(pet.egg_skin or 0),
     }
 
 
-def pet_dict(pet, state, now, cfg):
-    can, reasons = rules.action_availability(state, now, cfg, pet.last_heal_at)
+def hospital_dict(pet, state, now, cfg):
+    if pet.hospital_since is None:
+        return None
+    healed = pet.hospital_healed_at
+    calosc = max(1.0, (healed - pet.hospital_since).total_seconds())
+    postep = 100.0 if now >= healed else 100.0 * max(0.0, (now - pet.hospital_since).total_seconds()) / calosc
+    return {
+        'since': iso(pet.hospital_since),
+        'healed_at': iso(healed),
+        'ready': now >= healed,
+        'progress_pct': round(min(100.0, postep), 1),
+        'auto_discharge_at': iso(auto_discharge_at(pet, cfg)),
+    }
+
+
+def pet_dict(pet, state, now, cfg, discharged=False):
+    """`discharged=True` = pupil już w domku (odczyt `lite` z wyliczonym, niezapisanym wypisem)."""
+    w_szpitalu = pet.hospital_since is not None and not discharged
+    can, reasons = rules.action_availability(state, now, cfg, in_hospital=w_szpitalu)
     stadium = rules.stage(pet.hatched_at, now, cfg)
-    tempo = rules.rates_per_hour(state, now, cfg)
-    heal_available_at = None
-    if reasons.get('heal') == 'lek już podany':
-        heal_available_at = pet.last_heal_at + timedelta(hours=float(cfg.actions['heal_cooldown_h']))
+    tempo = (rules.hospital_rates(state, cfg, now, pet.hospital_healed_at) if w_szpitalu
+             else rules.rates_per_hour(state, now, cfg))
     return {
         'id': pet.id,
         'species': pet.species,
@@ -270,11 +327,11 @@ def pet_dict(pet, state, now, cfg):
         'bars': {k: round(getattr(state, k), 1) for k in ('hunger', 'fun', 'clean', 'health')},
         'rates_per_hour': {k: round(v, 2) for k, v in tempo.items()},
         'mood': rules.mood(state),
-        'asleep': rules.is_asleep(state, now, cfg),
+        'asleep': False if w_szpitalu else rules.is_asleep(state, now, cfg),
         'awake_until': iso(state.awake_until) if state.awake_until and now < state.awake_until else None,
         'can': can,
         'reasons': reasons,
-        'heal_available_at': iso(heal_available_at),
+        'hospital': hospital_dict(pet, state, now, cfg) if w_szpitalu else None,
         'care_days': int(pet.care_days),
         'gestures': list(rules.GESTURES_BY_STAGE[stadium]),
     }

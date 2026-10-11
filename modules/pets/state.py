@@ -9,7 +9,7 @@ from extensions import db
 from modules.pets import rules
 from modules.pets.common import (
     cfg_or, egg_dict, eggs_available, get_profile, iso, memorial_dict, next_monthly_at,
-    now_or, persist_death, pet_dict, simulate_pet,
+    now_or, persist_death, persist_discharge, pet_dict, simulate_pet,
 )
 from modules.pets.models import Pet
 from modules.pets.species import SPECIES_SLUGS
@@ -39,8 +39,11 @@ def state_for_user(user, lite=False, now=None, cfg=None):
             jajka.append(egg_dict(pet, now, cfg))
         elif pet.status == 'alive':
             sim = simulate_pet(pet, now, cfg)
+            if sim.discharged_at is not None and not lite:
+                if persist_discharge(pet, sim, now):
+                    zapisano_odejscie = True          # ta sama flaga: commit + refresh profilu
             if sim.died_at is None:
-                zywe.append(pet_dict(pet, sim.state, now, cfg))
+                zywe.append(pet_dict(pet, sim.state, now, cfg, discharged=sim.discharged_at is not None))
             elif lite:
                 # Bez zapisu: pokaż jako krytycznego, zapisze następny pełny odczyt
                 zywe.append(pet_dict(pet, replace(sim.state, health=0.0), now, cfg))
@@ -72,24 +75,27 @@ def state_for_user(user, lite=False, now=None, cfg=None):
             'boost_hours': int(cfg.boost['hours']),
             'wake_penalty': int(cfg.actions['wake_penalty']),
             'awake_minutes': int(cfg.actions['awake_minutes']),
+            'hospital_hours': int(cfg.hospital['hours']),
         },
     }
     if not lite:
         stan['album'] = _album(zywe, zmarle, now)
 
-    auto = most_in_need(zywe)
+    poza_szpitalem = [p for p in zywe if p['hospital'] is None]   # spec v3 §4.1: szpital nie towarzyszy
+    auto = most_in_need(poza_szpitalem)
     stan['most_in_need_pet_id'] = auto['id'] if auto else None   # widget dashboardu i towarzysz (etap 5)
     wybrany = None
     if profil is not None and profil.companion_pet_id is not None:
-        wybrany = next((p for p in zywe if p['id'] == profil.companion_pet_id), None)
+        wybrany = next((p for p in poza_szpitalem if p['id'] == profil.companion_pet_id), None)
     stan['companion'] = {
         'enabled': bool(profil.companion_enabled) if profil is not None else True,
         'pet_id': (wybrany or auto or {}).get('id'),
         'auto': wybrany is None,
     }
     stan['needs_care'] = (
-        any(min(p['bars']['hunger'], p['bars']['fun'], p['bars']['clean']) < rules.HUNGRY_BELOW for p in zywe)
-        or any(p['mood'] in ('chory', 'krytyczny') for p in zywe)
+        any(min(p['bars']['hunger'], p['bars']['fun'], p['bars']['clean']) < rules.HUNGRY_BELOW for p in poza_szpitalem)
+        or any(p['mood'] in ('chory', 'krytyczny') for p in poza_szpitalem)
+        or any(p['hospital']['ready'] for p in zywe if p['hospital'])     # wyleczony czeka na odbiór
         or any(j['ready'] for j in jajka)
         or bool(dostepne)
     )

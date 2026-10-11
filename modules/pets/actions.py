@@ -15,7 +15,7 @@ from modules.pets import rules
 from modules.pets.common import (
     CARE_ACTIONS, MILESTONE_CARE_DAYS, NAME_MAX, PAT_MAX_PER_REQUEST, achievements_after_commit,
     add_event, add_milestone, apply_state, cfg_or, lock_profile, now_or, own_pet, persist_death,
-    record_stage_milestone, simulate_pet,
+    persist_discharge, record_stage_milestone, simulate_pet,
 )
 from modules.pets.errors import PetError
 from modules.pets.models import Pet, PetEvent, PetProfile
@@ -42,21 +42,27 @@ def _clamp_count(count):
     return max(1, min(liczba, PAT_MAX_PER_REQUEST))
 
 
-def perform_action(user, pet_id, action, count=1, now=None, cfg=None):
+def perform_action(user, pet_id, action, count=1, now=None, cfg=None, variant=None):
     now, cfg = now_or(now), cfg_or(cfg)
     if action not in rules.ACTIONS:
         raise PetError('bad_action', 'Nieznana akcja.')
+    if variant is not None and variant not in rules.ACTION_VARIANTS.get(action, ()):
+        raise PetError('bad_variant', 'Nieznany wariant akcji.', 400)
+    if variant is None and action in rules.ACTION_VARIANTS:
+        variant = rules.ACTION_VARIANTS[action][0]
     lock_profile(user)
     pet = own_pet(user, pet_id, ('alive',))
 
     sim = simulate_pet(pet, now, cfg)
+    if sim.discharged_at is not None:
+        persist_discharge(pet, sim, now)
     if sim.died_at is not None:
         persist_death(pet, sim, now)
         db.session.commit()
         raise PetError('pet_gone', f'Pupil {pet.name} odszedł do gwiazd.', 410)   # „Pupil {imię}” — rodzaj gramatyczny niezależny od imienia
 
     stan = sim.state
-    can, reasons = rules.action_availability(stan, now, cfg, pet.last_heal_at)
+    can, reasons = rules.action_availability(stan, now, cfg, in_hospital=pet.hospital_since is not None)
     if not can[action]:
         raise PetError('not_available', reasons[action], 409)
 
@@ -69,9 +75,6 @@ def perform_action(user, pet_id, action, count=1, now=None, cfg=None):
         stan = replace(stan, fun=min(100.0, stan.fun + float(akcje['play'])))
     elif action == 'wash':
         stan = replace(stan, clean=100.0)
-    elif action == 'heal':
-        stan = replace(stan, health=min(100.0, stan.health + float(akcje['heal'])))
-        pet.last_heal_at = now
     elif action == 'pat':
         chce = _clamp_count(count)
         wolne = int(akcje['pat_per_hour']) - _pats_last_hour(pet, now)
@@ -106,12 +109,63 @@ def perform_action(user, pet_id, action, count=1, now=None, cfg=None):
     # Metryki odznak z akcji zależą tylko od care_days — sprawdzamy raz dziennie, nie przy każdej paczce pat
     nowe_odznaki = achievements_after_commit(user) if pierwsza_dzis else []
     return {'pet': pet, 'accepted': zaliczone, 'first_care_today': pierwsza_dzis,
-            'new_achievements': nowe_odznaki}
+            'new_achievements': nowe_odznaki, 'variant': variant}
 
 
 # ---------------------------------------------------------------------------
 # Światełko, imię, towarzysz, przyznanie jajka, anonimizacja
 # ---------------------------------------------------------------------------
+
+def admit_pet(user, pet_id, now=None, cfg=None):
+    """Przyjęcie chorego do szpitala (spec v3 §4.1). Paski ≥ floor, healed_at ustalone teraz."""
+    now, cfg = now_or(now), cfg_or(cfg)
+    lock_profile(user)
+    pet = own_pet(user, pet_id, ('alive',))
+    sim = simulate_pet(pet, now, cfg)
+    if sim.discharged_at is not None:
+        persist_discharge(pet, sim, now)
+    if sim.died_at is not None:
+        persist_death(pet, sim, now)
+        db.session.commit()
+        raise PetError('pet_gone', f'Pupil {pet.name} odszedł do gwiazd.', 410)
+    if pet.hospital_since is not None:
+        raise PetError('in_hospital', f'Pupil {pet.name} już leży w szpitalu.', 409)
+    stan = sim.state
+    if stan.health >= rules.SICK_BELOW:
+        raise PetError('not_sick', f'Pupil {pet.name} jest zdrowy — szpital nie jest potrzebny.', 409)
+    prog = float(cfg.hospital['floor'])
+    stan = replace(stan, hunger=max(stan.hunger, prog), fun=max(stan.fun, prog), clean=max(stan.clean, prog),
+                   awake_until=None)
+    godziny = (100.0 - stan.health) / 100.0 * float(cfg.hospital['hours'])
+    pet.hospital_since = now
+    pet.hospital_healed_at = now + timedelta(hours=godziny)
+    pet.hospital_ready_notified_at = None
+    pet.awake_until = None
+    pet.notify_level = 0
+    apply_state(pet, stan, now)
+    add_event(user.id, 'admit', now, pet_id=pet.id)
+    db.session.commit()
+    return pet
+
+
+def discharge_pet(user, pet_id, now=None, cfg=None):
+    """Odbiór ze szpitala (ręczny, w każdej chwili). Gdy wypis już się wyliczył automatycznie → 409."""
+    now, cfg = now_or(now), cfg_or(cfg)
+    lock_profile(user)
+    pet = own_pet(user, pet_id, ('alive',))
+    if pet.hospital_since is None:
+        raise PetError('not_in_hospital', f'Pupil {pet.name} nie leży w szpitalu.', 409)
+    sim = simulate_pet(pet, now, cfg)
+    if sim.discharged_at is not None:
+        persist_discharge(pet, sim, now)
+        if sim.died_at is not None:
+            persist_death(pet, sim, now)
+        db.session.commit()
+        raise PetError('not_in_hospital', f'Pupil {pet.name} wrócił już do domku.', 409)
+    persist_discharge(pet, sim, now, manual=True)
+    db.session.commit()
+    return pet
+
 
 def light_candle(user, pet_id, now=None):
     """Zapal światełko na karcie pamięci — raz na dobę, zero efektu w grze (spec §2.5)."""
