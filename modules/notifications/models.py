@@ -105,6 +105,8 @@ class NotificationPreference(db.Model):
     admin_alerts = db.Column(db.Boolean, default=True, nullable=False)
     sale_date_changes = db.Column(db.Boolean, default=True, nullable=False)
     order_supplier_ordered = db.Column(db.Boolean, default=True, nullable=False)
+    # Pupile (tamagotchi): push + e-mail o stanie pupili — przełącznik widoczny też bez pusha
+    pet_updates = db.Column(db.Boolean, default=True, nullable=False, server_default=db.text('1'))
 
     user = db.relationship('User', backref=db.backref('notification_preference', uselist=False))
 
@@ -121,4 +123,5 @@ class NotificationPreference(db.Model):
             'admin_alerts': self.admin_alerts,
             'sale_date_changes': self.sale_date_changes,
             'order_supplier_ordered': self.order_supplier_ordered,
+            'pet_updates': self.pet_updates,
         }

@@ -11,7 +11,7 @@ class Achievement(db.Model):
     description = db.Column(db.String(255), nullable=False)
     category = db.Column(
         db.Enum('orders', 'collection', 'loyalty', 'speed', 'exclusive',
-                'social', 'financial', 'profile', 'special',
+                'social', 'financial', 'profile', 'special', 'pets',
                 name='achievement_category'),
         nullable=False
     )
