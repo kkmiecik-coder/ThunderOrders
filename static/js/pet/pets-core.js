@@ -4,8 +4,10 @@
  *  window.PetsApi   — fetch do /client/pupile/api z CSRF; każdy błąd (HTTP, nie-JSON, przekierowanie
  *                     do logowania) to odrzucenie z {error, message, status}.
  *  window.PetsState — bieżący stan + nasłuch, cache w localStorage per użytkownik (klucz z user_id,
- *                     TTL 5 min; każde set() zapisuje, każda niepewność invalidate()), kropki
- *                     „pupil potrzebuje opieki" w nawigacji, zdarzenie document:'pets:state'.
+ *                     TTL 5 min liczony od odpowiedzi SERWERA: set() zapisuje, ale odczyt z cache
+ *                     idzie przez set(s, {persist: false}) i nie przesuwa znacznika czasu; każda
+ *                     niepewność invalidate()), kropki „pupil potrzebuje opieki" w nawigacji,
+ *                     zdarzenie document:'pets:state'.
  *
  * Plik ładuje się na kilku stronach (także dwa razy na dashboardzie: include towarzysza + skrypty
  * widgetu) — stąd guard idempotencji na początku.
@@ -23,8 +25,15 @@
         return meta ? meta.getAttribute('content') : '';
     }
 
+    // Tylko kontenery pupili — na stronie mogą być inne [data-api] / [data-user-id] (np. listy w panelu)
+    var HOSTS = ['#petsApp', '#petsWidget', '#petCompanion'];
+
+    function hostWith(attr) {
+        return document.querySelector(HOSTS.map(function (h) { return h + '[' + attr + ']'; }).join(', '));
+    }
+
     function apiBase() {
-        var el = document.querySelector('[data-api]');
+        var el = hostWith('data-api');
         return (el && el.getAttribute('data-api')) || DEFAULT_BASE;
     }
 
@@ -85,18 +94,24 @@
     function cacheKey(userId) { return CACHE_PREFIX + String(userId); }
 
     function detectUserId() {
-        var el = document.querySelector('[data-user-id]');
+        var el = hostWith('data-user-id');
         return el ? el.getAttribute('data-user-id') : null;
     }
 
-    function load(userId) {
+    /** Rekord {t, s} z cache, jeśli świeży (t = chwila odpowiedzi serwera, nie odczytu). */
+    function loadRecord(userId) {
         try {
             var raw = localStorage.getItem(cacheKey(userId));
             if (!raw) return null;
             var rec = JSON.parse(raw);
-            if (!rec || typeof rec.t !== 'number' || Date.now() - rec.t > CACHE_TTL_MS) return null;
-            return rec.s || null;
+            if (!rec || typeof rec.t !== 'number' || !rec.s || Date.now() - rec.t > CACHE_TTL_MS) return null;
+            return rec;
         } catch (e) { return null; }
+    }
+
+    function load(userId) {
+        var rec = loadRecord(userId);
+        return rec ? rec.s : null;
     }
 
     function save(userId, state) {
@@ -137,12 +152,18 @@
         current: null,
         receivedAt: 0,
         userId: detectUserId(),
-        set: function (state) {
+        /**
+         * set(state[, {persist: false, receivedAt}]) — domyślnie zapisuje do cache z nowym znacznikiem
+         * czasu (stan prosto od serwera). Stan odczytany z cache MUSI iść z persist: false — inaczej
+         * każda nawigacja przedłużałaby TTL i strony bez widgetu nigdy nie pobrałyby świeżego stanu.
+         */
+        set: function (state, opts) {
             if (!state || typeof state !== 'object') return;
+            var persist = !(opts && opts.persist === false);
             PetsState.current = state;
-            PetsState.receivedAt = Date.now();
+            PetsState.receivedAt = (opts && typeof opts.receivedAt === 'number') ? opts.receivedAt : Date.now();
             if (PetsState.userId == null) PetsState.userId = detectUserId();
-            save(PetsState.userId, state);
+            if (persist) save(PetsState.userId, state);
             setNavDots(state);
             for (var i = 0; i < listeners.length; i++) {
                 try { listeners[i](state); } catch (e) { if (window.console) console.error(e); }
@@ -164,10 +185,10 @@
         /** Stan lite z cache (TTL 5 min) albo z sieci; `{force: true}` pomija cache. */
         fetchLite: function (userId, opts) {
             if (userId != null) PetsState.userId = userId;
-            var cached = (opts && opts.force) ? null : load(PetsState.userId);
-            if (cached) {
-                PetsState.set(cached);
-                return Promise.resolve(cached);
+            var rec = (opts && opts.force) ? null : loadRecord(PetsState.userId);
+            if (rec) {
+                PetsState.set(rec.s, { persist: false, receivedAt: rec.t });   // bez zapisu: TTL biegnie dalej
+                return Promise.resolve(rec.s);
             }
             return PetsApi.get('/stan?lite=1').then(function (state) {
                 PetsState.set(state);
