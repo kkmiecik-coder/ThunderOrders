@@ -128,3 +128,50 @@ def build_email_message(user, basket):
         rescue=ratunkowe,
         url=pets_url(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Koszyk per użytkownik (spec §3.6 krok 2) — pod blokadą profilu, bez commitu
+# ---------------------------------------------------------------------------
+
+def collect_for_user(user, now, cfg):
+    """Liczy stan wszystkich pupili użytkownika i zbiera, o czym powiadomić.
+
+    Zapisuje: odejścia (persist_death), podniesione `notify_level`, reset epizodu,
+    `egg_ready_notified_at`, `monthly_notified_at`. NIE zapisuje `death_notified_at` ani
+    `rescue_reminder_sent_at` — to robi przebieg po wysyłce. Wołający commituje.
+    """
+    basket = empty_basket(user)
+    profil = lock_profile(user, required=False)
+    pety = (Pet.query.filter(Pet.user_id == user.id, Pet.status.in_(('egg', 'alive', 'dead')))
+            .populate_existing().with_for_update().order_by(Pet.id).all())
+    prog_ratunkowe = now - timedelta(days=int(cfg.rescue_reminder_days))
+
+    for pet in pety:
+        if pet.status == 'alive':
+            sim = simulate_pet(pet, now, cfg)
+            if sim.died_at is not None:
+                persist_death(pet, sim, now)
+                basket['deaths'].append(pet)
+                continue
+            poziom = level_of(sim.state)
+            if poziom > int(pet.notify_level or 0):
+                pet.notify_level = poziom
+                basket['alerts'].append((pet, poziom))
+            elif poziom == 0 and pet.notify_level:
+                pet.notify_level = 0          # koniec epizodu: żaden pasek na zerze, zdrowie ≥ 75
+        elif pet.status == 'dead':
+            if pet.death_notified_at is None:
+                basket['deaths'].append(pet)
+            if (pet.rescue_egg_claimed_at is None and pet.rescue_reminder_sent_at is None
+                    and pet.died_at is not None and pet.died_at <= prog_ratunkowe):
+                basket['rescue_reminders'].append(pet)
+        else:  # egg
+            if pet.egg_ready_notified_at is None and rules.egg_is_ready(egg_progress(pet, now, cfg), pet.egg_hours):
+                pet.egg_ready_notified_at = now
+                basket['eggs_ready'].append(pet)
+
+    if profil is not None and profil.monthly_notified_at is None and now >= next_monthly_at(profil, cfg):
+        profil.monthly_notified_at = now
+        basket['monthly'] = True
+    return basket
