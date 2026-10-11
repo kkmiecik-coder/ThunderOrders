@@ -376,10 +376,15 @@
             return box;
         }
 
+        function markSelected(key) {
+            Object.keys(eggViews).forEach(function (k) { eggViews[k].el.classList.toggle('is-selected', k === key); });
+        }
+
         function onWindowClosed() {
             openKey = null;
             openSig = null;
             dropWinRigs();
+            markSelected(null);
             setLift(0);
         }
 
@@ -395,6 +400,7 @@
                 onClose: onWindowClosed, closeLabel: 'Zamknij okno jajka'
             });
             old.forEach(function (r) { if (r) r.destroy(); });
+            markSelected(key);
             liftFor(returnFocus);
         }
 
@@ -536,7 +542,7 @@
             renderClock();
             if (openKey != null && win && win.isOpen() && !(claiming && claiming.key === openKey)) {
                 var item = findClaim(state, openKey);
-                if (!item) win.close({ restoreFocus: true });
+                if (!item) H.closeGone(win, host);
                 else if (claimSig(item) !== openSig) replaceClaim(item);
             }
         }

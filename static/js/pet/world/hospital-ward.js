@@ -4,7 +4,8 @@
  * - Sala z łóżkami: pupil w pozie `bed` (rig: łóżeczko z kołderką), przy leczonych kroplówka, tabliczka
  *   „Burek · jeszcze ~3 h”. Wyzdrowiały: łóżko jaśniejsze, pupil szczęśliwy (need: happy) z serduszkami,
  *   zielona tabliczka „Zdrowy! Odbierz” + „tęskni za domem”. Wolne łóżka zaścielone i przygaszone.
- * - Miejsc max(3, liczba pupili w szpitalu); pupil zostaje w swoim łóżku, przyjęty z wolnego łóżka trafia
+ * - Miejsc max(3, liczba pupili w szpitalu), a gdy w domku ktoś choruje — o jedno wolne więcej (inaczej przy
+ *   pełnej sali nie byłoby gdzie go przyjąć); pupil zostaje w swoim łóżku, przyjęty z wolnego łóżka trafia
  *   właśnie do niego. Siatka (CSS): ≥ 1024 px do 4 w rzędzie, 600–1023 px po 3, < 600 px po 2.
  * - Klik w łóżko z pupilem = okno sceny (fokus zostaje na łóżku): imię, pasek leczenia, czas / tęsknota,
  *   „Odbierz” (wyzdrowiały) albo „Zabierz wcześniej” z potwierdzeniem („Tak, zabieram” / „Zostaw
@@ -461,7 +462,7 @@
             var pet = findHosp(state, open.id);
             if (!pet) {
                 if (discharging === open.id) return;    // odbiór w toku — zaraz przejście do domku
-                win.close({ restoreFocus: true });
+                H.closeGone(win, host);
                 return;
             }
             if (pet.hospital.ready) confirm = false;
@@ -572,7 +573,10 @@
         // --- render ----------------------------------------------------------------------------------
         function render(state) {
             lastState = state;
-            slots = H.syncSlots(slots, H.inBed(state).map(function (p) { return p.id; }), MIN_SLOTS, prefer);
+            var ids = H.inBed(state).map(function (p) { return p.id; });
+            // max(3, n) łóżek — i zawsze jedno wolne, gdy w domku ktoś choruje (pielęgniarka kieruje tu z przyjęciem)
+            var min = Math.max(MIN_SLOTS, ids.length + (H.sickAtHome(state).length ? 1 : 0));
+            slots = H.syncSlots(slots, ids, min, prefer);
             slots.forEach(function (id) { if (id != null) delete prefer[id]; });
             syncViews(state);
             row.style.setProperty('--n', String(slots.length));     // kolumn najwyżej tyle, ile łóżek (CSS)

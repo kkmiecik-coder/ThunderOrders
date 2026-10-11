@@ -290,6 +290,19 @@
     }
 
     /**
+     * Obiekt okna zniknął (jajko odebrane / wyklute, pupil odebrany w innej karcie): okno się zamyka, a fokus
+     * — jeśli był w oknie albo przepadł — trafia na scenę (spec v3.1 Review Focus 3), nie na obiekt, który
+     * mógł już zająć to miejsce.
+     */
+    function closeGone(win, host) {
+        if (!win || !win.isOpen()) return;
+        var a = document.activeElement;
+        var had = !a || a === document.body || win.el.contains(a);
+        win.close({ restoreFocus: false });
+        if (had) focus(host);
+    }
+
+    /**
      * Arkusz okna sceny (< 1024 px): wybrany obiekt ma zostać widoczny nad arkuszem — przewija wnętrze
      * sceny (`scroller`). Wysokość arkusza z --window-h (scene-window.js).
      */
@@ -332,6 +345,7 @@
         progress: progress,
         focus: focus,
         syncSlots: syncSlots,
+        closeGone: closeGone,
         reveal: reveal
     };
 })();

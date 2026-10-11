@@ -203,7 +203,7 @@
     position: relative;
     display: block;
     height: 200px;
-    height: clamp(96px, min(calc(70cqh - 124px), 40cqw), 330px);
+    height: clamp(96px, min(calc(70cqh - 108px), 40cqw), 330px);
     aspect-ratio: 100 / 170;
     transition: transform 0.2s ease;
 }
@@ -251,6 +251,13 @@
 [data-theme="dark"] .pets-hall__door--ward .door-panel { fill: #56789c; }
 [data-theme="dark"] .pets-hall__door--ward .door-window { fill: #cfe4f6; stroke: #8fb8dd; }
 [data-theme="dark"] .pets-hall__door--ward .door-knob { fill: #2c4a68; }
+[data-theme="dark"] .pets-hall .door-egg { fill: #f6ead2; stroke: #c9a978; }
+[data-theme="dark"] .pets-hall .door-egg-spot { fill: #f0a3be; }
+[data-theme="dark"] .pets-hall .door-bedpost { fill: #7c93b3; }
+[data-theme="dark"] .pets-hall .door-pet { fill: #e0954f; }
+[data-theme="dark"] .pets-hall .door-quilt { fill: #8fb8e8; }
+[data-theme="dark"] .pets-hall .door-bed { fill: #e4e1f2; stroke: #a9a5c8; }
+[data-theme="dark"] .pets-hall .door-cross { fill: #f0657a; }
 
 /* Znaczek spraw na drzwiach */
 .pets-hall__badge {
@@ -393,8 +400,8 @@
 .pets-hall__nurse {
     position: relative;
     z-index: 0;
-    width: 110px;
-    width: clamp(72px, 19cqh, 150px);
+    width: 120px;
+    width: clamp(76px, 25cqh, 170px);
     margin-bottom: -14px;
 }
 
@@ -463,8 +470,11 @@
     justify-content: center;
     align-items: flex-end;
     gap: 2px 6px;
-    margin: 0 -16px -12px;
+    margin: 0 -16px;
 }
+
+/* Jajka stoją na blacie (wchodzą na niego dołem); pusta lada nie zasłania pielęgniarki */
+.pets-hall__counter.has-eggs .pets-hall__eggs { margin-bottom: -12px; }
 
 .pets-hall__counter-top {
     position: relative;
@@ -524,6 +534,8 @@
 
 [data-theme="dark"] .pets-hall__counter-sign { color: #f5c2fc; }
 [data-theme="dark"] .pets-hall__bell .bell-dome { fill: #e0b04a; }
+[data-theme="dark"] .pets-hall__bell .bell-knob { fill: #c48f2a; }
+[data-theme="dark"] .pets-hall__bell .bell-base { fill: #a87424; }
 
 /* Jajko do odebrania na ladzie (przycisk, cel dotyku ≥ 44 px) */
 .pets-hall__egg {
@@ -555,6 +567,11 @@
     outline: 3px solid #f093fb;
     outline-offset: 2px;
 }
+
+/* Otwarte okno tego jajka */
+.pets-hall__egg.is-selected .pets-gift { filter: drop-shadow(0 0 8px rgba(240, 147, 251, 0.75)); }
+
+[data-theme="dark"] .pets-hall__egg.is-selected .pets-gift { filter: drop-shadow(0 0 9px rgba(240, 147, 251, 0.85)); }
 
 .pets-hall__egg-count {
     position: absolute;
@@ -609,6 +626,7 @@
     /* (zapytanie kontenera nie stylizuje samego kontenera — linia podłogi ustawiana na dzieciach) */
     .pets-hall__floor { height: 46%; }
     .pets-hall__door { bottom: calc(46% - 4px); }
+    .pets-hall__clock { display: none; }
     .pets-hall__door--inc { left: 4%; }
     .pets-hall__door--ward { right: 4%; }
 
@@ -663,7 +681,7 @@ html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }
     background: repeating-linear-gradient(90deg, #2a211c 0 40px, #30251f 40px 80px);
 }
 
-/* Siatka inkubatorów (spec v3.1 §4.3): < 600 px po 2, 600–1023 px po 3, ≥ 1024 px do 5 w rzędzie.
+/* Siatka inkubatorów (spec v3.1 §4.3): wąsko po 2, średnio po 3, szeroko do 5 w rzędzie.
    Szerokość z miejsca w scenie właściwej (cqw; kolumn najwyżej tyle, ile miejsc — --n z JS) i z jej wysokości
    (cqh: cały inkubator mieści się pod pigułką). */
 .pets-inc {
@@ -674,11 +692,17 @@ html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }
 }
 
 @media (min-width: 600px) {
-    .pets-inc { --cols: 3; --gap: 18px; --pad-x: 40px; --pad-top: 76px; }
+    .pets-inc { --gap: 18px; --pad-x: 40px; --pad-top: 76px; }
 }
 
-@media (min-width: 1024px) {
-    .pets-inc { --cols: 5; --gap: 24px; }
+/* Kolumny wg szerokości sceny właściwej (bez okna = progi 600 / 1024 px widoku ze spec; przy otwartej karcie
+   węższa scena dostaje mniej, ale większych inkubatorów) */
+@container (min-width: 480px) {
+    .pets-inc__row { --cols: 3; }
+}
+
+@container (min-width: 780px) {
+    .pets-inc__row { --cols: 5; --gap: 24px; }
 }
 
 @media (max-width: 599.98px) {
@@ -745,9 +769,14 @@ html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }
     padding-bottom: 2%;
 }
 
-/* Arkusz (< 1024 px): inkubatory jadą nad arkusz (a przy nadmiarze da się do nich przewinąć) */
+/* Arkusz (< 1024 px): inkubatory jadą nad arkusz (a przy nadmiarze da się do nich przewinąć). W niskim widoku
+   (telefon poziomo) są na ten czas mniejsze — wybrany mieści się nad arkuszem (lampa może wejść pod pigułkę). */
 @media (max-width: 1023.98px) {
     .pets-scene--inkubatorium.has-window .pets-inc__row { padding-bottom: calc(var(--window-h, 0px) + 16px); }
+
+    .pets-scene--inkubatorium.has-window .pets-incubator {
+        width: min(calc((100cqw - var(--pad-x) - (min(var(--cols), var(--n, 5)) - 1) * var(--gap)) / min(var(--cols), var(--n, 5))), calc((100cqh - var(--pad-top) - var(--note-h, 0px) - 36px) / 1.58), calc((100cqh - var(--window-h, 0px) - 40px) / 1.58), 240px);
+    }
 }
 
 /* Tabliczka „Jajka do odebrania na recepcji →” — prawy górny róg sceny (pigułka jest w lewym) */
@@ -874,10 +903,14 @@ html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }
 
 .pets-incubator__egg .pet-rig { width: 100%; }
 
+/* Tabliczka na podstawie: szeroka jak tekst (mały inkubator — nawet trochę szersza od niego, do odstępu) */
 .pets-incubator__plate {
-    left: 13%;
-    right: 13%;
+    left: 50%;
     bottom: 4%;
+    width: max-content;
+    min-width: 74%;
+    max-width: calc(100% + var(--gap) - 6px);
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -965,6 +998,13 @@ html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }
 [data-theme="dark"] .pets-incubator.is-free .inc-shade { fill: #5d5146; stroke: #4a4038; }
 [data-theme="dark"] .pets-incubator.is-free .inc-bulb { fill: #4f473e; }
 [data-theme="dark"] .pets-incubator.is-selected { filter: drop-shadow(0 0 12px rgba(240, 147, 251, 0.6)); }
+[data-theme="dark"] .pets-incubator__glow { background: radial-gradient(ellipse at 50% 22%, rgba(255, 206, 110, 0.42) 0%, rgba(255, 206, 110, 0) 70%); }
+[data-theme="dark"] .pets-incubator.is-boosted .pets-incubator__glow { background: radial-gradient(ellipse at 50% 22%, rgba(255, 150, 60, 0.6) 0%, rgba(255, 150, 60, 0) 72%); }
+[data-theme="dark"] .pets-incubator.is-ready .pets-incubator__glow { background: radial-gradient(ellipse at 50% 30%, rgba(255, 196, 120, 0.5) 0%, rgba(240, 147, 251, 0.22) 45%, rgba(240, 147, 251, 0) 72%); }
+[data-theme="dark"] .pets-incubator__sparks path { fill: #ffe08a; }
+[data-theme="dark"] .pets-incubator.is-boosted .inc-shade { fill: #d9732f; stroke: #a8521a; }
+[data-theme="dark"] .pets-incubator .inc-bulb,
+[data-theme="dark"] .pets-incubator.is-boosted .inc-bulb { fill: #ffe9a8; }
 
 @keyframes pets-inc-lamp {
     0%, 100% { opacity: 0.8; transform: scale(0.97); }
@@ -1019,7 +1059,7 @@ html.pet-rig-rm .pets-incubator.is-warming .pets-incubator__glow { animation: no
     background: repeating-linear-gradient(90deg, #19223a 0 44px, #1c2641 44px 88px);
 }
 
-/* Siatka łóżek (spec v3.1 §4.4): < 600 px po 2, 600–1023 px po 3, ≥ 1024 px do 4 w rzędzie; kolumn najwyżej
+/* Siatka łóżek (spec v3.1 §4.4): wąsko po 2, średnio po 3, szeroko do 4 w rzędzie; kolumn najwyżej
    tyle, ile łóżek (--n z JS). Szerokość z miejsca w scenie właściwej (cqw) i z jej wysokości (cqh). */
 .pets-ward {
     --cols: 2;
@@ -1029,11 +1069,16 @@ html.pet-rig-rm .pets-incubator.is-warming .pets-incubator__glow { animation: no
 }
 
 @media (min-width: 600px) {
-    .pets-ward { --cols: 3; --gap: 20px; --pad-x: 40px; --pad-top: 76px; }
+    .pets-ward { --gap: 20px; --pad-x: 40px; --pad-top: 76px; }
 }
 
-@media (min-width: 1024px) {
-    .pets-ward { --cols: 4; --gap: 28px; }
+/* Kolumny wg szerokości sceny właściwej (jak w Inkubatorium) */
+@container (min-width: 480px) {
+    .pets-ward__row { --cols: 3; }
+}
+
+@container (min-width: 780px) {
+    .pets-ward__row { --cols: 4; --gap: 28px; }
 }
 
 @media (max-width: 599.98px) {
@@ -1106,8 +1151,13 @@ html.pet-rig-rm .pets-incubator.is-warming .pets-incubator__glow { animation: no
     padding-bottom: 2%;
 }
 
+/* Arkusz (< 1024 px): łóżka jadą nad arkusz; w niskim widoku na ten czas mniejsze (wybrane mieści się nad nim) */
 @media (max-width: 1023.98px) {
     .pets-scene--izba.has-window .pets-ward__row { padding-bottom: calc(var(--window-h, 0px) + 16px); }
+
+    .pets-scene--izba.has-window .pets-bed {
+        width: min(calc((100cqw - var(--pad-x) - (min(var(--cols), var(--n, 4)) - 1) * var(--gap)) / min(var(--cols), var(--n, 4))), calc((100cqh - var(--pad-top) - 84px) / 0.8), calc((100cqh - var(--window-h, 0px) - 76px) / 0.8), 270px);
+    }
 }
 
 /* --- Łóżko (przycisk): scena łóżka (poświata, kroplówka, rig/puste łóżko, serduszka, „+”) + tabliczka --- */
@@ -1309,7 +1359,7 @@ html.pet-rig-rm .pets-incubator.is-warming .pets-incubator__glow { animation: no
     flex-direction: column;
     align-items: center;
     box-sizing: border-box;
-    max-width: 100%;
+    max-width: calc(100% + var(--gap) - 6px);
     min-height: 32px;
     justify-content: center;
     padding: 4px 10px;

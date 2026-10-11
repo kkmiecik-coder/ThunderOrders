@@ -364,7 +364,7 @@
             var egg = findEgg(state, open.id);
             if (!egg) {
                 if (hatching === open.id) return;     // nakładka wyklucia jeszcze trwa — okno zamknie się po niej
-                win.close({ restoreFocus: true });
+                H.closeGone(win, host);
                 return;
             }
             if (eggSig(egg) !== openSig) {
