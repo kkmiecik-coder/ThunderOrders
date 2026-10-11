@@ -247,7 +247,56 @@ def _all_badges_unlocked(user, config, context):
     return (len(unlocked_set), all_unlocked)
 
 
+# === PUPILE (modules/pets, spec pupili §3.8) — metryki liczą z wierszy pets/pet_events, nie ze
+# statusu w cache. Importy w funkcjach: modules.pets ładuje się po achievements (kolejność blueprintów).
+
+def _pets_hatched(user, config, context):
+    from modules.pets.models import PetEvent
+    n = PetEvent.query.filter(PetEvent.user_id == user.id, PetEvent.type.in_(('hatch_new', 'hatch_dupe'))).count()
+    return (n, n >= config.get('threshold', 1))
+
+
+def _pet_species_discovered(user, config, context):
+    """Gatunki w albumie: żywe, zmarłe i scalone duplikaty (duplikat też odkrywa gatunek)."""
+    from modules.pets.models import Pet
+    n = (db.session.query(Pet.species).filter(Pet.user_id == user.id, Pet.species.isnot(None),
+                                              Pet.status.in_(('alive', 'dead', 'merged')))
+         .distinct().count())
+    return (n, n >= config.get('threshold', 8))
+
+
+def _pet_adult_alive(user, config, context):
+    """Żywi dorośli TERAZ (stadium z czasu od wyklucia) — cron; context['now'] do testów."""
+    from modules.pets import rules
+    from modules.pets.config import PetConfig
+    from modules.pets.models import Pet
+    now = (context or {}).get('now') or get_local_now()
+    cfg = PetConfig.load()
+    zywe = Pet.query.filter(Pet.user_id == user.id, Pet.status == 'alive', Pet.hatched_at.isnot(None)).all()
+    n = sum(1 for p in zywe if rules.stage(p.hatched_at, now, cfg) == 'dorosly')
+    return (n, n >= config.get('threshold', 8))
+
+
+def _pet_stars_max(user, config, context):
+    from modules.pets.models import Pet
+    m = (db.session.query(db.func.max(Pet.stars))
+         .filter(Pet.user_id == user.id, Pet.status.in_(('alive', 'dead'))).scalar()) or 0
+    return (int(m), m >= config.get('threshold', 3))
+
+
+def _pet_care_days_max(user, config, context):
+    from modules.pets.models import Pet
+    m = (db.session.query(db.func.max(Pet.care_days))
+         .filter(Pet.user_id == user.id, Pet.status.in_(('alive', 'dead'))).scalar()) or 0
+    return (int(m), m >= config.get('threshold', 7))
+
+
 METRIC_EVALUATORS = {
+    'pets_hatched': _pets_hatched,
+    'pet_species_discovered': _pet_species_discovered,
+    'pet_adult_alive': _pet_adult_alive,
+    'pet_stars_max': _pet_stars_max,
+    'pet_care_days_max': _pet_care_days_max,
     'orders_count': _orders_count,
     'collection_items': _collection_items,
     'items_with_photos': _items_with_photos,

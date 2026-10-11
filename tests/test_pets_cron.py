@@ -525,3 +525,19 @@ def test_mail_liczba_mnoga_i_powitanie_bez_imienia(app, db, make_user):
         msg = build_email_message(user, _koszyk(user, alerts=[(a, LEVEL_CRITICAL), (b, LEVEL_CRITICAL)]))
     assert 'odejdą do gwiazd' in msg.html and 'odejdą do gwiazd' in msg.body
     assert 'Cześć !' not in msg.body and 'Cześć!' in msg.body
+
+
+def test_podniesienie_poziomu_zapisuje_zdarzenie_alert(db, make_user):
+    """Etap 6: raport liczy czas reakcji na ostrzeżenie z pet_events.type='alert'."""
+    from modules.pets.notifications import collect_for_user
+    from modules.pets.models import PetEvent
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user, fun=0.0)
+    collect_for_user(user, T0 + timedelta(hours=1), _cfg())
+    db.session.commit()
+    alerty = PetEvent.query.filter_by(pet_id=pet.id, type='alert').all()
+    assert len(alerty) == 1 and alerty[0].value == pet.notify_level >= 1
+    collect_for_user(user, T0 + timedelta(hours=2), _cfg())      # ten sam poziom → bez drugiego wpisu
+    db.session.commit()
+    assert PetEvent.query.filter_by(pet_id=pet.id, type='alert').count() == 1

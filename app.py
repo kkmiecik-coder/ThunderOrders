@@ -1432,6 +1432,13 @@ def register_cli_commands(app):
         if wynik['errors']:
             click.echo('UWAGA: część użytkowników pominięta przez wyjątek — szczegóły w logu aplikacji.')
 
+    @pets.command('report')
+    @click.option('--days', default=7, show_default=True, type=int, help='Okno raportu w dniach')
+    def pets_report(days):
+        """Metryki pupili: lejek, retencja, odejścia, reakcja na ostrzeżenia, push, ratunkowe (spec §3.7)."""
+        from modules.pets.report import build_report, format_report
+        click.echo(format_report(build_report(days)))
+
     @achievements.command('generate-share-icons')
     @click.option('--dry-run', is_flag=True, help='Tylko pokaż, czego brakuje.')
     @click.option('--force', is_flag=True, help='Nadpisz istniejące pliki @512.')

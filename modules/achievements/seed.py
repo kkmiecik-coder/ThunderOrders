@@ -490,6 +490,77 @@ ACHIEVEMENTS = [
             'slugs': ['profile-complete', 'avatar-selected', 'first-address', 'email-verified']
         },
     },
+
+    # === PUPILE (pets) — spec pupili §3.8; ikony dogrywa admin w panelu odznak. Bez odznak za odejście. ===
+    {
+        'slug': 'pet-first-hatch', 'name': 'Pierwsze pęknięcie',
+        'description': 'Wykluj swojego pierwszego pupila',
+        'category': 'pets', 'rarity': 'common',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pets_hatched', 'threshold': 1},
+    },
+    {
+        'slug': 'pet-care-7', 'name': 'Pierwszy tydzień',
+        'description': '7 dni opieki nad jednym pupilem',
+        'category': 'pets', 'rarity': 'common',
+        'tier': 1, 'tier_group': 'pet-care',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pet_care_days_max', 'threshold': 7},
+    },
+    {
+        'slug': 'pet-care-30', 'name': 'Opiekun',
+        'description': '30 dni opieki nad jednym pupilem',
+        'category': 'pets', 'rarity': 'rare',
+        'tier': 2, 'tier_group': 'pet-care',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pet_care_days_max', 'threshold': 30},
+    },
+    {
+        'slug': 'pet-care-100', 'name': 'Oddany opiekun',
+        'description': '100 dni opieki nad jednym pupilem',
+        'category': 'pets', 'rarity': 'epic',
+        'tier': 3, 'tier_group': 'pet-care',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pet_care_days_max', 'threshold': 100},
+    },
+    {
+        'slug': 'pet-care-365', 'name': 'Opiekun roku',
+        'description': '365 dni opieki nad jednym pupilem',
+        'category': 'pets', 'rarity': 'legendary',
+        'tier': 4, 'tier_group': 'pet-care',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pet_care_days_max', 'threshold': 365},
+    },
+    {
+        'slug': 'pet-species-4', 'name': 'Pół drużyny',
+        'description': '4 gatunki pupili w albumie',
+        'category': 'pets', 'rarity': 'rare',
+        'tier': 1, 'tier_group': 'pet-species',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pet_species_discovered', 'threshold': 4},
+    },
+    {
+        'slug': 'pet-species-8', 'name': 'Komplet',
+        'description': 'Wszystkie 8 gatunków pupili w albumie',
+        'category': 'pets', 'rarity': 'legendary',
+        'tier': 2, 'tier_group': 'pet-species',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pet_species_discovered', 'threshold': 8},
+    },
+    {
+        'slug': 'pet-stars-3', 'name': 'Gwiazdor',
+        'description': 'Pupil z trzema gwiazdkami',
+        'category': 'pets', 'rarity': 'epic',
+        'trigger_type': 'event',
+        'trigger_config': {'metric': 'pet_stars_max', 'threshold': 3},
+    },
+    {
+        'slug': 'pet-adults-8', 'name': 'Ośmiu dorosłych',
+        'description': 'Ośmiu dorosłych pupili żyjących naraz',
+        'category': 'pets', 'rarity': 'cosmic',
+        'trigger_type': 'cron',
+        'trigger_config': {'metric': 'pet_adult_alive', 'threshold': 8},
+    },
 ]
 
 # sort_order wynika z KOLEJNOŚCI na liście powyżej. Wcześniej każdy wpis miał

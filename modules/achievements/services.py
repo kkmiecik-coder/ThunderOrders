@@ -54,6 +54,8 @@ EVENT_METRICS = {
     'address_added': ['shipping_addresses', 'all_badges_unlocked'],
     'email_verify': ['email_verified', 'all_badges_unlocked'],
     'achievement_shared': ['shared_achievements', 'shared_full_collection'],
+    # Pupile (modules/pets): po wykluciu i po akcji opieki; pet_adult_alive to cron (check-daily)
+    'pet_event': ['pets_hatched', 'pet_species_discovered', 'pet_stars_max', 'pet_care_days_max', 'all_badges_unlocked'],
 }
 
 

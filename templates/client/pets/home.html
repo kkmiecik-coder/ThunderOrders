@@ -16,6 +16,8 @@
      data-api="{{ api_base }}">
     <header class="pets-page__header">
         <h1 class="pets-page__title">Moje pupile</h1>
+        <p class="pets-page__lead">Wykluwaj, karm i rozpieszczaj swoje pupile. Jedna wizyta dziennie wystarczy, żeby były zdrowe.</p>
+        <p class="pets-night" data-pets-night role="status" hidden></p>
     </header>
     <section id="petsNest" class="pets-section pets-section--nest" aria-labelledby="petsNestTitle">
         <h2 id="petsNestTitle" class="pets-section__title">Gniazdko</h2>
@@ -34,6 +36,31 @@
         <div class="pets-section__body"></div>
     </section>
     <noscript><p class="pets-noscript">Do opieki nad pupilem potrzebny jest włączony JavaScript.</p></noscript>
+</div>
+
+{# Modal wyklucia — własne id (globalny #modal-overlay żyje w base.html); style w components/modals.css #}
+<div id="petHatchModal" class="modal-overlay pet-hatch-modal" aria-hidden="true">
+    <div class="modal-content pet-hatch" role="dialog" aria-modal="true" aria-labelledby="petHatchTitle" aria-describedby="petHatchText" tabindex="-1">
+        <div class="modal-header">
+            <h2 class="modal-title" id="petHatchTitle">Wyklucie</h2>
+            <button type="button" class="modal-close" data-hatch-close aria-label="Zamknij">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body pet-hatch__body">
+            <div class="pet-hatch__stage" data-hatch-stage></div>
+            <p class="pet-hatch__text" id="petHatchText" data-hatch-text aria-live="polite"></p>
+            <form class="pet-hatch__form" data-hatch-form hidden novalidate>
+                <label class="pet-hatch__label" for="petHatchName">Imię pupila (1–20 znaków)</label>
+                <input class="pet-hatch__input" id="petHatchName" name="name" type="text" maxlength="40" autocomplete="off" aria-describedby="petHatchError">
+                <p class="pet-hatch__error" id="petHatchError" data-hatch-error role="alert" hidden></p>
+                <button type="submit" class="pet-btn pet-btn--primary pet-hatch__submit">Zapisz imię</button>
+            </form>
+        </div>
+        <div class="modal-footer pet-hatch__footer" hidden>
+            <button type="button" class="pet-btn pet-btn--ghost" data-hatch-close data-hatch-done>Później</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

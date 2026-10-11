@@ -87,7 +87,8 @@ def test_merged_jajko_pamieta_w_kogo_sie_wtopilo(db, make_user):
 
 def test_stale_typow_zdarzen_i_porzadkow():
     from modules.pets.models import EVENT_TYPES, PRUNABLE_EVENT_TYPES, PET_STATUSES, EGG_SOURCES
-    assert set(PRUNABLE_EVENT_TYPES) == {'feed', 'play', 'wash', 'heal', 'pat', 'wake', 'warm', 'light'}
+    # 'alert' (etap 6): wpis crona przy podniesieniu notify_level — do raportu, więc też do porządków
+    assert set(PRUNABLE_EVENT_TYPES) == {'feed', 'play', 'wash', 'heal', 'pat', 'wake', 'warm', 'light', 'alert'}
     assert set(PRUNABLE_EVENT_TYPES) < set(EVENT_TYPES)
     assert {'claim', 'grant', 'hatch_new', 'hatch_dupe', 'merge', 'die', 'rename', 'milestone'} < set(EVENT_TYPES)
     assert PET_STATUSES == ('egg', 'alive', 'dead', 'merged')

@@ -14,10 +14,10 @@ EGG_SOURCES = ('start', 'monthly', 'rescue', 'granted')
 EVENT_TYPES = (
     'claim', 'grant', 'warm', 'hatch_new', 'hatch_dupe', 'merge',
     'feed', 'play', 'wash', 'heal', 'pat', 'wake', 'light',
-    'die', 'rename', 'milestone',
+    'die', 'rename', 'milestone', 'alert',
 )
 # Zdarzenia akcji — cron kasuje je po 90 dniach. Reszta jest trwała (historia pupila, raport).
-PRUNABLE_EVENT_TYPES = ('feed', 'play', 'wash', 'heal', 'pat', 'wake', 'warm', 'light')
+PRUNABLE_EVENT_TYPES = ('feed', 'play', 'wash', 'heal', 'pat', 'wake', 'warm', 'light', 'alert')
 
 
 class PetProfile(db.Model):
