@@ -42,3 +42,16 @@ def test_karta_pupili_w_profilu_tylko_gdy_funkcja_dostepna(app, client, login, m
     r = client.get(url)
     assert r.status_code == 200 and b'petUpdatesToggle' in r.data
     assert b'pet-updates-toggle.js' in r.data
+
+
+def test_skrypt_przelacznika_laduje_sie_bez_vapid(app, client, login, make_user, db, monkeypatch):
+    """Recenzja etapu 3: karta jest gated przez pets_available, więc skrypt nie może zależeć od VAPID."""
+    monkeypatch.setitem(app.config, 'VAPID_PUBLIC_KEY', None)
+    user = make_user(profile_completed=True)
+    login(user)
+    _wlacz_funkcje(db)
+    with app.test_request_context():
+        url = url_for('profile.index')
+    r = client.get(url)
+    assert r.status_code == 200 and b'petUpdatesToggle' in r.data and b'pet-updates-toggle.js' in r.data
+    assert b'push-settings.js' not in r.data

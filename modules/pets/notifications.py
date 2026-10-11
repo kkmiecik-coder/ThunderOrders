@@ -8,14 +8,16 @@ Dlaczego tak:
   sprawdzamy sami, zanim cokolwiek zawołamy;
 - maile ze wszystkich użytkowników idą jednym `send_email_batch_sync` (limit SMTP per IP).
 """
+import os
 from datetime import timedelta
 
 from flask import current_app
 
 from extensions import db
 from modules.pets import rules
+from modules.pets.config import PetConfig
 from modules.pets.common import (
-    cfg_or, egg_progress, lock_profile, next_monthly_at, now_or, persist_death, simulate_pet,
+    egg_progress, lock_profile, next_monthly_at, now_or, persist_death, simulate_pet,
 )
 from modules.pets.models import PRUNABLE_EVENT_TYPES, Pet, PetEvent, PetProfile
 from modules.pets.species import SPECIES_BY_SLUG
@@ -91,7 +93,7 @@ def needs_email(basket):
 
 
 def pets_url():
-    base = (current_app.config.get('BASE_URL') or 'https://thunderorders.cloud').rstrip('/')
+    base = (current_app.config.get('BASE_URL') or os.getenv('APP_BASE_URL') or 'https://thunderorders.cloud').rstrip('/')
     return base + PETS_URL_PATH
 
 
@@ -121,7 +123,7 @@ def build_email_message(user, basket):
         to=user.email,
         subject=temat,
         template='pets_alert',
-        log_context={'entity_type': 'pet_user', 'entity_id': user.id},
+        log_context={'entity_type': 'user', 'entity_id': user.id},
         user_name=user.first_name or None,
         critical=krytyczne,
         dead=odeszly,
@@ -137,9 +139,10 @@ def build_email_message(user, basket):
 def collect_for_user(user, now, cfg):
     """Liczy stan wszystkich pupili użytkownika i zbiera, o czym powiadomić.
 
-    Zapisuje: odejścia (persist_death), podniesione `notify_level`, reset epizodu,
-    `egg_ready_notified_at`, `monthly_notified_at`. NIE zapisuje `death_notified_at` ani
-    `rescue_reminder_sent_at` — to robi przebieg po wysyłce. Wołający commituje.
+    Zapisuje: odejścia (persist_death) + `death_notified_at`, podniesione `notify_level`, reset
+    epizodu, `egg_ready_notified_at`, `monthly_notified_at` — wszystko pod blokadą profilu, żeby dwa
+    równoległe przebiegi nie powiadomiły dwa razy. NIE zapisuje `rescue_reminder_sent_at` (jedyny
+    kanał to mail — flaga po udanej wysyłce). Wołający commituje.
     """
     basket = empty_basket(user)
     profil = lock_profile(user, required=False)
@@ -152,6 +155,7 @@ def collect_for_user(user, now, cfg):
             sim = simulate_pet(pet, now, cfg)
             if sim.died_at is not None:
                 persist_death(pet, sim, now)
+                pet.death_notified_at = now      # pod blokadą: drugi przebieg nie zrobi drugiego pushu
                 basket['deaths'].append(pet)
                 continue
             poziom = level_of(sim.state)
@@ -162,6 +166,7 @@ def collect_for_user(user, now, cfg):
                 pet.notify_level = 0          # koniec epizodu: żaden pasek na zerze, zdrowie ≥ 75
         elif pet.status == 'dead':
             if pet.death_notified_at is None:
+                pet.death_notified_at = now
                 basket['deaths'].append(pet)
             if (pet.rescue_egg_claimed_at is None and pet.rescue_reminder_sent_at is None
                     and pet.died_at is not None and pet.died_at <= prog_ratunkowe):
@@ -199,8 +204,12 @@ def users_to_check(now, cfg):
     ids = {r[0] for r in z_pupilami.all()} | {r[0] for r in z_miesiecznym.all()}
     if not ids:
         return []
-    return (User.query.filter(User.id.in_(ids), User.is_active == True, User.role == 'client')  # noqa: E712
-            .order_by(User.id).all())
+    users = (User.query.filter(User.id.in_(ids), User.is_active == True)  # noqa: E712
+             .order_by(User.id).all())
+    # Rollout jak w pets_feature_for: admin/mod zawsze, klient gdy id % 100 < rollout_pct — cron nie
+    # może powiadamiać kogoś, kto funkcji nie widzi (link prowadziłby do 404)
+    pct = int(cfg.rollout_pct)
+    return [u for u in users if u.role in ('admin', 'mod') or (u.id % 100) < pct]
 
 
 def prune_events(now, days=PRUNE_DAYS):
@@ -228,61 +237,93 @@ def run_tick(now=None, cfg=None, dry_run=False):
 
     Liczniki: `pushes` = użytkownicy, dla których zawołano send_to_user (wpis w dzwonku powstaje
     także bez subskrypcji push); `emails_prepared` = zbudowane wiadomości; `emails_sent` =
-    potwierdzone przez SMTP.
+    potwierdzone przez SMTP; `errors` = użytkownicy pominięci przez wyjątek (szczegóły w logu).
+
+    Odporność (recenzja etapu 3): wyjątek u jednego użytkownika nie zatrzymuje reszty, a batch maili
+    i porządki idą w `finally` — przygotowane wiadomości nigdy nie zostają w `queued`.
     """
     from utils.email_manager import EmailManager
-    now, cfg = now_or(now), cfg_or(cfg)
+    # Cron to osobny proces: czyta Settings na świeżo, nie z cache w `g` (w testach jeden kontekst
+    # aplikacji obsługuje kilka wywołań komendy i stara konfiguracja przeżywałaby zmianę flagi)
+    now, cfg = now_or(now), (cfg if cfg is not None else PetConfig.load(force=True))
     wynik = {'users': 0, 'pushes': 0, 'emails_prepared': 0, 'emails_sent': 0, 'deaths': 0,
-             'eggs_ready': 0, 'monthly': 0, 'rescue_reminders': 0, 'pruned': 0, 'dry_run': dry_run,
-             'koszyki': []}
+             'eggs_ready': 0, 'monthly': 0, 'rescue_reminders': 0, 'pruned': 0, 'errors': 0,
+             'skipped_disabled': False, 'dry_run': dry_run, 'koszyki': []}
+    if not cfg.enabled:
+        # Kill-switch funkcji (spec §7): wyłączona = cisza. Po włączeniu cron nadrobi z flag i notify_level.
+        wynik['skipped_disabled'] = True
+        return wynik
     maile_wlaczone = EmailManager.is_email_enabled(EMAIL_SWITCH)
     do_wyslania = []   # (user, basket, Message)
-
-    for user in users_to_check(now, cfg):
-        basket = collect_for_user(user, now, cfg)
-        if basket_is_empty(basket):
-            # Mogły zostać zmiany bez powiadomienia (reset epizodu) — zapisujemy je mimo pustego koszyka
-            if dry_run:
+    try:
+        for user in users_to_check(now, cfg):
+            try:
+                _przetworz_uzytkownika(user, now, cfg, dry_run, maile_wlaczone, wynik, do_wyslania)
+            except Exception:  # noqa: BLE001 — jeden użytkownik nie może ubić przebiegu dla reszty
                 db.session.rollback()
-            else:
-                db.session.commit()
-            continue
-        wynik['users'] += 1
-        wynik['deaths'] += len(basket['deaths'])
-        wynik['eggs_ready'] += len(basket['eggs_ready'])
-        wynik['monthly'] += int(basket['monthly'])
-        wynik['rescue_reminders'] += len(basket['rescue_reminders'])
-        if dry_run:
-            wynik['koszyki'].append((user.email, build_push_text(basket)[1], needs_email(basket)))
-            db.session.rollback()
-            continue
-        db.session.commit()   # krok 2: zapis poziomów/odejść/flag jajek, zanim cokolwiek wyślemy
-
-        if pet_updates_enabled(user.id):
-            if _wyslij_push(user, basket):
-                wynik['pushes'] += 1
-            if maile_wlaczone and needs_email(basket):
-                msg = build_email_message(user, basket)
-                if msg is not None:
-                    do_wyslania.append((user, basket, msg))
-                    wynik['emails_prepared'] += 1
-        # Odejście oznaczamy niezależnie od maila/preferencji — inaczej cron próbowałby co godzinę
-        for pet in basket['deaths']:
-            pet.death_notified_at = now
-        db.session.commit()
-
-    if dry_run:
-        return wynik
-
-    if do_wyslania:
-        from utils.email_sender import send_email_batch_sync   # import w funkcji: testy monkeypatchują moduł
-        wyniki = send_email_batch_sync([msg for _, _, msg in do_wyslania])
-        for (user, basket, _), ok in zip(do_wyslania, wyniki):
-            if ok:
-                wynik['emails_sent'] += 1
-                for pet in basket['rescue_reminders']:
-                    pet.rescue_reminder_sent_at = now   # tylko po udanej wysyłce — jedyny kanał tego przypomnienia
-        db.session.commit()
-
-    wynik['pruned'] = prune_events(now)
+                wynik['errors'] += 1
+                current_app.logger.exception('pets tick: użytkownik %s pominięty', getattr(user, 'id', '?'))
+    finally:
+        if not dry_run:
+            _wyslij_maile(do_wyslania, now, wynik)
+            try:
+                wynik['pruned'] = prune_events(now)
+            except Exception:  # noqa: BLE001
+                db.session.rollback()
+                wynik['errors'] += 1
+                current_app.logger.exception('pets tick: porządki nie powiodły się')
     return wynik
+
+
+def _przetworz_uzytkownika(user, now, cfg, dry_run, maile_wlaczone, wynik, do_wyslania):
+    basket = collect_for_user(user, now, cfg)
+    if basket_is_empty(basket):
+        # Mogły zostać zmiany bez powiadomienia (reset epizodu) — zapisujemy je mimo pustego koszyka
+        if dry_run:
+            db.session.rollback()
+        else:
+            db.session.commit()
+        return
+    wynik['users'] += 1
+    wynik['deaths'] += len(basket['deaths'])
+    wynik['eggs_ready'] += len(basket['eggs_ready'])
+    wynik['monthly'] += int(basket['monthly'])
+    wynik['rescue_reminders'] += len(basket['rescue_reminders'])
+    if dry_run:
+        wynik['koszyki'].append((user.email, build_push_text(basket)[1], needs_email(basket)))
+        db.session.rollback()
+        return
+    db.session.commit()   # krok 2: zapis poziomów/odejść/flag, zanim cokolwiek wyślemy
+
+    wlaczone = pet_updates_enabled(user.id)
+    if wlaczone:
+        if _wyslij_push(user, basket):
+            wynik['pushes'] += 1
+        if maile_wlaczone and needs_email(basket):
+            msg = build_email_message(user, basket)
+            if msg is not None:
+                do_wyslania.append((user, basket, msg))
+                wynik['emails_prepared'] += 1
+    if basket['rescue_reminders'] and not (wlaczone and maile_wlaczone):
+        # Bez kanału mailowego przypomnienie nie ma jak wyjść — oznaczamy, żeby nie krążyć co godzinę
+        for pet in basket['rescue_reminders']:
+            pet.rescue_reminder_sent_at = now
+        db.session.commit()
+
+
+def _wyslij_maile(do_wyslania, now, wynik):
+    if not do_wyslania:
+        return
+    from utils.email_sender import send_email_batch_sync   # import w funkcji: testy monkeypatchują moduł
+    try:
+        wyniki = send_email_batch_sync([msg for _, _, msg in do_wyslania])
+    except Exception:  # noqa: BLE001
+        wynik['errors'] += 1
+        current_app.logger.exception('pets tick: batch maili nie powiódł się')
+        return
+    for (user, basket, _), ok in zip(do_wyslania, wyniki):
+        if ok:
+            wynik['emails_sent'] += 1
+            for pet in basket['rescue_reminders']:
+                pet.rescue_reminder_sent_at = now   # tylko po udanej wysyłce — jedyny kanał tego przypomnienia
+    db.session.commit()

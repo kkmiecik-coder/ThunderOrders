@@ -37,8 +37,8 @@
                                             Pupil {{ p.name }} odszedł do gwiazd
                                         </p>
                                         <p style="margin: 0; font-size: 15px; color: #212121;">
-                                            {{ p.species_name }} {{ p.name }} był z Tobą <strong>{{ p.age_days }} dni</strong>,
-                                            z czego <strong>{{ p.care_days }}</strong> to dni Twojej opieki{% if p.stars %},
+                                            Pupil {{ p.name }}{% if p.species_name and p.species_name != p.name %} ({{ p.species_name }}){% endif %} był z Tobą <strong>{{ p.age_days }} dni</strong>,
+                                            z czego <strong>{{ p.care_days }}</strong> to dni Twojej opieki{% if p.stars %}
                                             i zdobył {{ p.stars }} {% if p.stars == 1 %}gwiazdkę{% elif p.stars < 5 %}gwiazdki{% else %}gwiazdek{% endif %}{% endif %}.
                                             Dziękujemy, że się nim opiekowałeś.
                                         </p>
@@ -58,8 +58,7 @@
                                             Stan krytyczny: {{ critical | join(', ') }}
                                         </p>
                                         <p style="margin: 0; font-size: 15px; color: #212121;">
-                                            {% if critical | length == 1 %}Pupil {{ critical[0] }} potrzebuje pomocy{% else %}Twoje pupile potrzebują pomocy{% endif %} —
-                                            bez karmienia i leczenia odejdzie do gwiazd w ciągu kilkunastu godzin.
+                                            {% if critical | length == 1 %}Pupil {{ critical[0] }} potrzebuje pomocy — bez karmienia i leczenia odejdzie do gwiazd w ciągu kilkunastu godzin.{% else %}Twoje pupile potrzebują pomocy — bez karmienia i leczenia odejdą do gwiazd w ciągu kilkunastu godzin.{% endif %}
                                         </p>
                                     </td>
                                 </tr>

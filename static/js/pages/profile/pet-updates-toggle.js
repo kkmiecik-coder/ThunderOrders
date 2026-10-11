@@ -10,18 +10,21 @@
     if (!toggle) return;
 
     var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    var URL = '/notifications/preferences';
+    var PREFS_URL = '/notifications/preferences';
 
-    fetch(URL)
+    // Zablokowany do czasu wczytania stanu z serwera — bez tego pokazywałby „włączone" także przy błędzie
+    toggle.disabled = true;
+    fetch(PREFS_URL)
         .then(function (r) { return r.json(); })
         .then(function (prefs) {
             if (prefs && 'pet_updates' in prefs) toggle.checked = !!prefs.pet_updates;
         })
-        .catch(function () {});
+        .catch(function () {})
+        .then(function () { toggle.disabled = false; });
 
     toggle.addEventListener('change', function () {
         var wlaczone = toggle.checked;
-        fetch(URL, {
+        fetch(PREFS_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

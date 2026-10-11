@@ -1,8 +1,8 @@
-Cześć {{ user_name or '' }}!
+Cześć{% if user_name %} {{ user_name }}{% endif %}!
 {% for p in dead %}
-Pupil {{ p.name }} odszedł do gwiazd. {{ p.species_name }} {{ p.name }} był z Tobą {{ p.age_days }} dni, z czego {{ p.care_days }} to dni Twojej opieki{% if p.stars %}, i zdobył {{ p.stars }} gwiazdek{% endif %}. Dziękujemy, że się nim opiekowałeś. W domku czeka już jajko ratunkowe.
+Pupil {{ p.name }} odszedł do gwiazd. Pupil {{ p.name }}{% if p.species_name and p.species_name != p.name %} ({{ p.species_name }}){% endif %} był z Tobą {{ p.age_days }} dni, z czego {{ p.care_days }} to dni Twojej opieki{% if p.stars %} i zdobył {{ p.stars }} {% if p.stars == 1 %}gwiazdkę{% elif p.stars < 5 %}gwiazdki{% else %}gwiazdek{% endif %}{% endif %}. Dziękujemy, że się nim opiekowałeś. W domku czeka już jajko ratunkowe.
 {% endfor %}{% if critical %}
-Stan krytyczny: {{ critical | join(', ') }} — bez karmienia i leczenia pupil odejdzie do gwiazd w ciągu kilkunastu godzin.
+Stan krytyczny: {{ critical | join(', ') }} — bez karmienia i leczenia {% if critical | length == 1 %}pupil odejdzie{% else %}pupile odejdą{% endif %} do gwiazd w ciągu kilkunastu godzin.
 {% endif %}{% if rescue %}
 Od tygodnia czeka na Ciebie jajko ratunkowe ({% for n in rescue %}za pupila {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}). Odbierz je, kiedy będziesz gotowy.
 {% endif %}

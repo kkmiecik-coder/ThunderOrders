@@ -1414,6 +1414,9 @@ def register_cli_commands(app):
         """Przebieg powiadomień o pupilach: zbiorczy push + mail per użytkownik, raz na epizod."""
         from modules.pets.notifications import run_tick
         wynik = run_tick(dry_run=dry_run)
+        if wynik.get('skipped_disabled'):
+            click.echo('Funkcja pupili wyłączona (pets_enabled=false) — przebieg pominięty.')
+            return
         if dry_run:
             click.echo(f'[DRY-RUN] Użytkowników z czymś do zgłoszenia: {wynik["users"]}')
             for email, tresc, mail in wynik['koszyki']:
@@ -1423,8 +1426,11 @@ def register_cli_commands(app):
             f'Użytkowników: {wynik["users"]}, pushe: {wynik["pushes"]}, '
             f'maile: {wynik["emails_sent"]}/{wynik["emails_prepared"]}, odejścia: {wynik["deaths"]}, '
             f'jajka gotowe: {wynik["eggs_ready"]}, miesięczne: {wynik["monthly"]}, '
-            f'przypomnienia o ratunkowym: {wynik["rescue_reminders"]}, porządki: {wynik["pruned"]}'
+            f'przypomnienia o ratunkowym: {wynik["rescue_reminders"]}, porządki: {wynik["pruned"]}, '
+            f'błędy: {wynik["errors"]}'
         )
+        if wynik['errors']:
+            click.echo('UWAGA: część użytkowników pominięta przez wyjątek — szczegóły w logu aplikacji.')
 
     @achievements.command('generate-share-icons')
     @click.option('--dry-run', is_flag=True, help='Tylko pokaż, czego brakuje.')

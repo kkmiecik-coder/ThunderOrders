@@ -7,8 +7,9 @@ from tests.pets_helpers import T0, zaloz_profil, zaloz_pupila, zaloz_zmarlego, z
 
 
 def _cfg(**over):
+    """Konfiguracja z WŁĄCZONĄ funkcją (cron respektuje pets_enabled i rollout — recenzja etapu 3)."""
     from modules.pets.config import PetConfig
-    return PetConfig(**over)
+    return PetConfig(**{'enabled': True, 'rollout_pct': 100, **over})
 
 
 def _koszyk(user, **pola):
@@ -147,7 +148,7 @@ def test_poziom_nie_spada_w_dol_bez_wyzdrowienia(db, make_user):
     pet.hunger = 60.0                                         # nakarmiony raz, zdrowie wciąż 20
     pet.state_at = T0 + timedelta(hours=1)
     db.session.commit()
-    k = collect_for_user(user, T0 + timedelta(hours=2), _cfg())
+    k = collect_for_user(user, T0 + timedelta(hours=3), _cfg())   # zdrowie ≈ 28 → chory (3 → 2)
     assert k['alerts'] == [] and pet.notify_level == LEVEL_CRITICAL
 
 
@@ -163,7 +164,8 @@ def test_odejscie_w_cronie_i_odejscie_z_odczytu(db, make_user):
     assert {p.id for p in k['deaths']} == {w_cronie.id, z_odczytu.id}
     assert w_cronie.status == 'dead' and w_cronie.died_at == T0 + timedelta(hours=72)
     assert PetEvent.query.filter_by(pet_id=w_cronie.id, type='die').count() == 1
-    assert w_cronie.death_notified_at is None     # oznacza dopiero przebieg po wysyłce
+    # Flaga pod blokadą profilu (recenzja etapu 3): dwa równoległe przebiegi nie zrobią dwóch pushy o odejściu
+    assert w_cronie.death_notified_at == T0 + timedelta(hours=80) and z_odczytu.death_notified_at == T0 + timedelta(hours=80)
 
 
 def test_jajko_gotowe_i_miesieczne_raz(db, make_user):
@@ -336,7 +338,8 @@ def test_tick_nieudany_mail_ratunkowy_powtarza_sie_odejscie_nie(app, db, make_us
     assert zmarly.death_notified_at == T0 + timedelta(hours=2)
 
 
-def test_tick_pomija_nieaktywnych_i_nieklientow(app, db, make_user, maile_zebrane):
+def test_tick_pomija_nieaktywnych_ale_obejmuje_adminow(app, db, make_user, maile_zebrane):
+    """Ruling po recenzji: admin/mod mogą grać (pets_feature_for zawsze True), więc cron ich nie pomija."""
     from modules.pets.notifications import run_tick
     nieaktywny = make_user()
     zaloz_profil(nieaktywny)
@@ -348,7 +351,7 @@ def test_tick_pomija_nieaktywnych_i_nieklientow(app, db, make_user, maile_zebran
     db.session.commit()
     with app.test_request_context():
         wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
-    assert wynik['users'] == 0 and _dzwonek(nieaktywny.id) == [] and _dzwonek(admin.id) == []
+    assert wynik['users'] == 1 and _dzwonek(nieaktywny.id) == [] and len(_dzwonek(admin.id)) == 1
 
 
 def test_tick_dry_run_nic_nie_zapisuje(app, db, make_user, maile_zebrane):
@@ -381,13 +384,144 @@ def test_prune_events_90_dni_z_wyjatkami(db, make_user):
 
 
 def test_komenda_cli_pets_tick(app, db, make_user, maile_zebrane):
+    from modules.auth.models import Settings
     user = make_user()
     zaloz_profil(user)
     zaloz_pupila(user, fun=0.0, now=T0 - timedelta(days=400))   # dawno temu → na pewno coś do zgłoszenia
     runner = app.test_cli_runner()
+    # Bez flagi pets_enabled komenda jest kill-switchem: nic nie robi i mówi dlaczego (recenzja etapu 3)
+    wylaczone = runner.invoke(args=['pets', 'tick'])
+    assert wylaczone.exit_code == 0, wylaczone.output + str(wylaczone.exception)
+    assert 'wyłączon' in wylaczone.output.lower() and _dzwonek(user.id) == []
+    Settings.set_value('pets_enabled', 'true', type='boolean')
+    Settings.set_value('pets_rollout_pct', 100, type='integer')
+    db.session.commit()
     sucho = runner.invoke(args=['pets', 'tick', '--dry-run'])
     assert sucho.exit_code == 0, sucho.output + str(sucho.exception)
     assert 'dry-run' in sucho.output.lower() and _dzwonek(user.id) == []
     wynik = runner.invoke(args=['pets', 'tick'])
     assert wynik.exit_code == 0, wynik.output + str(wynik.exception)
-    assert 'Użytkowników: 1' in wynik.output
+    assert 'Użytkowników: 1' in wynik.output and 'błędy: 0' in wynik.output
+
+
+# --- recenzja etapu 3 ---
+
+def test_wyjatek_u_jednego_uzytkownika_nie_gubi_maili_innych(app, db, make_user, maile_zebrane, monkeypatch):
+    """Important 1: izolacja per użytkownik; batch maili i porządki idą zawsze (finally)."""
+    from modules.pets.notifications import run_tick
+    from modules.pets.models import PetEvent
+    from utils.push_manager import PushManager
+    u1 = make_user()
+    zaloz_profil(u1)
+    p1 = zaloz_pupila(u1, name='Pierwszy', hunger=0.0, health=10.0)    # krytyczny → push + mail
+    u2 = make_user()
+    zaloz_profil(u2)
+    zaloz_pupila(u2, name='Drugi', fun=0.0)
+    u3 = make_user()
+    zaloz_profil(u3)
+    zaloz_pupila(u3, name='Trzeci', fun=0.0)
+    db.session.add(PetEvent(pet_id=p1.id, user_id=u1.id, type='feed', created_at=T0 - timedelta(days=100)))
+    db.session.commit()
+    oryginal = PushManager.send_to_user
+
+    def wybuch(user_id, *a, **kw):
+        if user_id == u2.id:
+            raise RuntimeError('awaria push')
+        return oryginal(user_id, *a, **kw)
+
+    monkeypatch.setattr(PushManager, 'send_to_user', staticmethod(wybuch))
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert wynik['errors'] == 1
+    assert wynik['emails_sent'] == 1 and [m.recipients[0] for m in maile_zebrane['wiadomosci']] == [u1.email]
+    assert len(_dzwonek(u1.id)) == 1 and len(_dzwonek(u3.id)) == 1     # trzeci nie ucierpiał
+    assert wynik['pruned'] == 1                                          # porządki mimo błędu
+
+
+def test_flaga_wylaczona_cron_milczy(app, db, make_user, maile_zebrane):
+    """Important 2 (opcja b): kill-switch funkcji zatrzymuje też cron."""
+    from modules.pets.notifications import run_tick
+    user = make_user()
+    zaloz_profil(user)
+    zaloz_pupila(user, hunger=0.0, health=10.0)
+    with app.test_request_context():
+        wynik = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg(enabled=False))
+    assert wynik['skipped_disabled'] is True and wynik['users'] == 0 and wynik['pushes'] == 0
+    assert _dzwonek(user.id) == [] and maile_zebrane['wiadomosci'] == []
+
+
+def test_rollout_filtruje_uzytkownikow_crona(app, db, make_user):
+    from modules.pets.notifications import users_to_check
+    a = make_user()
+    zaloz_profil(a)
+    zaloz_pupila(a, fun=0.0)
+    b = make_user(role='mod')
+    zaloz_profil(b)
+    zaloz_pupila(b, fun=0.0)
+    assert [u.id for u in users_to_check(T0, _cfg(rollout_pct=0))] == [b.id]      # mod zawsze, klient poza rolloutem
+    assert {u.id for u in users_to_check(T0, _cfg(rollout_pct=100))} == {a.id, b.id}
+
+
+def test_przypomnienie_o_ratunkowym_pomijane_przy_wylaczonej_preferencji(app, db, make_user, maile_zebrane):
+    """Minor 2: użytkownik bez maili nie ma krążyć co godzinę w koszyku."""
+    from modules.notifications.models import NotificationPreference
+    from modules.pets.notifications import run_tick
+    user = make_user()
+    zaloz_profil(user)
+    db.session.add(NotificationPreference(user_id=user.id, pet_updates=False))
+    db.session.commit()
+    stary = zaloz_zmarlego(user, died_at=T0 - timedelta(days=8), death_notified_at=T0 - timedelta(days=8))
+    with app.test_request_context():
+        run_tick(now=T0, cfg=_cfg())
+        w2 = run_tick(now=T0 + timedelta(hours=1), cfg=_cfg())
+    assert stary.rescue_reminder_sent_at == T0 and w2['users'] == 0 and maile_zebrane['wiadomosci'] == []
+
+
+def test_krytyczny_po_wyzdrowieniu_i_nowym_epizodzie(db, make_user):
+    """Review Focus 2 na poziomie krytycznym: 3 → zdrowy (reset) → smutny → alert od nowa."""
+    from modules.pets.notifications import collect_for_user, LEVEL_CRITICAL, LEVEL_SAD
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user, hunger=0.0, health=10.0)
+    assert collect_for_user(user, T0 + timedelta(minutes=5), _cfg())['alerts'] == [(pet, LEVEL_CRITICAL)]
+    db.session.commit()
+    pet.hunger = pet.fun = pet.clean = 100.0
+    pet.health = 100.0
+    pet.state_at = T0 + timedelta(hours=1)
+    db.session.commit()
+    assert collect_for_user(user, T0 + timedelta(hours=2), _cfg())['alerts'] == [] and pet.notify_level == 0
+    db.session.commit()
+    pet.fun = 0.0
+    pet.state_at = T0 + timedelta(hours=3)
+    db.session.commit()
+    assert collect_for_user(user, T0 + timedelta(hours=4), _cfg())['alerts'] == [(pet, LEVEL_SAD)]
+
+
+def test_mail_o_odejsciu_nie_dubluje_gatunku_i_zgadza_rodzaj(app, db, make_user):
+    """Important 3: „Wiewiórka Wiewiórka był…" → „Pupil Wiewiórka był…"; nazwany: „Pupil Mruczek (Kotek)"."""
+    from modules.pets.notifications import build_email_message
+    user = make_user()
+    zaloz_profil(user)
+    domyslny = zaloz_zmarlego(user, species='wiewiorka', name='Wiewiórka', hatched_at=T0 - timedelta(days=10), stars=1)
+    with app.test_request_context():
+        msg = build_email_message(user, _koszyk(user, deaths=[domyslny]))
+    for tresc in (msg.html, msg.body):
+        assert 'Wiewiórka Wiewiórka' not in tresc
+        assert 'Pupil Wiewiórka był z Tobą' in tresc
+        assert '1 gwiazdkę' in tresc
+    nazwany = zaloz_zmarlego(user, species='kotek', name='Mruczek', hatched_at=T0 - timedelta(days=10))
+    with app.test_request_context():
+        msg = build_email_message(user, _koszyk(user, deaths=[nazwany]))
+    assert 'Pupil Mruczek (Kotek) był z Tobą' in msg.html and 'Pupil Mruczek (Kotek) był z Tobą' in msg.body
+
+
+def test_mail_liczba_mnoga_i_powitanie_bez_imienia(app, db, make_user):
+    from modules.pets.notifications import build_email_message, LEVEL_CRITICAL
+    user = make_user(first_name=None)
+    zaloz_profil(user)
+    a = zaloz_pupila(user, species='kotek', name='A', health=10.0)
+    b = zaloz_pupila(user, species='mis', name='B', health=10.0)
+    with app.test_request_context():
+        msg = build_email_message(user, _koszyk(user, alerts=[(a, LEVEL_CRITICAL), (b, LEVEL_CRITICAL)]))
+    assert 'odejdą do gwiazd' in msg.html and 'odejdą do gwiazd' in msg.body
+    assert 'Cześć !' not in msg.body and 'Cześć!' in msg.body

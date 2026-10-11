@@ -476,6 +476,8 @@
 <script src="{{ url_for('static', filename='js/pages/profile/profile.js') }}"></script>
 {% if config.VAPID_PUBLIC_KEY %}
 <script src="{{ url_for('static', filename='js/pages/profile/push-settings.js') }}"></script>
+{% endif %}
+{% if pets_available %}
 <script src="{{ url_for('static', filename='js/pages/profile/pet-updates-toggle.js') }}"></script>
 {% endif %}
 <script>
