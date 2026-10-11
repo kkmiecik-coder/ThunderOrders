@@ -1,32 +1,51 @@
 /* ================================================
-   Świat pupili — ogród wspomnień (spec v3 §6.6, spec v3.1 §3.5): łąka na całą scenę, nagrobki w scenie
-   właściwej, szczegóły nagrobka i album gatunków w oknie sceny (components/modals.css „Okno sceny (v3.1)”)
-   Logika: static/js/pet/world/garden.js
+   Świat pupili — ogród wspomnień (spec v3 §6.6, spec v3.1 §3.5). Logika i rysunki: static/js/pet/world/garden.js
+   Szczegóły nagrobka i album gatunków w oknie sceny (components/modals.css „Okna ogrodu (v3.1)”).
+
+   Feedback: „ogród wygląda strasznie pusto” → nastrojowe, ciche miejsce pamięci: złota godzina (light), wieczór
+   (dark), noc w grze (.pets-page--night: gwiazdy, księżyc, świetliki, świeczki). Kompozycja = siatka trzech pasów
+   na całą wysokość sceny: niebo (1.3fr) · kwatera z nagrobkami (auto) · przód (1fr). Pasy rosną z ekranem, więc
+   ogród wypełnia scenę wysoką i niską, a ozdoby żyją tylko w swoim pasie — z definicji nie wchodzą na nagrobki,
+   pigułkę (pas nieba zaczyna rysunki pod --pg-ui-top) ani tabliczkę albumu.
+   Ozdoby: aria-hidden, pointer-events: none; ruch wyłącznie transform/opacity na małych elementach, bez filtrów;
+   ograniczony ruch (media + html.pet-rig-rm) — wszystko nieruchome, płatki/motyle/spadająca gwiazda znikają.
    ================================================ */
 
-/* Niebo i łąka do krawędzi sceny, kwiatki rozsiane po trawie */
-.pets-scene--ogrod {
-    background:
-        radial-gradient(circle at 12% 34%, #ff9ec4 0 4px, transparent 5px),
-        radial-gradient(circle at 86% 26%, #ffd36b 0 4px, transparent 5px),
-        radial-gradient(circle at 70% 88%, #b99cff 0 4px, transparent 5px),
-        radial-gradient(circle at 28% 92%, #ffffff 0 3px, transparent 4px),
-        radial-gradient(circle at 46% 62%, #ff9ec4 0 3px, transparent 4px),
-        radial-gradient(circle at 93% 72%, #ffffff 0 3px, transparent 4px),
-        radial-gradient(circle at 6% 78%, #ffd36b 0 3px, transparent 4px),
-        linear-gradient(180deg, #cfe9ff 0%, #e8f6ff 13%, #d7f0c8 13.2%, #a9de8f 100%);
+@property --pg-reserve {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
 }
 
-[data-theme="dark"] .pets-scene--ogrod {
-    background:
-        radial-gradient(circle at 12% 34%, rgba(255, 158, 196, 0.7) 0 4px, transparent 5px),
-        radial-gradient(circle at 86% 26%, rgba(255, 211, 107, 0.7) 0 4px, transparent 5px),
-        radial-gradient(circle at 70% 88%, rgba(185, 156, 255, 0.7) 0 4px, transparent 5px),
-        radial-gradient(circle at 46% 62%, rgba(255, 158, 196, 0.6) 0 3px, transparent 4px),
-        radial-gradient(circle at 6% 78%, rgba(255, 211, 107, 0.6) 0 3px, transparent 4px),
-        linear-gradient(180deg, rgba(43, 52, 112, 0.6) 0%, rgba(43, 52, 112, 0.3) 13%, rgba(127, 201, 106, 0.16) 13.2%, rgba(127, 201, 106, 0.08) 100%);
-    background-color: var(--bg-primary, #0f0c29);
+/* =====================================================================
+   Scena i scena właściwa
+   ===================================================================== */
+
+/* Tło sceny = kolor ziemi u dołu (widać go tylko pod przewijaną treścią, gdy arkusz robi miejsce) */
+.pets-scene--ogrod { background: #9bcf80; }
+[data-theme="dark"] .pets-scene--ogrod { background: #223d30; }
+
+/* Ogród rysuje się na całą szerokość sceny (niebo i łąka do krawędzi), a rezerwę na okno sceny (≥ 1024 px)
+   robi sam: --pg-reserve przesuwa nagrobki, ścieżkę i tabliczkę w widoczną część, tło zostaje pod oknem. */
+.pets-scene--ogrod .pets-stage {
+    --pg-ui-top: 76px;                   /* pod pigułką i tabliczką albumu (rysunki nieba zaczynają się niżej) */
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    container: pets-garden / size;
+    transition: --pg-reserve 0.25s ease;
 }
+
+@media (min-width: 1024px) {
+    .pets-scene--ogrod.has-window .pets-stage {
+        margin-right: 0;
+        --pg-reserve: 376px;
+    }
+}
+
+.pets-page--night .pets-scene--ogrod .pets-stage { --pg-ui-top: 124px; }
+
+.pets-scene--ogrod .pets-scroll { padding: 0; }
 
 .pets-garden {
     display: flex;
@@ -34,16 +53,24 @@
     min-width: 0;
 }
 
-/* Arkusz (< 1024 px): miejsce pod łąką, żeby wybrany nagrobek dało się przewinąć nad arkusz */
+/* Arkusz (< 1024 px): miejsce pod ogrodem, żeby wybrany nagrobek dało się przewinąć nad arkusz */
 @media (max-width: 1023.98px) {
     .pets-scene--ogrod.has-window .pets-garden { padding-bottom: calc(var(--window-h, 0px) + 24px); }
 }
 
-/* Tabliczka „Album gatunków n/8” — prawy górny róg sceny właściwej (pigułka jest w lewym) */
+/* Telefon: tabliczka albumu pod pigułką */
+@media (max-width: 599.98px) {
+    .pets-scene--ogrod .pets-stage { --pg-ui-top: 124px; }
+    .pets-page--night .pets-scene--ogrod .pets-stage { --pg-ui-top: 176px; }
+}
+
+/* =====================================================================
+   Tabliczka „Album gatunków n/8” — prawy górny róg (pigułka jest w lewym)
+   ===================================================================== */
 .pets-garden__sign {
     position: absolute;
     top: 16px;
-    right: 16px;
+    right: calc(16px + var(--pg-reserve, 0px));
     z-index: 5;
     display: inline-flex;
     align-items: center;
@@ -95,15 +122,58 @@
     color: #f5c2fc;
 }
 
-/* Łąka z nagrobkami: nagrobki pośrodku trawy (przy wielu — od góry, przewijanie w środku) */
+/* Noc: pigułka nocy obok nazwy miejsca — tabliczka pod rzędem pigułek */
+.pets-page--night .pets-garden__sign { top: 68px; }
+
+@media (max-width: 599.98px) {
+    .pets-garden__sign { top: 68px; right: 12px; }
+    .pets-page--night .pets-garden__sign { top: 120px; }
+}
+
+/* Karta okna sceny (≥ 1024 px) zabiera 376 px: gdy obok pigułki nie zmieści się tabliczka (scena < 896 px,
+   np. 1024 px z rozwiniętym menu), tabliczka schodzi pod pigułkę, a rysunki nieba niżej */
+@container pets-garden (max-width: 895.98px) {
+    .pets-scene--ogrod.has-window .pets-garden__sign { top: 68px; }
+    .pets-scene--ogrod.has-window .pets-garden__meadow { --pg-ui-top: 124px; }
+}
+
+/* Niski i szeroki widok: pigułka nocy to sam księżyc 44 px (pets.css) — tabliczka zostaje w pierwszym rzędzie */
+@media (max-height: 520px) and (min-width: 600px) {
+    .pets-page--night .pets-garden__sign { top: 16px; }
+    .pets-page--night .pets-scene--ogrod .pets-stage { --pg-ui-top: 76px; }
+}
+
+/* =====================================================================
+   Ogród: trzy pasy na całą wysokość sceny
+   ===================================================================== */
 .pets-garden__meadow {
+    --pg-sky-min: calc(var(--pg-ui-top) + 46px);
+    --pg-fore-min: 64px;
+    --pg-cx: calc((100% - var(--pg-reserve, 0px)) / 2);       /* środek widocznej części (bez okna sceny) */
+    position: relative;
     flex: 1 0 auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(var(--pg-sky-min), 1.3fr) auto minmax(var(--pg-fore-min), 1fr);
     min-width: 0;
-    padding-top: 6vh;
+    min-height: 100%;
+    min-height: 100cqh;
+    /* Łąka w złotej godzinie: ciepłe światło od słońca (z prawej), drobne kwiatki, zieleń ciemniejąca ku dołowi */
+    background:
+        radial-gradient(ellipse 75% 60% at 76% 0%, rgba(255, 214, 150, 0.5), rgba(255, 214, 150, 0) 72%),
+        radial-gradient(circle at 22% 30%, rgba(255, 255, 255, 0.9) 0 1.7px, rgba(255, 255, 255, 0) 2.4px) 0 0 / 190px 130px,
+        radial-gradient(circle at 70% 64%, rgba(255, 166, 204, 0.85) 0 1.9px, rgba(255, 166, 204, 0) 2.6px) 0 0 / 230px 150px,
+        radial-gradient(circle at 44% 86%, rgba(142, 197, 255, 0.85) 0 1.7px, rgba(142, 197, 255, 0) 2.4px) 0 0 / 170px 160px,
+        linear-gradient(180deg, #cfe8a6 0%, #bde19a 30%, #a8d78b 70%, #9bcf80 100%);
+}
+
+[data-theme="dark"] .pets-garden__meadow {
+    background:
+        radial-gradient(ellipse 80% 55% at 50% 0%, rgba(178, 112, 148, 0.22), rgba(178, 112, 148, 0) 72%),
+        radial-gradient(circle at 22% 30%, rgba(230, 225, 255, 0.45) 0 1.6px, rgba(230, 225, 255, 0) 2.3px) 0 0 / 190px 130px,
+        radial-gradient(circle at 70% 64%, rgba(217, 139, 176, 0.5) 0 1.8px, rgba(217, 139, 176, 0) 2.5px) 0 0 / 230px 150px,
+        radial-gradient(circle at 44% 86%, rgba(122, 168, 230, 0.5) 0 1.6px, rgba(122, 168, 230, 0) 2.3px) 0 0 / 170px 160px,
+        linear-gradient(180deg, #35574a 0%, #2f4f41 35%, #294638 70%, #223d30 100%);
 }
 
 /* Nazwa sekcji dla czytników (widoczną nazwą miejsca jest pigułka) */
@@ -120,37 +190,354 @@
     border: 0;
 }
 
-.pets-garden__empty {
-    align-self: center;
-    max-width: 420px;
-    margin: 0;
-    padding: 12px 16px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.8);
-    color: #2d4a2a;
-    font-size: var(--text-sm, 0.875rem);
-    text-align: center;
+/* Ozdoby pasów: pozycjonowane w pasie, bez zdarzeń (klik w ogród = tło sceny, zamyka okno) */
+.pets-garden__sky > *,
+.pets-garden__fore > * {
+    position: absolute;
+    display: block;
+    pointer-events: none;
+}
+
+/* Rysunki w opakowaniach (chmurka, księżyc, wierzba, ścieżka, latarenka, motyl) — bez odstępu linii bazowej;
+   rysunki będące samym dzieckiem pasa (krzew, kępka, ławeczka, staw, kwiaty) dostają display z reguły wyżej,
+   więc zapytania kontenera mogą je chować */
+.pets-garden__sky span > svg,
+.pets-garden__fore span > svg { display: block; }
+
+/* =====================================================================
+   Pas nieba: niebo, słońce/księżyc, chmurki, wzgórza, wierzba, mgiełka, płotek
+   ===================================================================== */
+.pets-garden__sky {
+    --pg-hills-h: clamp(40px, min(46cqh, 9cqw + 22px), 140px);
+    grid-row: 1;
+    position: relative;
+    container: pg-sky / size;
+    overflow: hidden;
+    overflow: clip;
+    background: linear-gradient(180deg, #c3d3fb 0%, #dcd3f4 30%, #f6d4e2 56%, #ffdcc8 76%, #ffe9c6 92%, #fff1d4 100%);
+}
+
+[data-theme="dark"] .pets-garden__sky {
+    background: linear-gradient(180deg, #1c1a48 0%, #2c2763 30%, #4a3a7c 56%, #7a5090 76%, #b06d92 92%, #cf8b8f 100%);
+}
+
+/* Gwiazdy: trzy warstwy migoczą osobno (wieczór i noc) */
+.pg-stars {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: #fff8d6;
+    opacity: 0;
+}
+
+.pg-stars--big { fill: #fffbe6; }
+
+[data-theme="dark"] .pg-stars--a { opacity: 0.75; animation: pg-twinkle 3.6s ease-in-out infinite alternate; }
+[data-theme="dark"] .pg-stars--b { opacity: 0.5; animation: pg-twinkle 5.2s ease-in-out -2s infinite alternate; }
+[data-theme="dark"] .pg-stars--big { opacity: 0.6; animation: pg-twinkle 4.4s ease-in-out -1s infinite alternate; }
+
+/* Słońce złotej godziny nisko nad wzgórzami, z miękką poświatą */
+.pg-sun {
+    /* nisko nad wzgórzami, ale zawsze pod pigułką i tabliczką (niskie niebo = mniejsze słońce) */
+    --sun: clamp(0px, min(22cqh, calc(100cqh - var(--pg-ui-top) - var(--pg-hills-h) * 0.82 - 6px)), 100px);
+    left: calc(var(--pg-cx) + min(28cqw, 330px) - var(--sun) / 2);
+    bottom: calc(var(--pg-hills-h) * 0.82);
+    width: var(--sun);
+    height: var(--sun);
+    border-radius: 50%;
+    background: radial-gradient(circle, #fffcec 0 34%, #ffeab4 58%, #ffd98e 72%);
+    box-shadow: 0 0 0 calc(var(--sun) * 0.16) rgba(255, 226, 160, 0.4);
+}
+
+.pg-sun::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--sun) * -1.5);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 218, 150, 0.6) 0%, rgba(255, 206, 170, 0.25) 38%, rgba(255, 206, 170, 0) 70%);
+    animation: pg-breathe 7s ease-in-out infinite alternate;
+}
+
+[data-theme="dark"] .pg-sun { display: none; }
+
+/* Księżyc: wieczorem mały sierp, nocą większy z poświatą */
+.pg-moon {
+    --moon: clamp(0px, calc(100cqh - var(--pg-ui-top) - var(--pg-hills-h) - 18px), 40px);
+    top: calc(var(--pg-ui-top) + 6px);
+    left: calc(var(--pg-cx) + min(24cqw, 280px));
+    width: var(--moon);
+    height: var(--moon);
+    display: none;
+}
+
+.pg-moon svg {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.pg-moon::before {
+    content: "";
+    position: absolute;
+    inset: -90%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 244, 200, 0.32) 0%, rgba(255, 244, 200, 0.1) 40%, rgba(255, 244, 200, 0) 68%);
+}
+
+.pg-moon-body { fill: #fff4c2; }
+.pg-moon-dot { fill: #f1e2a4; }
+
+[data-theme="dark"] .pg-moon { display: block; opacity: 0.85; }
+
+/* Spadająca gwiazda (tylko noc) */
+.pg-shoot {
+    top: calc(var(--pg-ui-top) + 14px);
+    left: calc(var(--pg-cx) - min(6cqw, 60px));
+    width: 90px;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(255, 250, 220, 0), #fffbe6);
+    opacity: 0;
+    display: none;
+    transform: rotate(-24deg);
+}
+
+/* Chmurki: dryfują powoli; przy niskim niebie znikają */
+.pg-cloud {
+    width: clamp(64px, 13cqw, 170px);
+    aspect-ratio: 140 / 50;
+}
+
+.pg-cloud svg {
+    width: 100%;
+    height: 100%;
+}
+
+.pg-cloud--1 {
+    top: clamp(var(--pg-ui-top), calc(var(--pg-ui-top) + 10%), calc(100% - var(--pg-hills-h) - 30px));
+    left: calc(var(--pg-cx) - min(9cqw, 100px));
+    animation: pg-cloud-drift 48s ease-in-out infinite alternate;
+}
+
+.pg-cloud--2 {
+    top: clamp(var(--pg-ui-top), calc(var(--pg-ui-top) + 30%), calc(100% - var(--pg-hills-h) - 24px));
+    left: calc(var(--pg-cx) + min(34cqw, 400px));
+    width: clamp(48px, 9cqw, 120px);
+    animation: pg-cloud-drift 62s ease-in-out -24s infinite alternate-reverse;
+}
+
+.pg-cloud-body { fill: #fff6f2; }
+.pg-cloud-shade { fill: #f8d6df; }
+
+[data-theme="dark"] .pg-cloud-body { fill: rgba(196, 176, 255, 0.24); }
+[data-theme="dark"] .pg-cloud-shade { fill: rgba(150, 120, 220, 0.2); }
+
+/* Ptaki w oddali (tylko w dzień) */
+.pg-birds {
+    top: clamp(var(--pg-ui-top), calc(var(--pg-ui-top) + 22%), calc(100% - var(--pg-hills-h) - 30px));
+    left: calc(var(--pg-cx) + min(4cqw, 50px));
+    width: clamp(36px, 5cqw, 60px);
+    aspect-ratio: 60 / 24;
+    fill: none;
+    stroke: #9a86b8;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.7;
+    animation: pg-birds 38s ease-in-out infinite alternate;
+}
+
+[data-theme="dark"] .pg-birds,
+.pets-page--night .pg-birds { display: none; }
+
+@container pg-sky (max-height: 219.98px) {
+    .pg-cloud,
+    .pg-birds { display: none; }
+}
+
+/* Wzgórza z linią drzew (bliższe wzgórze ma kolor łąki — horyzont przechodzi w trawę) */
+.pg-hills {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: var(--pg-hills-h);
+}
+
+.pg-hill-far { fill: #d9c9ea; }
+.pg-treeline { fill: #b8d6a8; }
+.pg-hill-near { fill: #cfe8a6; }
+
+[data-theme="dark"] .pg-hill-far { fill: #3a3270; }
+[data-theme="dark"] .pg-treeline { fill: #2d4a50; }
+[data-theme="dark"] .pg-hill-near { fill: #35574a; }
+
+/* Wierzba płacząca — „drzewo wspomnień” na horyzoncie, na lewo od nagrobków; od dołu pasa do pigułki */
+.pg-willow {
+    --wh: clamp(0px, min(calc(100cqh - var(--pg-ui-top) - 6px), 46cqw), 360px);
+    left: max(1.5%, calc(var(--pg-cx) - var(--wh) * 1.185 - min(9cqw, 110px)));
+    bottom: 2px;
+    width: calc(var(--wh) * 320 / 270);
+    height: var(--wh);
+    transform-origin: 50% 100%;
+    animation: pg-sway 9s ease-in-out infinite alternate;
+}
+
+.pg-willow svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.pg-w-shadow { fill: rgba(80, 110, 60, 0.18); }
+.pg-w-trunk { fill: #b08a68; }
+.pg-w-branch { fill: none; stroke: #b08a68; stroke-width: 7; stroke-linecap: round; }
+.pg-w-crown { fill: #9fd08a; }
+.pg-w-crown-hi { fill: #c3e6a6; }
+
+.pg-w-drape--back { fill: #7fb86e; }
+.pg-w-drape--mid { fill: #94cb7f; }
+.pg-w-drape--front { fill: #b2dc98; }
+.pg-w-leaf--mid { fill: #a9d78f; }
+.pg-w-leaf--front { fill: #c9eab0; }
+.pg-w-thread { fill: none; stroke: rgba(120, 90, 70, 0.55); stroke-width: 1.2; }
+.pg-w-heart { fill: #ff9ec4; }
+.pg-w-star { fill: #ffd76b; }
+.pg-w-lamp { fill: #ffe9d6; stroke: #e2b48c; stroke-width: 1; }
+.pg-w-lamp-rib { fill: none; stroke: #e8c3a0; stroke-width: 1; }
+.pg-w-grass { fill: #9ccd84; }
+
+.pg-ribbon path { fill: currentColor; }
+.pg-ribbon circle { fill: currentColor; }
+.pg-ribbon--pink { color: #ff9ec4; }
+.pg-ribbon--lilac { color: #c3a6ff; }
+.pg-ribbon--blue { color: #8ec5ff; }
+.pg-ribbon--yellow { color: #ffd36b; }
+
+/* Poświata lampionów na wierzbie (wieczór, noc) — w % rysunku 320×270 */
+.pg-w-glow {
+    position: absolute;
+    top: 55.6%;
+    width: 14%;
+    aspect-ratio: 1;
+    margin: -7% 0 0 -7%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 214, 130, 0.55) 0%, rgba(255, 200, 120, 0.2) 40%, rgba(255, 200, 120, 0) 70%);
+    opacity: 0;
+    animation: pg-glow-soft 3.8s ease-in-out infinite alternate;
+}
+
+.pg-w-glow--l { left: 18.75%; }
+.pg-w-glow--r { left: 81.9%; animation-delay: -1.7s; }
+
+[data-theme="dark"] .pg-w-shadow { fill: rgba(0, 0, 0, 0.25); }
+[data-theme="dark"] .pg-w-trunk { fill: #6b5545; }
+[data-theme="dark"] .pg-w-branch { stroke: #6b5545; }
+[data-theme="dark"] .pg-w-crown { fill: #3f6a54; }
+[data-theme="dark"] .pg-w-crown-hi { fill: #4f8066; }
+[data-theme="dark"] .pg-w-drape--back { fill: #2f5644; }
+[data-theme="dark"] .pg-w-drape--mid { fill: #3c6a53; }
+[data-theme="dark"] .pg-w-drape--front { fill: #4c7f63; }
+[data-theme="dark"] .pg-w-leaf--mid { fill: #477a5e; }
+[data-theme="dark"] .pg-w-leaf--front { fill: #5c9172; }
+[data-theme="dark"] .pg-w-thread { stroke: rgba(230, 220, 255, 0.35); }
+[data-theme="dark"] .pg-w-heart { fill: #e08cb0; }
+[data-theme="dark"] .pg-w-star { fill: #f0cf72; }
+[data-theme="dark"] .pg-w-lamp { fill: #ffe3a6; stroke: #d9a86e; }
+[data-theme="dark"] .pg-w-lamp-rib { stroke: #e6b878; }
+[data-theme="dark"] .pg-w-grass { fill: #3a6048; }
+[data-theme="dark"] .pg-ribbon--pink { color: #d98bb0; }
+[data-theme="dark"] .pg-ribbon--lilac { color: #a98fe0; }
+[data-theme="dark"] .pg-ribbon--blue { color: #7aa8e6; }
+[data-theme="dark"] .pg-ribbon--yellow { color: #e0bf62; }
+[data-theme="dark"] .pg-w-glow { opacity: 0.85; }
+
+/* Mgiełka nad horyzontem */
+.pg-mist {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--pg-hills-h) * 0.95);
+    background: linear-gradient(180deg, rgba(255, 250, 244, 0) 0%, rgba(255, 248, 238, 0.55) 72%, rgba(255, 250, 240, 0.25) 100%);
+    animation: pg-breathe 10s ease-in-out infinite alternate;
+}
+
+[data-theme="dark"] .pg-mist {
+    background: linear-gradient(180deg, rgba(206, 196, 255, 0) 0%, rgba(206, 196, 255, 0.2) 72%, rgba(206, 196, 255, 0.08) 100%);
+}
+
+/* Płotek na horyzoncie */
+.pg-fence {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: clamp(16px, 9cqh, 30px);
+}
+
+.pg-fence { opacity: 0.78; }
+.pg-picket { fill: #fff8ee; stroke: #eee0cc; stroke-width: 1; }
+.pg-rail { fill: #f3e7d6; }
+
+[data-theme="dark"] .pg-picket { fill: rgba(232, 226, 255, 0.5); stroke: rgba(190, 180, 230, 0.35); }
+[data-theme="dark"] .pg-rail { fill: rgba(206, 196, 240, 0.38); }
+
+/* =====================================================================
+   Kwatera z nagrobkami (główny punkt) — na jaśniejszej polanie
+   ===================================================================== */
+.pets-garden__plot {
+    grid-row: 2;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    padding: 14px calc(20px + var(--pg-reserve, 0px)) 10px 20px;
+}
+
+/* Polana: miękkie, jaśniejsze światło pod nagrobkami */
+.pets-garden__plot::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: -14px;
+    bottom: -18px;
+    left: calc(var(--pg-cx) - min(47%, 560px));
+    width: min(94%, 1120px);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 250, 222, 0.62), rgba(255, 250, 222, 0.24) 62%, rgba(255, 250, 222, 0));
+    pointer-events: none;
+}
+
+[data-theme="dark"] .pets-garden__plot::before {
+    background: radial-gradient(closest-side, rgba(255, 226, 190, 0.12), rgba(255, 226, 190, 0.05) 62%, rgba(255, 226, 190, 0));
 }
 
 .pets-garden__empty[hidden],
 .pets-graves[hidden] { display: none; }
 
+/* Nagrobki w rzędach wyśrodkowanych (także ostatni, niepełny rząd); do 4 w rzędzie, gdy się mieszczą */
 .pets-graves {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 170px));
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    gap: 22px 18px;
-    justify-items: center;
+    align-items: flex-end;
+    gap: 20px 18px;
+    width: 100%;
+    max-width: 1160px;
 }
 
-/* Nagrobek = przycisk (rig + tabliczka); szczegóły w oknie sceny */
+/* Nagrobek = przycisk (rig + znicz + tabliczka); szczegóły w oknie sceny */
 .pets-grave {
     position: relative;
+    flex: 0 1 clamp(140px, calc((100% - 54px) / 4), 170px);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    width: 100%;
+    min-width: 0;
     max-width: 170px;
     min-height: 44px;
     padding: 6px 6px 8px;
@@ -164,7 +551,7 @@
     transition: background 0.15s ease, transform 0.15s ease;
 }
 
-.pets-grave:hover { background: rgba(255, 255, 255, 0.28); }
+.pets-grave:hover { background: rgba(255, 255, 255, 0.3); }
 
 .pets-grave:focus-visible {
     outline: 3px solid #f093fb;
@@ -172,6 +559,7 @@
 }
 
 .pets-grave__art {
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: flex-end;
@@ -180,11 +568,120 @@
 
 .pets-grave__art .pet-rig { width: 120px; }
 
+/* Własna świeczka rigu ustępuje w ogrodzie zniczowi (większy, ciepły — światełko gracza); ukryty płomyk
+   rigu nie animuje się na próżno */
+.pets-grave .pet-rig--memorial .mem-candle { display: none; }
+.pets-grave .pet-rig--memorial .mem-flame { animation: none; }
+
+/* Niezapominajki u stóp nagrobka */
+.pets-grave__art::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: 9%;
+    bottom: 1px;
+    width: 24px;
+    height: 12px;
+    background:
+        radial-gradient(circle at 20% 60%, #fff3b0 0 1.4px, #8ec5ff 1.6px 3.6px, rgba(142, 197, 255, 0) 4.2px),
+        radial-gradient(circle at 56% 34%, #fff3b0 0 1.3px, #ffa9cb 1.5px 3.3px, rgba(255, 169, 203, 0) 3.9px),
+        radial-gradient(circle at 86% 70%, #fff3b0 0 1.2px, #8ec5ff 1.4px 3px, rgba(142, 197, 255, 0) 3.6px);
+    pointer-events: none;
+}
+
+[data-theme="dark"] .pets-grave__art::before {
+    background:
+        radial-gradient(circle at 20% 60%, #f0d890 0 1.4px, #7aa8e6 1.6px 3.6px, rgba(122, 168, 230, 0) 4.2px),
+        radial-gradient(circle at 56% 34%, #f0d890 0 1.3px, #d98bb0 1.5px 3.3px, rgba(217, 139, 176, 0) 3.9px),
+        radial-gradient(circle at 86% 70%, #f0d890 0 1.2px, #7aa8e6 1.4px 3px, rgba(122, 168, 230, 0) 3.6px);
+}
+
+/* Znicz przed nagrobkiem (prawy dolny róg kamienia) */
+.pets-grave__znicz {
+    position: absolute;
+    z-index: 2;
+    left: 68%;
+    bottom: 0;
+    width: 21px;
+    height: 31.5px;
+    pointer-events: none;
+}
+
+.pets-grave__znicz svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.zn-shadow { fill: rgba(60, 40, 70, 0.16); }
+.zn-glass { fill: #ecbfca; stroke: #d79cab; stroke-width: 0.8; }
+.zn-band { fill: #f7dbe2; }
+.zn-heart { fill: #ffffff; opacity: 0.75; }
+.zn-shine { fill: none; stroke: rgba(255, 255, 255, 0.6); stroke-width: 1.2; stroke-linecap: round; }
+.zn-rim { fill: #e3c47a; }
+.zn-wick { fill: none; stroke: #6b5a4a; stroke-width: 1.2; stroke-linecap: round; }
+.zn-inner { fill: #ffd27a; opacity: 0; transition: opacity 0.8s ease; }
+.zn-flame-out { fill: #ffb547; stroke: #ff8a3d; stroke-width: 0.6; }
+.zn-flame-core { fill: #fff3c4; }
+
+.zn-flame-wrap,
+.zn-flame {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+}
+
+.zn-flame-wrap {
+    opacity: 0;
+    transform: scale(0.2);
+    transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+/* Zapalony: płomyk, ciepłe wnętrze szkła, poświata wokół */
+.pets-grave.is-lit .zn-glass { fill: #ff9fb5; stroke: #e57c96; }
+.pets-grave.is-lit .zn-band { fill: #ffc9d6; }
+.pets-grave.is-lit .zn-inner { opacity: 0.85; }
+.pets-grave.is-lit .zn-flame-wrap { opacity: 1; transform: none; }
+.pets-grave.is-lit .zn-flame { animation: pg-flame 1.5s ease-in-out infinite; }
+
+[data-theme="dark"] .zn-shadow { fill: rgba(0, 0, 0, 0.3); }
+[data-theme="dark"] .zn-glass { fill: #9d7088; stroke: #b88aa0; }
+[data-theme="dark"] .zn-band { fill: #b98aa0; }
+[data-theme="dark"] .zn-rim { fill: #c9a85e; }
+[data-theme="dark"] .pets-grave.is-lit .zn-glass { fill: #e0748f; stroke: #f09ab0; }
+[data-theme="dark"] .pets-grave.is-lit .zn-band { fill: #f2a7bb; }
+
+.pets-grave__glow {
+    position: absolute;
+    z-index: 1;
+    left: calc(68% + 10.5px - 56px);
+    bottom: -32px;
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 196, 104, 0.78) 0%, rgba(255, 182, 92, 0.34) 34%, rgba(255, 176, 90, 0) 68%);
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    pointer-events: none;
+}
+
+.pets-grave.is-lit .pets-grave__glow {
+    opacity: 1;
+    animation: pg-glow 3.2s ease-in-out infinite alternate;
+}
+
+[data-theme="dark"] .pets-grave__glow {
+    background: radial-gradient(circle, rgba(255, 196, 104, 0.62) 0%, rgba(255, 176, 88, 0.28) 36%, rgba(255, 170, 80, 0) 68%);
+}
+
 .pets-grave__name {
+    position: relative;
+    z-index: 3;
     max-width: 100%;
     padding: 2px 10px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 2px 6px rgba(90, 60, 40, 0.1);
     color: #2b2445;
     font-size: 13px;
     font-weight: 700;
@@ -197,6 +694,7 @@
 /* Płomyk: dziś można zapalić światełko */
 .pets-grave__flame {
     position: absolute;
+    z-index: 3;
     top: 4px;
     right: 14px;
     display: inline-flex;
@@ -220,34 +718,738 @@
     stroke: none;
 }
 
-[data-theme="dark"] .pets-garden__empty {
-    background: rgba(26, 18, 48, 0.78);
-    color: #ffffff;
-}
-
 [data-theme="dark"] .pets-grave:hover { background: rgba(255, 255, 255, 0.08); }
 
 [data-theme="dark"] .pets-grave__name {
     background: rgba(26, 18, 48, 0.82);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     color: #ffffff;
 }
 
 [data-theme="dark"] .pets-grave__flame { border-color: rgba(26, 18, 48, 0.9); }
 
-/* Noc: pigułka nocy obok nazwy miejsca — tabliczka albumu i łąka pod rzędem pigułek */
-.pets-page--night .pets-garden__sign { top: 68px; }
-.pets-page--night .pets-scene--ogrod .pets-scroll { padding-top: 124px; }
-
-/* Telefon: tabliczka albumu pod pigułką, łąka niżej */
-@media (max-width: 599.98px) {
-    .pets-garden__sign { top: 68px; right: 12px; }
-    .pets-scene--ogrod .pets-scroll { padding-top: 124px; }
-    .pets-page--night .pets-garden__sign { top: 120px; }
-    .pets-page--night .pets-scene--ogrod .pets-scroll { padding-top: 176px; }
-    .pets-graves { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
+/* Pusty ogród: łagodny napis na polanie */
+.pets-garden__empty {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 440px;
+    margin: 4px auto;
+    padding: 12px 18px 12px 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 0 6px 20px rgba(140, 100, 60, 0.12);
+    color: #4a3f5c;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.5;
 }
 
+.pets-garden__empty-icon {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 32px;
+}
+
+[data-theme="dark"] .pets-garden__empty {
+    background: rgba(26, 18, 48, 0.72);
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.85);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+/* =====================================================================
+   Pas przedni: ścieżka z latarenkami, ławeczka, staw, kwiaty, motyle, płatki, świetliki
+   ===================================================================== */
+.pets-garden__fore {
+    --pw: clamp(64px, min(20cqw, 70cqh), 210px);        /* szerokość ścieżki */
+    grid-row: 3;
+    position: relative;
+    container: pg-fore / size;
+    overflow: hidden;
+    overflow: clip;
+}
+
+.pg-pathway {
+    top: 0;
+    bottom: 0;
+    left: calc(var(--pg-cx) - var(--pw) / 2);
+    width: var(--pw);
+}
+
+.pg-path {
+    width: 100%;
+    height: 100%;
+}
+
+.pg-stone { fill: #f1ebe0; }
+.pg-stone-shade { fill: #d6cab6; }
+.pg-stone-hi { fill: rgba(255, 255, 255, 0.7); }
+
+[data-theme="dark"] .pg-stone { fill: #6e6b84; }
+[data-theme="dark"] .pg-stone-shade { fill: #4a4760; }
+[data-theme="dark"] .pg-stone-hi { fill: rgba(255, 255, 255, 0.14); }
+
+/* Latarenki przy wejściu na ścieżkę */
+.pg-lantern {
+    --lh: clamp(0px, 50cqh, 124px);
+    bottom: 5%;
+    width: calc(var(--lh) * 50 / 130);
+    height: var(--lh);
+}
+
+.pg-lantern svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.pg-lantern--l { left: calc(var(--pg-cx) - var(--pw) / 2 - var(--lh) * 50 / 130 + 4px); }
+
+.pg-lantern--r {
+    left: calc(var(--pg-cx) + var(--pw) / 2 - 4px);
+    transform: scaleX(-1);
+}
+
+.pg-lt-pole { fill: none; stroke: #7d6a5c; stroke-width: 3.5; stroke-linecap: round; }
+.pg-lt-grass { fill: #8cc775; }
+.pg-lt-roof { fill: #8a7464; }
+.pg-lt-glass { fill: #fff0cf; stroke: #8a7464; stroke-width: 1.4; }
+.pg-lt-frame { fill: none; stroke: #8a7464; stroke-width: 1.2; }
+.pg-lt-candle { fill: #fffaf0; stroke: #e6d2b0; stroke-width: 0.8; }
+.pg-lt-flame { fill: #ffb547; transform-box: fill-box; transform-origin: 50% 100%; animation: pg-flame 1.6s ease-in-out infinite; }
+
+.pg-lt-glow {
+    position: absolute;
+    left: 80%;
+    top: 38%;
+    width: 150%;
+    aspect-ratio: 1;
+    margin: -75% 0 0 -75%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 212, 128, 0.6) 0%, rgba(255, 196, 112, 0.22) 38%, rgba(255, 196, 112, 0) 68%);
+    opacity: 0.45;
+    animation: pg-glow-soft 3.4s ease-in-out infinite alternate;
+}
+
+.pg-lantern--r .pg-lt-glow,
+.pg-lantern--r .pg-lt-flame { animation-delay: -1.3s; }
+
+[data-theme="dark"] .pg-lt-pole { stroke: #4c4458; }
+[data-theme="dark"] .pg-lt-grass { fill: #355a43; }
+[data-theme="dark"] .pg-lt-roof { fill: #4c4458; }
+[data-theme="dark"] .pg-lt-glass { fill: #ffe2a0; stroke: #5a5068; }
+[data-theme="dark"] .pg-lt-frame { stroke: #5a5068; }
+[data-theme="dark"] .pg-lt-candle { fill: #fff4dc; stroke: #d9bf90; }
+[data-theme="dark"] .pg-lt-glow { opacity: 0.9; }
+
+/* Ławeczka (na lewo od ścieżki) */
+.pg-bench {
+    --bh: clamp(0px, min(34cqh, 12cqw), 104px);
+    bottom: 36%;
+    left: max(1%, calc(var(--pg-cx) - var(--pw) / 2 - min(13cqw, 150px) - var(--bh) * 130 / 84));
+    width: calc(var(--bh) * 130 / 84);
+    height: var(--bh);
+}
+
+.pg-shadow { fill: rgba(70, 100, 50, 0.16); }
+.pg-bn-wood { fill: #e2b388; }
+.pg-bn-dark { fill: #b98a62; }
+.pg-bn-heart { fill: #ff9ec4; }
+.pg-bq-wrap { fill: #fff2c9; stroke: #e8cf96; stroke-width: 0.8; }
+
+[data-theme="dark"] .pg-shadow { fill: rgba(0, 0, 0, 0.25); }
+[data-theme="dark"] .pg-bn-wood { fill: #8a6a52; }
+[data-theme="dark"] .pg-bn-dark { fill: #67503f; }
+[data-theme="dark"] .pg-bn-heart { fill: #d98bb0; }
+[data-theme="dark"] .pg-bq-wrap { fill: #c9b890; stroke: #a8966c; }
+
+/* Staw z liliami (na prawo od ścieżki) */
+.pg-pond {
+    --ph: clamp(0px, min(42cqh, 15cqw), 150px);
+    bottom: 13%;
+    left: calc(var(--pg-cx) + var(--pw) / 2 + min(8cqw, 90px));
+    width: calc(var(--ph) * 240 / 112);
+    height: var(--ph);
+}
+
+.pg-pd-bank { fill: #bfe09a; }
+.pg-pd-w1 { stop-color: #a9dcf2; }
+.pg-pd-w2 { stop-color: #86c5e6; }
+.pg-pd-hi { fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 2.2; stroke-linecap: round; }
+.pg-pd-moon { fill: rgba(255, 244, 194, 0.85); opacity: 0; }
+.pg-pd-pad { fill: #7cc47a; }
+.pg-pd-lily { fill: #ffbfd6; }
+.pg-pd-lily-c { fill: #ffe07a; }
+.pg-pd-rock { fill: #ddd5c8; }
+.pg-pd-reed { fill: none; stroke: #7fb86b; stroke-width: 2; stroke-linecap: round; }
+.pg-pd-leaf { fill: #8cc775; }
+.pg-pd-cat { fill: #a6744e; }
+
+[data-theme="dark"] .pg-pd-bank { fill: #34523f; }
+[data-theme="dark"] .pg-pd-w1 { stop-color: #33507e; }
+[data-theme="dark"] .pg-pd-w2 { stop-color: #233a62; }
+[data-theme="dark"] .pg-pd-hi { stroke: rgba(220, 210, 255, 0.3); }
+[data-theme="dark"] .pg-pd-moon { opacity: 0.55; }
+[data-theme="dark"] .pg-pd-pad { fill: #3f7a55; }
+[data-theme="dark"] .pg-pd-lily { fill: #d991b2; }
+[data-theme="dark"] .pg-pd-lily-c { fill: #e8c86a; }
+[data-theme="dark"] .pg-pd-rock { fill: #5c5872; }
+[data-theme="dark"] .pg-pd-reed { stroke: #4a7a5a; }
+[data-theme="dark"] .pg-pd-leaf { fill: #3f6e50; }
+[data-theme="dark"] .pg-pd-cat { fill: #6b5140; }
+
+/* Polne kwiaty i niezapominajki */
+.pg-flowers {
+    --fh: clamp(18px, 15cqh, 46px);
+    width: calc(var(--fh) * 64 / 44);
+    height: var(--fh);
+}
+
+/* Rabatki wzdłuż ścieżki (dalej = mniejsze) i kępy kwiatów przy krawędziach */
+.pg-flowers--1 { left: 1.5%; bottom: 3%; }
+.pg-flowers--2 { left: calc(var(--pg-cx) - var(--pw) / 2 - var(--fh) * 2.2); bottom: 1%; }
+.pg-flowers--3 { --fh: clamp(14px, 9cqh, 34px); left: calc(var(--pg-cx) - var(--pw) * 0.42 - var(--fh) * 1.5); top: 40%; }
+.pg-flowers--4 { left: calc(var(--pg-cx) + var(--pw) / 2 + var(--fh) * 0.7); bottom: 0; }
+.pg-flowers--5 { right: 2%; bottom: 4%; }
+.pg-flowers--6 { --fh: clamp(14px, 9cqh, 34px); left: calc(var(--pg-cx) + var(--pw) * 0.4); top: 52%; }
+.pg-flowers--7 { --fh: clamp(12px, 6cqh, 24px); left: calc(var(--pg-cx) - var(--pw) * 0.3 - var(--fh) * 1.5); top: 12%; }
+.pg-flowers--8 { --fh: clamp(12px, 6cqh, 24px); left: calc(var(--pg-cx) + var(--pw) * 0.28); top: 20%; }
+
+/* Kwitnące krzewy w głębi i kępki trawy */
+.pg-bush {
+    --bsh: clamp(0px, 24cqh, 92px);
+    width: calc(var(--bsh) * 120 / 76);
+    height: var(--bsh);
+}
+
+.pg-bush--1 { left: max(1%, calc(var(--pg-cx) - min(44cqw, 500px))); top: 6%; }
+.pg-bush--2 { --bsh: clamp(0px, 19cqh, 74px); left: calc(var(--pg-cx) + min(30cqw, 340px)); top: 3%; }
+
+.pg-bush-leaf { fill: #8fca7a; }
+.pg-bush-hi { fill: #b4df9a; }
+
+[data-theme="dark"] .pg-bush-leaf { fill: #345c47; }
+[data-theme="dark"] .pg-bush-hi { fill: #44735a; }
+
+.pg-tuft {
+    width: clamp(16px, 5cqh, 30px);
+    aspect-ratio: 30 / 16;
+}
+
+.pg-tuft--1 { left: 21%; top: 24%; }
+.pg-tuft--2 { left: 74%; top: 34%; }
+.pg-tuft--3 { left: 33%; top: 70%; }
+.pg-tuft--4 { left: 90%; top: 48%; }
+.pg-tuft--5 { left: 7%; top: 58%; }
+.pg-tuft--6 { left: 60%; top: 9%; }
+
+.pg-tuft-blade { fill: #86c26f; }
+[data-theme="dark"] .pg-tuft-blade { fill: #3a644c; }
+
+.pg-leaf { fill: #7cbf68; }
+.pg-stem { fill: none; stroke: #6fae5d; stroke-width: 1.6; stroke-linecap: round; }
+.pg-fl-blue { fill: #8ec5ff; }
+.pg-fl-pink { fill: #ffa9cb; }
+.pg-fl-white { fill: #ffffff; stroke: #f0e2ec; stroke-width: 0.5; }
+.pg-fl-yellow { fill: #ffd76b; }
+.pg-fl-lilac { fill: #cdb8ff; }
+.pg-fl-c { fill: #fff0a8; }
+
+[data-theme="dark"] .pg-leaf { fill: #3f6e50; }
+[data-theme="dark"] .pg-stem { stroke: #4a7d5a; }
+[data-theme="dark"] .pg-fl-blue { fill: #7aa8e6; }
+[data-theme="dark"] .pg-fl-pink { fill: #d98bb0; }
+[data-theme="dark"] .pg-fl-white { fill: #e6e0f0; stroke: #b9b0cc; }
+[data-theme="dark"] .pg-fl-yellow { fill: #e8c86a; }
+[data-theme="dark"] .pg-fl-lilac { fill: #a48fdc; }
+[data-theme="dark"] .pg-fl-c { fill: #f0d890; }
+
+/* Motyle (tylko w dzień): trzepot skrzydeł + spokojny lot nad kwiatami */
+.pg-butterfly {
+    width: 26px;
+    height: 20px;
+}
+
+.pg-butterfly svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.pg-butterfly--1 { left: 12%; top: 34%; animation: pg-bf-path-1 19s ease-in-out infinite alternate; }
+.pg-butterfly--2 { left: calc(var(--pg-cx) + min(16cqw, 180px)); top: 18%; animation: pg-bf-path-2 23s ease-in-out -6s infinite alternate; }
+
+.pg-bf-wing {
+    transform-box: fill-box;
+    animation: pg-bf-flap 0.42s ease-in-out infinite alternate;
+}
+
+.pg-bf-wing--l { transform-origin: 100% 50%; }
+.pg-bf-wing--r { transform-origin: 0% 50%; }
+.pg-butterfly--1 .pg-bf-wing { fill: #ffb3d1; }
+.pg-butterfly--2 .pg-bf-wing { fill: #c7b4ff; animation-duration: 0.5s; }
+.pg-bf-spot { fill: rgba(255, 255, 255, 0.75); }
+.pg-bf-body { fill: #6b5470; }
+.pg-bf-ant { fill: none; stroke: #6b5470; stroke-width: 0.9; stroke-linecap: round; }
+
+[data-theme="dark"] .pg-butterfly { display: none; }
+
+/* Płatki i dmuchawce (dzień) */
+.pg-petal {
+    left: -3%;
+    width: 9px;
+    height: 6px;
+    border-radius: 60% 40% 60% 40%;
+    background: linear-gradient(135deg, #ffd0e2, #ff9ec4);
+    opacity: 0;
+    animation: pg-drift 26s linear infinite;
+}
+
+.pg-petal--1 { top: 22%; animation-duration: 24s; animation-delay: -3s; }
+.pg-petal--2 { top: 48%; animation-duration: 29s; animation-delay: -13s; }
+.pg-petal--3 { top: 66%; animation-duration: 26s; animation-delay: -20s; background: linear-gradient(135deg, #ffffff, #f4e6f6); }
+.pg-petal--4 { top: 32%; animation-duration: 32s; animation-delay: -8s; }
+.pg-petal--5 { top: 80%; animation-duration: 27s; animation-delay: -24s; background: linear-gradient(135deg, #fff3c4, #ffd76b); }
+.pg-petal--6 { top: 56%; animation-duration: 35s; animation-delay: -16s; }
+
+.pg-seed {
+    left: -2%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 20%, rgba(255, 255, 255, 0.55) 38%, rgba(255, 255, 255, 0) 62%);
+    opacity: 0;
+    animation: pg-seed 34s linear infinite;
+}
+
+.pg-seed::after {
+    content: "";
+    position: absolute;
+    left: 5.5px;
+    top: 9px;
+    width: 1px;
+    height: 7px;
+    background: rgba(160, 130, 110, 0.55);
+}
+
+.pg-seed--1 { bottom: 30%; animation-delay: -6s; }
+.pg-seed--2 { bottom: 52%; animation-duration: 41s; animation-delay: -22s; }
+.pg-seed--3 { bottom: 20%; animation-duration: 38s; animation-delay: -31s; }
+
+[data-theme="dark"] .pg-petal,
+[data-theme="dark"] .pg-seed { display: none; }
+
+/* Świetliki (wieczór i noc): ukryte (display: none — bez animacji) w dzień */
+.pg-fly {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fffde2 0 18%, rgba(255, 238, 150, 0.85) 30%, rgba(255, 226, 120, 0) 70%);
+    animation: pg-fly-a 12s ease-in-out infinite alternate, pg-blink 3.4s ease-in-out infinite;
+}
+
+.pets-garden__sky > .pg-fly,
+.pets-garden__fore > .pg-fly { display: none; }
+
+[data-theme="dark"] .pets-garden__sky > .pg-fly,
+[data-theme="dark"] .pets-garden__fore > .pg-fly { display: block; }
+
+.pg-fly--sky.pg-fly--1 { left: 12%; bottom: 18%; }
+.pg-fly--sky.pg-fly--2 { left: 27%; bottom: 36%; animation-delay: -4s, -1.2s; }
+.pg-fly--sky.pg-fly--3 { left: 41%; bottom: 22%; animation-name: pg-fly-b, pg-blink; animation-delay: -7s, -2s; }
+.pg-fly--sky.pg-fly--4 { left: 63%; bottom: 30%; animation-delay: -2s, -0.6s; }
+.pg-fly--sky.pg-fly--5 { left: 84%; bottom: 14%; animation-name: pg-fly-b, pg-blink; animation-delay: -9s, -2.6s; }
+
+.pg-fly--fore.pg-fly--1 { left: 7%; top: 28%; }
+.pg-fly--fore.pg-fly--2 { left: 19%; top: 64%; animation-name: pg-fly-b, pg-blink; animation-delay: -3s, -1s; }
+.pg-fly--fore.pg-fly--3 { left: 31%; top: 18%; animation-delay: -6s, -2.2s; }
+.pg-fly--fore.pg-fly--4 { left: 45%; top: 74%; animation-name: pg-fly-c, pg-blink; animation-delay: -1s, -0.4s; }
+.pg-fly--fore.pg-fly--5 { left: 57%; top: 40%; animation-delay: -8s, -1.8s; }
+.pg-fly--fore.pg-fly--6 { left: 70%; top: 16%; animation-name: pg-fly-c, pg-blink; animation-delay: -5s, -3s; }
+.pg-fly--fore.pg-fly--7 { left: 84%; top: 58%; animation-name: pg-fly-b, pg-blink; animation-delay: -10s, -0.9s; }
+.pg-fly--fore.pg-fly--8 { left: 94%; top: 30%; animation-delay: -2s, -2.8s; }
+
+/* =====================================================================
+   Noc w grze (pupile śpią): granatowe niebo, księżyc z poświatą, dużo gwiazd, spadająca gwiazda,
+   świetliki, zapalone lampiony i latarenki — w obu motywach (ciemny jeszcze głębszy)
+   ===================================================================== */
+.pets-page--night .pets-scene--ogrod { background: #1f423b; }
+
+.pets-page--night .pets-garden__meadow {
+    background:
+        radial-gradient(ellipse 60% 45% at 70% 0%, rgba(190, 205, 255, 0.16), rgba(190, 205, 255, 0) 72%),
+        radial-gradient(circle at 22% 30%, rgba(230, 235, 255, 0.4) 0 1.6px, rgba(230, 235, 255, 0) 2.3px) 0 0 / 190px 130px,
+        radial-gradient(circle at 70% 64%, rgba(217, 139, 176, 0.45) 0 1.8px, rgba(217, 139, 176, 0) 2.5px) 0 0 / 230px 150px,
+        radial-gradient(circle at 44% 86%, rgba(122, 168, 230, 0.45) 0 1.6px, rgba(122, 168, 230, 0) 2.3px) 0 0 / 170px 160px,
+        linear-gradient(180deg, #305c53 0%, #2a524a 35%, #244942 70%, #1f423b 100%);
+}
+
+.pets-page--night .pets-garden__sky {
+    background: linear-gradient(180deg, #0c1333 0%, #141d45 34%, #1e2a5c 64%, #2c3a74 86%, #3b4a86 100%);
+}
+
+.pets-page--night .pg-stars--a { opacity: 1; animation: pg-twinkle 3.2s ease-in-out infinite alternate; }
+.pets-page--night .pg-stars--b { opacity: 0.85; animation: pg-twinkle 4.6s ease-in-out -2s infinite alternate; }
+.pets-page--night .pg-stars--c { opacity: 0.7; animation: pg-twinkle 6s ease-in-out -3s infinite alternate; }
+.pets-page--night .pg-stars--big { opacity: 1; animation: pg-twinkle 3.8s ease-in-out -1s infinite alternate; }
+
+.pets-page--night .pg-sun { display: none; }
+
+.pets-page--night .pg-moon {
+    --moon: clamp(0px, calc(100cqh - var(--pg-ui-top) - var(--pg-hills-h) - 18px), 58px);
+    display: block;
+    opacity: 1;
+}
+
+.pets-page--night .pg-moon::before {
+    background: radial-gradient(circle, rgba(255, 244, 200, 0.42) 0%, rgba(255, 244, 200, 0.14) 40%, rgba(255, 244, 200, 0) 68%);
+    animation: pg-breathe 6s ease-in-out infinite alternate;
+}
+
+.pets-page--night .pg-shoot {
+    display: block;
+    animation: pg-shoot 13s ease-in 4s infinite;
+}
+
+.pets-page--night .pg-cloud { opacity: 0.35; }
+.pets-page--night .pg-cloud-body { fill: rgba(200, 210, 255, 0.28); }
+.pets-page--night .pg-cloud-shade { fill: rgba(140, 150, 220, 0.2); }
+
+.pets-page--night .pg-hill-far { fill: #2a3a6c; }
+.pets-page--night .pg-treeline { fill: #24474f; }
+.pets-page--night .pg-hill-near { fill: #305c53; }
+.pets-page--night .pg-mist {
+    background: linear-gradient(180deg, rgba(190, 205, 255, 0) 0%, rgba(190, 205, 255, 0.2) 72%, rgba(190, 205, 255, 0.08) 100%);
+}
+
+.pets-page--night .pg-picket { fill: rgba(225, 232, 255, 0.5); stroke: rgba(180, 190, 235, 0.35); }
+.pets-page--night .pg-rail { fill: rgba(200, 210, 245, 0.36); }
+
+.pets-page--night .pg-w-shadow { fill: rgba(0, 0, 0, 0.22); }
+.pets-page--night .pg-w-trunk { fill: #5e4c48; }
+.pets-page--night .pg-w-branch { stroke: #5e4c48; }
+.pets-page--night .pg-w-crown { fill: #2f5a54; }
+.pets-page--night .pg-w-crown-hi { fill: #3d6e66; }
+.pets-page--night .pg-w-drape--back { fill: #244842; }
+.pets-page--night .pg-w-drape--mid { fill: #2f5c54; }
+.pets-page--night .pg-w-drape--front { fill: #3b6e62; }
+.pets-page--night .pg-w-leaf--mid { fill: #376a5e; }
+.pets-page--night .pg-w-leaf--front { fill: #4a8070; }
+.pets-page--night .pg-w-grass { fill: #2f5a4e; }
+.pets-page--night .pg-w-lamp { fill: #ffe3a6; stroke: #d9a86e; }
+.pets-page--night .pg-w-lamp-rib { stroke: #e6b878; }
+.pets-page--night .pg-w-glow { opacity: 1; }
+
+.pets-page--night .pets-garden__plot::before {
+    background: radial-gradient(closest-side, rgba(190, 205, 255, 0.14), rgba(190, 205, 255, 0.05) 62%, rgba(190, 205, 255, 0));
+}
+
+.pets-page--night .pg-stone { fill: #75809a; }
+.pets-page--night .pg-stone-shade { fill: #4c566e; }
+.pets-page--night .pg-stone-hi { fill: rgba(255, 255, 255, 0.18); }
+
+.pets-page--night .pg-lt-glass { fill: #ffe2a0; }
+.pets-page--night .pg-lt-glow { opacity: 1; }
+
+.pets-page--night .pg-bn-wood { fill: #8a7466; }
+.pets-page--night .pg-bn-dark { fill: #66574e; }
+.pets-page--night .pg-bq-wrap { fill: #c9c0a6; stroke: #a89c80; }
+
+.pets-page--night .pg-pd-bank { fill: #2c5048; }
+.pets-page--night .pg-pd-w1 { stop-color: #2c4880; }
+.pets-page--night .pg-pd-w2 { stop-color: #1d3262; }
+.pets-page--night .pg-pd-hi { stroke: rgba(210, 220, 255, 0.3); }
+.pets-page--night .pg-pd-moon { opacity: 1; }
+.pets-page--night .pg-pd-pad { fill: #356e58; }
+.pets-page--night .pg-pd-rock { fill: #5f6680; }
+.pets-page--night .pg-pd-reed { stroke: #3f735e; }
+.pets-page--night .pg-pd-leaf { fill: #356650; }
+
+.pets-page--night .pg-leaf { fill: #356650; }
+.pets-page--night .pg-stem { stroke: #427560; }
+.pets-page--night .pg-fl-blue { fill: #7aa3e6; }
+.pets-page--night .pg-fl-pink { fill: #cf86ad; }
+.pets-page--night .pg-fl-white { fill: #dfe2f2; stroke: #aab0cc; }
+.pets-page--night .pg-fl-yellow { fill: #e0c46a; }
+.pets-page--night .pg-fl-lilac { fill: #9f8ed8; }
+.pets-page--night .pg-bush-leaf { fill: #2c564a; }
+.pets-page--night .pg-bush-hi { fill: #386858; }
+.pets-page--night .pg-tuft-blade { fill: #335e50; }
+
+.pets-page--night .pg-butterfly,
+.pets-page--night .pg-petal,
+.pets-page--night .pg-seed { display: none; }
+
+.pets-page--night .pets-garden__sky > .pg-fly,
+.pets-page--night .pets-garden__fore > .pg-fly {
+    display: block;
+    width: 14px;
+    height: 14px;
+}
+
+.pets-page--night .pets-grave.is-lit .pets-grave__glow {
+    background: radial-gradient(circle, rgba(255, 200, 104, 0.72) 0%, rgba(255, 180, 88, 0.32) 36%, rgba(255, 170, 80, 0) 70%);
+}
+
+/* Noc w ciemnym motywie — jeszcze głębsze tony */
+[data-theme="dark"] .pets-page--night .pets-scene--ogrod { background: #18332d; }
+
+[data-theme="dark"] .pets-page--night .pets-garden__meadow {
+    background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(150, 170, 255, 0.1), rgba(150, 170, 255, 0) 72%),
+        radial-gradient(circle at 22% 30%, rgba(230, 235, 255, 0.32) 0 1.6px, rgba(230, 235, 255, 0) 2.3px) 0 0 / 190px 130px,
+        radial-gradient(circle at 70% 64%, rgba(217, 139, 176, 0.36) 0 1.8px, rgba(217, 139, 176, 0) 2.5px) 0 0 / 230px 150px,
+        radial-gradient(circle at 44% 86%, rgba(122, 168, 230, 0.36) 0 1.6px, rgba(122, 168, 230, 0) 2.3px) 0 0 / 170px 160px,
+        linear-gradient(180deg, #25473f 0%, #213f38 35%, #1c3832 70%, #18332d 100%);
+}
+
+[data-theme="dark"] .pets-page--night .pets-garden__sky {
+    background: linear-gradient(180deg, #070b22 0%, #0d1434 34%, #151f4a 64%, #202d60 86%, #2c3a70 100%);
+}
+
+[data-theme="dark"] .pets-page--night .pg-hill-far { fill: #1f2d58; }
+[data-theme="dark"] .pets-page--night .pg-treeline { fill: #1b3940; }
+[data-theme="dark"] .pets-page--night .pg-hill-near { fill: #25473f; }
+
+/* =====================================================================
+   Układ wg rozmiaru sceny (zapytania kontenera — scena właściwa ogrodu)
+   ===================================================================== */
+
+/* Wąsko (telefon): dwa nagrobki w rzędzie, bez latarenek i ławeczki, staw przy prawej krawędzi */
+@container pets-garden (max-width: 599.98px) {
+    .pets-garden__plot { padding: 10px 12px 8px; }
+    .pets-graves { gap: 14px 10px; }
+    .pets-grave { flex-basis: calc(50% - 5px); }
+    .pets-garden__fore { --pw: clamp(56px, min(22cqw, 60cqh), 120px); }
+    .pg-lantern,
+    .pg-bench { display: none; }
+
+    .pg-pond {
+        --ph: clamp(0px, min(40cqh, 17cqw), 110px);
+        left: auto;
+        right: 2%;
+    }
+
+    .pg-flowers--2 { left: 3%; }
+    .pg-flowers--7,
+    .pg-flowers--8 { display: none; }
+}
+
+/* Średnio szeroko: ławeczka węższa i bliżej ścieżki */
+@container pets-garden (min-width: 600px) and (max-width: 899.98px) {
+    .pg-bench { left: max(1%, calc(var(--pg-cx) - var(--pw) / 2 - min(7cqw, 60px) - var(--bh) * 130 / 84)); }
+}
+
+/* Nisko (telefon poziomo, niski laptop): mniejsze nagrobki, niebo tuż pod pigułką */
+@container pets-garden (max-height: 459.98px) {
+    .pets-garden__meadow {
+        --pg-sky-min: calc(var(--pg-ui-top) + 12px);
+        --pg-fore-min: 40px;
+    }
+
+    .pets-garden__plot { padding-top: 6px; padding-bottom: 4px; }
+    .pets-graves { gap: 8px 12px; }
+    .pets-grave { flex-basis: clamp(108px, calc((100% - 36px) / 4), 140px); padding: 2px 4px 4px; gap: 4px; }
+    .pets-grave__art { min-height: 88px; }
+    .pets-grave__art .pet-rig { width: 92px; }
+    .pets-grave__znicz { width: 16px; height: 24px; }
+    .pets-grave__glow { left: calc(68% + 8px - 44px); bottom: -26px; width: 88px; height: 88px; }
+    .pets-grave__flame { right: 6px; }
+}
+
+/* Wysoka i szeroka scena: większe nagrobki — zostają głównym punktem dużego ogrodu */
+@container pets-garden (min-height: 860px) and (min-width: 900px) {
+    .pets-grave {
+        flex-basis: clamp(150px, calc((100% - 54px) / 4), 190px);
+        max-width: 190px;
+    }
+
+    .pets-grave__art { min-height: 140px; }
+    .pets-grave__art .pet-rig { width: 144px; }
+    .pets-grave__znicz { width: 25px; height: 37.5px; }
+    .pets-grave__glow { left: calc(68% + 12.5px - 66px); bottom: -38px; width: 132px; height: 132px; }
+    .pets-grave__name { font-size: 14px; }
+}
+
+/* Szeroka scena z niskim niebem (np. 1366×600): księżyc (wieczór, noc) nie mieści się pod pigułką — świeci
+   w pierwszym rzędzie, w przerwie między pigułką (z lewej) a tabliczką albumu. Przy otwartej karcie okna
+   tabliczka przesuwa się w lewo, więc wtedy księżyc wraca pod pigułkę (mniejszy albo wcale). */
+@container pets-garden (min-width: 900px) {
+    @container pg-sky (max-height: 279.98px) {
+        [data-theme="dark"] .pets-scene--ogrod:not(.has-window) .pg-moon,
+        .pets-page--night .pets-scene--ogrod:not(.has-window) .pg-moon {
+            --moon: clamp(0px, calc(100cqh - 24px - var(--pg-hills-h)), 46px);
+            top: 14px;
+            left: calc(var(--pg-cx) + min(16cqw, 190px));
+        }
+    }
+}
+
+/* Pas przedni niski: tylko kwiaty i ścieżka */
+@container pg-fore (max-height: 99.98px) {
+    .pg-pond,
+    .pg-bench,
+    .pg-lantern,
+    .pg-butterfly,
+    .pg-flowers--3,
+    .pg-flowers--6,
+    .pg-flowers--7,
+    .pg-flowers--8 { display: none; }
+}
+
+/* =====================================================================
+   Ruch
+   ===================================================================== */
+@keyframes pg-breathe {
+    from { opacity: 0.72; }
+    to { opacity: 1; }
+}
+
+@keyframes pg-twinkle {
+    from { opacity: 0.35; }
+}
+
+@keyframes pg-sway {
+    from { transform: skewX(-0.9deg); }
+    to { transform: skewX(0.9deg); }
+}
+
+@keyframes pg-cloud-drift {
+    from { transform: translateX(-34px); }
+    to { transform: translateX(34px); }
+}
+
+@keyframes pg-birds {
+    from { transform: translate(-30px, 6px); }
+    to { transform: translate(40px, -8px); }
+}
+
+@keyframes pg-shoot {
+    0% { opacity: 0; transform: rotate(-24deg) translateX(0); }
+    3% { opacity: 1; }
+    9% { opacity: 0; transform: rotate(-24deg) translateX(-260px); }
+    100% { opacity: 0; transform: rotate(-24deg) translateX(-260px); }
+}
+
+@keyframes pg-flame {
+    0%, 100% { transform: scale(1, 1) rotate(-2deg); }
+    50% { transform: scale(0.9, 1.1) rotate(3deg); }
+}
+
+@keyframes pg-glow {
+    from { transform: scale(0.92); }
+    to { transform: scale(1.06); }
+}
+
+@keyframes pg-glow-soft {
+    from { transform: scale(0.9); }
+    to { transform: scale(1.08); }
+}
+
+@keyframes pg-fly-a {
+    0% { transform: translate(0, 0); }
+    33% { transform: translate(22px, -16px); }
+    66% { transform: translate(-10px, -28px); }
+    100% { transform: translate(14px, 8px); }
+}
+
+@keyframes pg-fly-b {
+    0% { transform: translate(0, 0); }
+    40% { transform: translate(-24px, -10px); }
+    70% { transform: translate(-6px, 18px); }
+    100% { transform: translate(20px, -14px); }
+}
+
+@keyframes pg-fly-c {
+    0% { transform: translate(0, 0); }
+    30% { transform: translate(12px, 20px); }
+    65% { transform: translate(28px, -6px); }
+    100% { transform: translate(-16px, -20px); }
+}
+
+@keyframes pg-blink {
+    0%, 100% { opacity: 0.15; }
+    45%, 60% { opacity: 1; }
+}
+
+@keyframes pg-drift {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    8% { opacity: 0.9; }
+    50% { transform: translate(56cqw, -10cqh) rotate(220deg); }
+    92% { opacity: 0.9; }
+    100% { transform: translate(110cqw, 6cqh) rotate(440deg); opacity: 0; }
+}
+
+@keyframes pg-seed {
+    0% { transform: translate(0, 0); opacity: 0; }
+    10% { opacity: 0.9; }
+    50% { transform: translate(55cqw, -14cqh); }
+    90% { opacity: 0.9; }
+    100% { transform: translate(108cqw, -4cqh); opacity: 0; }
+}
+
+@keyframes pg-bf-flap {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0.3); }
+}
+
+@keyframes pg-bf-path-1 {
+    0% { transform: translate(0, 0) rotate(-6deg); }
+    25% { transform: translate(6cqw, -14cqh) rotate(8deg); }
+    50% { transform: translate(14cqw, 4cqh) rotate(-4deg); }
+    75% { transform: translate(8cqw, 18cqh) rotate(6deg); }
+    100% { transform: translate(-3cqw, 6cqh) rotate(-8deg); }
+}
+
+@keyframes pg-bf-path-2 {
+    0% { transform: translate(0, 0) rotate(6deg); }
+    30% { transform: translate(-9cqw, 12cqh) rotate(-6deg); }
+    60% { transform: translate(5cqw, 22cqh) rotate(4deg); }
+    100% { transform: translate(12cqw, 2cqh) rotate(-4deg); }
+}
+
+/* Ograniczony ruch: ogród nieruchomy (świetliki, gwiazdy, płomyki świecą bez migotania); płatki, dmuchawce,
+   motyle i spadająca gwiazda znikają */
 @media (prefers-reduced-motion: reduce) {
     .pets-garden__sign,
-    .pets-grave { transition: none; }
+    .pets-grave,
+    .pets-scene--ogrod .pets-stage,
+    .zn-inner,
+    .zn-flame-wrap,
+    .pets-grave__glow { transition: none; }
+
+    .pets-garden__sky *,
+    .pets-garden__sky *::before,
+    .pets-garden__fore *,
+    .pets-garden__fore *::before,
+    .pets-grave .zn-flame,
+    .pets-grave .pets-grave__glow { animation: none; }
+
+    .pg-petal,
+    .pg-seed,
+    .pg-shoot,
+    .pg-butterfly { visibility: hidden; }
 }
+
+html.pet-rig-rm .pets-garden__sign,
+html.pet-rig-rm .pets-grave,
+html.pet-rig-rm .pets-scene--ogrod .pets-stage,
+html.pet-rig-rm .zn-inner,
+html.pet-rig-rm .zn-flame-wrap,
+html.pet-rig-rm .pets-grave__glow { transition: none; }
+
+html.pet-rig-rm .pets-garden__sky *,
+html.pet-rig-rm .pets-garden__sky *::before,
+html.pet-rig-rm .pets-garden__fore *,
+html.pet-rig-rm .pets-garden__fore *::before,
+html.pet-rig-rm .pets-grave .zn-flame,
+html.pet-rig-rm .pets-grave .pets-grave__glow { animation: none; }
+
+html.pet-rig-rm .pg-petal,
+html.pet-rig-rm .pg-seed,
+html.pet-rig-rm .pg-shoot,
+html.pet-rig-rm .pg-butterfly { visibility: hidden; }
