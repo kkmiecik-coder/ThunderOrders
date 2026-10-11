@@ -10,6 +10,7 @@ na czas żądania. Flagi włączenia/rolloutu mają osobny cache w procesie (10 
 app.maintenance_cache), bo sprawdza je context processor na każdej stronie.
 """
 import json
+import math
 import time
 from dataclasses import dataclass, field, fields
 from typing import ClassVar
@@ -107,6 +108,9 @@ def _przetworz(nazwa, surowe, domyslna, zero_ok):
         for klucz, wartosc in scalone.items():
             if not isinstance(wartosc, (int, float)) or isinstance(wartosc, bool):
                 raise ValueError(f'{klucz}: nie liczba')
+            if not math.isfinite(wartosc):
+                # json.loads przyjmuje NaN i Infinity; porównania z nimi nie łapią zakresów
+                raise ValueError(f'{klucz}: liczba nieskończona lub NaN')
             if klucz == 'factor' and nazwa == 'night':
                 if not 0 < wartosc <= 1:
                     raise ValueError('night.factor poza (0, 1]')

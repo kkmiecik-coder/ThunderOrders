@@ -74,6 +74,9 @@ def test_niepoprawny_json_nie_wywraca_i_daje_domyslne(db, caplog):
     ('pets_night', json.dumps({'start': 23, 'end': 7, 'factor': 1.5}), 'json'),
     ('pets_decay_hours', json.dumps({'hunger': 0}), 'json'),
     ('pets_decay_hours', json.dumps([24, 30, 48]), 'json'),
+    # json.loads przyjmuje NaN/Infinity, a one nie są sensownymi liczbami konfiguracji
+    ('pets_decay_hours', '{"hunger": NaN}', 'json'),
+    ('pets_stage_days', '{"child": Infinity}', 'json'),
 ])
 def test_wartosci_poza_zakresem_sa_ignorowane(db, key, value, typ):
     from modules.pets.config import PetConfig
