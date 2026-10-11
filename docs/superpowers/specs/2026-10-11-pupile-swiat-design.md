@@ -18,7 +18,7 @@ chory czy brudny; opieka jest przyjemna (dłuższe, zróżnicowane animacje), a 
 |---|---|
 | Kierunek graficzny świata | **Mapa-plansza z lotu ptaka** (polanka, ścieżka, 4 miejsca; telefon = plansza pionowa) |
 | Miejsca | **Domek** (pupile), **Szpital** (inkubatornia + sala chorych), **Warsztat** (ustawienia), **Ogród wspomnień** (nagrobki + album) |
-| Leczenie | **Pobyt w szpitalu**, który trwa — nie natychmiastowe +zdrowie |
+| Leczenie | **Pobyt w szpitalu**, który trwa — nie natychmiastowe +zdrowie; **zbyt długi pobyt po wyzdrowieniu zmniejsza radość** |
 | Domek | **Jeden pokój**, pupile chodzą; braki widać po zachowaniu; klik w pupila → panel |
 | Panel pupila | **Wysuwany od dołu** (desktop: z boku); pupil widoczny nad panelem |
 | Sygnały zachowań | głodny przy misce + burczenie; smutny w kącie + chmurka; brudny plamki + muszka; chory leży + termometr; śpi w koszyku; szczęśliwy skacze — **zaakceptowane** |
@@ -74,6 +74,11 @@ chory czy brudny; opieka jest przyjemna (dłuższe, zróżnicowane animacje), a 
   Akcje opieki poza `pat` → 409 `in_hospital`. `pat` działa normalnie (radość zablokowana na ≥ floor i tak rośnie)
   i liczy się jako opieka dnia (`care_days`, `login_streak`).
 - **Wyleczony:** chwila `healed_at = t0 + (100 − h0) / rate`. Od niej pupil „czeka na odbiór”.
+- **Tęsknota (decyzja Konrada):** zbyt długi pobyt po wyzdrowieniu zmniejsza szczęście. Od `healed_at` **radość
+  spada** w normalnym tempie dziennym (`100 / decay_hours.fun` na godzinę × mnożnik gwiazdek, bez nocnego
+  spowolnienia — w szpitalu pupil nie śpi wg zegara), aż do 0. Sytość i czystość dalej stoją, zdrowie zostaje 100
+  (w szpitalu nie spada). Przy domyślnych liczbach (próg 60, 30 h) radość dochodzi do 0 po ok. 18 h czekania —
+  pupil wypisany automatycznie po 24 h wraca smutny i od razu potrzebuje opieki.
 - **Odbiór** (`discharge`): ręcznie w każdej chwili (także przed wyleczeniem — z bieżącym zdrowiem) albo
   **automatycznie** po `healed_at + wait_hours`. Odbiór w chwili `td`: stan szpitalny do `td` zapisany
   (`apply_state`), `hospital_since := None`, `state_at := td`, zdarzenie `discharge`. Od `td` zwykła symulacja.
@@ -102,7 +107,8 @@ Nowe typy zdarzeń (String(20), bez zmiany schematu): `admit`, `discharge`. Oba 
 ### 4.4 Symulacja
 
 `simulate_pet(pet, now, cfg)` rozpoznaje `pet.hospital_since`:
-1. odcinek szpitalny `[state_at, min(now, td_auto))` — paski stałe, zdrowie liniowo w górę, bez odejścia;
+1. odcinek szpitalny `[state_at, min(now, td_auto))` — sytość i czystość stałe, zdrowie liniowo w górę do 100,
+   radość stała do `healed_at`, potem spada (tęsknota, §4.1); bez odejścia;
 2. jeśli `now > td_auto` (auto-wypis) — dalej zwykła `rules.simulate` od `td_auto` ze stanem z końca odcinka 1.
 Wynik niesie `in_hospital`, `healed_at`, `auto_discharge_at`, `discharged_at` (gdy auto-wypis wyliczony).
 Istniejące gwarancje zostają: DST (`T < state_at` → bez zmian), kroki 5 min poza szpitalem.
