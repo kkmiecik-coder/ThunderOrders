@@ -99,6 +99,8 @@ znikają z formularza admina).
 
 Tabela `pets`:
 - `hospital_since` DateTime NULL — od kiedy w szpitalu (NULL = nie),
+- `hospital_healed_at` DateTime NULL — chwila wyzdrowienia ustalona przy przyjęciu (zapis stanu w trakcie
+  pobytu, np. po pat pat, jej nie przesuwa; z niej liczy się auto-wypis i tęsknota),
 - `hospital_ready_notified_at` DateTime NULL — push „wyzdrowiał” wysłany dla tego pobytu,
 - `egg_skin` SmallInteger NOT NULL default 0 (server_default `0`) — skórka jajka 0–4.
 
