@@ -93,3 +93,17 @@ def test_pet_companion_css_ladowany_na_stronie_bez_super(app, client, login, mak
         url = url_for('orders.client_list')
     html = client.get(url).data.decode()
     assert 'css/components/pet-companion.css' in html and 'id="petCompanion"' in html
+
+
+def test_towarzysz_podaje_adres_css_rigu_do_leniwego_ladowania(app, client, login, make_user, db, strona_sprzedazy):
+    """Panel i oferty nie ładują pet-rig.css — towarzysz dociąga go sam (leniwie, dopiero gdy ma kogo
+    pokazać) i potrzebuje dokładnego adresu z wersją pliku (url_for dokleja ?v=mtime per plik)."""
+    import re
+    user = make_user(profile_completed=True)
+    login(user)
+    _wlacz(db)
+    for url in ('/client/orders', f'/offer/{strona_sprzedazy.token}/thank-you'):
+        html = client.get(url, follow_redirects=True).data.decode()
+        m = re.search(r'id="petCompanion"[^>]*data-rig-css="([^"]+)"', html, re.S)
+        assert m and '/static/css/components/pet-rig.css' in m.group(1), url
+        assert '<link rel="stylesheet" href="' + m.group(1) not in html, url   # nie ładujemy go z góry
