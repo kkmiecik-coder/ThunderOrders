@@ -5821,3 +5821,173 @@ html.pet-hatch-open body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
     .pet-sheet { transition: none; animation: none; }
 }
+
+/* === Okno sceny (v3.1) === */
+/* Wspólne okno kontekstowe świata pupili (static/js/pet/world/scene-window.js, spec v3.1 §3.4): panel pupila
+   w domku, okna szpitala, album i nagrobki w ogrodzie. Zawsze position: absolute w section.pets-scene —
+   pływa w granicach sceny, nie obok niej. Nie-modalne: scena zostaje widoczna i klikalna.
+   < 1024 px: arkusz od dołu (max. 75% wysokości sceny i zawsze ≥ 140 px sceny nad nim, żeby wybrany obiekt
+   był widoczny), uchwyt 44 px, przeciągnięcie w dół zamyka (--drag z JS). ≥ 1024 px: karta 360 px przy
+   prawej krawędzi, od wysokości pigułki do dołu sceny z marginesem 16 px, przewijanie w środku. */
+.pets-window {
+    --drag: 0px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    max-height: max(50%, min(75%, calc(100% - 140px)));
+    overflow: hidden;
+    border-radius: 22px 22px 0 0;
+    background: #ffffff;
+    border: 1px solid #F0E4F7;
+    border-bottom: none;
+    box-shadow: 0 -10px 34px rgba(90, 24, 154, 0.18);
+    color: var(--text-primary, #212121);
+    transform: translateY(105%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.pets-window[hidden] { display: none; }
+.pets-window.is-open { transform: translateY(var(--drag)); }
+.pets-window.is-dragging { transition: none; }
+.pets-window:focus { outline: none; }
+
+.pets-window__grip {
+    flex: 0 0 44px;              /* cel dotyku ≥ 44 px (kreska uchwytu zostaje mała) */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: grab;
+    touch-action: none;
+}
+
+.pets-window.is-dragging .pets-window__grip { cursor: grabbing; }
+
+.pets-window__grip-bar {
+    width: 44px;
+    height: 5px;
+    border-radius: 999px;
+    background: #E4D4EE;
+}
+
+.pets-window__close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--gray-600, #616161);
+    cursor: pointer;
+}
+
+.pets-window__close:hover { background: rgba(90, 24, 154, 0.06); }
+
+.pets-window__close:focus-visible {
+    outline: 2px solid #f093fb;
+    outline-offset: 1px;
+}
+
+.pets-window__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 18px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Treść okien: miejsce na × przy tytule, tekst i rząd przycisków (sceny budują treść z tych klas) */
+.pets-window__body .pet-card__head { padding-right: 40px; }
+
+.pets-window__title {
+    margin: 0 44px 10px 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--text-primary, #212121);
+    overflow-wrap: anywhere;
+}
+
+.pets-window__text {
+    margin: 0 0 10px;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.5;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-window__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+[data-theme="dark"] .pets-window {
+    background: rgba(26, 18, 48, 0.94);
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+    color: #ffffff;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .pets-window__grip-bar { background: rgba(240, 147, 251, 0.35); }
+[data-theme="dark"] .pets-window__close { color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .pets-window__close:hover { background: rgba(255, 255, 255, 0.08); color: #ffffff; }
+[data-theme="dark"] .pets-window__title { color: #ffffff; }
+[data-theme="dark"] .pets-window__text { color: rgba(255, 255, 255, 0.72); }
+
+/* PWA: scena kończy się nad dolnym paskiem (safe-area już w nim) */
+@media (display-mode: standalone) {
+    .pets-window__body { padding-bottom: 18px; }
+}
+
+/* Desktop: karta przy prawej krawędzi sceny */
+@media (min-width: 1024px) {
+    .pets-window {
+        top: 16px;
+        right: 16px;
+        bottom: auto;
+        left: auto;
+        width: 360px;
+        max-height: calc(100% - 32px);
+        border: 1px solid #F0E4F7;
+        border-radius: 20px;
+        box-shadow: 0 8px 28px rgba(90, 24, 154, 0.14);
+        transform: none;
+        transition: none;
+        animation: pets-window-side-in 0.25s ease-out;
+    }
+
+    .pets-window.is-open { transform: none; }
+    .pets-window__grip { display: none; }
+    .pets-window__close { top: 8px; }
+    .pets-window__body { padding: 18px; }
+
+    [data-theme="dark"] .pets-window {
+        border-color: rgba(240, 147, 251, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    }
+}
+
+@keyframes pets-window-side-in {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-window { transition: none; animation: none; }
+}
+
+html.pet-rig-rm .pets-window { transition: none; animation: none; }
