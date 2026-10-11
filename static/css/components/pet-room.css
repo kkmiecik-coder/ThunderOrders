@@ -1,0 +1,293 @@
+/* ================================================
+   Pet room — pokój pupili (spec v3 §6.1, §7): domek (pełny) i widget dashboardu (.pet-room--compact)
+   Markup i logika: static/js/pet/world/room.js. Pokój jest ilustracją (kolory dzienne/nocne);
+   dark mode zmienia tylko ramkę i podpisy (paleta glassmorphism z CLAUDE.md).
+   ================================================ */
+
+.pet-room {
+    --pet-w: clamp(72px, 15%, 150px);
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 8;
+    min-height: 260px;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid #f3d6bf;
+    box-shadow: 0 6px 22px rgba(90, 61, 36, 0.12);
+    background: #ffe9d6;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pet-room__scene {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.pet-room__scene > * { position: absolute; }
+
+.pet-room__wall {
+    inset: 0 0 34% 0;
+    background: repeating-linear-gradient(90deg, #ffe9d6 0 30px, #ffe1cb 30px 60px);
+}
+
+.pet-room__floor {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 34%;
+    border-top: 6px solid #c4925f;
+    background:
+        repeating-linear-gradient(180deg, transparent 0 22%, rgba(164, 112, 64, 0.35) 22% calc(22% + 2px)),
+        linear-gradient(180deg, #d4a06d 0%, #dcae7f 100%);
+}
+
+.pet-room__window {
+    left: 50%;
+    top: 8%;
+    width: 21%;
+    transform: translateX(-50%);
+}
+
+.pet-room__window .pr-sky { fill: #bfe3ff; }
+.pet-room__window .pr-night { display: none; }
+.pet-room.is-night .pet-room__window .pr-sky { fill: #1d2550; }
+.pet-room.is-night .pet-room__window .pr-night { display: inline; }
+.pet-room.is-night .pet-room__window .pr-day { display: none; }
+
+.pet-room__picture {
+    left: 17%;
+    top: 14%;
+    width: 7%;
+}
+
+.pet-room__lamp {
+    right: 5%;
+    bottom: 31%;
+    width: 5%;
+}
+
+.pet-room__lamp .pr-lamp-glow {
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+
+.pet-room.is-night .pet-room__lamp .pr-lamp-glow { opacity: 0.55; }
+
+.pet-room__rug {
+    left: 50%;
+    bottom: 3%;
+    width: 46%;
+    height: 19%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, #ffc6d9 0 62%, #f6b6c9 63% 80%, #f29ab8 81%);
+}
+
+.pet-room__bowls {
+    left: 3%;
+    bottom: 5%;
+    width: 15%;
+}
+
+.pet-room__basket {
+    right: 2%;
+    bottom: 3%;
+    width: 19%;
+}
+
+.pet-room__cushion {
+    right: 22%;
+    bottom: 2%;
+    width: 11%;
+}
+
+.pet-room__toys {
+    left: 64%;
+    bottom: 24%;
+    width: 8%;
+}
+
+.pet-room__dark {
+    inset: 0;
+    background: rgba(20, 28, 69, 0.3);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+
+.pet-room.is-night .pet-room__dark { opacity: 1; }
+
+/* === Pupile === */
+.pet-room__pets {
+    position: absolute;
+    inset: 0;
+}
+
+.pet-room__pet {
+    --depth: 1;
+    --focus: 1;
+    --walk: 0s;
+    position: absolute;
+    left: 50%;
+    bottom: 5%;
+    width: var(--pet-w);
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 18px;
+    background: transparent;
+    cursor: pointer;
+    transform: translateX(-50%) scale(calc(var(--depth) * var(--focus)));
+    transform-origin: 50% 100%;
+    transition: left var(--walk) linear, bottom var(--walk) linear, transform 0.35s ease, opacity 0.3s ease, filter 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.pet-room__pet:focus { outline: none; }
+
+.pet-room__pet:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pet-room__body {
+    display: block;
+    line-height: 0;
+}
+
+.pet-room__body .pet-rig { width: 100%; }
+
+.pet-room__pet.is-walking .pet-room__body { animation: pet-room-step 0.42s ease-in-out infinite; }
+
+@keyframes pet-room-step {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4%); }
+}
+
+.pet-room__name {
+    position: absolute;
+    left: 50%;
+    top: 92%;
+    max-width: 140%;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
+    color: #5a3d24;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.pet-room__pet.is-focused { --focus: 1.3; }
+
+.pet-room__pet.is-dimmed {
+    opacity: 0.45;
+    filter: saturate(0.6);
+}
+
+/* === Widget (compact) === */
+.pet-room--compact {
+    aspect-ratio: 12 / 5;
+    min-height: 140px;
+    border-radius: 14px;
+}
+
+.pet-room--compact .pet-room__window { width: 17%; top: 7%; }
+.pet-room--compact .pet-room__pet { width: 14%; }
+.pet-room--compact .pet-room__pet.is-main { width: 26%; }
+
+.pet-room__bubble {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    z-index: 200;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid #ead9ef;
+    color: #3B2A3A;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    pointer-events: none;
+}
+
+.pet-room__bubble[hidden],
+.pet-room__more[hidden] { display: none; }
+
+.pet-room__more {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: 200;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #5a3d24;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* === Dark mode: ilustracja bez zmian, ramka i podpisy wg palety === */
+[data-theme="dark"] .pet-room {
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 6px 26px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .pet-room__name,
+[data-theme="dark"] .pet-room__more {
+    background: rgba(26, 18, 48, 0.82);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pet-room__bubble {
+    background: rgba(26, 18, 48, 0.9);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #ffffff;
+}
+
+/* === Wąski pokój (≤ 640 px szerokości: telefon albo domek z panelem z boku) — klasa .is-narrow z room.js,
+   bo o układzie decyduje szerokość pokoju, nie okna. Wyższa podłoga, więksi pupile. === */
+.pet-room.is-narrow {
+    --pet-w: 19%;
+    aspect-ratio: 4 / 3.4;
+    min-height: 0;
+    border-radius: 18px;
+}
+
+.pet-room.is-narrow .pet-room__wall { bottom: 46%; }
+.pet-room.is-narrow .pet-room__floor { height: 46%; }
+.pet-room.is-narrow .pet-room__window { width: 32%; top: 7%; }
+.pet-room.is-narrow .pet-room__picture { width: 10%; left: 8%; top: 12%; }
+.pet-room.is-narrow .pet-room__lamp { width: 7%; bottom: 43%; }
+.pet-room.is-narrow .pet-room__bowls { width: 22%; }
+.pet-room.is-narrow .pet-room__basket { width: 27%; }
+.pet-room.is-narrow .pet-room__cushion { width: 15%; right: 27%; }
+.pet-room.is-narrow .pet-room__toys { width: 11%; bottom: 35%; }
+.pet-room.is-narrow .pet-room__rug { width: 62%; height: 24%; }
+
+@media (max-width: 640px) {
+    .pet-room--compact { aspect-ratio: 12 / 6; }
+    .pet-room--compact .pet-room__window { width: 22%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pet-room__pet,
+    .pet-room__dark,
+    .pet-room__lamp .pr-lamp-glow { transition: none; }
+    .pet-room__pet.is-walking .pet-room__body { animation: none; }
+}
+
+html.pet-rig-rm .pet-room__pet { transition: none; }
+html.pet-rig-rm .pet-room__pet.is-walking .pet-room__body { animation: none; }

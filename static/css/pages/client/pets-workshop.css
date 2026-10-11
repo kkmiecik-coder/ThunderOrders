@@ -1,0 +1,257 @@
+/* ================================================
+   Świat pupili — warsztat (spec v3 §6.5): drewniany stół z narzędziami
+   (ramka = towarzysz, dzwonek = powiadomienia, książeczka = zasady). Logika: js/pet/world/workshop.js
+   ================================================ */
+
+.pets-workshop__table {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 16px;
+    align-items: start;
+    padding: 22px;
+    border-radius: 24px;
+    background:
+        repeating-linear-gradient(180deg, transparent 0 46px, rgba(122, 80, 40, 0.18) 46px 48px),
+        linear-gradient(180deg, #d9a877 0%, #c99a6b 100%);
+    border: 1px solid #b98a5c;
+    box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.08), 0 6px 20px rgba(90, 61, 36, 0.14);
+}
+
+.pets-tool {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    border-radius: 18px;
+    background: #FFFBF5;
+    border: 1px solid #F0DCC4;
+    box-shadow: 0 4px 0 rgba(122, 80, 40, 0.18);
+    min-width: 0;
+}
+
+.pets-tool--book { grid-column: 1 / -1; }
+
+.pets-tool__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pets-tool__art {
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+}
+
+.pets-tool__art svg { width: 100%; height: 100%; display: block; }
+
+.pets-tool__title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-tool__lead,
+.pets-tool__empty {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-secondary, #616161);
+}
+
+.pets-tool__empty[hidden] { display: none; }
+
+.pets-tool__rules {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 8px 28px;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.45;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-tool__rules strong { color: var(--text-primary, #212121); }
+
+.pets-tool .pets-setting {
+    border-top: none;
+    padding: 6px 0;
+}
+
+[data-theme="dark"] .pets-workshop__table {
+    background:
+        repeating-linear-gradient(180deg, transparent 0 46px, rgba(0, 0, 0, 0.18) 46px 48px),
+        linear-gradient(180deg, rgba(201, 154, 107, 0.28) 0%, rgba(168, 123, 79, 0.22) 100%);
+    border-color: rgba(240, 147, 251, 0.15);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .pets-tool {
+    background: rgba(26, 18, 48, 0.75);
+    border-color: rgba(240, 147, 251, 0.15);
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .pets-tool__title,
+[data-theme="dark"] .pets-tool__rules strong { color: #ffffff; }
+
+[data-theme="dark"] .pets-tool__lead,
+[data-theme="dark"] .pets-tool__empty,
+[data-theme="dark"] .pets-tool__rules { color: rgba(255, 255, 255, 0.72); }
+
+@media (max-width: 480px) {
+    .pets-workshop__table { padding: 12px; gap: 12px; border-radius: 18px; }
+    .pets-tool { padding: 14px; }
+
+    .pets-setting--select {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .pets-setting--select .pets-select { flex-basis: auto; width: 100%; }
+}
+
+/* === Przełączniki i wybór (przeniesione z dawnej sekcji ustawień) === */
+.pets-setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--card-border, #E0E4EB);
+}
+
+.pets-setting:first-child { border-top: none; padding-top: 0; }
+.pets-setting[hidden] { display: none; }
+.pets-setting.is-unavailable { opacity: 0.6; }
+
+.pets-setting__text { min-width: 0; flex: 1 1 auto; }
+
+.pets-setting__label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary, #212121);
+    cursor: pointer;
+}
+
+.pets-setting__hint {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-settings__empty {
+    margin: 0;
+    padding: 0 0 12px;
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-secondary, #616161);
+}
+
+.pets-settings__empty[hidden] { display: none; }
+
+.pets-select {
+    flex: 0 1 320px;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #D8B4FE;
+    border-radius: 12px;
+    background: #ffffff;
+    color: var(--text-primary, #212121);
+    font: inherit;
+    font-size: var(--text-sm, 0.875rem);
+    cursor: pointer;
+}
+
+.pets-select:focus-visible {
+    outline: none;
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.25);
+}
+
+/* Przełącznik (min. 44 px celu dotyku dzięki etykiecie-opakowaniu) */
+.pets-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 60px;
+    height: 44px;
+    cursor: pointer;
+}
+
+.pets-switch__input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.pets-switch__slider {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    background: #D1D5DB;
+    transition: background 0.2s ease;
+    pointer-events: none;
+}
+
+.pets-switch__slider::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease;
+}
+
+.pets-switch__input:checked + .pets-switch__slider { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.pets-switch__input:checked + .pets-switch__slider::after { transform: translateX(20px); }
+.pets-switch__input:focus-visible + .pets-switch__slider { box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.45); }
+.pets-switch__input:disabled { cursor: not-allowed; }
+.pets-switch__input:disabled + .pets-switch__slider { opacity: 0.5; }
+
+[data-theme="dark"] .pets-setting { border-top-color: rgba(240, 147, 251, 0.15); }
+[data-theme="dark"] .pets-setting__label { color: #ffffff; }
+
+[data-theme="dark"] .pets-setting__hint,
+[data-theme="dark"] .pets-settings__empty { color: rgba(255, 255, 255, 0.65); }
+
+[data-theme="dark"] .pets-select {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-select option {
+    background: #1a1a2e;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-switch__slider { background: rgba(255, 255, 255, 0.15); }
+
+[data-theme="dark"] .pets-switch__input:checked + .pets-switch__slider {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-switch__slider,
+    .pets-switch__slider::after { transition: none; }
+}

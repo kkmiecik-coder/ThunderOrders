@@ -1,0 +1,477 @@
+/* ================================================
+   Świat pupili — szpital (spec v3 §6.3): inkubatornia + sala chorych
+   Logika: static/js/pet/world/hospital.js. Wspólne bloki i pasek postępu: pets.css.
+   Nakładka wyklucia: components/modals.css („Pet hatch overlay (v3)”).
+   ================================================ */
+
+.pets-hospital {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+/* === Inkubatornia === */
+.pets-incubator {
+    background: linear-gradient(180deg, #FFF7EA 0%, #ffffff 70%);
+    border-color: #F6E2C2;
+}
+
+.pets-claim {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.pets-claim[hidden],
+.pets-nests[hidden],
+.pets-incubator__monthly[hidden] { display: none; }
+
+.pets-claim__tile {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-areas: "art info" "btn btn";
+    gap: 10px 12px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #F3D9F7;
+}
+
+.pets-claim__tile--rescue {
+    background: #F8F5FF;
+    border-color: #DDD3FF;
+}
+
+.pets-claim__art {
+    grid-area: art;
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.pets-claim__art .pet-rig { width: 72px; }
+
+/* Kokardka na jajku do odebrania */
+.pets-claim__bow {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 30px;
+    height: 14px;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.pets-claim__bow::before,
+.pets-claim__bow::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50% 50% 50% 0;
+    background: #f5576c;
+}
+
+.pets-claim__bow::before { left: 0; transform: rotate(-30deg); }
+.pets-claim__bow::after { right: 0; transform: rotate(120deg); }
+
+.pets-claim__info { grid-area: info; min-width: 0; }
+.pets-claim__tile > .pet-btn { grid-area: btn; width: 100%; }
+
+.pets-claim__title {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-claim__desc {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-nests {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 14px;
+}
+
+.pets-nest {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px 14px;
+    border-radius: 18px;
+    background: #ffffff;
+    border: 1px solid #F6E2C2;
+    text-align: center;
+    overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Ciepła lampa nad gniazdkiem */
+.pets-nest__lamp {
+    position: relative;
+    width: 64px;
+    height: 18px;
+    border-radius: 0 0 32px 32px;
+    background: #F4B860;
+    box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.08);
+}
+
+.pets-nest__lamp::after {
+    content: "";
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    width: 180px;
+    height: 120px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at 50% 0%, rgba(255, 196, 92, 0.45) 0%, rgba(255, 196, 92, 0) 70%);
+    pointer-events: none;
+}
+
+.pets-nest.is-boosted .pets-nest__lamp::after {
+    background: radial-gradient(ellipse at 50% 0%, rgba(255, 146, 60, 0.6) 0%, rgba(255, 146, 60, 0) 72%);
+}
+
+.pets-nest__art {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 6px;
+}
+
+.pets-nest__art .pet-rig {
+    position: relative;
+    z-index: 1;
+    width: 120px;
+}
+
+/* Gniazdko ze słomy pod jajkiem */
+.pets-nest__art::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 130px;
+    height: 34px;
+    transform: translateX(-50%);
+    border-radius: 0 0 65px 65px / 0 0 34px 34px;
+    background:
+        repeating-linear-gradient(115deg, rgba(122, 80, 40, 0.35) 0 3px, transparent 3px 9px),
+        linear-gradient(180deg, #d9a96b 0%, #b7834a 100%);
+}
+
+.pets-nest.is-ready {
+    border-color: #FBCFE8;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.18);
+}
+
+.pets-nest__title {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-nest .pets-progress { width: 100%; }
+
+.pets-nest__status {
+    margin: 0;
+    min-height: 2.6em;
+    font-size: 12.5px;
+    line-height: 1.3;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-nest__actions { width: 100%; }
+.pets-nest__actions .pet-btn { width: 100%; }
+
+.pets-incubator__monthly {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-secondary, #616161);
+}
+
+[data-theme="dark"] .pets-incubator {
+    background: linear-gradient(180deg, rgba(255, 196, 92, 0.08) 0%, rgba(255, 255, 255, 0.05) 70%);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-claim__tile,
+[data-theme="dark"] .pets-nest {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-claim__tile--rescue {
+    background: rgba(167, 139, 250, 0.1);
+    border-color: rgba(167, 139, 250, 0.3);
+}
+
+[data-theme="dark"] .pets-nest.is-ready {
+    border-color: rgba(240, 147, 251, 0.45);
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-claim__title,
+[data-theme="dark"] .pets-nest__title { color: #ffffff; }
+
+[data-theme="dark"] .pets-claim__desc,
+[data-theme="dark"] .pets-nest__status,
+[data-theme="dark"] .pets-incubator__monthly { color: rgba(255, 255, 255, 0.7); }
+
+/* === Sala chorych === */
+.pets-ward {
+    background: linear-gradient(180deg, #F2F8FF 0%, #ffffff 70%);
+    border-color: #DCE9F8;
+}
+
+.pets-beds {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.pets-beds[hidden],
+.pets-sick[hidden] { display: none; }
+
+.pets-bed {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-areas: "pet info" "actions actions";
+    gap: 10px 12px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 18px;
+    background: #ffffff;
+    border: 1px solid #DCE9F8;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pets-bed.is-ready {
+    border-color: #86EFAC;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+}
+
+.pets-bed.is-highlight,
+.pets-sick__row.is-highlight { animation: pets-bed-highlight 1.8s ease-out; }
+
+@keyframes pets-bed-highlight {
+    0% { box-shadow: 0 0 0 0 rgba(240, 147, 251, 0.6); }
+    100% { box-shadow: 0 0 0 16px rgba(240, 147, 251, 0); }
+}
+
+.pets-bed__pet {
+    grid-area: pet;
+    display: flex;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.pets-bed__pet:focus { outline: none; }
+.pets-bed__pet:focus-visible { outline: 3px solid #f093fb; outline-offset: 2px; }
+
+/* Luz nad pupilem: dłoń pat pat wychodzi ponad obszar riga (overflow: visible) */
+.pets-bed__art { line-height: 0; width: 108px; padding-top: 14px; }
+.pets-bed__art .pet-rig { width: 100%; }
+
+.pets-bed__info {
+    grid-area: info;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pets-bed__name {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pets-bed__status {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #166534;
+}
+
+.pets-bed:not(.is-ready) .pets-bed__status { color: #1E40AF; }
+
+.pets-bed__note {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-bed__actions {
+    grid-area: actions;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pets-bed__actions > .pet-btn { width: 100%; }
+
+.pets-bed__confirm {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-primary, #212121);
+}
+
+.pets-bed__confirm-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pets-bed__confirm-row .pet-btn { flex: 1 1 140px; }
+
+/* Chorzy w domku */
+.pets-sick {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pets-sick__title {
+    margin: 4px 0 0;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-sick__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pets-sick__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #FFF5F6;
+    border: 1px solid #FBD5DB;
+}
+
+.pets-sick__art { flex: 0 0 64px; line-height: 0; }
+.pets-sick__art .pet-rig { width: 64px; }
+
+.pets-sick__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pets-sick__name {
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pets-sick__meta {
+    font-size: 12.5px;
+    color: #BE123C;
+}
+
+.pets-sick__action {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+
+.pets-sick__reason {
+    margin: 0;
+    font-size: 11.5px;
+    text-align: center;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-sick__reason:empty { display: none; }
+
+[data-theme="dark"] .pets-ward {
+    background: linear-gradient(180deg, rgba(96, 165, 250, 0.08) 0%, rgba(255, 255, 255, 0.05) 70%);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-bed {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-bed.is-ready {
+    border-color: rgba(134, 239, 172, 0.5);
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
+}
+
+[data-theme="dark"] .pets-bed__name,
+[data-theme="dark"] .pets-bed__confirm,
+[data-theme="dark"] .pets-sick__title,
+[data-theme="dark"] .pets-sick__name { color: #ffffff; }
+
+[data-theme="dark"] .pets-bed__status { color: #86EFAC; }
+[data-theme="dark"] .pets-bed:not(.is-ready) .pets-bed__status { color: #93C5FD; }
+
+[data-theme="dark"] .pets-bed__note,
+[data-theme="dark"] .pets-sick__reason { color: rgba(255, 255, 255, 0.65); }
+
+[data-theme="dark"] .pets-sick__row {
+    background: rgba(251, 113, 133, 0.08);
+    border-color: rgba(251, 113, 133, 0.25);
+}
+
+[data-theme="dark"] .pets-sick__meta { color: #FDA4AF; }
+
+@media (max-width: 480px) {
+    .pets-claim,
+    .pets-beds { grid-template-columns: minmax(0, 1fr); }
+    .pets-nests { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .pets-nest { padding: 0 10px 12px; }
+    .pets-nest__art .pet-rig { width: 96px; }
+    .pets-nest__art::after { width: 104px; height: 28px; }
+    .pets-bed { grid-template-columns: 96px minmax(0, 1fr); }
+    .pets-bed__art { width: 92px; }
+    .pets-sick__row { flex-wrap: wrap; }
+    .pets-sick__action { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-nest,
+    .pets-bed { transition: none; }
+    .pets-bed.is-highlight,
+    .pets-sick__row.is-highlight { animation: none; }
+}

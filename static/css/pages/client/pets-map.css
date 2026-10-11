@@ -1,0 +1,222 @@
+/* ================================================
+   Świat pupili — mapa (spec v3 §3.2, szkic „A. Mapa-plansza”)
+   Ilustracja: SVG z static/js/pet/world/map.js (poziomy wariant / pionowy ≤ 640 px).
+   Mapa sama jest ilustracją (kolory dzienne/nocne); dark mode zmienia tylko ramkę, podpisy i tekst.
+   ================================================ */
+
+.pets-map {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.pets-map__board {
+    position: relative;
+    width: 100%;
+    max-width: 860px;
+    aspect-ratio: 640 / 460;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid #d6ecc8;
+    box-shadow: 0 6px 24px rgba(45, 74, 42, 0.12);
+    background: #a9de8f;
+}
+
+.pets-map__art {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.pets-map__art--tall { display: none; }
+
+/* Dzień / noc (klasa .is-night na .pets-map z state.night.is_night) */
+.pets-map .map-night,
+.pets-map .map-glow { display: none; }
+.pets-map.is-night .map-night,
+.pets-map.is-night .map-glow { display: inline; }
+.pets-map.is-night .map-day { display: none; }
+
+.pets-map .map-night-tint {
+    fill: #141c45;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+}
+
+.pets-map.is-night .map-night-tint { opacity: 0.42; }
+.pets-map.is-night .map-win { fill: #ffd36b; }
+.pets-map.is-night .map-glow circle { opacity: 0.7; }
+
+.pets-map .map-star { animation: pets-map-twinkle 3.2s ease-in-out infinite; }
+.pets-map .map-star--1 { animation-delay: 1.1s; }
+.pets-map .map-star--2 { animation-delay: 2.2s; }
+
+@keyframes pets-map-twinkle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* Miejsca — linki nałożone na ilustrację (pozycje w % planszy 640×460) */
+.pets-map__place {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding-bottom: 4px;
+    border-radius: 20px;
+    color: inherit;
+    text-decoration: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pets-map__place--szpital { left: 6.5%; top: 31%; width: 24%; height: 35%; }
+.pets-map__place--domek { left: 35.5%; top: 18%; width: 29.5%; height: 47%; }
+.pets-map__place--warsztat { left: 71%; top: 31%; width: 23%; height: 35%; }
+.pets-map__place--ogrod { left: 35.5%; top: 72%; width: 29.5%; height: 26%; }
+
+.pets-map__place:hover { background: rgba(255, 255, 255, 0.22); }
+
+.pets-map__place:focus-visible {
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 3px #f093fb, 0 0 0 6px rgba(255, 255, 255, 0.85);
+}
+
+.pets-map__label {
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #2d4a2a;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(45, 74, 42, 0.15);
+    transition: transform 0.2s ease;
+}
+
+.pets-map__place--domek .pets-map__label { font-size: 1rem; }
+
+.pets-map__place:hover .pets-map__label,
+.pets-map__place:focus-visible .pets-map__label { transform: translateY(-2px); }
+
+/* Znaczki nad miejscami */
+.pets-map__badges {
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    display: flex;
+    gap: 4px;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.pets-map__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    animation: pets-map-bob 2.4s ease-in-out infinite;
+}
+
+.pets-map__badge svg {
+    width: 17px;
+    height: 17px;
+}
+
+.pets-map__badge--cross { background: #ff4d63; }
+.pets-map__badge--cross svg { fill: #ffffff; }
+.pets-map__badge--alert { background: #ffb020; animation-delay: 0.4s; }
+.pets-map__badge--alert svg { fill: none; stroke: #ffffff; stroke-width: 3.2; stroke-linecap: round; }
+.pets-map__badge--alert svg circle { fill: #ffffff; stroke: none; }
+.pets-map__badge--heart { background: #ff7eb3; }
+.pets-map__badge--heart svg { fill: #ffffff; }
+.pets-map__badge--candle { background: #8b5cf6; }
+.pets-map__badge--candle svg { fill: #ffffff; }
+.pets-map__badge--candle svg .b-flame { fill: #ffd36b; }
+
+@keyframes pets-map-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+.pets-map__hint {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-secondary, #616161);
+    text-align: center;
+}
+
+/* Zoom w stronę miejsca przed przejściem (pets.js: --zoom-x/--zoom-y) */
+.pets-map.is-zooming .pets-map__board {
+    transform-origin: var(--zoom-x, 50%) var(--zoom-y, 50%);
+    animation: pets-map-zoom 0.34s ease-in forwards;
+}
+
+@keyframes pets-map-zoom {
+    to { transform: scale(2.2); opacity: 0; }
+}
+
+/* Dark mode: ilustracja bez zmian, ramka i podpisy wg palety glassmorphism */
+[data-theme="dark"] .pets-map__board {
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .pets-map__label {
+    background: rgba(26, 18, 48, 0.82);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .pets-map__place:hover,
+[data-theme="dark"] .pets-map__place:focus-visible { background: rgba(255, 255, 255, 0.12); }
+
+[data-theme="dark"] .pets-map__place:focus-visible {
+    box-shadow: 0 0 0 3px #f093fb, 0 0 0 6px rgba(26, 18, 48, 0.85);
+}
+
+[data-theme="dark"] .pets-map__badge { border-color: rgba(26, 18, 48, 0.9); }
+[data-theme="dark"] .pets-map__hint { color: rgba(255, 255, 255, 0.65); }
+
+/* Telefon: plansza pionowa 360×640, miejsca jedno pod drugim przy ścieżce */
+@media (max-width: 640px) {
+    .pets-map__board {
+        aspect-ratio: 360 / 640;
+        border-radius: 20px;
+    }
+
+    .pets-map__art--wide { display: none; }
+    .pets-map__art--tall { display: block; }
+
+    .pets-map__place--domek { left: 24%; top: 9%; width: 52%; height: 33%; }
+    .pets-map__place--szpital { left: 3%; top: 41%; width: 44%; height: 23%; }
+    .pets-map__place--warsztat { left: 53%; top: 56%; width: 44%; height: 23%; }
+    .pets-map__place--ogrod { left: 24%; top: 80%; width: 52%; height: 18%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-map .map-star,
+    .pets-map__badge { animation: none; }
+    .pets-map.is-zooming .pets-map__board { animation: none; }
+    .pets-map__place,
+    .pets-map__label,
+    .pets-map .map-night-tint { transition: none; }
+}
+
+html.pet-rig-rm .pets-map .map-star,
+html.pet-rig-rm .pets-map__badge { animation: none; }

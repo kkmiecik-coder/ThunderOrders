@@ -1,29 +1,25 @@
 /**
- * PetCard — karta pupila: pełna na /client/pupile, mini w widgecie dashboardu (etap 5).
+ * PetCard — treść panelu pupila w domku (spec v3 §6.2). Pupil jest widoczny w pokoju nad panelem,
+ * więc karta nie ma już własnej sceny z rigiem ani pat pat (klik w pupila w pokoju → domek → paczki
+ * pat w pets.js); wariant `mini` (stary widget) usunięty.
  *
- * API (kontrakt — nazwy 1:1 z planem etapu 4):
+ * API:
  *   PetCard.render(container, petDict, opts) -> card
- *     opts: { mini: bool, species: {slug: {name, …}}, onAction(pet, action, count) -> Promise,
- *             onRename(pet, name) -> Promise (opcjonalny; tylko pełna karta),
+ *     opts: { onAction(pet, action, variant) -> Promise<odpowiedź API>,
+ *             onPlay(pet, action, variant) -> Promise (animacja w pokoju; do jej końca przyciski nieaktywne),
+ *             onRename(pet, name) -> Promise, onAdmit(pet) -> Promise, onStars(pet) (przybyła gwiazdka),
  *             now: 'ISO z api/stan', night: {start, end}, config: state.config }
- *     card.update(petDict[, {now, night, config}]) · card.el · card.rig · card.destroy()
+ *     card.update(petDict[, {now, night, config}]) · card.el · card.focus() · card.destroy()
  *
- * Zachowanie:
- *   - akcje (feed/play/wash/heal/wake): przyciski zablokowane do rozstrzygnięcia Promise z onAction;
- *     animacja rigu dopiero po sukcesie (odpowiedź {ok: true}) — 409 nie udaje, że pupil zjadł;
- *     błędy obsługuje wołający (toast/odświeżenie), karta tylko wraca do stanu z danych;
- *   - pat pat (klik / Enter / spacja na scenie): animacja i wibracja od razu, klepnięcia zbierane
- *     w paczki — debounce 2 s, max 50 w paczce → onAction(pet, 'pat', n); przyrost przychodzi
- *     z odpowiedzią (update). Niewysłana paczka leci przy schowaniu karty, przy wyjściu ze strony
- *     i przy destroy(). Wyjście: `beforeunload` (tylko gdy paczka czeka — nasłuch na stałe psułby
- *     bfcache w Firefoksie; żądanie startuje, zanim przeglądarka zacznie ładować nową stronę)
- *     + `pagehide` jako siatka (mobilne / bfcache; przy nawigacji w tej samej karcie Chromium nie
- *     wysyła `visibilitychange`). Wołający wysyła paczkę z keepalive;
- *   - paski ekstrapolowane co 1 s z rates_per_hour (klamra 0–100); can/reasons stoją do update;
- *   - powód niedostępności akcji tekstem POD przyciskiem (nie `title` — dotyk go nie pokaże);
- *     niedostępny przycisk ma aria-disabled (nie `disabled`), żeby fokus klawiatury nie uciekał na
- *     <body>, gdy akcja się wykona i przycisk zgaśnie; przyciski aktualizowane w miejscu;
- *   - liczby w podpowiedziach (noc, kara za obudzenie, czuwanie) z `config` stanu, nie na sztywno;
+ * Zachowanie (przeniesione z karty etapu 4 + fix passu B):
+ *   - Nakarm / Pobaw się / Umyj rozwijają 3 kafelki wariantów (PetRig.VARIANTS); wybór → onAction →
+ *     przy sukcesie onPlay; Obudź gdy śpi; „Zabierz do szpitala” gdy chory (can.admit / reasons.admit);
+ *   - powód niedostępności tekstem POD przyciskiem (nie `title` — dotyk go nie pokaże); niedostępny
+ *     przycisk ma aria-disabled (nie `disabled`), żeby fokus klawiatury nie uciekał na <body>;
+ *     przyciski aktualizowane w miejscu, struktura tylko przy zmianie listy akcji;
+ *   - błędy obsługuje wołający (toast/odświeżenie), karta tylko wraca do stanu z danych;
+ *   - paski ekstrapolowane co 1 s z rates_per_hour (klamra 0–100);
+ *   - liczby w podpowiedziach (noc, kara za obudzenie, czuwanie, szpital) z `config` stanu;
  *   - imię: klik → edycja w miejscu; błąd {error: 'bad_name', message} przy polu, edycja zostaje.
  * Bezpieczeństwo: imiona wyłącznie przez textContent / setAttribute; zero inline onclick —
  * delegacja zdarzeń z data-card-action.
@@ -31,9 +27,7 @@
 (function () {
     'use strict';
 
-    if (window.PetCard) return;   // plik ładuje się na kilku stronach (dashboard + domek)
-    var PAT_DEBOUNCE_MS = 2000;
-    var PAT_MAX = 50;
+    if (window.PetCard) return;   // guard idempotencji
     var NAME_MAX = 20;
 
     var MOOD_LABEL = {
@@ -47,17 +41,33 @@
         { key: 'clean', label: 'Czystość', low: 30, mid: 50 },
         { key: 'health', label: 'Zdrowie', low: 25, mid: 75 }
     ];
-    var ACTION_LABEL = { feed: 'Nakarm', play: 'Pobaw się', wash: 'Umyj', heal: 'Wylecz', wake: 'Obudź' };
+    var ACTION_LABEL = { feed: 'Nakarm', play: 'Pobaw się', wash: 'Umyj', wake: 'Obudź', admit: 'Zabierz do szpitala' };
+    // Kolejność i nazwy wariantów jak w backendzie (spec v3 §5); fallback, gdy rig jeszcze ich nie wystawia
+    var VARIANTS_FALLBACK = { feed: ['miska', 'jablko', 'ciastko'], play: ['pilka', 'wloczka', 'banki'], wash: ['kapiel', 'prysznic', 'gabka'] };
+    var VARIANT_LABEL = {
+        miska: 'Miska karmy', jablko: 'Jabłko', ciastko: 'Ciasteczko',
+        pilka: 'Piłka', wloczka: 'Kłębek włóczki', banki: 'Bańki',
+        kapiel: 'Kąpiel', prysznic: 'Prysznic', gabka: 'Gąbka'
+    };
 
     var ICONS = {
         feed: '<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M8.5 7.5c0-1.4 1-1.9 1-3.3M12 7.5c0-1.4 1-1.9 1-3.3M15.5 7.5c0-1.4 1-1.9 1-3.3"/>',
         play: '<circle cx="12" cy="12" r="9"/><path d="M3.6 9.4c5 1.6 11.8 1.6 16.8 0M3.6 14.6c5-1.6 11.8-1.6 16.8 0"/>',
         wash: '<circle cx="8.5" cy="14.5" r="4.5"/><circle cx="16.5" cy="8" r="3"/><circle cx="17.5" cy="16.5" r="2"/>',
-        heal: '<path d="M12 20.5s-7.5-4.6-9.2-9.4A4.9 4.9 0 0 1 12 7.6a4.9 4.9 0 0 1 9.2 3.5c-1.7 4.8-9.2 9.4-9.2 9.4z"/><path d="M12 10.5v6M9 13.5h6"/>',
         wake: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>',
+        admit: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/>',
         pencil: '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M14.5 7.5l3 3"/>',
         check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-        close: '<path d="M6 6l12 12M18 6L6 18"/>'
+        close: '<path d="M6 6l12 12M18 6L6 18"/>',
+        miska: '<path d="M3 12h18a9 9 0 0 1-18 0z"/><circle cx="9" cy="9.5" r="1.2"/><circle cx="13" cy="8.5" r="1.2"/><circle cx="15.5" cy="10" r="1"/>',
+        jablko: '<path d="M12 7.5c-2-1.6-6.2-1.3-7 2.6-.8 4 1.8 10.4 4.6 10.4 1.1 0 1.6-.6 2.4-.6s1.3.6 2.4.6c2.8 0 5.4-6.4 4.6-10.4-.8-3.9-5-4.2-7-2.6z"/><path d="M12 7.5c0-2 .8-3.6 2.8-4.5"/>',
+        ciastko: '<circle cx="12" cy="12" r="8.5"/><circle cx="9" cy="9.5" r=".9"/><circle cx="14.5" cy="9" r=".9"/><circle cx="13.5" cy="14.5" r=".9"/><circle cx="8.8" cy="14.5" r=".9"/>',
+        pilka: '<circle cx="12" cy="12" r="9"/><path d="M3.6 9.4c5 1.6 11.8 1.6 16.8 0M3.6 14.6c5-1.6 11.8-1.6 16.8 0"/>',
+        wloczka: '<circle cx="11" cy="12" r="7.5"/><path d="M4.5 9.5c4 0 9 2.5 12 7M6 16.5c2.5-3.5 6-6 10.4-6.4M8.2 5.2c1 3.5 4.5 9 9.6 10.2"/><path d="M17.5 17.5c1.5 1.3 3 1.6 4 .6"/>',
+        banki: '<circle cx="9" cy="14" r="5"/><circle cx="16.5" cy="7.5" r="3"/><circle cx="18.5" cy="15.5" r="2"/><path d="M6.6 12.4a2.6 2.6 0 0 1 2.2-1.6"/>',
+        kapiel: '<path d="M3 12h18v1.5a5.5 5.5 0 0 1-5.5 5.5h-7A5.5 5.5 0 0 1 3 13.5z"/><path d="M6 12V6.5a2.2 2.2 0 0 1 4-1.2"/><path d="M7 19l-1 2M17 19l1 2"/>',
+        prysznic: '<path d="M5 21V8.5a4.5 4.5 0 0 1 9 0"/><path d="M10.5 9.5h7l-1.2 3h-4.6z"/><path d="M12 15.5v1.5M15 15.5v1.5M13.5 18.5V20"/>',
+        gabka: '<rect x="4" y="7" width="16" height="11" rx="3.5"/><circle cx="9" cy="11" r="1"/><circle cx="14" cy="13.5" r="1.2"/><circle cx="16.4" cy="10" r=".8"/><circle cx="8.4" cy="15" r=".8"/>'
     };
 
     function svg(name, cls) {
@@ -77,16 +87,6 @@
         var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(iso);
         if (!m) return NaN;
         return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
-    }
-
-    function formatDuration(sec) {
-        sec = Math.max(0, Math.round(sec));
-        var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600);
-        var m = Math.floor(sec % 3600 / 60), s = sec % 60;
-        if (d > 0) return d + ' d ' + h + ' h';
-        if (h > 0) return h + ' h ' + m + ' min';
-        if (m > 0) return m + ' min ' + s + ' s';
-        return s + ' s';
     }
 
     function capitalize(text) {
@@ -113,7 +113,12 @@
         return String(raw || '').split(/\s+/).filter(Boolean).join(' ');
     }
 
-    // Wspólny zegar dla wszystkich kart (ekstrapolacja pasków, odliczanie leku)
+    function variantsOf(action) {
+        var R = window.PetRig;
+        return (R && R.VARIANTS && R.VARIANTS[action]) || VARIANTS_FALLBACK[action] || [];
+    }
+
+    // Wspólny zegar dla wszystkich kart (ekstrapolacja pasków)
     var live = [];
     var cardSeq = 0;
     var ticker = 0;
@@ -132,39 +137,6 @@
         }
     }
 
-    function flushAll() {
-        var sent = false;
-        live.slice().forEach(function (card) { if (card._flushPats()) sent = true; });
-        disarmLeave();
-        return sent;
-    }
-
-    // Wyjście ze strony: odpowiedź może już nie wrócić, więc cache stanu przestaje być wiarygodny —
-    // następna strona pobierze świeży.
-    function flushOnLeave() {
-        if (flushAll() && window.PetsState && typeof window.PetsState.invalidate === 'function') window.PetsState.invalidate();
-    }
-
-    var leaveArmed = false;
-
-    function armLeave() {
-        if (leaveArmed) return;
-        leaveArmed = true;
-        window.addEventListener('beforeunload', flushOnLeave);
-    }
-
-    function disarmLeave() {
-        if (!leaveArmed) return;
-        for (var i = 0; i < live.length; i++) if (live[i]._hasPendingPats()) return;
-        leaveArmed = false;
-        window.removeEventListener('beforeunload', flushOnLeave);
-    }
-
-    document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden') flushAll();
-    });
-    window.addEventListener('pagehide', flushOnLeave);
-
     /** „4× wolniej" z night_factor (0.25); bez configu — bez liczby; bez spowolnienia — nic. */
     function nightSlowdown(config) {
         var f = config && config.night_factor != null ? Number(config.night_factor) : NaN;
@@ -182,48 +154,40 @@
 
     function render(container, petDict, opts) {
         opts = opts || {};
-        var mini = !!opts.mini;
         var pet = null;
         var ctx = { now: opts.now || null, night: opts.night || null, config: opts.config || null };
         var base = { at: Date.now(), bars: {}, rates: {} };
-        var clockOffset = 0;
         var busy = false;
-        var pendingPats = 0;
-        var patTimer = 0;
         var destroyed = false;
         var editing = false;
+        var expanded = null;         // akcja z rozwiniętymi wariantami
         var actionsKey = '';
         var actionEls = {};          // akcja → {btn, reason}
         var uid = ++cardSeq;
 
-        var root = el('article', 'pet-card' + (mini ? ' pet-card--mini' : ''));
-        var scene = el('div', 'pet-card__scene');
-        scene.setAttribute('role', 'button');
-        scene.tabIndex = 0;
-        var rigBox = el('div', 'pet-card__rig');
-        scene.appendChild(rigBox);
-        var patHint = mini ? null : el('span', 'pet-card__pat-hint', 'Kliknij, by pogłaskać');
-        if (patHint) scene.appendChild(patHint);
+        var root = el('article', 'pet-card');
+        root.tabIndex = -1;
 
-        var body = el('div', 'pet-card__body');
         var head = el('div', 'pet-card__head');
         var nameBtn = el('button', 'pet-card__name');
         nameBtn.type = 'button';
         var nameText = el('span', 'pet-card__name-text');
         nameBtn.appendChild(nameText);
-        if (!mini && opts.onRename) {
+        if (opts.onRename) {
             nameBtn.dataset.cardAction = 'rename';
             nameBtn.insertAdjacentHTML('beforeend', svg('pencil', 'pet-card__name-icon'));
         } else {
             nameBtn.disabled = true;
             nameBtn.classList.add('is-static');
         }
-        var nameWrap = el('h3', 'pet-card__title');
+        var nameWrap = el('h2', 'pet-card__title');
+        nameWrap.id = 'petCard' + uid + '-title';
         nameWrap.appendChild(nameBtn);
         head.appendChild(nameWrap);
+        root.setAttribute('aria-labelledby', nameWrap.id);
 
         var renameForm = null, renameInput = null, renameError = null;
-        if (!mini && opts.onRename) {
+        if (opts.onRename) {
             renameForm = el('form', 'pet-card__rename');
             renameForm.hidden = true;
             renameForm.noValidate = true;
@@ -280,40 +244,38 @@
         });
 
         var actionsBox = el('div', 'pet-card__actions');
+        var variantsBox = el('div', 'pet-card__variants');
+        variantsBox.id = 'petCard' + uid + '-variants';
+        variantsBox.setAttribute('role', 'group');
+        variantsBox.hidden = true;
         var hint = el('p', 'pet-card__hint');
         hint.hidden = true;
 
-        body.appendChild(head);
-        body.appendChild(barsBox);
-        body.appendChild(actionsBox);
-        body.appendChild(hint);
-        root.appendChild(scene);
-        root.appendChild(body);
+        root.appendChild(head);
+        root.appendChild(barsBox);
+        root.appendChild(actionsBox);
+        root.appendChild(variantsBox);
+        root.appendChild(hint);
 
-        var rig = window.PetRig ? window.PetRig.mount(rigBox, {
-            species: petDict.species, stage: petDict.stage, stars: petDict.stars, mood: petDict.mood,
-            asleep: petDict.asleep, size: mini ? 'mini' : 'card', idle: true
-        }) : null;
-
-        var card = { el: root, rig: rig };
+        var card = { el: root };
 
         // --- render -------------------------------------------------------------------------
+
+        function isSick() {
+            return !!(pet.reasons && pet.reasons.admit !== 'zdrowy' && pet.can && 'admit' in pet.can);
+        }
 
         function visibleActions() {
             if (pet.asleep) return ['wake'];
             var list = ['feed', 'play', 'wash'];
-            // „Wylecz" tylko u chorego — u zdrowego byłby wiecznie szary przycisk z „zdrowy"
-            if (pet.reasons && pet.reasons.heal !== 'zdrowy') list.push('heal');
+            // „Zabierz do szpitala" tylko u chorego — u zdrowego byłby wiecznie szary przycisk
+            if (isSick()) list.push('admit');
             return list;
         }
 
         function reasonText(action) {
             var reason = pet.reasons && pet.reasons[action];
             if (!reason || (pet.can && pet.can[action])) return '';
-            if (action === 'heal' && pet.heal_available_at) {
-                var left = (parseLocal(pet.heal_available_at) - (Date.now() + clockOffset)) / 1000;
-                if (left > 0) return capitalize(reason) + ' — kolejny za ' + formatDuration(left);
-            }
             return capitalize(reason);
         }
 
@@ -322,7 +284,6 @@
         }
 
         function focusCard() {
-            if (!root.hasAttribute('tabindex')) root.tabIndex = -1;
             try { root.focus({ preventScroll: true }); } catch (e) { root.focus(); }
         }
 
@@ -332,19 +293,24 @@
             var key = list.join(',');
             if (key !== actionsKey) {
                 var active = document.activeElement;
-                var hadFocus = !!(active && actionsBox.contains(active));
+                var hadFocus = !!(active && (actionsBox.contains(active) || variantsBox.contains(active)));
                 var focusedAction = hadFocus ? active.getAttribute('data-card-action') : null;
                 actionsKey = key;
                 actionEls = {};
                 actionsBox.innerHTML = '';
                 actionsBox.classList.toggle('is-single', list.length === 1);
                 list.forEach(function (action) {
-                    var wrap = el('div', 'pet-action');
-                    var btn = el('button', 'pet-btn pet-action__btn' + (action === 'wake' ? ' pet-btn--primary' : ''));
+                    var wrap = el('div', 'pet-action pet-action--' + action);
+                    var primary = action === 'wake' || action === 'admit';
+                    var btn = el('button', 'pet-btn pet-action__btn' + (primary ? ' pet-btn--primary' : ''));
                     btn.type = 'button';
                     btn.dataset.cardAction = action;
                     btn.innerHTML = svg(action) + '<span class="pet-btn__label"></span>';
                     btn.querySelector('.pet-btn__label').textContent = ACTION_LABEL[action];
+                    if (VARIANTS_FALLBACK[action]) {
+                        btn.setAttribute('aria-expanded', 'false');
+                        btn.setAttribute('aria-controls', variantsBox.id);
+                    }
                     var reason = el('p', 'pet-action__reason');
                     reason.dataset.reasonFor = action;
                     reason.id = 'petCard' + uid + '-' + action + '-reason';
@@ -354,6 +320,7 @@
                     actionsBox.appendChild(wrap);
                     actionEls[action] = { btn: btn, reason: reason };
                 });
+                if (expanded && !actionEls[expanded]) collapse(false);
                 // Fokus był na przebudowanym przycisku — wróć na tę samą akcję, a gdy jej już nie ma
                 // (np. „Obudź" po obudzeniu) — na kartę
                 if (hadFocus) {
@@ -368,12 +335,48 @@
                 var text = reasonText(action);
                 if (refs.reason.textContent !== text) refs.reason.textContent = text;
             });
+            if (expanded && !isAvailable(expanded) && !busy) collapse(false);
+            Array.prototype.forEach.call(variantsBox.querySelectorAll('[data-variant]'), function (tile) {
+                if (busy) tile.setAttribute('aria-disabled', 'true');
+                else tile.removeAttribute('aria-disabled');
+            });
         }
 
-        function tickReasons() {
-            if (!pet.heal_available_at) return;
-            var r = actionsBox.querySelector('[data-reason-for="heal"]');
-            if (r) r.textContent = reasonText('heal');
+        function expand(action) {
+            if (expanded === action) {
+                collapse(true);
+                return;
+            }
+            if (expanded && actionEls[expanded]) actionEls[expanded].btn.setAttribute('aria-expanded', 'false');
+            expanded = action;
+            variantsBox.innerHTML = '';
+            variantsBox.setAttribute('aria-label', ACTION_LABEL[action] + ' — wybierz');
+            variantsBox.dataset.action = action;
+            variantsOf(action).forEach(function (variant) {
+                var tile = el('button', 'pet-variant');
+                tile.type = 'button';
+                tile.dataset.cardAction = 'variant';
+                tile.dataset.variant = variant;
+                tile.innerHTML = svg(ICONS[variant] ? variant : action, 'pet-variant__icon') + '<span class="pet-variant__label"></span>';
+                tile.querySelector('.pet-variant__label').textContent = VARIANT_LABEL[variant] || variant;
+                variantsBox.appendChild(tile);
+            });
+            variantsBox.hidden = false;
+            actionEls[action].btn.setAttribute('aria-expanded', 'true');
+            var first = variantsBox.querySelector('.pet-variant');
+            if (first) first.focus();
+        }
+
+        function collapse(returnFocus) {
+            if (!expanded) return;
+            var action = expanded;
+            expanded = null;
+            variantsBox.hidden = true;
+            variantsBox.innerHTML = '';
+            if (actionEls[action]) {
+                actionEls[action].btn.setAttribute('aria-expanded', 'false');
+                if (returnFocus) actionEls[action].btn.focus();
+            }
         }
 
         function renderHint() {
@@ -381,6 +384,7 @@
             var cfg = ctx.config || {};
             var penalty = parseInt(cfg.wake_penalty, 10);
             var awake = parseInt(cfg.awake_minutes, 10);
+            var hours = parseInt(cfg.hospital_hours, 10);
             if (pet.asleep) {
                 var slower = nightSlowdown(ctx.config);
                 text = 'Śpi' + (ctx.night ? ' do ' + ctx.night.end + ':00' : '') + (slower ? ' — ' + slower : '') + '. ' +
@@ -388,6 +392,9 @@
                         ? 'Obudzenie kosztuje ' + penalty + ' ' + pointsLabel(penalty) + ' radości i czystości'
                         : 'Obudzenie obniża radość i czystość') +
                     (awake > 0 ? ', a pupil czuwa potem ' + awake + ' min.' : '.');
+            } else if (isSick()) {
+                text = 'Pupil ' + (pet.name || '') + ' jest chory — opieka w domku go nie wyleczy. W szpitalu wyzdrowieje' +
+                    (hours > 0 ? ' w najwyżej ' + hours + ' h' : '') + ', a jego potrzeby nie będą tam rosły.';
             } else if (pet.awake_until) {
                 text = 'Obudzony do ' + hhmm(pet.awake_until) + ' — każda opieka przedłuża czuwanie' +
                     (awake > 0 ? ' o ' + awake + ' min' : '') + '.';
@@ -416,11 +423,9 @@
             pet = next;
             if (nextCtx) {
                 if (nextCtx.now != null) ctx.now = nextCtx.now;
-                if (nextCtx.night != null) ctx.night = nextCtx.night;
+                if (nextCtx.night !== undefined) ctx.night = nextCtx.night;
                 if (nextCtx.config != null) ctx.config = nextCtx.config;
             }
-            var t = parseLocal(ctx.now);
-            clockOffset = isNaN(t) ? 0 : t - Date.now();
             base = { at: Date.now(), bars: pet.bars || {}, rates: pet.rates_per_hour || {} };
 
             root.dataset.petId = String(pet.id);
@@ -429,12 +434,10 @@
             root.classList.toggle('is-critical', pet.mood === 'krytyczny');
             nameText.textContent = pet.name || '';
             if (!nameBtn.disabled) nameBtn.setAttribute('aria-label', 'Zmień imię: ' + (pet.name || ''));
-            scene.setAttribute('aria-label', pet.asleep ? (pet.name || 'Pupil') + ' śpi' : 'Pogłaszcz: ' + (pet.name || 'pupila'));
-            scene.setAttribute('aria-disabled', pet.can && pet.can.pat ? 'false' : 'true');
 
             var stars = Math.max(0, parseInt(pet.stars, 10) || 0);
-            meta.textContent = (STAGE_LABEL[pet.stage] || '') + ' · ' + daysLabel(pet.age_days) +
-                (!mini ? ' · ' + daysLabel(pet.care_days) + ' opieki' : '');
+            meta.textContent = (STAGE_LABEL[pet.stage] || '') + ' · ' + daysLabel(pet.age_days) + ' · ' +
+                daysLabel(pet.care_days) + ' opieki';
             if (stars > 0) {
                 var starEl = el('span', 'pet-card__stars', '★'.repeat(stars));
                 starEl.setAttribute('aria-label', stars + ' ' + (stars === 1 ? 'gwiazdka' : stars < 5 ? 'gwiazdki' : 'gwiazdek'));
@@ -449,38 +452,38 @@
             renderActions();
             renderHint();
 
-            if (rig) {
-                rig.update({ species: pet.species, stage: pet.stage, stars: stars, mood: pet.mood, asleep: pet.asleep });
-                if (prevStars != null && stars > prevStars) {
-                    rig.playAction('celebrate');
-                    root.classList.remove('is-starred');
-                    void root.offsetWidth;
-                    root.classList.add('is-starred');
-                }
+            if (prevStars != null && stars > prevStars) {
+                root.classList.remove('is-starred');
+                void root.offsetWidth;
+                root.classList.add('is-starred');
+                if (typeof opts.onStars === 'function') opts.onStars(pet);
             }
         }
 
         // --- akcje --------------------------------------------------------------------------
 
-        function runAction(action) {
+        function runAction(action, variant) {
             if (busy || destroyed || !(pet.can && pet.can[action])) return;
             busy = true;
-            renderActions();
-            var btn = actionsBox.querySelector('[data-card-action="' + action + '"]');
+            var btn = actionEls[action] && actionEls[action].btn;
             if (btn) {
                 btn.classList.add('is-busy');
                 btn.setAttribute('aria-busy', 'true');
             }
+            renderActions();
+            var current = pet;
             var promise;
             try {
-                promise = opts.onAction ? opts.onAction(pet, action, 1) : null;
+                if (action === 'admit') promise = opts.onAdmit ? opts.onAdmit(current) : null;
+                else promise = opts.onAction ? opts.onAction(current, action, variant || null) : null;
             } catch (e) {
                 promise = Promise.reject(e);
             }
             Promise.resolve(promise).then(function (resp) {
-                if (destroyed) return;
-                if (resp && resp.ok && rig) rig.playAction(action);
-            }, function () { /* błąd obsłużył wołający */ }).then(function () {
+                if (destroyed || action === 'admit') return null;
+                if (resp && resp.ok && typeof opts.onPlay === 'function') return opts.onPlay(current, action, variant || null);
+                return null;
+            }).then(null, function () { /* błąd obsłużył wołający */ }).then(function () {
                 busy = false;
                 if (destroyed) return;
                 var b = actionEls[action] && actionEls[action].btn;
@@ -490,33 +493,6 @@
                 }
                 renderActions();
             });
-        }
-
-        /** Wysyła zaległą paczkę klepnięć; true, gdy coś poszło. */
-        function flushPats() {
-            clearTimeout(patTimer);
-            patTimer = 0;
-            if (!pendingPats || !pet) return false;
-            var n = pendingPats;
-            pendingPats = 0;
-            if (!opts.onAction) return false;
-            try {
-                Promise.resolve(opts.onAction(pet, 'pat', n)).catch(function () { /* jw. */ });
-            } catch (e) { /* jw. */ }
-            disarmLeave();
-            return true;
-        }
-
-        function pat() {
-            if (destroyed || !(pet.can && pet.can.pat)) return;
-            if (rig) rig.playAction('pat');
-            if (window.Haptics) window.Haptics.tap();
-            if (patHint) patHint.classList.add('is-used');
-            pendingPats += 1;
-            armLeave();
-            clearTimeout(patTimer);
-            if (pendingPats >= PAT_MAX) flushPats();
-            else patTimer = setTimeout(flushPats, PAT_DEBOUNCE_MS);
         }
 
         // --- zmiana imienia -----------------------------------------------------------------
@@ -585,20 +561,24 @@
 
         root.addEventListener('click', function (e) {
             var target = e.target.closest('[data-card-action]');
-            if (target && root.contains(target) && !target.disabled && target.getAttribute('aria-disabled') !== 'true') {
-                var action = target.dataset.cardAction;
-                if (action === 'rename') openRename();
-                else if (action === 'rename-cancel') closeRename(true);
-                else if (ACTION_LABEL[action]) runAction(action);
-                return;
-            }
-            if (e.target.closest('.pet-card__scene') === scene) pat();
+            if (!target || !root.contains(target) || target.disabled || target.getAttribute('aria-disabled') === 'true') return;
+            var action = target.dataset.cardAction;
+            if (action === 'rename') openRename();
+            else if (action === 'rename-cancel') closeRename(true);
+            else if (action === 'variant') {
+                var parent = expanded;
+                collapse(false);
+                if (parent && actionEls[parent]) actionEls[parent].btn.focus();
+                runAction(parent, target.dataset.variant);
+            } else if (VARIANTS_FALLBACK[action]) expand(action);
+            else if (ACTION_LABEL[action]) runAction(action);
         });
 
-        scene.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') {
+        root.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && expanded) {
                 e.preventDefault();
-                pat();
+                e.stopPropagation();
+                collapse(true);
             }
         });
 
@@ -624,23 +604,23 @@
             return card;
         };
 
+        card.focus = function () {
+            if (!destroyed) focusCard();
+            return card;
+        };
+
         card.destroy = function () {
             if (destroyed) return;
-            flushPats();
             destroyed = true;
             live = live.filter(function (c) { return c !== card; });
             stopTickerIfIdle();
-            if (rig) rig.destroy();
             if (root.parentNode) root.parentNode.removeChild(root);
         };
 
         card._tick = function () {
             if (destroyed || !pet) return;
             tickBars();
-            tickReasons();
         };
-        card._flushPats = flushPats;
-        card._hasPendingPats = function () { return pendingPats > 0; };
 
         apply(petDict, null);
         container.appendChild(root);
