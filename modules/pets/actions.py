@@ -160,6 +160,8 @@ def discharge_pet(user, pet_id, now=None, cfg=None):
         persist_discharge(pet, sim, now)
         if sim.died_at is not None:
             persist_death(pet, sim, now)
+            db.session.commit()
+            raise PetError('pet_gone', f'Pupil {pet.name} odszedł do gwiazd.', 410)
         db.session.commit()
         raise PetError('not_in_hospital', f'Pupil {pet.name} wrócił już do domku.', 409)
     persist_discharge(pet, sim, now, manual=True)

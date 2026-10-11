@@ -93,7 +93,7 @@ def push_path(basket):
     """Gdzie prowadzi zbiorczy push (spec v3 §6.4): najpierw to, co wymaga działania w szpitalu."""
     if any(poziom >= LEVEL_SICK for _, poziom in basket['alerts']):
         return PETS_URL_PATH + '/szpital'
-    if basket['deaths'] or basket['rescue_reminders']:
+    if basket['deaths']:                      # przypomnienie o ratunkowym idzie mailem — nie steruje pushem
         return PETS_URL_PATH + '/ogrod'
     if basket['healed'] or basket['eggs_ready'] or basket['monthly']:
         return PETS_URL_PATH + '/szpital'

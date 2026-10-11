@@ -589,3 +589,14 @@ def test_tekst_chory_i_sciezki_pushu(db, make_user):
     assert push_path(_koszyk(user, healed=[p])) == '/client/pupile/szpital'
     assert push_path(_koszyk(user, eggs_ready=[p])) == '/client/pupile/szpital'
     assert push_path(_koszyk(user, alerts=[(p, LEVEL_SAD)])) == '/client/pupile/domek'
+
+
+def test_push_przypomnienie_o_ratunkowym_nie_kieruje_do_ogrodu(db, make_user):
+    """Re-grade Minor 6 → Important: przypomnienie o ratunkowym nie ma zdania w pushu (to mail),
+    więc nie może przekierować pushu „Jajko gotowe” do ogrodu."""
+    from modules.pets.notifications import push_path
+    user = make_user()
+    p = zaloz_pupila(user, name='Burek')
+    assert push_path(_koszyk(user, rescue_reminders=[p], eggs_ready=[p])) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, rescue_reminders=[p])) == '/client/pupile/domek'
+    assert push_path(_koszyk(user, deaths=[p])) == '/client/pupile/ogrod'

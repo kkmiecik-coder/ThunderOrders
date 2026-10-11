@@ -202,3 +202,72 @@ def test_skorka_jajka_losowana_przy_odbiorze(db, make_user):
 def test_konfiguracja_w_stanie(db, make_user):
     from modules.pets.state import state_for_user
     assert state_for_user(make_user(), now=T0, cfg=CFG)['config']['hospital_hours'] == 8
+
+
+# --- recenzja końcowa „Świat” (backend) ---
+
+def test_zmiana_wait_hours_po_checkpoincie_nie_liczy_spadku_dwa_razy(db, make_user):
+    """Important 1: obniżenie wait_hours po zapisie stanu (checkpoint admina) — odcinek po wypisie
+    liczy się od state_at, nie od (wcześniejszego) wyliczonego wypisu."""
+    from modules.pets import rules
+    from modules.pets.actions import admit_pet
+    from modules.pets.common import checkpoint_alive_pets, simulate_pet, state_of
+    user = make_user(); zaloz_profil(user)
+    pet = _chory(user)
+    admit_pet(user, pet.id, now=T0, cfg=CFG)                          # healed T0+4h
+    checkpoint_alive_pets(T0 + timedelta(hours=14), CFG)              # stan domknięty starą konfiguracją
+    nowy = _cfg(hospital={'hours': 8, 'floor': 60, 'wait_hours': 2})  # wypis „byłby” w T0+6h
+    sim = simulate_pet(pet, T0 + timedelta(hours=15), nowy)
+    oczekiwane = rules.simulate(state_of(pet), nowy, pet.state_at, T0 + timedelta(hours=15))
+    assert sim.discharged_at == pet.state_at == T0 + timedelta(hours=14)
+    assert sim.state == oczekiwane.state and sim.died_at is None
+
+
+def test_zmiana_wait_hours_do_zera_nie_zabija_wstecz(db, make_user):
+    from modules.pets.actions import admit_pet
+    from modules.pets.common import checkpoint_alive_pets, simulate_pet
+    user = make_user(); zaloz_profil(user)
+    pet = _chory(user)
+    admit_pet(user, pet.id, now=T0, cfg=_cfg(hospital={'hours': 8, 'floor': 60, 'wait_hours': 168}))
+    checkpoint_alive_pets(T0 + timedelta(hours=110), _cfg(hospital={'hours': 8, 'floor': 60, 'wait_hours': 168}))
+    sim = simulate_pet(pet, T0 + timedelta(hours=111), _cfg(hospital={'hours': 8, 'floor': 60, 'wait_hours': 0}))
+    assert sim.died_at is None and sim.discharged_at == T0 + timedelta(hours=110)
+
+
+def test_persist_discharge_najpierw_blokuje_profil(db, make_user):
+    """Important 2: kolejność blokad profil → pupil także przy wypisie z odczytu (bez mutexu)."""
+    from sqlalchemy import event
+    from modules.pets.actions import admit_pet
+    from modules.pets.common import persist_discharge, simulate_pet
+    user = make_user(); zaloz_profil(user)
+    pet = _chory(user)
+    admit_pet(user, pet.id, now=T0, cfg=CFG)
+    sim = simulate_pet(pet, T0 + timedelta(hours=40), CFG)
+    zapytania = []
+
+    def zbieraj(conn, cursor, statement, parameters, context, executemany):
+        zapytania.append(statement)
+
+    event.listen(db.engine, 'before_cursor_execute', zbieraj)
+    try:
+        persist_discharge(pet, sim, T0 + timedelta(hours=40))
+        db.session.commit()
+    finally:
+        event.remove(db.engine, 'before_cursor_execute', zbieraj)
+    norm = [s.lstrip().upper() for s in zapytania]
+    i_profil = next(i for i, s in enumerate(norm) if s.startswith('SELECT') and 'PET_PROFILES' in s)
+    i_update = next(i for i, s in enumerate(norm) if s.startswith('UPDATE PETS'))
+    assert i_profil < i_update, zapytania
+
+
+def test_odbior_pupila_ktory_odszedl_po_wypisie_to_410(db, make_user):
+    """Re-grade Minor 4 → Important: „wrócił już do domku” o pupilu, który odszedł, wprowadza w błąd."""
+    from modules.pets.actions import admit_pet, discharge_pet
+    from modules.pets.errors import PetError
+    user = make_user(); zaloz_profil(user)
+    pet = _chory(user)
+    admit_pet(user, pet.id, now=T0, cfg=CFG)                          # wypis T0+28h, radość 0 → zdrowie spada
+    with pytest.raises(PetError) as e:
+        discharge_pet(user, pet.id, now=T0 + timedelta(hours=28 + 24 + 80), cfg=CFG)
+    assert e.value.code == 'pet_gone' and e.value.status == 410
+    assert pet.status == 'dead'

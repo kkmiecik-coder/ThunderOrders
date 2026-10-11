@@ -108,13 +108,16 @@ def simulate_pet(pet, now, cfg):
     """Stan „na teraz”. W szpitalu: odcinek szpitalny do auto-wypisu, potem zwykła symulacja (spec v3 §4.4)."""
     if pet.hospital_since is None:
         return rules.simulate(state_of(pet), cfg, pet.state_at, now)
-    wypis = auto_discharge_at(pet, cfg)
-    do = min(now, wypis)
+    # Wypis nie wcześniej niż zapisany stan: po obniżeniu wait_hours (checkpoint admina zapisał stan
+    # później niż nowy wyliczony wypis) albo cofnięciu zegara odcinek [wypis, state_at] nie może liczyć
+    # się drugi raz zwykłym spadkiem (recenzja „Świat”, Important 1).
+    koniec = max(auto_discharge_at(pet, cfg), pet.state_at)
+    do = min(now, koniec)
     stan = rules.hospital_state(state_of(pet), cfg, pet.state_at, do, pet.hospital_healed_at)
-    if now <= wypis:
+    if now <= koniec:
         return rules.SimResult(stan, None)
-    dalej = rules.simulate(stan, cfg, wypis, now)
-    return rules.SimResult(dalej.state, dalej.died_at, discharged_at=wypis)
+    dalej = rules.simulate(stan, cfg, koniec, now)
+    return rules.SimResult(dalej.state, dalej.died_at, discharged_at=koniec)
 
 
 def persist_discharge(pet, sim, now, manual=False):
@@ -127,6 +130,8 @@ def persist_discharge(pet, sim, now, manual=False):
     if od_kiedy is None:
         return False
     stan = sim.state
+    # Kolejność blokad profil → pupil, jak w persist_death — wypis bywa zapisywany z odczytu (state_for_user)
+    profile_lock_query(pet.user_id).one_or_none()
     wynik = db.session.execute(
         update(Pet)
         .where(Pet.id == pet.id, Pet.hospital_since == od_kiedy)
