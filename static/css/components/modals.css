@@ -6065,9 +6065,17 @@ html.pet-rig-rm .pets-window { transition: none; animation: none; }
 /* === Okna ogrodu (v3.1) === */
 /* Treść okien sceny w Ogrodzie wspomnień (static/js/pet/world/garden.js): szczegóły nagrobka i album.
    Ramę okna daje „Okno sceny (v3.1)” powyżej; scena (łąka, nagrobki, tabliczka) zostaje w pets-garden.css. */
-/* Szczegóły nagrobka (treść okna sceny) */
-.pets-grave__meta,
-.pets-grave__lit {
+/* Szczegóły nagrobka (treść okna sceny): imię, „odszedł do gwiazd”, daty, wiek, światełka (z rzędem płomyków),
+   łagodna zachęta albo ciepła plakietka „Dziś już świeci światełko” */
+.pets-grave-info__lead {
+    margin: -4px 44px 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #7C5C94;
+}
+
+.pets-grave__meta {
     margin: 0 0 4px;
     font-size: 13px;
     line-height: 1.45;
@@ -6075,18 +6083,83 @@ html.pet-rig-rm .pets-window { transition: none; animation: none; }
 }
 
 .pets-grave__lights {
-    margin: 4px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    margin: 8px 0 0;
     font-size: 13px;
     font-weight: 600;
     color: #B45309;
 }
 
-.pets-grave__lit { font-style: italic; }
+.pets-grave__flames {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+}
 
+.pets-grave__flames-icon {
+    width: 16px;
+    height: 16px;
+    fill: #FFB547;
+    stroke: #F08A3D;
+    stroke-width: 1.4;
+}
+
+.pets-grave__flames-more {
+    margin-left: 3px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.pets-grave-info__note {
+    margin: 10px 0 0;
+    font-size: 13px;
+    font-style: italic;
+    line-height: 1.45;
+    color: var(--text-secondary, #616161);
+}
+
+/* Dziś świeci: ciepła plakietka w rzędzie akcji (zamiast przycisku) */
+.pets-grave__lit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    margin: 4px 0 0;
+    padding: 6px 16px 6px 12px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #FFF7E6 0%, #FFEBC7 100%);
+    border: 1px solid #FAD9A1;
+    box-shadow: 0 0 16px rgba(255, 190, 90, 0.35);
+    color: #92400E;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.pets-grave__lit-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    fill: #FFB547;
+    stroke: #F08A3D;
+    stroke-width: 1.4;
+}
+
+[data-theme="dark"] .pets-grave-info__lead { color: #E9B8F5; }
 [data-theme="dark"] .pets-grave__meta,
-[data-theme="dark"] .pets-grave__lit { color: rgba(255, 255, 255, 0.65); }
+[data-theme="dark"] .pets-grave-info__note { color: rgba(255, 255, 255, 0.65); }
 
 [data-theme="dark"] .pets-grave__lights { color: #FCD34D; }
+
+[data-theme="dark"] .pets-grave__lit {
+    background: rgba(255, 190, 90, 0.14);
+    border-color: rgba(255, 196, 110, 0.4);
+    box-shadow: 0 0 18px rgba(255, 180, 80, 0.25);
+    color: #FDE68A;
+}
 
 /* Album 8 gatunków (otwierany tabliczką na łące) */
 .pets-album__count {
