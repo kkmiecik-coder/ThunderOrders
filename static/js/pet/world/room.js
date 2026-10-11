@@ -10,13 +10,19 @@
  * Zachowanie:
  *   - pupile w szpitalu (`pet.hospital`) nie pojawiają się w pokoju; do 8 pupili;
  *   - zachowanie wg najpilniejszej potrzeby (PetRig.needOf): chory/krytyczny leży na dywanie, śpiący idzie
- *     do koszyka, głodny siada przy misce, smutny/znudzony w kącie, brudny i szczęśliwy spacerują
- *     (jak towarzysz: przerwy 4–9 s, bez nakładania się); wygląd potrzeby rysuje rig (setNeed/setPose);
- *   - focus(id): pupil podchodzi na środek, lekko się powiększa, reszta przygasa; focus(null) = powrót;
+ *     do koszyka / na poduszkę / kładzie się na kanapie, głodny siada przy misce, smutny w kącie przy roślinie,
+ *     znudzony przy koszu z zabawkami, brudny i szczęśliwy spacerują (jak towarzysz: przerwy 4–9 s, bez
+ *     nakładania się); wygląd potrzeby rysuje rig (setNeed/setPose);
+ *   - pełny pokój (domek) ma meble: kanapę, stolik z lampką (w nocy i w ciemnym motywie świeci), regał, roślinę
+ *     i kosz z zabawkami. Szczęśliwy spacerowicz od czasu do czasu wskakuje na kanapę (siada albo się kładzie)
+ *     albo zagląda do zabawek; na kanapie siedzi NA siedzisku (głębia kanapy, wysokość siedziska z jej wymiarów
+ *     w DOM). W drodze pupil stoi, pozę miejsca przyjmuje po dojściu;
+ *   - focus(id): pupil szybko podbiega na środek (0,5–0,75 s), lekko się powiększa, reszta przygasa;
+ *     focus(null) = powrót spacerem;
  *   - compact (widget): mniejsza skala, `mainPetId` duży na środku z dymkiem potrzeby, max 4 pozostałych
- *     w tle + znacznik „+N”, bez spaceru po całej szerokości (lekkie ruchy w miejscu);
+ *     w tle + znacznik „+N”, bez spaceru po całej szerokości (lekkie ruchy w miejscu), bez mebli;
  *   - interactive: false — pupile są tylko linkami do domku (klik woła onPetClick), bez fokusu/pat;
- *   - prefers-reduced-motion (lub html.pet-rig-rm): bez spaceru i przejść — pupile stają od razu na miejscu.
+ *   - prefers-reduced-motion (lub html.pet-rig-rm): bez spaceru, biegu i skoków — pupile stają od razu na miejscu.
  * Bezpieczeństwo: imiona przez textContent / setAttribute; zero inline onclick (delegacja).
  * Plik ładuje się na kilku stronach (domek + dashboard) — guard idempotencji.
  */
@@ -27,9 +33,20 @@
 
     var MAX_PETS = 8;
     var COMPACT_BACK = 4;
-    var WALK_SPEED = 46;                 // px/s
+    var WALK_SPEED = 46;                 // px/s — spacer
+    var RUN_SPEED = 1000;                // px/s — wybrany pupil biegnie na środek…
+    var RUN_MIN = 0.5, RUN_MAX = 0.75;   // …w 0,5–0,75 s niezależnie od odległości
+    var HOP = 0.4;                       // s — wskok na kanapę / zeskok
     var PAUSE_MIN = 4000, PAUSE_MAX = 9000;
     var NUDGE_MIN = 5000, NUDGE_MAX = 11000;
+    var VISIT_CHANCE = 0.3;              // spacerowicz co ~3. krok idzie na kanapę albo do zabawek zamiast spaceru
+    var SOFA_VISIT = 0.6;                // …z czego kanapa (reszta: kosz z zabawkami)
+    var SOFA_STAY_MIN = 9000, SOFA_STAY_MAX = 17000;
+    // Kanapa: środki miejsc (ułamek szerokości kanapy) i linia siedziska (ułamek wysokości kanapy od dołu,
+    // z viewBox SOFA_SVG: przednia krawędź poduszek siedziska y≈76 ze 118)
+    var SOFA_SEATS = [0.33, 0.67];
+    var SOFA_SEAT_H = 0.36;
+    var SOFA_FRONT = 0.05;               // podejście / zeskok: tyle przed kanapą (głębia)
 
     var NEED_LABEL = {
         happy: 'szczęśliwy', hungry: 'głodny', dirty: 'brudny', sad: 'smutny', bored: 'znudzony',
@@ -40,26 +57,32 @@
         hungry: 'Jestem głodny!', dirty: 'Chcę się umyć!', sad: 'Smutno mi…', bored: 'Nudzę się…',
         sick: 'Źle się czuję…', critical: 'Pomocy!', sleep: 'Zzz…'
     };
-    // Potrzeba → miejsce w pokoju i poza
+    // Potrzeba → miejsce w pokoju i poza (w widgecie liczy się tylko poza)
     var BEHAVIOR = {
         sick: ['rug', 'lie'], critical: ['rug', 'lie'], sleep: ['basket', 'lie'], hungry: ['bowl', 'sit'],
-        sad: ['corner', 'sit'], bored: ['corner', 'sit'], dirty: ['wander', 'stand'], happy: ['wander', 'stand']
+        sad: ['corner', 'sit'], bored: ['toys', 'sit'], dirty: ['wander', 'stand'], happy: ['wander', 'stand']
     };
-    // Miejsca: x = środek pupila (ułamek szerokości), y = odległość stóp od dołu (ułamek wysokości pokoju)
+    // Miejsca: x = środek pupila (ułamek szerokości), y = odległość stóp od dołu (ułamek wysokości pokoju).
+    // Pupile na podłodze stoją najdalej na głębokości 0,26 — dalej, pod ścianą, stoją meble (≈ 0,27–0,3).
     var SPOTS = {
         bowl: [[0.24, 0.05], [0.31, 0.11], [0.2, 0.15], [0.36, 0.04]],
-        basket: [[0.87, 0.08], [0.72, 0.05], [0.79, 0.16], [0.64, 0.12]],
-        corner: [[0.07, 0.22], [0.15, 0.25], [0.24, 0.27], [0.1, 0.16]],
+        // koszyk, poduszka (x ze środka legowiska w DOM — w wąskim pokoju są szersze), (tu dwa miejsca na
+        // kanapie — SLEEP_SOFA_AT), dalej podłoga przy koszyku
+        basket: [[0.87, 0.08, 'basket'], [0.72, 0.05, 'cushion'], [0.79, 0.16], [0.64, 0.12]],
+        corner: [[0.07, 0.22], [0.15, 0.24], [0.1, 0.15], [0.22, 0.2]],
+        toys: [[0.37, 0.23], [0.56, 0.23], [0.46, 0.17], [0.3, 0.17]],
         rug: [[0.44, 0.09], [0.56, 0.05], [0.5, 0.17], [0.38, 0.15]]
     };
+    var SLEEP_SOFA_AT = 2;               // śpiący: po koszyku i poduszce — kanapa, potem podłoga
     // Sloty zajęte → rozsuwanie po podłodze w obszarze miejsca, a gdy i tam ciasno — po całej podłodze
     var AREAS = {
         bowl: { x0: 0.08, x1: 0.46, y0: 0.03, y1: 0.24 },
-        basket: { x0: 0.42, x1: 0.92, y0: 0.03, y1: 0.28 },   // koszyk + poduszka; w nocy śpią tu wszyscy
-        corner: { x0: 0.06, x1: 0.36, y0: 0.12, y1: 0.3 },
+        basket: { x0: 0.42, x1: 0.92, y0: 0.03, y1: 0.26 },   // koszyk + poduszka; w nocy śpią tu wszyscy
+        corner: { x0: 0.06, x1: 0.36, y0: 0.12, y1: 0.26 },
+        toys: { x0: 0.3, x1: 0.66, y0: 0.1, y1: 0.26 },
         rug: { x0: 0.3, x1: 0.7, y0: 0.03, y1: 0.22 }
     };
-    var FLOOR = { x0: 0.08, x1: 0.92, y0: 0.02, y1: 0.3 };
+    var FLOOR = { x0: 0.08, x1: 0.92, y0: 0.02, y1: 0.26 };
     var WANDER = { x0: 0.3, x1: 0.7, y0: 0.03, y1: 0.2 };
     var WANDER_WIDE = { x0: 0.12, x1: 0.88, y0: 0.03, y1: 0.24 };   // > 3 pupili: spacer po szerszej podłodze
     var WANDER_TRIES = 24;
@@ -112,11 +135,6 @@
         '<svg class="pet-room__picture" viewBox="0 0 40 32" aria-hidden="true" focusable="false">' +
         '<rect x="1" y="1" width="38" height="30" rx="3" fill="#fff6e8" stroke="#d9a877" stroke-width="2"/>' +
         '<path d="M20 25s-8-4.6-8-10a4.2 4.2 0 0 1 8-1.6 4.2 4.2 0 0 1 8 1.6c0 5.4-8 10-8 10z" fill="#ff8fab"/></svg>';
-    var LAMP_SVG =
-        '<svg class="pet-room__lamp" viewBox="0 0 40 70" aria-hidden="true" focusable="false">' +
-        '<ellipse class="pr-lamp-glow" cx="20" cy="22" rx="20" ry="22" fill="#ffd36b"/>' +
-        '<path d="M8 6 H32 L36 26 H4 Z" fill="#ffc6d9" stroke="#f3a3be"/><rect x="18.5" y="26" width="3" height="36" fill="#c4925f"/>' +
-        '<ellipse cx="20" cy="64" rx="11" ry="4" fill="#c4925f"/></svg>';
     var BOWLS_SVG =
         '<svg class="pet-room__bowls" viewBox="0 0 100 34" aria-hidden="true" focusable="false">' +
         '<ellipse cx="26" cy="28" rx="24" ry="5" fill="#000" opacity=".1"/><ellipse cx="74" cy="28" rx="24" ry="5" fill="#000" opacity=".1"/>' +
@@ -143,12 +161,106 @@
         '<path d="M45 16 Q52 22 59 15 M46 22 Q53 17 59 22" stroke="#4fb5a6" stroke-width="1.6" fill="none"/>' +
         '<path d="M59 21 Q66 26 68 18" stroke="#7fd3c4" stroke-width="1.6" fill="none"/></svg>';
 
+    // Meble pełnego pokoju (domek). Kolory z klas .pf-* (pet-room.css: zmienne --pf-*, wariant wieczorny w ciemnym
+    // motywie). Kanapa: siedzisko — przednia krawędź poduszek y≈76 (SOFA_SEAT_H), miejsca w 1/3 i 2/3 szerokości.
+    var SOFA_SVG =
+        '<svg class="pet-room__sofa" viewBox="0 0 200 118" aria-hidden="true" focusable="false">' +
+        '<ellipse class="pf-shadow" cx="100" cy="112" rx="98" ry="6"/>' +
+        '<rect class="pf-wood-d" x="22" y="96" width="10" height="17" rx="3"/><rect class="pf-wood-d" x="168" y="96" width="10" height="17" rx="3"/>' +
+        '<rect class="pf-sofa" x="14" y="8" width="172" height="74" rx="28"/>' +
+        '<rect class="pf-sofa-l" x="27" y="17" width="70" height="52" rx="20"/><rect class="pf-sofa-l" x="103" y="17" width="70" height="52" rx="20"/>' +
+        '<path class="pf-sofa-hi" d="M40 26 Q62 20 84 26 M116 26 Q138 20 160 26"/>' +
+        '<g transform="rotate(-12 46 50)"><rect class="pf-pillow-a" x="31" y="35" width="31" height="29" rx="11"/>' +
+        '<path class="pf-pillow-mark" d="M46.5 56s-6-3.4-6-7.4a3.1 3.1 0 0 1 6-1.2 3.1 3.1 0 0 1 6 1.2c0 4-6 7.4-6 7.4z"/></g>' +
+        '<g transform="rotate(11 154 50)"><rect class="pf-pillow-b" x="139" y="36" width="31" height="28" rx="11"/>' +
+        '<circle class="pf-pillow-dot" cx="148" cy="45" r="2.2"/><circle class="pf-pillow-dot" cx="160" cy="47" r="2.2"/>' +
+        '<circle class="pf-pillow-dot" cx="152" cy="55" r="2.2"/></g>' +
+        '<rect class="pf-sofa-d" x="8" y="70" width="184" height="32" rx="13"/>' +
+        '<rect class="pf-sofa" x="24" y="58" width="77" height="24" rx="11"/><rect class="pf-sofa" x="99" y="58" width="77" height="24" rx="11"/>' +
+        '<path class="pf-sofa-hi" d="M34 63 H90 M110 63 H166"/>' +
+        '<rect class="pf-sofa" x="0" y="40" width="33" height="62" rx="16"/><rect class="pf-sofa" x="167" y="40" width="33" height="62" rx="16"/>' +
+        '<ellipse class="pf-sofa-l" cx="16.5" cy="45" rx="15" ry="6.5"/><ellipse class="pf-sofa-l" cx="183.5" cy="45" rx="15" ry="6.5"/>' +
+        '</svg>';
+    // Stolik z lampką — lampka stoi na blacie (nie na podłodze); w nocy świeci (abażur + .pet-room__lamplight)
+    var TABLE_SVG =
+        '<svg class="pet-room__table" viewBox="0 0 60 132" aria-hidden="true" focusable="false">' +
+        '<ellipse class="pr-lamp-glow" cx="30" cy="38" rx="30" ry="28"/>' +
+        '<ellipse class="pf-shadow" cx="30" cy="127" rx="24" ry="4"/>' +
+        '<rect class="pf-wood-d" x="26.5" y="86" width="7" height="36"/>' +
+        '<ellipse class="pf-wood" cx="30" cy="123" rx="15" ry="4.5"/>' +
+        '<rect class="pf-wood" x="3" y="79" width="54" height="9" rx="4.5"/><rect class="pf-wood-d" x="6" y="86" width="48" height="2.6" rx="1.3"/>' +
+        '<ellipse class="pf-lamp-metal" cx="30" cy="79" rx="9.5" ry="3"/><rect class="pf-lamp-metal" x="28.5" y="46" width="3" height="33"/>' +
+        '<path class="pf-shade" d="M15 22 H45 L52 48 H8 Z"/><path class="pf-shade-trim" d="M8.6 46 H51.4"/>' +
+        '</svg>';
+    var PLANT_SVG =
+        '<svg class="pet-room__plant" viewBox="0 0 70 130" aria-hidden="true" focusable="false">' +
+        '<ellipse class="pf-shadow" cx="35" cy="125" rx="24" ry="4"/>' +
+        '<path class="pf-leaf-d" d="M35 92 C30 70 18 60 6 57 C12 74 22 86 35 92 Z"/>' +
+        '<path class="pf-leaf-d" d="M35 92 C40 66 53 54 66 50 C59 71 48 85 35 92 Z"/>' +
+        '<path class="pf-leaf" d="M35 90 C25 62 27 34 37 12 C47 36 45 64 35 90 Z"/>' +
+        '<path class="pf-leaf" d="M34 92 C22 75 10 72 1 76 C11 89 24 93 34 92 Z"/>' +
+        '<path class="pf-leaf" d="M36 92 C48 75 60 72 69 76 C59 89 46 93 36 92 Z"/>' +
+        '<path class="pf-vein" d="M36 86 Q34 50 37 18 M33 90 Q20 80 6 77 M37 90 Q50 80 64 77"/>' +
+        '<path class="pf-pot" d="M15 92 H55 L50 124 H20 Z"/><rect class="pf-pot-rim" x="11" y="86" width="48" height="10" rx="5"/>' +
+        '<path class="pf-pot-mark" d="M35 115s-5-2.9-5-6.2a2.6 2.6 0 0 1 5-1 2.6 2.6 0 0 1 5 1c0 3.3-5 6.2-5 6.2z"/>' +
+        '</svg>';
+    var SHELF_SVG =
+        '<svg class="pet-room__shelf" viewBox="0 0 100 132" aria-hidden="true" focusable="false">' +
+        '<ellipse class="pf-shadow" cx="50" cy="128" rx="48" ry="4"/>' +
+        '<rect class="pf-wood" x="2" y="4" width="96" height="122" rx="7"/>' +
+        '<rect class="pf-shelf-back" x="9" y="11" width="82" height="108" rx="3"/>' +
+        // półka górna: książki + pochylona
+        '<rect class="pf-book-a" x="13" y="21" width="9" height="25" rx="2"/><rect class="pf-book-b" x="23" y="16" width="8" height="30" rx="2"/>' +
+        '<rect class="pf-book-c" x="32" y="23" width="10" height="23" rx="2"/>' +
+        '<rect class="pf-book-d" x="45" y="19" width="8" height="27" rx="2" transform="rotate(14 49 46)"/>' +
+        '<rect class="pf-book-e" x="70" y="18" width="9" height="28" rx="2"/><rect class="pf-book-a" x="80" y="22" width="8" height="24" rx="2"/>' +
+        // półka środkowa: piłka i stos książek
+        '<circle class="pf-toy-ball" cx="25" cy="73" r="11"/><path class="pf-toy-line" d="M15 70 Q25 77 35 70"/>' +
+        '<rect class="pf-book-c" x="46" y="75" width="40" height="9" rx="2"/><rect class="pf-book-e" x="50" y="66" width="33" height="9" rx="2"/>' +
+        '<rect class="pf-book-b" x="54" y="58" width="26" height="8" rx="2"/>' +
+        // półka dolna: klocki
+        '<rect class="pf-block-a" x="14" y="100" width="19" height="19" rx="3"/><rect class="pf-block-b" x="35" y="100" width="19" height="19" rx="3"/>' +
+        '<circle class="pf-block-dot" cx="23.5" cy="109.5" r="3.2"/><path class="pf-block-dot" d="M44.5 104 l4 7 h-8 z"/>' +
+        '<rect class="pf-book-d" x="64" y="94" width="9" height="25" rx="2"/><rect class="pf-book-a" x="74" y="98" width="10" height="21" rx="2"/>' +
+        '<rect class="pf-wood-d" x="9" y="46" width="82" height="5"/><rect class="pf-wood-d" x="9" y="84" width="82" height="5"/>' +
+        '<rect class="pf-wood-d" x="9" y="119" width="82" height="3"/>' +
+        '</svg>';
+    // Kosz z zabawkami (znudzony siada obok): piłka, kaczuszka i różdżka z gwiazdką wystają nad brzeg
+    var TOYBOX_SVG =
+        '<svg class="pet-room__toybox" viewBox="0 0 90 72" aria-hidden="true" focusable="false">' +
+        '<ellipse class="pf-shadow" cx="45" cy="67" rx="42" ry="4.5"/>' +
+        '<path class="pf-wand" d="M47 36 L39 9"/><path class="pf-star" d="M38.5 0.5l2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.4 2.8 1-6-4.3-4.2 6-.9z"/>' +
+        '<circle class="pf-toy-ball" cx="25" cy="27" r="13"/><path class="pf-toy-line" d="M13 24 Q25 32 37 24"/>' +
+        '<ellipse class="pf-duck" cx="64" cy="30" rx="14" ry="9"/><circle class="pf-duck" cx="60" cy="18" r="8"/>' +
+        '<path class="pf-beak" d="M52.5 18.5 l-6 2 6 2 z"/><circle class="pf-eye" cx="57.5" cy="16.5" r="1.4"/>' +
+        '<path class="pf-wicker" d="M6 33 H84 L78 63 Q45 70 12 63 Z"/>' +
+        '<rect class="pf-wicker-d" x="3" y="28" width="84" height="9" rx="4.5"/>' +
+        '<path class="pf-weave" d="M10 45 H80 M13 55 H77 M24 38 V65 M38 38 V67 M52 38 V67 M66 38 V65"/>' +
+        '</svg>';
+    var PAW_PICTURE_SVG =
+        '<svg class="pet-room__picture pet-room__picture--paw" viewBox="0 0 40 32" aria-hidden="true" focusable="false">' +
+        '<rect class="pf-canvas" x="1" y="1" width="38" height="30" rx="3"/>' +
+        '<ellipse class="pf-paw" cx="20" cy="20.5" rx="6.2" ry="5.2"/><circle class="pf-paw" cx="12.2" cy="13.6" r="2.7"/>' +
+        '<circle class="pf-paw" cx="17" cy="9.4" r="2.7"/><circle class="pf-paw" cx="23" cy="9.4" r="2.7"/><circle class="pf-paw" cx="27.8" cy="13.6" r="2.7"/>' +
+        '</svg>';
+
     function sceneMarkup(compact) {
+        if (compact) {
+            // Widget: bez mebli i ozdób (jak przed meblami domku)
+            return '<div class="pet-room__scene" aria-hidden="true">' +
+                '<div class="pet-room__wall"></div>' + WINDOW_SVG +
+                '<div class="pet-room__floor"></div><div class="pet-room__rug"></div>' +
+                BOWLS_SVG + BASKET_SVG + TOYS_SVG +
+                '<div class="pet-room__dark"></div></div>';
+        }
+        // Kolejność = warstwy: ściana i ozdoby, podłoga, meble pod ścianą, rzeczy na podłodze, noc, światło lampki
         return '<div class="pet-room__scene" aria-hidden="true">' +
-            '<div class="pet-room__wall"></div>' + WINDOW_SVG + (compact ? '' : PICTURE_SVG + LAMP_SVG) +
-            '<div class="pet-room__floor"></div><div class="pet-room__rug"></div>' +
-            BOWLS_SVG + BASKET_SVG + (compact ? '' : CUSHION_SVG) + TOYS_SVG +
-            '<div class="pet-room__dark"></div></div>';
+            '<div class="pet-room__wall"></div>' + WINDOW_SVG + PICTURE_SVG + PAW_PICTURE_SVG +
+            '<div class="pet-room__floor"></div>' +
+            PLANT_SVG + SHELF_SVG + TOYBOX_SVG + SOFA_SVG + TABLE_SVG +
+            '<div class="pet-room__rug"></div>' +
+            BOWLS_SVG + BASKET_SVG + CUSHION_SVG + TOYS_SVG +
+            '<div class="pet-room__dark"></div><div class="pet-room__lamplight"></div></div>';
     }
 
     // --- pokój -----------------------------------------------------------------------------
@@ -161,7 +273,10 @@
         var mainId = opts.mainPetId != null ? opts.mainPetId : null;
         var focusedId = null;
         var destroyed = false;
-        var entries = {};           // id → {pet, el, flip, rig, name, need, pose, x, y, place, acting, timer}
+        // id → {pet, el, flip, rig, name, need, pose (poza potrzeby), poseNow (poza rigu), goalPose (poza celu),
+        //       x, y (głębia), lift (wysokość nad podłogą), seat (miejsce na kanapie | -1), visit ('sofa' | 'toys' | null),
+        //       place, spotFor, walk, acting, timer, arrive}
+        var entries = {};
         var order = [];
 
         var el = document.createElement('div');
@@ -179,6 +294,7 @@
         more.className = 'pet-room__more';
         more.hidden = true;
         el.appendChild(more);
+        var sofa = el.querySelector('.pet-room__sofa');
         var room = { el: el };
 
         function width() { return el.clientWidth || 600; }
@@ -201,6 +317,8 @@
                 if (order.length) layout(true);
                 return;
             }
+            // Kanapa rośnie i maleje z szerokością pokoju — siedzący na niej zostają na siedzisku
+            refreshSeats();
             // Wyraźnie inna szerokość (domek: okno sceny rezerwuje prawe 376 px, zwinięty sidebar, obrót) —
             // pozycje w % zostają, ale pupile są względem pokoju więksi/mniejsi: rozstaw od nowa, spacerem
             if (!compact && order.length && layoutWidth && Math.abs(w - layoutWidth) / layoutWidth > 0.12) {
@@ -211,27 +329,136 @@
             }
         }
 
-        function place(entry, x, y, instant) {
-            var dist = Math.hypot((x - entry.x) * width(), (y - entry.y) * height());
-            var moving = !instant && !reducedMotion() && entry.x != null && dist > 2;
-            entry.el.classList.toggle('is-walking', moving);
-            // Wartości dynamiczne (pozycja, czas marszu, głębia) — reszta wyglądu w pet-room.css
-            entry.el.style.setProperty('--walk', moving ? Math.max(0.5, dist / WALK_SPEED).toFixed(2) + 's' : '0s');
+        function setPose(entry, pose) {
+            if (!pose || entry.poseNow === pose) return;
+            entry.poseNow = pose;
+            if (entry.rig && typeof entry.rig.setPose === 'function') entry.rig.setPose(pose);
+        }
+
+        function moving(entry) {
+            return !!(entry.walk && entry.walk.until > Date.now());
+        }
+
+        /**
+         * Jeden ruch pupila do (x, y). o: lift (wysokość nad podłogą — siedzisko kanapy, ułamek wysokości pokoju),
+         * run (bieg do fokusu), hop (wskok/zeskok), pose (pełny pokój: poza po dojściu, w drodze „stand”), done.
+         */
+        function place(entry, x, y, instant, o) {
+            o = o || {};
+            var lift = o.lift || 0;
+            var k = yScale();
+            var dist = entry.x == null ? 0 :
+                Math.hypot((x - entry.x) * width(), ((y - entry.y) * k + lift - (entry.lift || 0)) * height());
+            var move = !instant && !reducedMotion() && entry.x != null && dist > 2;
+            var dur = 0;
+            if (move) {
+                dur = o.hop ? HOP : o.run ? Math.min(RUN_MAX, Math.max(RUN_MIN, dist / RUN_SPEED)) : Math.max(0.5, dist / WALK_SPEED);
+            }
+            entry.el.classList.toggle('is-walking', move && !o.hop);
+            entry.el.classList.toggle('is-running', move && !!o.run);
+            entry.el.classList.toggle('is-hopping', move && !!o.hop);
+            // Wartości dynamiczne (pozycja, czas ruchu, głębia) — reszta wyglądu w pet-room.css
+            entry.el.style.setProperty('--walk', dur.toFixed(2) + 's');
             entry.el.style.setProperty('--depth', (1 - y * 0.7).toFixed(3));
             // Trasa marszu — inni nie wybierają celu ani drogi w poprzek niej, póki pupil idzie
-            entry.walk = moving ? { x0: entry.x, y0: entry.y, until: Date.now() + dist / WALK_SPEED * 1000 } : null;
+            entry.walk = move ? { x0: entry.x, y0: entry.y, until: Date.now() + dur * 1000 } : null;
             entry.x = x;
             entry.y = y;
+            entry.lift = lift;
             entry.el.style.left = (x * 100).toFixed(2) + '%';
-            entry.el.style.bottom = (y * yScale() * 100).toFixed(2) + '%';
+            entry.el.style.bottom = ((y * k + lift) * 100).toFixed(2) + '%';
             entry.el.style.zIndex = String(100 - Math.round(y * 100) + (entry.pet.id === focusedId ? 50 : 0));
             clearTimeout(entry.arrive);
-            if (moving) {
+            if (!compact && o.pose) setPose(entry, move ? 'stand' : o.pose);
+            if (move) {
                 entry.arrive = setTimeout(function () {
-                    entry.el.classList.remove('is-walking');
+                    entry.el.classList.remove('is-walking', 'is-running', 'is-hopping');
+                    if (!compact && o.pose) setPose(entry, o.pose);
                     if (compact && entry.pet.id === mainId) placeBubble();
-                }, dist / WALK_SPEED * 1000);
+                    if (o.done) o.done();
+                }, dur * 1000);
+            } else if (o.done) {
+                o.done();
             }
+        }
+
+        // --- kanapa ------------------------------------------------------------------------
+        // Wymiary z DOM (pozycja i szerokość kanapy żyją w pet-room.css: szeroki / wąski pokój, okno sceny):
+        // głębia pupila na kanapie = głębia jej nóżek, wysokość = linia siedziska nad nimi.
+        function seatTarget(i, pose) {
+            if (!sofa || i < 0) return null;
+            var b = el.getBoundingClientRect();
+            var r = sofa.getBoundingClientRect();
+            if (!b.width || !b.height || !r.width) return null;
+            var feet = (b.bottom - r.bottom) / b.height;
+            var seat = (b.bottom - r.bottom + r.height * SOFA_SEAT_H) / b.height;
+            return {
+                x: (r.left - b.left + r.width * SOFA_SEATS[i]) / b.width,
+                y: feet / yScale(), lift: seat - feet, seat: i, pose: pose
+            };
+        }
+
+        function freeSeat(entry) {
+            if (!sofa) return -1;
+            for (var i = 0; i < SOFA_SEATS.length; i++) {
+                var taken = order.some(function (id) {
+                    var o = entries[id];
+                    return o && o !== entry && o.seat === i;
+                });
+                if (!taken) return i;
+            }
+            return -1;
+        }
+
+        /** Po zmianie rozmiaru: siedzący na kanapie przeskakują (bez animacji) na nowe siedzisko. */
+        function refreshSeats() {
+            if (compact || !sofa) return;
+            order.forEach(function (id) {
+                var e = entries[id];
+                if (!e || e.seat < 0 || e.x == null || moving(e) || id === focusedId) return;
+                var t = seatTarget(e.seat, null);
+                if (t) place(e, t.x, t.y, true, { lift: t.lift });
+            });
+        }
+
+        /**
+         * Ruch do celu {x, y, lift, seat, pose}: na kanapę — podejście i wskok, z kanapy — zeskok i dalej;
+         * o.run = bieg prosto do celu (fokus), o.instant = bez ruchu, o.done = po dojściu.
+         */
+        function moveTo(entry, t, o) {
+            o = o || {};
+            clearTimeout(entry.arrive);
+            var instant = !!o.instant || entry.x == null || reducedMotion();
+            var from = entry.seat;
+            entry.goalPose = t.pose || entry.pose;
+            entry.seat = t.seat != null && t.seat >= 0 ? t.seat : -1;   // miejsce zarezerwowane od razu
+            var steps = [];
+            var onSofa = (entry.lift || 0) > 0;
+            var sameSeat = onSofa && from >= 0 && from === entry.seat;
+            if (!instant && !o.run && !sameSeat) {
+                if (onSofa) steps.push({ x: entry.x, y: Math.max(0.02, entry.y - SOFA_FRONT), hop: true });
+                if (entry.seat >= 0) {
+                    steps.push({ x: t.x, y: Math.max(0.02, t.y - SOFA_FRONT) });
+                    steps.push({ seat: entry.seat, pose: t.pose, hop: true });
+                }
+            }
+            if (!steps.length || steps[steps.length - 1].seat == null) {
+                steps.push({ x: t.x, y: t.y, lift: t.lift, seat: entry.seat >= 0 ? entry.seat : null, pose: t.pose, run: !!o.run });
+            }
+            (function next(i) {
+                var s = steps[i];
+                var last = i === steps.length - 1;
+                if (s.seat != null) {
+                    // Siedzisko liczone w chwili wskoku (kanapa mogła zmienić rozmiar po drodze)
+                    var g = seatTarget(s.seat, s.pose);
+                    if (g) { s.x = g.x; s.y = g.y; s.lift = g.lift; }
+                    if (s.x == null) { s.x = t.x; s.y = t.y; s.lift = t.lift; }
+                }
+                place(entry, s.x, s.y, instant, {
+                    lift: s.lift, hop: s.hop, run: s.run, pose: last ? s.pose : 'stand',
+                    done: last ? o.done : function () { next(i + 1); }
+                });
+            })(0);
         }
 
         // --- bez nakładania się ------------------------------------------------------------
@@ -315,29 +542,103 @@
                 if (score > bestScore) { bestScore = score; best = [x, y]; }
             }
             if (ok.length) return ok[Math.floor(Math.random() * ok.length)];
-            if (entry.x != null && sepAt(entry, entry.x, entry.y, obs, box) >= bestScore) return null;
+            if (entry.x != null && entry.seat < 0 && sepAt(entry, entry.x, entry.y, obs, box) >= bestScore) return null;
             return best;
         }
 
         /**
-         * Miejsce potrzeby (miska, koszyk, kąt, dywan): najpierw sloty SPOTS, potem siatka obszaru miejsca
-         * (najbliżej pierwszego slotu), potem cała podłoga; bez wolnego — punkt z największym dystansem.
+         * Miejsce potrzeby (miska, koszyk, kąt, zabawki, dywan): najpierw sloty SPOTS (śpiący: po koszyku
+         * i poduszce — kanapa), potem siatka obszaru miejsca (najbliżej pierwszego slotu), potem cała podłoga;
+         * bez wolnego — punkt z największym dystansem. Zwraca cel dla moveTo.
          */
+        /** Środek rzeczy w scenie (ułamek szerokości pokoju) — legowiska są w wąskim pokoju szersze. */
+        function centerX(name, fallback) {
+            var thing = el.querySelector('.pet-room__' + name);
+            var b = el.getBoundingClientRect();
+            var r = thing ? thing.getBoundingClientRect() : null;
+            if (!r || !r.width || !b.width) return fallback;
+            return (r.left - b.left + r.width / 2) / b.width;
+        }
+
         function freePlaceSpot(entry, placeName, only) {
             var box = petBox();
             var obs = obstacles(entry, only);
-            var anchor = SPOTS[placeName][0];
+            var slots = SPOTS[placeName].map(function (s) { return s[2] ? [centerX(s[2], s[0]), s[1]] : s; });
+            var anchor = slots[0];
             var area = grid(AREAS[placeName], 11, 7).sort(function (a, b) {
                 return Math.hypot(a[0] - anchor[0], a[1] - anchor[1]) - Math.hypot(b[0] - anchor[0], b[1] - anchor[1]);
             });
-            var cands = SPOTS[placeName].concat(area, grid(FLOOR, 11, 5));
-            var best = cands[0], bestSep = -1;
-            for (var i = 0; i < cands.length; i++) {
-                var s = sepAt(entry, cands[i][0], cands[i][1], obs, box);
-                if (s >= 1) return cands[i].slice();
-                if (s > bestSep) { bestSep = s; best = cands[i]; }
+            var sofaAt = placeName === 'basket' ? SLEEP_SOFA_AT : -1;
+            var best = slots[0], bestSep = -1;
+            function firstFree(list) {
+                for (var i = 0; i < list.length; i++) {
+                    var s = sepAt(entry, list[i][0], list[i][1], obs, box);
+                    if (s >= 1) return { x: list[i][0], y: list[i][1], pose: entry.pose };
+                    if (s > bestSep) { bestSep = s; best = list[i]; }
+                }
+                return null;
             }
-            return best.slice();
+            var found = firstFree(sofaAt >= 0 ? slots.slice(0, sofaAt) : slots);
+            if (found) return found;
+            if (sofaAt >= 0) {
+                // Miejsce na kanapie jest wyłącznie jednego pupila (rezerwacja w entry.seat)
+                var seat = entry.seat >= 0 ? entry.seat : freeSeat(entry);
+                var onSofa = seat >= 0 ? seatTarget(seat, entry.pose) : null;
+                if (onSofa) return onSofa;
+                found = firstFree(slots.slice(sofaAt));
+                if (found) return found;
+            }
+            found = firstFree(area.concat(grid(FLOOR, 11, 5)));
+            return found || { x: best[0], y: best[1], pose: entry.pose };
+        }
+
+        // --- wizyty spacerowiczów: kanapa i kosz z zabawkami ----------------------------------
+
+        function sofaVisit(entry) {
+            if (entry.need !== 'happy') return null;        // brudny nie wskakuje na kanapę
+            var seat = freeSeat(entry);
+            var t = seat >= 0 ? seatTarget(seat, Math.random() < 0.6 ? 'sit' : 'lie') : null;
+            if (!t) return null;
+            // Podejście przed kanapę nie może przechodzić przez innych
+            var box = petBox();
+            var obs = obstacles(entry, null);
+            if (pathSep(entry, t.x, t.y - SOFA_FRONT, obs, box) < SEP_PATH) return null;
+            t.visit = 'sofa';
+            return t;
+        }
+
+        function toysVisit(entry) {
+            var box = petBox();
+            var obs = obstacles(entry, null);
+            var list = SPOTS.toys.slice().sort(function () { return Math.random() - 0.5; });
+            for (var i = 0; i < list.length; i++) {
+                if (sepAt(entry, list[i][0], list[i][1], obs, box) >= 1 && pathSep(entry, list[i][0], list[i][1], obs, box) >= SEP_PATH) {
+                    return { x: list[i][0], y: list[i][1], pose: 'stand', visit: 'toys' };
+                }
+            }
+            return null;
+        }
+
+        function wanderStep(entry) {
+            if (!entry.visit && Math.random() < VISIT_CHANCE) {
+                var t = Math.random() < SOFA_VISIT ? sofaVisit(entry) || toysVisit(entry) : toysVisit(entry);
+                if (t) {
+                    entry.visit = t.visit;
+                    moveTo(entry, t, {
+                        done: t.visit === 'toys' ? function () {
+                            // Przy zabawkach: radosny gest (rig sam pomija go w ograniczonym ruchu / w akcji)
+                            if (entry.rig && typeof entry.rig.gesture === 'function' && entry.visit === 'toys') {
+                                entry.rig.gesture(Math.random() < 0.5 ? 'jump' : 'sway');
+                            }
+                        } : null
+                    });
+                    return;
+                }
+            }
+            var spot = freeWanderSpot(entry, null);
+            if (!spot) return;                              // ciasno — zostaje (także na kanapie)
+            entry.visit = null;
+            moveTo(entry, { x: spot[0], y: spot[1], pose: entry.pose });
         }
 
         function scheduleWander(entry) {
@@ -354,14 +655,12 @@
                 return;
             }
             if (entry.place !== 'wander') return;
+            var stay = entry.visit === 'sofa' ? rand(SOFA_STAY_MIN, SOFA_STAY_MAX) : rand(PAUSE_MIN, PAUSE_MAX);
             entry.timer = setTimeout(function () {
                 if (destroyed) return;
-                if (!entry.acting && focusedId !== entry.pet.id && entry.place === 'wander') {
-                    var spot = freeWanderSpot(entry, null);
-                    if (spot) place(entry, spot[0], spot[1]);
-                }
+                if (!entry.acting && focusedId !== entry.pet.id && entry.place === 'wander' && !moving(entry)) wanderStep(entry);
                 scheduleWander(entry);
-            }, rand(PAUSE_MIN, PAUSE_MAX));
+            }, stay);
         }
 
         /** Rozmieszcza pupili wg potrzeb (albo wg układu widgetu). */
@@ -391,21 +690,32 @@
             seq.forEach(function (id) {
                 var e = entries[id];
                 var target;
+                if (e.place !== 'wander') e.visit = null;
                 // Zostaje na miejscu, jeśli to wciąż to samo zajęcie i nikt z rozstawionych na nim nie stoi
+                // (miejsce na kanapie jest jego z rezerwacji)
                 var keep = e.x != null && e.spotFor === e.place && id !== focusedId &&
-                    sepAt(e, e.x, e.y, obstacles(e, done), box) >= 1;
+                    (e.seat >= 0 || sepAt(e, e.x, e.y, obstacles(e, done), box) >= 1);
+                e.spotFor = id === focusedId ? null : e.place;
+                done[id] = true;
+                if (keep && !instant && moving(e)) {
+                    // W drodze na to samo miejsce — niech dojdzie (pozę ustawi po dojściu)
+                    scheduleWander(e);
+                    return;
+                }
+                var pose = e.visit ? e.goalPose || e.pose : e.pose;      // wizyta: poza z kanapy / przy zabawkach
                 if (id === focusedId) {
-                    target = FOCUS_SPOT;
+                    e.visit = null;
+                    target = { x: FOCUS_SPOT[0], y: FOCUS_SPOT[1], pose: e.pose };
                 } else if (keep) {
-                    target = [e.x, e.y];
+                    target = (e.seat >= 0 && seatTarget(e.seat, pose)) || { x: e.x, y: e.y, lift: e.lift, seat: e.seat, pose: pose };
                 } else if (e.place === 'wander') {
-                    target = freeWanderSpot(e, done) || [e.x, e.y];
+                    e.visit = null;
+                    var spot = freeWanderSpot(e, done) || [e.x, e.y];
+                    target = { x: spot[0], y: spot[1], pose: e.pose };
                 } else {
                     target = freePlaceSpot(e, e.place, done);
                 }
-                e.spotFor = id === focusedId ? null : e.place;
-                done[id] = true;
-                place(e, target[0], target[1], instant || e.x == null);
+                moveTo(e, target, { instant: instant || e.x == null, run: id === focusedId });
                 scheduleWander(e);
             });
         }
@@ -441,7 +751,8 @@
             if (entry.rig) {
                 entry.rig.update({ species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: pet.asleep });
                 if (typeof entry.rig.setNeed === 'function') entry.rig.setNeed(need);
-                if (typeof entry.rig.setPose === 'function') entry.rig.setPose(entry.pose);
+                // Widget: poza od razu; pełny pokój: poza miejsca po dojściu (moveTo/place), w drodze stoi
+                if (compact && typeof entry.rig.setPose === 'function') entry.rig.setPose(entry.pose);
             }
             return changed;
         }
@@ -468,9 +779,12 @@
                 btn.appendChild(name);
             }
             layer.appendChild(btn);
-            var entry = { pet: pet, el: btn, flip: flip, rig: null, name: name, need: null, pose: 'stand', x: null, y: null, place: 'wander', acting: 0, timer: 0, arrive: 0 };
             var need = needOf(pet);
             var behavior = BEHAVIOR[need] || BEHAVIOR.happy;
+            var entry = {
+                pet: pet, el: btn, flip: flip, rig: null, name: name, need: null, pose: 'stand', poseNow: behavior[1],
+                x: null, y: null, lift: 0, seat: -1, visit: null, place: 'wander', acting: 0, timer: 0, arrive: 0
+            };
             if (window.PetRig) {
                 entry.rig = window.PetRig.mount(flip, {
                     species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: pet.asleep,
