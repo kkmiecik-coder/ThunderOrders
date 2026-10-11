@@ -417,7 +417,8 @@
         if (current.name !== name) return;
         if (PetsState.current) inst.scene.render(PetsState.current);
         if (current.name !== name) return;
-        if (opts.focus && header.title) {
+        // Fokus na nagłówek sceny — chyba że scena sama go już ustawiła (np. otwarty panel pupila)
+        if (opts.focus && header.title && !inst.host.contains(document.activeElement)) {
             try { header.title.focus({ preventScroll: true }); } catch (e) { header.title.focus(); }
         }
         if (opts.scroll !== false) window.scrollTo(0, 0);
