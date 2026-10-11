@@ -96,8 +96,6 @@
     color: #1E3A8A;
 }
 
-.pets-house__away .pets-link { min-height: 32px; }
-
 .pets-house__tip[hidden],
 .pets-house__away[hidden],
 .pets-house__intro[hidden] { display: none; }
