@@ -5925,3 +5925,110 @@ html.pet-rig-rm .pets-window { transition: none; animation: none; }
 [data-theme="dark"] .pets-hosp-win__pct { color: #f5c2fc; }
 [data-theme="dark"] .pets-hosp-win__eta { color: #ffffff; }
 [data-theme="dark"] .pets-hosp-win__heat { color: #ffc48a; }
+
+/* Pupil w łóżku: stan leczenia, potwierdzenie wcześniejszego odbioru, podpowiedź pat pat */
+.pets-hosp-win__status {
+    font-weight: 700;
+    color: #1e40af;
+}
+
+.pets-hosp-win--bed .pets-progress--heal + .pets-hosp-win__pct { color: #15803d; }
+
+.pets-hosp-win__confirm {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-primary, #212121);
+}
+
+.pets-hosp-win__tip {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary, #616161);
+}
+
+[data-theme="dark"] .pets-hosp-win__status { color: #93c5fd; }
+[data-theme="dark"] .pets-hosp-win--bed .pets-progress--heal + .pets-hosp-win__pct { color: #86efac; }
+[data-theme="dark"] .pets-hosp-win__confirm { color: #ffffff; }
+[data-theme="dark"] .pets-hosp-win__tip { color: rgba(255, 255, 255, 0.6); }
+
+/* „Kogo przyjąć?” — lista chorych z domku */
+.pets-hosp-win__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pets-hosp-win__row {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: #fff5f6;
+    border: 1px solid #fbd5db;
+}
+
+.pets-hosp-win__mini { line-height: 0; }
+.pets-hosp-win__mini .pet-rig { width: 56px; }
+
+.pets-hosp-win__who {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.pets-hosp-win__name {
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pets-hosp-win__mood {
+    font-size: 12.5px;
+    color: #be123c;
+}
+
+.pets-hosp-win__hint {
+    font-size: 12px;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-hosp-win__act {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    max-width: 130px;
+}
+
+.pets-hosp-win__reason {
+    margin: 0;
+    font-size: 11.5px;
+    text-align: center;
+    color: var(--text-secondary, #616161);
+}
+
+[data-theme="dark"] .pets-hosp-win__row {
+    background: rgba(251, 113, 133, 0.08);
+    border-color: rgba(251, 113, 133, 0.25);
+}
+
+[data-theme="dark"] .pets-hosp-win__name { color: #ffffff; }
+[data-theme="dark"] .pets-hosp-win__mood { color: #fda4af; }
+[data-theme="dark"] .pets-hosp-win__hint,
+[data-theme="dark"] .pets-hosp-win__reason { color: rgba(255, 255, 255, 0.65); }
+
+@media (max-width: 380px) {
+    .pets-hosp-win__row { grid-template-columns: 48px minmax(0, 1fr); }
+    .pets-hosp-win__mini .pet-rig { width: 48px; }
+    .pets-hosp-win__act { grid-column: 1 / -1; max-width: none; }
+}
