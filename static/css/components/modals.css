@@ -5897,3 +5897,31 @@ html.pet-rig-rm .pets-window { transition: none; animation: none; }
 .pets-hosp-win .pets-window__actions > .pet-btn { flex: 1 1 160px; }
 
 [data-theme="dark"] .pets-hosp-win__gift { filter: drop-shadow(0 0 4px rgba(255, 214, 120, 0.3)); }
+
+/* Pasek postępu z liczbą (jajko w inkubatorze, leczenie w łóżku) */
+.pets-hosp-win__meter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pets-hosp-win__meter .pets-progress { flex: 1 1 auto; }
+
+.pets-hosp-win__pct {
+    flex: 0 0 auto;
+    min-width: 3.2em;
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 800;
+    text-align: right;
+    color: #5a189a;
+}
+
+.pets-hosp-win__eta { font-weight: 600; color: var(--text-primary, #212121); }
+.pets-hosp-win__eta[hidden],
+.pets-hosp-win__heat[hidden] { display: none; }
+
+.pets-hosp-win__heat { color: #9a4a12; }
+
+[data-theme="dark"] .pets-hosp-win__pct { color: #f5c2fc; }
+[data-theme="dark"] .pets-hosp-win__eta { color: #ffffff; }
+[data-theme="dark"] .pets-hosp-win__heat { color: #ffc48a; }

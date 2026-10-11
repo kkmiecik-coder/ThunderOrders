@@ -649,3 +649,359 @@ html.pet-rig-rm .pets-hall__nurse.is-calling .pets-nurse,
 html.pet-rig-rm .pets-hall__frame.is-receiving,
 html.pet-rig-rm .pets-hall__egg:hover .pets-gift,
 html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }
+
+/* =====================================================================
+   Inkubatorium (spec v3.1 §4.3)
+   ===================================================================== */
+
+/* Ciepła ściana w pasy do krawędzi sceny */
+.pets-scene--inkubatorium {
+    background: repeating-linear-gradient(90deg, #fff4e3 0 40px, #ffeed8 40px 80px);
+}
+
+[data-theme="dark"] .pets-scene--inkubatorium {
+    background: repeating-linear-gradient(90deg, #2a211c 0 40px, #30251f 40px 80px);
+}
+
+/* Siatka inkubatorów (spec v3.1 §4.3): < 600 px po 2, 600–1023 px po 3, ≥ 1024 px do 5 w rzędzie.
+   Szerokość z miejsca w scenie właściwej (cqw; kolumn najwyżej tyle, ile miejsc — --n z JS) i z jej wysokości
+   (cqh: cały inkubator mieści się pod pigułką). */
+.pets-inc {
+    --cols: 2;
+    --gap: 12px;
+    --pad-x: 24px;
+    --pad-top: 72px;
+}
+
+@media (min-width: 600px) {
+    .pets-inc { --cols: 3; --gap: 18px; --pad-x: 40px; --pad-top: 76px; }
+}
+
+@media (min-width: 1024px) {
+    .pets-inc { --cols: 5; --gap: 24px; }
+}
+
+@media (max-width: 599.98px) {
+    .pets-page--night .pets-inc { --pad-top: 124px; }
+}
+
+/* Podłoga z desek do krawędzi sceny */
+.pets-inc__floor {
+    position: absolute;
+    left: -100vw;
+    right: -100vw;
+    bottom: 0;
+    height: 22%;
+    background:
+        repeating-linear-gradient(90deg, transparent 0 118px, rgba(160, 110, 60, 0.16) 118px 120px),
+        linear-gradient(180deg, #efd9bf 0%, #e8cdaa 100%);
+    box-shadow: inset 0 10px 0 #e2c39d;
+}
+
+[data-theme="dark"] .pets-inc__floor {
+    background:
+        repeating-linear-gradient(90deg, transparent 0 118px, rgba(0, 0, 0, 0.22) 118px 120px),
+        linear-gradient(180deg, #3b2e24 0%, #33281f 100%);
+    box-shadow: inset 0 10px 0 #4a3a2c;
+}
+
+/* Obrazek na ścianie — tylko gdy jest miejsce nad inkubatorami */
+.pets-inc__poster {
+    position: absolute;
+    top: max(80px, 10%);
+    left: 50%;
+    width: 64px;
+    transform: translateX(-50%) rotate(-3deg);
+}
+
+.pets-inc__poster svg { display: block; width: 100%; height: auto; }
+.pets-inc__poster .poster-frame { fill: #e2b07e; }
+.pets-inc__poster .poster-paper { fill: #fffaf0; }
+.pets-inc__poster .poster-egg { fill: #ffe7a6; stroke: #e2be7a; stroke-width: 2; }
+.pets-inc__poster .poster-heart { fill: #ff8fab; }
+
+[data-theme="dark"] .pets-inc__poster .poster-frame { fill: #7a5636; }
+[data-theme="dark"] .pets-inc__poster .poster-paper { fill: #3d3128; }
+[data-theme="dark"] .pets-inc__poster .poster-egg { fill: #d9b867; stroke: #a8874a; }
+[data-theme="dark"] .pets-inc__poster .poster-heart { fill: #e47d99; }
+
+@container (max-height: 760px) {
+    .pets-inc__poster { display: none; }
+}
+
+/* Przewijane wnętrze: inkubatory stoją na podłodze (rząd dociśnięty do dołu), nadmiar przewija się */
+.pets-inc__scroll {
+    display: flex;
+    flex-direction: column;
+}
+
+.pets-inc__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-end;
+    gap: var(--gap);
+    margin-top: auto;
+    padding-bottom: 2%;
+}
+
+/* Arkusz (< 1024 px): inkubatory jadą nad arkusz (a przy nadmiarze da się do nich przewinąć) */
+@media (max-width: 1023.98px) {
+    .pets-scene--inkubatorium.has-window .pets-inc__row { padding-bottom: calc(var(--window-h, 0px) + 16px); }
+}
+
+/* Tabliczka „Jajka do odebrania na recepcji →” — prawy górny róg sceny (pigułka jest w lewym) */
+.pets-inc__note {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 2px solid #f5c26b;
+    background: #fff7e0;
+    box-shadow: 0 3px 0 rgba(160, 100, 30, 0.18);
+    color: #5e3700;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 0.15s ease;
+}
+
+.pets-inc__note[hidden] { display: none; }
+.pets-inc__note:hover { transform: translateY(-1px); }
+.pets-inc__note:focus { outline: none; }
+
+.pets-inc__note:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pets-inc__note-arrow {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+[data-theme="dark"] .pets-inc__note {
+    background: rgba(66, 48, 24, 0.9);
+    border-color: rgba(245, 194, 107, 0.55);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+    color: #ffe3a6;
+}
+
+/* Noc: rząd pigułek jest dłuższy — tabliczka pod nim */
+.pets-page--night .pets-inc__note { top: 68px; }
+
+/* Wąska scena (telefon, karta okna obok): tabliczka w treści nad inkubatorami, nie w rogu obok pigułki */
+@container (max-width: 639.98px) {
+    .pets-inc__note,
+    .pets-page--night .pets-inc__note {
+        position: relative;
+        top: auto;
+        right: auto;
+        align-self: flex-end;
+        margin-bottom: 12px;
+    }
+
+    .has-note .pets-incubator { --note-h: 56px; }
+}
+
+/* --- Inkubator (przycisk; warstwy: lampa · poświata · jajko z rigu · kopuła i podstawa · tabliczka) --- */
+.pets-incubator {
+    position: relative;
+    flex: 0 0 auto;
+    width: 150px;
+    width: min(calc((100cqw - var(--pad-x) - (min(var(--cols), var(--n, 5)) - 1) * var(--gap)) / min(var(--cols), var(--n, 5))), calc((100cqh - var(--pad-top) - var(--note-h, 0px) - 36px) / 1.58), 240px);
+    aspect-ratio: 120 / 190;
+    padding: 0;
+    border: none;
+    border-radius: 18px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: transform 0.2s ease;
+}
+
+.pets-incubator > * {
+    position: absolute;
+    pointer-events: none;
+}
+
+.pets-incubator:hover { transform: translateY(-3px); }
+.pets-incubator:focus { outline: none; }
+
+.pets-incubator:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 3px;
+}
+
+/* Otwarte okno tego inkubatora */
+.pets-incubator.is-selected { filter: drop-shadow(0 0 10px rgba(240, 147, 251, 0.55)); }
+
+.pets-incubator__back,
+.pets-incubator__front,
+.pets-incubator__sparks {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.pets-incubator__glow {
+    left: 6%;
+    right: 6%;
+    top: 20%;
+    height: 62%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 22%, rgba(255, 214, 107, 0.6) 0%, rgba(255, 214, 107, 0) 70%);
+}
+
+.pets-incubator__egg {
+    left: 25%;
+    top: 48%;
+    width: 50%;
+    line-height: 0;
+}
+
+.pets-incubator__egg .pet-rig { width: 100%; }
+
+.pets-incubator__plate {
+    left: 13%;
+    right: 13%;
+    bottom: 4%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 12%;
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 1.5px #e3d3f5;
+    color: #4a3626;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pets-incubator .inc-cord { fill: none; stroke: #c98b5c; stroke-width: 2.5; }
+.pets-incubator .inc-shade { fill: #f5a35b; stroke: #d9813a; stroke-width: 1.5; stroke-linejoin: round; }
+.pets-incubator .inc-bulb { fill: #fff3c4; }
+.pets-incubator .inc-shadow { fill: rgba(120, 70, 30, 0.16); }
+.pets-incubator .inc-dome { fill: rgba(228, 243, 255, 0.4); stroke: #b6d8f3; stroke-width: 2.5; }
+.pets-incubator .inc-shine { fill: none; stroke: rgba(255, 255, 255, 0.9); stroke-width: 3; stroke-linecap: round; }
+.pets-incubator .inc-rim { fill: #c9b3fb; stroke: #a48be0; stroke-width: 2; }
+.pets-incubator .inc-base { fill: #d9c7ff; stroke: #a48be0; stroke-width: 2; }
+.pets-incubator .inc-vents circle { fill: #b39cf0; }
+
+/* Ogrzane: mocniejsze, cieplejsze światło (spokojnie „oddycha”) */
+.pets-incubator.is-boosted .pets-incubator__glow {
+    background: radial-gradient(ellipse at 50% 22%, rgba(255, 150, 60, 0.75) 0%, rgba(255, 150, 60, 0) 72%);
+    animation: pets-inc-lamp 2.6s ease-in-out infinite;
+}
+
+.pets-incubator.is-boosted .inc-shade { fill: #ff8a3d; stroke: #de6a1f; }
+.pets-incubator.is-boosted .inc-bulb { fill: #ffe08a; }
+
+/* Gotowe: iskry i różowa tabliczka „Gotowe! Wykluj” */
+.pets-incubator__sparks { display: none; }
+.pets-incubator__sparks path { fill: #ffd36b; transform-box: fill-box; transform-origin: center; }
+.pets-incubator.is-ready .pets-incubator__sparks { display: block; }
+.pets-incubator.is-ready .pets-incubator__sparks path { animation: pets-inc-twinkle 1.8s ease-in-out infinite; }
+.pets-incubator.is-ready .pets-incubator__sparks path:nth-child(2) { animation-delay: 0.45s; }
+.pets-incubator.is-ready .pets-incubator__sparks path:nth-child(3) { animation-delay: 0.9s; }
+.pets-incubator.is-ready .pets-incubator__sparks path:nth-child(4) { animation-delay: 1.3s; }
+
+.pets-incubator.is-ready .pets-incubator__glow {
+    background: radial-gradient(ellipse at 50% 30%, rgba(255, 196, 120, 0.7) 0%, rgba(240, 147, 251, 0.25) 45%, rgba(240, 147, 251, 0) 72%);
+}
+
+.pets-incubator.is-ready .pets-incubator__plate {
+    background: #d63757;
+    box-shadow: none;
+    color: #ffffff;
+}
+
+/* Wolny: lampa zgaszona, przygaszony (tabliczka zostaje czytelna) */
+.pets-incubator.is-free .pets-incubator__glow { display: none; }
+.pets-incubator.is-free .pets-incubator__back,
+.pets-incubator.is-free .pets-incubator__front { opacity: 0.55; }
+.pets-incubator.is-free .inc-shade { fill: #d6c3ae; stroke: #bfa98f; }
+.pets-incubator.is-free .inc-bulb { fill: #ece4d8; }
+.pets-incubator.is-free .pets-incubator__plate { color: #75624f; }
+
+/* Ogrzanie przed chwilą: błysk lampy */
+.pets-incubator.is-warming .pets-incubator__glow { animation: pets-inc-warm 0.9s ease-out; }
+
+[data-theme="dark"] .pets-incubator .inc-cord { stroke: #8a6247; }
+[data-theme="dark"] .pets-incubator .inc-shade { fill: #c47a3c; stroke: #9c5a24; }
+[data-theme="dark"] .pets-incubator .inc-shadow { fill: rgba(0, 0, 0, 0.35); }
+[data-theme="dark"] .pets-incubator .inc-dome { fill: rgba(190, 220, 255, 0.14); stroke: rgba(182, 216, 243, 0.6); }
+[data-theme="dark"] .pets-incubator .inc-shine { stroke: rgba(255, 255, 255, 0.45); }
+[data-theme="dark"] .pets-incubator .inc-rim { fill: #6d5aa8; stroke: #8f7bd0; }
+[data-theme="dark"] .pets-incubator .inc-base { fill: #594a8c; stroke: #8f7bd0; }
+[data-theme="dark"] .pets-incubator .inc-vents circle { fill: #8f7bd0; }
+
+[data-theme="dark"] .pets-incubator__plate {
+    background: rgba(26, 18, 48, 0.9);
+    box-shadow: inset 0 0 0 1.5px rgba(240, 147, 251, 0.3);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-incubator.is-ready .pets-incubator__plate { background: #d63757; color: #ffffff; box-shadow: none; }
+[data-theme="dark"] .pets-incubator.is-free .pets-incubator__plate { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .pets-incubator.is-free .inc-shade { fill: #5d5146; stroke: #4a4038; }
+[data-theme="dark"] .pets-incubator.is-free .inc-bulb { fill: #4f473e; }
+[data-theme="dark"] .pets-incubator.is-selected { filter: drop-shadow(0 0 12px rgba(240, 147, 251, 0.6)); }
+
+@keyframes pets-inc-lamp {
+    0%, 100% { opacity: 0.8; transform: scale(0.97); }
+    50% { opacity: 1; transform: scale(1.03); }
+}
+
+@keyframes pets-inc-twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(0.6); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+@keyframes pets-inc-warm {
+    0% { transform: scale(1); filter: brightness(1); }
+    30% { transform: scale(1.12); filter: brightness(1.35); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* Mały inkubator (telefon, niski widok): drobniejsza tabliczka */
+@container (max-height: 440px) {
+    .pets-incubator__plate { font-size: 11px; }
+}
+
+@container (max-width: 420px) {
+    .pets-incubator__plate { font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-incubator,
+    .pets-inc__note { transition: none; }
+    .pets-incubator.is-boosted .pets-incubator__glow,
+    .pets-incubator.is-ready .pets-incubator__sparks path,
+    .pets-incubator.is-warming .pets-incubator__glow { animation: none; }
+}
+
+html.pet-rig-rm .pets-incubator,
+html.pet-rig-rm .pets-inc__note { transition: none; }
+
+html.pet-rig-rm .pets-incubator.is-boosted .pets-incubator__glow,
+html.pet-rig-rm .pets-incubator.is-ready .pets-incubator__sparks path,
+html.pet-rig-rm .pets-incubator.is-warming .pets-incubator__glow { animation: none; }
