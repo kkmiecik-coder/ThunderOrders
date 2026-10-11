@@ -125,11 +125,22 @@
 
 .pets-scene[hidden] { display: none; }
 
-.pets-scene.is-entering { animation: pets-scene-in 0.32s ease-out; }
+/* Wejście w scenę: sekcja tylko przenika — transform przodka zrobiłby z niej blok zawierający dla
+   position: fixed i arkusz panelu pupila (.pet-sheet, telefon) liczyłby pozycję od sekcji: znika/skacze
+   przez czas animacji. Zoom dostają dzieci sceny, z pominięciem arkusza. */
+.pets-scene.is-entering { animation: pets-scene-fade 0.32s ease-out; }
 
-@keyframes pets-scene-in {
-    from { opacity: 0; transform: scale(0.97); }
-    to { opacity: 1; transform: none; }
+.pets-scene.is-entering > :not(.pets-house),
+.pets-scene.is-entering > .pets-house > :not(.pet-sheet) { animation: pets-scene-zoom 0.32s ease-out; }
+
+@keyframes pets-scene-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes pets-scene-zoom {
+    from { transform: scale(0.97); }
+    to { transform: none; }
 }
 
 /* === Wspólne bloki scen (szpital, warsztat, ogród) === */
