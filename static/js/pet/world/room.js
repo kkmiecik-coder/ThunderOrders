@@ -427,6 +427,14 @@
          */
         function moveTo(entry, t, o) {
             o = o || {};
+            // Ten sam cel w trakcie ruchu (np. przeliczenie układu po zmianie szerokości pokoju, gdy okno sceny
+            // rezerwuje prawe 376 px zaraz po kliknięciu) — nie przerywaj biegu: inaczej pupil sunął dalej bez
+            // kroków, już w pozie docelowej. Tylko nowa skala pokoju dla wysokości.
+            if (!o.instant && !o.done && moving(entry) && entry.x === t.x && entry.y === t.y &&
+                    (entry.lift || 0) === (t.lift || 0)) {
+                entry.el.style.bottom = ((t.y * yScale() + (t.lift || 0)) * 100).toFixed(2) + '%';
+                return;
+            }
             clearTimeout(entry.arrive);
             var instant = !!o.instant || entry.x == null || reducedMotion();
             var from = entry.seat;
