@@ -14,8 +14,9 @@
  *         otwiera; przy otwartym oknie podmienia treść bez animacji zamknięcia (poprzedni onClose NIE jest
  *         wołany). Fokus: domyślnie pierwszy fokusowalny element treści (albo samo okno); `focus: false` —
  *         fokus zostaje, gdzie był (np. klik w pupila, drugi klik = pat pat); `focus: <element>` — ten element.
- *     win.replace(content)  — podmiana treści przy otwartym oknie; fokus z usuniętej treści wraca na element
- *                             nowej treści o tym samym `data-window-key` (jeśli jest), inaczej na okno
+ *     win.replace(content)  — podmiana treści przy otwartym oknie; fokus z usuniętej treści (także „zgubiony”
+ *                             na <body>, np. przycisk wyłączony na czas żądania) wraca na element nowej treści
+ *                             o tym samym `data-window-key` (jeśli jest), inaczej na okno
  *     win.close({restoreFocus})  — zamyka, woła onClose, oddaje fokus na returnFocus (jeśli nadal w DOM)
  *                             albo na scenę; fokusu nie kradnie (tylko gdy był w oknie albo przepadł)
  *     win.isOpen() · win.body (kontener treści) · win.el (okno) · win.destroy()
@@ -86,6 +87,7 @@
         var drag = null;
         var mq = window.matchMedia ? window.matchMedia(DESKTOP) : null;
         var resizeObs = null;
+        var lastInside = null;       // ostatni element z fokusem w oknie (dopóki fokus nie wyjdzie gdzie indziej)
 
         var win = { scene: sceneEl, el: panel, body: body };
 
@@ -156,8 +158,11 @@
         win.replace = function (content) {
             if (destroyed || !open) return win;
             var active = document.activeElement;
-            var hadFocus = !!(active && body.contains(active));
-            var key = hadFocus && active.getAttribute ? active.getAttribute('data-window-key') : null;
+            // Fokus w treści albo „przepadł” z treści (np. przycisk wyłączony na czas żądania → <body>)
+            var from = active && body.contains(active) ? active :
+                ((!active || active === document.body) && lastInside && body.contains(lastInside) ? lastInside : null);
+            var hadFocus = !!from;
+            var key = from && from.getAttribute ? from.getAttribute('data-window-key') : null;
             setContent(content || null);
             if (hadFocus) {
                 var same = key ? body.querySelector('[data-window-key="' + key.replace(/["\\]/g, '\\$&') + '"]') : null;
@@ -190,6 +195,7 @@
                 try { done.onClose(); } catch (err) { if (window.console) console.error(err); }
             }
             setContent(null);
+            lastInside = null;
             if (o.restoreFocus !== false && (focusInside || focusLost || document.activeElement === document.body)) {
                 var back = done.returnFocus;
                 focusEl(back && document.body.contains(back) && visible(back) ? back : sceneEl);
@@ -198,6 +204,11 @@
         };
 
         win.isOpen = function () { return open; };
+
+        function onFocusIn(e) {
+            lastInside = panel.contains(e.target) ? e.target : null;
+        }
+        document.addEventListener('focusin', onFocusIn);
 
         // --- zamykanie: ×, Esc, tło sceny ---------------------------------------------------
         closeBtn.addEventListener('click', function () { win.close({ restoreFocus: true }); });
@@ -254,6 +265,7 @@
             win.close({ restoreFocus: false });
             destroyed = true;
             document.removeEventListener('keydown', onKey);
+            document.removeEventListener('focusin', onFocusIn);
             sceneEl.removeEventListener('click', onBackdrop, true);
             if (mq) {
                 if (mq.removeEventListener) mq.removeEventListener('change', onMode);

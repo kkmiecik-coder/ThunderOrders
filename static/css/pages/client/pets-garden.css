@@ -1,44 +1,130 @@
 /* ================================================
-   Świat pupili — ogród wspomnień (spec v3 §6.6): nagrobki na trawie + tablica albumu 8 gatunków
+   Świat pupili — ogród wspomnień (spec v3 §6.6, spec v3.1 §3.5): łąka na całą scenę, nagrobki w scenie
+   właściwej, szczegóły nagrobka i album gatunków w oknie sceny (components/modals.css „Okno sceny (v3.1)”)
    Logika: static/js/pet/world/garden.js
    ================================================ */
+
+/* Niebo i łąka do krawędzi sceny, kwiatki rozsiane po trawie */
+.pets-scene--ogrod {
+    background:
+        radial-gradient(circle at 12% 34%, #ff9ec4 0 4px, transparent 5px),
+        radial-gradient(circle at 86% 26%, #ffd36b 0 4px, transparent 5px),
+        radial-gradient(circle at 70% 88%, #b99cff 0 4px, transparent 5px),
+        radial-gradient(circle at 28% 92%, #ffffff 0 3px, transparent 4px),
+        radial-gradient(circle at 46% 62%, #ff9ec4 0 3px, transparent 4px),
+        radial-gradient(circle at 93% 72%, #ffffff 0 3px, transparent 4px),
+        radial-gradient(circle at 6% 78%, #ffd36b 0 3px, transparent 4px),
+        linear-gradient(180deg, #cfe9ff 0%, #e8f6ff 13%, #d7f0c8 13.2%, #a9de8f 100%);
+}
+
+[data-theme="dark"] .pets-scene--ogrod {
+    background:
+        radial-gradient(circle at 12% 34%, rgba(255, 158, 196, 0.7) 0 4px, transparent 5px),
+        radial-gradient(circle at 86% 26%, rgba(255, 211, 107, 0.7) 0 4px, transparent 5px),
+        radial-gradient(circle at 70% 88%, rgba(185, 156, 255, 0.7) 0 4px, transparent 5px),
+        radial-gradient(circle at 46% 62%, rgba(255, 158, 196, 0.6) 0 3px, transparent 4px),
+        radial-gradient(circle at 6% 78%, rgba(255, 211, 107, 0.6) 0 3px, transparent 4px),
+        linear-gradient(180deg, rgba(43, 52, 112, 0.6) 0%, rgba(43, 52, 112, 0.3) 13%, rgba(127, 201, 106, 0.16) 13.2%, rgba(127, 201, 106, 0.08) 100%);
+    background-color: var(--bg-primary, #0f0c29);
+}
 
 .pets-garden {
     display: flex;
     flex-direction: column;
-    gap: 16px;
     min-width: 0;
 }
 
-/* Łąka z nagrobkami */
+/* Arkusz (< 1024 px): miejsce pod łąką, żeby wybrany nagrobek dało się przewinąć nad arkusz */
+.pets-scene--ogrod.has-window .pets-garden { padding-bottom: calc(var(--window-h, 0px) + 24px); }
+
+/* Tabliczka „Album gatunków n/8” — prawy górny róg sceny właściwej (pigułka jest w lewym) */
+.pets-garden__sign {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 2px solid #a87b4f;
+    background: linear-gradient(180deg, #d9a877 0%, #c99a6b 100%);
+    box-shadow: 0 4px 0 rgba(122, 80, 40, 0.25), 0 6px 16px rgba(45, 74, 42, 0.18);
+    color: #ffffff;
+    font: inherit;
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 700;
+    cursor: pointer;
+    text-shadow: 0 1px 0 rgba(90, 61, 36, 0.4);
+    transition: transform 0.15s ease;
+}
+
+.pets-garden__sign:hover { transform: translateY(-1px); }
+
+.pets-garden__sign:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pets-garden__sign-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+}
+
+.pets-garden__sign .pets-album__count {
+    background: rgba(255, 255, 255, 0.9);
+    color: #6B21A8;
+    text-shadow: none;
+}
+
+[data-theme="dark"] .pets-garden__sign {
+    background: linear-gradient(180deg, rgba(201, 154, 107, 0.55) 0%, rgba(168, 123, 79, 0.5) 100%);
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .pets-garden__sign .pets-album__count {
+    background: rgba(26, 18, 48, 0.8);
+    color: #f5c2fc;
+}
+
+/* Łąka z nagrobkami: nagrobki pośrodku trawy (przy wielu — od góry, przewijanie w środku) */
 .pets-garden__meadow {
+    flex: 1 0 auto;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 14px;
-    padding: 22px 20px 24px;
-    border-radius: 24px;
-    background:
-        radial-gradient(circle at 12% 22%, #ff9ec4 0 4px, transparent 5px),
-        radial-gradient(circle at 86% 14%, #ffd36b 0 4px, transparent 5px),
-        radial-gradient(circle at 70% 88%, #b99cff 0 4px, transparent 5px),
-        radial-gradient(circle at 28% 92%, #ffffff 0 3px, transparent 4px),
-        linear-gradient(180deg, #d7f0c8 0%, #a9de8f 100%);
-    border: 1px solid #bfe2ab;
     min-width: 0;
+    padding-top: 6vh;
 }
 
+/* Nazwa sekcji dla czytników (widoczną nazwą miejsca jest pigułka) */
 .pets-garden__title {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: #2d4a2a;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
 }
 
 .pets-garden__empty {
+    align-self: center;
+    max-width: 420px;
     margin: 0;
-    padding: 12px 14px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.75);
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.8);
     color: #2d4a2a;
     font-size: var(--text-sm, 0.875rem);
     text-align: center;
@@ -49,21 +135,38 @@
 
 .pets-graves {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 170px));
+    justify-content: center;
+    gap: 22px 18px;
+    justify-items: center;
 }
 
+/* Nagrobek = przycisk (rig + tabliczka); szczegóły w oknie sceny */
 .pets-grave {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 14px 12px;
+    gap: 6px;
+    width: 100%;
+    max-width: 170px;
+    min-height: 44px;
+    padding: 6px 6px 8px;
+    border: none;
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.82);
-    border: 1px solid rgba(45, 74, 42, 0.12);
-    text-align: center;
-    min-width: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.pets-grave:hover { background: rgba(255, 255, 255, 0.28); }
+
+.pets-grave:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 2px;
 }
 
 .pets-grave__art {
@@ -75,71 +178,96 @@
 
 .pets-grave__art .pet-rig { width: 120px; }
 
-.pets-grave__info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    width: 100%;
-    min-width: 0;
-}
-
 .pets-grave__name {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
+    max-width: 100%;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
     color: #2b2445;
-    overflow-wrap: anywhere;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
+/* Płomyk: dziś można zapalić światełko */
+.pets-grave__flame {
+    position: absolute;
+    top: 4px;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #8b5cf6;
+    border: 2px solid #ffffff;
+    color: #ffd36b;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+
+.pets-grave__flame[hidden] { display: none; }
+
+.pets-grave__flame-icon {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    stroke: none;
+}
+
+[data-theme="dark"] .pets-garden__empty {
+    background: rgba(26, 18, 48, 0.78);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-grave:hover { background: rgba(255, 255, 255, 0.08); }
+
+[data-theme="dark"] .pets-grave__name {
+    background: rgba(26, 18, 48, 0.82);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-grave__flame { border-color: rgba(26, 18, 48, 0.9); }
+
+/* Szczegóły nagrobka (treść okna sceny) */
 .pets-grave__meta,
 .pets-grave__lit {
-    margin: 0;
-    font-size: 12px;
-    line-height: 1.4;
+    margin: 0 0 4px;
+    font-size: 13px;
+    line-height: 1.45;
     color: var(--text-secondary, #616161);
 }
 
 .pets-grave__lights {
-    margin: 0;
-    font-size: 12.5px;
+    margin: 4px 0 0;
+    font-size: 13px;
     font-weight: 600;
     color: #B45309;
 }
 
-.pets-grave > .pet-btn { width: 100%; }
 .pets-grave__lit { font-style: italic; }
-
-[data-theme="dark"] .pets-garden__meadow {
-    background:
-        radial-gradient(circle at 12% 22%, rgba(255, 158, 196, 0.7) 0 4px, transparent 5px),
-        radial-gradient(circle at 86% 14%, rgba(255, 211, 107, 0.7) 0 4px, transparent 5px),
-        radial-gradient(circle at 70% 88%, rgba(185, 156, 255, 0.7) 0 4px, transparent 5px),
-        linear-gradient(180deg, rgba(127, 201, 106, 0.16) 0%, rgba(127, 201, 106, 0.08) 100%);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .pets-garden__title { color: #ffffff; }
-
-[data-theme="dark"] .pets-garden__empty,
-[data-theme="dark"] .pets-grave {
-    background: rgba(26, 18, 48, 0.78);
-    border-color: rgba(240, 147, 251, 0.15);
-    color: rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="dark"] .pets-grave__name { color: #ffffff; }
 
 [data-theme="dark"] .pets-grave__meta,
 [data-theme="dark"] .pets-grave__lit { color: rgba(255, 255, 255, 0.65); }
 
 [data-theme="dark"] .pets-grave__lights { color: #FCD34D; }
 
-@media (max-width: 480px) {
-    .pets-garden__meadow { padding: 16px 14px 18px; border-radius: 18px; }
-    .pets-graves { grid-template-columns: minmax(0, 1fr); }
+/* Telefon: tabliczka albumu pod pigułką, łąka niżej */
+@media (max-width: 599.98px) {
+    .pets-garden__sign { top: 64px; right: 12px; }
+    .pets-scene--ogrod .pets-scroll { padding-top: 120px; }
+    .pets-graves { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
 }
 
-/* === Album === */
+@media (prefers-reduced-motion: reduce) {
+    .pets-garden__sign,
+    .pets-grave { transition: none; }
+}
+
+/* === Album (treść okna sceny) === */
 .pets-album__count {
     padding: 2px 10px;
     border-radius: 999px;

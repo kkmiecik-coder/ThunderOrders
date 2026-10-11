@@ -1,9 +1,11 @@
 /**
  * Świat pupili — scena „mapa” (spec v3 §3.2): plansza z lotu ptaka (szkic „A. Mapa-plansza”).
  *
- * Ilustracja to kodowane SVG w dwóch wariantach (poziomy i pionowy ≤ 640 px — przełącza CSS),
+ * Ilustracja to kodowane SVG w dwóch wariantach (poziomy i pionowy — przełącza CSS wg proporcji sceny),
  * a miejsca to zwykłe linki <a data-scene-link> nałożone na ilustrację (cel dotyku ≥ 44 px, fokus,
  * aria-label ze stanem). Znaczki nad miejscami liczone z JSON-u stanu; noc z `state.night.is_night`.
+ * Pełny ekran (spec v3.1 §3.5): plansza mieści się w scenie właściwej (proporcje zachowane), a niebo,
+ * horyzont i trawa wychodzą poza viewBox (overflow: visible) aż do krawędzi sceny.
  * Rejestruje się w window.PetsWorld.scenes.mapa — router (pets.js) woła create/enter/render.
  */
 (function () {
@@ -90,18 +92,40 @@
             '</g></g>';
     }
 
-    // Osobne id gradientów per wariant: gradient z <svg> ukrytego przez display:none nie maluje się w drugim
-    function defs(id) {
+    // Osobne id gradientów per wariant: gradient z <svg> ukrytego przez display:none nie maluje się w drugim.
+    // Warianty „X” w układzie użytkownika: te same przejścia na tej samej wysokości, a poza planszą kolor brzegu.
+    function defs(id, grassEnd) {
         return '<defs>' +
             '<linearGradient id="mapGrass' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe8a6"/><stop offset="1" stop-color="#8fd27a"/></linearGradient>' +
             '<linearGradient id="mapSkyDay' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe3ff"/><stop offset="1" stop-color="#e6f5ff"/></linearGradient>' +
             '<linearGradient id="mapSkyNight' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121a3d"/><stop offset="1" stop-color="#2b3470"/></linearGradient>' +
+            '<linearGradient id="mapGrassX' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="' + grassEnd + '"><stop offset="0" stop-color="#bfe8a6"/><stop offset="1" stop-color="#8fd27a"/></linearGradient>' +
+            '<linearGradient id="mapSkyDayX' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="60"><stop offset="0" stop-color="#bfe3ff"/><stop offset="1" stop-color="#e6f5ff"/></linearGradient>' +
+            '<linearGradient id="mapSkyNightX' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="60"><stop offset="0" stop-color="#121a3d"/><stop offset="1" stop-color="#2b3470"/></linearGradient>' +
             '</defs>';
+    }
+
+    // Tło poza viewBoxem (widoczne dzięki overflow: visible) — niebo, pas horyzontu i trawa do krawędzi sceny.
+    // yL / yR: wysokość horyzontu na lewym i prawym brzegu planszy (z jej ścieżki wzgórz).
+    var BLEED = 4000;
+    function bleed(w, h, id, yL, yR) {
+        return '<g class="map-bleed">' +
+            '<rect x="' + (-BLEED) + '" y="40" width="' + (w + 2 * BLEED) + '" height="' + (h - 40 + BLEED) + '" fill="url(#mapGrassX' + id + ')"/>' +
+            '<rect x="' + (-BLEED) + '" y="' + (-BLEED) + '" width="' + (w + 2 * BLEED) + '" height="' + (BLEED + 60) + '" fill="url(#mapSkyDayX' + id + ')" class="map-day"/>' +
+            '<rect x="' + (-BLEED) + '" y="' + (-BLEED) + '" width="' + (w + 2 * BLEED) + '" height="' + (BLEED + 60) + '" fill="url(#mapSkyNightX' + id + ')" class="map-night"/>' +
+            '<rect x="' + (-BLEED) + '" y="' + yL + '" width="' + BLEED + '" height="' + (70 - yL) + '" fill="#a9de8f"/>' +
+            '<rect x="' + w + '" y="' + yR + '" width="' + BLEED + '" height="' + (70 - yR) + '" fill="#a9de8f"/>' +
+            '</g>';
+    }
+
+    function nightTint(w, h) {
+        return '<rect x="' + (-BLEED) + '" y="40" width="' + (w + 2 * BLEED) + '" height="' + (h - 40 + BLEED) + '" class="map-night-tint"/>';
     }
 
     // Wariant poziomy 640×460: ilustracja ze szkicu ×2 pod pasem nieba
     var LANDSCAPE =
-        '<svg class="pets-map__art pets-map__art--wide" viewBox="0 0 640 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">' + defs('W') +
+        '<svg class="pets-map__art pets-map__art--wide" viewBox="0 0 640 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">' + defs('W', 460) +
+        bleed(640, 460, 'W', 60, 48) +
         '<rect y="40" width="640" height="420" fill="url(#mapGrassW)"/>' +
         '<g transform="translate(0,20) scale(2)">' +
         '<path d="M60 120 C110 100, 120 140, 160 125 S 230 95, 265 120 M160 125 C 160 150, 150 170, 160 195" stroke="#f1dfb4" stroke-width="14" fill="none" stroke-linecap="round"/>' +
@@ -115,12 +139,13 @@
         '</g>' +
         sky(640, 60, 'W') +
         '<path d="M0 60 Q80 40 160 56 T320 50 T480 58 T640 48 V70 H0 Z" fill="#a9de8f"/>' +
-        '<rect y="40" width="640" height="420" class="map-night-tint"/>' +
+        nightTint(640, 460) +
         '</svg>';
 
     // Wariant pionowy 360×640 (telefon): miejsca jedno pod drugim przy krętej ścieżce
     var PORTRAIT =
-        '<svg class="pets-map__art pets-map__art--tall" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">' + defs('T') +
+        '<svg class="pets-map__art pets-map__art--tall" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">' + defs('T', 640) +
+        bleed(360, 640, 'T', 60, 56) +
         '<rect y="40" width="360" height="600" fill="url(#mapGrassT)"/>' +
         '<path d="M180 236 C 180 300, 90 300, 92 360 C 94 420, 266 400, 266 450 C 266 500, 180 500, 180 560" stroke="#f1dfb4" stroke-width="26" fill="none" stroke-linecap="round"/>' +
         '<path d="M180 236 C 180 300, 90 300, 92 360 C 94 420, 266 400, 266 450 C 266 500, 180 500, 180 560" stroke="#e6cf9b" stroke-width="2" stroke-dasharray="4 12" fill="none"/>' +
@@ -132,13 +157,14 @@
         '<g transform="translate(105,540) scale(1.8)">' + GARDEN + '</g>' +
         sky(360, 60, 'T') +
         '<path d="M0 60 Q60 42 120 56 T240 50 T360 56 V70 H0 Z" fill="#a9de8f"/>' +
-        '<rect y="40" width="360" height="600" class="map-night-tint"/>' +
+        nightTint(360, 640) +
         '</svg>';
 
     // --- scena -----------------------------------------------------------------------------
 
     function create(ctx, host) {
         var u = ctx.u;
+        var stage = u.el('div', 'pets-stage pets-map__stage');
         var wrap = u.el('div', 'pets-map');
         var board = u.el('div', 'pets-map__board');
         board.innerHTML = LANDSCAPE + PORTRAIT;
@@ -156,9 +182,8 @@
             places[p.scene] = { a: a, badges: badges, label: p.label, sig: null };
         });
         wrap.appendChild(board);
-        var hint = u.el('p', 'pets-map__hint', 'Kliknij miejsce, żeby do niego wejść.');
-        wrap.appendChild(hint);
-        host.appendChild(wrap);
+        stage.appendChild(wrap);
+        host.appendChild(stage);
 
         function badge(kind, title) {
             var b = u.el('span', 'pets-map__badge pets-map__badge--' + kind);
@@ -236,7 +261,6 @@
 
     W.scenes.mapa = {
         title: 'Moje pupile',
-        lead: 'Wykluwaj, karm i rozpieszczaj swoje pupile. Jedna wizyta dziennie wystarczy, żeby były zdrowe.',
         create: create
     };
 })();
