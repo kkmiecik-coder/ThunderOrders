@@ -26,3 +26,94 @@ def test_kazdy_gatunek_ma_pelna_palete():
         for kolor in s.palette.values():
             assert kolor.startswith('#') and len(kolor) == 7, (s.slug, kolor)
         assert isinstance(s.extras, tuple)
+
+
+from datetime import datetime
+
+
+def test_profil_pupil_i_zdarzenie_z_domyslnymi(db, make_user):
+    from modules.pets.models import PetProfile, Pet, PetEvent
+    user = make_user()
+    profil = PetProfile(user_id=user.id)
+    pupil = Pet(user_id=user.id, egg_source='start', egg_hours=48)
+    db.session.add_all([profil, pupil])
+    db.session.commit()
+
+    assert user.pet_profile is profil
+    assert profil.companion_enabled is True
+    assert profil.dupes_in_row == 0
+    assert profil.granted_eggs_pending == 0
+    assert isinstance(profil.start_egg_claimed_at, datetime)
+    assert isinstance(profil.last_monthly_egg_at, datetime)
+
+    assert pupil.status == 'egg'
+    assert pupil.species is None
+    assert pupil.egg_progress_sec == 0
+    assert (pupil.hunger, pupil.fun, pupil.clean, pupil.health) == (100.0, 100.0, 100.0, 100.0)
+    assert pupil.stars == 0 and pupil.care_days == 0 and pupil.notify_level == 0
+    assert pupil.lights_count == 0
+    assert user.pets == [pupil]
+
+    zdarzenie = PetEvent(pet_id=pupil.id, user_id=user.id, type='claim')
+    db.session.add(zdarzenie)
+    db.session.commit()
+    assert zdarzenie.value == 1
+    assert pupil.events.count() == 1
+
+
+def test_profil_moze_wskazywac_towarzysza(db, make_user):
+    from modules.pets.models import PetProfile, Pet
+    user = make_user()
+    pupil = Pet(user_id=user.id, egg_source='monthly', status='alive', species='kotek',
+                name='Mruczek', hatched_at=datetime(2026, 10, 1, 12, 0))
+    db.session.add(pupil)
+    db.session.commit()
+    profil = PetProfile(user_id=user.id, companion_pet_id=pupil.id)
+    db.session.add(profil)
+    db.session.commit()
+    assert profil.companion_pet is pupil
+
+
+def test_merged_jajko_pamieta_w_kogo_sie_wtopilo(db, make_user):
+    from modules.pets.models import Pet
+    user = make_user()
+    zywy = Pet(user_id=user.id, egg_source='start', status='alive', species='mis', name='Puchatek')
+    db.session.add(zywy)
+    db.session.commit()
+    dupl = Pet(user_id=user.id, egg_source='monthly', status='merged', species='mis',
+               merged_into_pet_id=zywy.id)
+    db.session.add(dupl)
+    db.session.commit()
+    assert dupl.merged_into is zywy
+
+
+def test_stale_typow_zdarzen_i_porzadkow():
+    from modules.pets.models import EVENT_TYPES, PRUNABLE_EVENT_TYPES, PET_STATUSES, EGG_SOURCES
+    assert set(PRUNABLE_EVENT_TYPES) == {'feed', 'play', 'wash', 'heal', 'pat', 'wake', 'warm', 'light'}
+    assert set(PRUNABLE_EVENT_TYPES) < set(EVENT_TYPES)
+    assert {'claim', 'grant', 'hatch_new', 'hatch_dupe', 'merge', 'die', 'rename', 'milestone'} < set(EVENT_TYPES)
+    assert PET_STATUSES == ('egg', 'alive', 'dead', 'merged')
+    assert EGG_SOURCES == ('start', 'monthly', 'rescue', 'granted')
+
+
+def test_preferencja_pet_updates_domyslnie_wlaczona(db, make_user):
+    from modules.notifications.models import NotificationPreference
+    user = make_user()
+    pref = NotificationPreference(user_id=user.id)
+    db.session.add(pref)
+    db.session.commit()
+    assert pref.pet_updates is True
+    assert pref.to_dict()['pet_updates'] is True
+
+
+def test_enum_kategorii_odznak_zawiera_pets(db):
+    """SQLAlchemy nie waliduje nieznanych stringów w Enum (validate_strings=False),
+    więc sam INSERT by przeszedł — sprawdzamy definicję typu, a potem zapis."""
+    from modules.achievements.models import Achievement
+    assert 'pets' in Achievement.__table__.c.category.type.enums
+    a = Achievement(slug='pet-test', name='Test', description='x', category='pets',
+                    rarity='common', trigger_type='event',
+                    trigger_config={'metric': 'pets_hatched', 'threshold': 1})
+    db.session.add(a)
+    db.session.commit()
+    assert Achievement.query.filter_by(category='pets').count() == 1
