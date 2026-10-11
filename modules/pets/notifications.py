@@ -17,7 +17,8 @@ from extensions import db
 from modules.pets import rules
 from modules.pets.config import PetConfig
 from modules.pets.common import (
-    add_event, egg_progress, lock_profile, next_monthly_at, now_or, persist_death, simulate_pet,
+    add_event, egg_progress, lock_profile, next_monthly_at, now_or, persist_death, persist_discharge,
+    simulate_pet,
 )
 from modules.pets.models import PRUNABLE_EVENT_TYPES, Pet, PetEvent, PetProfile
 from modules.pets.species import SPECIES_BY_SLUG
@@ -26,7 +27,7 @@ LEVEL_SAD, LEVEL_SICK, LEVEL_CRITICAL, LEVEL_DEAD = 1, 2, 3, 4
 _LEVEL_BY_MOOD = {'smutny': LEVEL_SAD, 'chory': LEVEL_SICK, 'krytyczny': LEVEL_CRITICAL}
 _OPIS_POZIOMU = {
     LEVEL_SAD: 'jest smutny',
-    LEVEL_SICK: 'jest chory',
+    LEVEL_SICK: 'jest chory — zabierz go do szpitala',
     LEVEL_CRITICAL: 'potrzebuje pomocy — stan krytyczny',
 }
 PETS_URL_PATH = '/client/pupile'
@@ -51,12 +52,12 @@ def pet_updates_enabled(user_id):
 
 
 def empty_basket(user):
-    return dict(user=user, alerts=[], deaths=[], eggs_ready=[], monthly=False, rescue_reminders=[])
+    return dict(user=user, alerts=[], deaths=[], eggs_ready=[], monthly=False, rescue_reminders=[], healed=[])
 
 
 def basket_is_empty(basket):
     return not (basket['alerts'] or basket['deaths'] or basket['eggs_ready'] or basket['monthly']
-                or basket['rescue_reminders'])
+                or basket['rescue_reminders'] or basket['healed'])
 
 
 def _imie(pet):
@@ -73,6 +74,8 @@ def build_push_text(basket):
         zdania.append(f'Pupil {_imie(pet)} odszedł do gwiazd.')
     for pet, poziom in sorted(basket['alerts'], key=lambda para: -para[1]):
         zdania.append(f'Pupil {_imie(pet)} {_OPIS_POZIOMU[poziom]}.')
+    for pet in basket['healed']:
+        zdania.append(f'Pupil {_imie(pet)} wyzdrowiał — odbierz go ze szpitala.')
     gotowe = len(basket['eggs_ready'])
     if gotowe == 1:
         zdania.append('Jajko gotowe do wyklucia!')
@@ -84,6 +87,17 @@ def build_push_text(basket):
     if len(tresc) > PUSH_BODY_MAX:
         tresc = tresc[:PUSH_BODY_MAX - 1].rstrip() + '…'
     return PUSH_TITLE, tresc
+
+
+def push_path(basket):
+    """Gdzie prowadzi zbiorczy push (spec v3 §6.4): najpierw to, co wymaga działania w szpitalu."""
+    if any(poziom >= LEVEL_SICK for _, poziom in basket['alerts']):
+        return PETS_URL_PATH + '/szpital'
+    if basket['deaths'] or basket['rescue_reminders']:
+        return PETS_URL_PATH + '/ogrod'
+    if basket['healed'] or basket['eggs_ready'] or basket['monthly']:
+        return PETS_URL_PATH + '/szpital'
+    return PETS_URL_PATH + '/domek'
 
 
 def needs_email(basket):
@@ -153,11 +167,18 @@ def collect_for_user(user, now, cfg):
     for pet in pety:
         if pet.status == 'alive':
             sim = simulate_pet(pet, now, cfg)
+            if sim.discharged_at is not None:
+                persist_discharge(pet, sim, now)
             if sim.died_at is not None:
                 persist_death(pet, sim, now)
                 pet.death_notified_at = now      # pod blokadą: drugi przebieg nie zrobi drugiego pushu
                 basket['deaths'].append(pet)
                 continue
+            if pet.hospital_since is not None:
+                if pet.hospital_ready_notified_at is None and now >= pet.hospital_healed_at:
+                    pet.hospital_ready_notified_at = now
+                    basket['healed'].append(pet)
+                continue                                  # w szpitalu: bez alertów (spec v3 §6.4)
             poziom = level_of(sim.state)
             if poziom > int(pet.notify_level or 0):
                 pet.notify_level = poziom
@@ -228,7 +249,7 @@ def _wyslij_push(user, basket):
     if not tresc:
         return False
     # Synchronicznie: _fire_and_forget to wątek daemon, który ginie z procesem CLI
-    PushManager.send_to_user(user.id, tytul, tresc, url=PETS_URL_PATH, tag=PUSH_TAG,
+    PushManager.send_to_user(user.id, tytul, tresc, url=push_path(basket), tag=PUSH_TAG,
                              notification_type=PREF_FIELD)
     return True
 

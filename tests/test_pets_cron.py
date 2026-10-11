@@ -13,7 +13,7 @@ def _cfg(**over):
 
 
 def _koszyk(user, **pola):
-    koszyk = dict(user=user, alerts=[], deaths=[], eggs_ready=[], monthly=False, rescue_reminders=[])
+    koszyk = dict(user=user, alerts=[], deaths=[], eggs_ready=[], monthly=False, rescue_reminders=[], healed=[])
     koszyk.update(pola)
     return koszyk
 
@@ -41,7 +41,7 @@ def test_push_zbiorczy_tekst(db, make_user):
     tytul, tresc = build_push_text(_koszyk(user, alerts=[(a, LEVEL_SICK), (b, LEVEL_SAD)], deaths=[zmarly],
                                            eggs_ready=[jajko], monthly=True))
     assert tytul == 'Twoje pupile'
-    assert 'Pupil Mruczek jest chory.' in tresc
+    assert 'Pupil Mruczek jest chory — zabierz go do szpitala.' in tresc
     assert 'Pupil Wiewiórka jest smutny.' in tresc       # podmiot „pupil" — rodzaj zawsze się zgadza
     assert 'Pupil Puszek odszedł do gwiazd.' in tresc
     assert 'Jajko gotowe do wyklucia!' in tresc and 'Czeka na Ciebie nowe jajko!' in tresc
@@ -244,7 +244,7 @@ def test_tick_jeden_push_na_uzytkownika_i_wpis_w_dzwonku(app, db, make_user, mai
     assert wynik['users'] == 1 and wynik['pushes'] == 1 and wynik['emails_prepared'] == 0
     wpisy = _dzwonek(user.id)
     assert len(wpisy) == 1 and 'Mruczek' in wpisy[0].body and 'Puszek' in wpisy[0].body
-    assert wpisy[0].url == '/client/pupile' and wpisy[0].tag == 'pets'
+    assert wpisy[0].url == '/client/pupile/domek' and wpisy[0].tag == 'pets'
     assert maile_zebrane['wiadomosci'] == []
 
 
@@ -541,3 +541,51 @@ def test_podniesienie_poziomu_zapisuje_zdarzenie_alert(db, make_user):
     collect_for_user(user, T0 + timedelta(hours=2), _cfg())      # ten sam poziom → bez drugiego wpisu
     db.session.commit()
     assert PetEvent.query.filter_by(pet_id=pet.id, type='alert').count() == 1
+
+
+# --- spec v3: szpital w cronie ---
+
+def _przyjmij(user, pet, now):
+    from modules.pets.actions import admit_pet
+    return admit_pet(user, pet.id, now=now, cfg=_cfg())
+
+
+def test_w_szpitalu_bez_alertow_i_push_wyzdrowial_raz(db, make_user):
+    from modules.pets.notifications import build_push_text, collect_for_user
+    user = make_user(); zaloz_profil(user)
+    pet = zaloz_pupila(user, hunger=0.0, health=40.0)
+    _przyjmij(user, pet, T0)
+    k = collect_for_user(user, T0 + timedelta(hours=1), _cfg())
+    db.session.commit()
+    assert k['alerts'] == [] and k['healed'] == []
+    k = collect_for_user(user, T0 + timedelta(hours=6), _cfg())        # healed po 4,8 h
+    db.session.commit()
+    assert k['healed'] == [pet] and pet.hospital_ready_notified_at == T0 + timedelta(hours=6)
+    assert 'wyzdrowiał — odbierz go ze szpitala' in build_push_text(k)[1]
+    k = collect_for_user(user, T0 + timedelta(hours=7), _cfg())
+    assert k['healed'] == []
+
+
+def test_auto_wypis_w_cronie_zapisany(db, make_user):
+    from modules.pets.notifications import collect_for_user
+    from modules.pets.models import PetEvent
+    user = make_user(); zaloz_profil(user)
+    pet = zaloz_pupila(user, hunger=20.0, health=50.0)
+    _przyjmij(user, pet, T0)
+    collect_for_user(user, T0 + timedelta(hours=40), _cfg())
+    db.session.commit()
+    assert pet.hospital_since is None
+    assert PetEvent.query.filter_by(pet_id=pet.id, type='discharge').count() == 1
+
+
+def test_tekst_chory_i_sciezki_pushu(db, make_user):
+    from modules.pets.notifications import (LEVEL_CRITICAL, LEVEL_SAD, LEVEL_SICK, build_push_text,
+                                            push_path)
+    user = make_user()
+    p = zaloz_pupila(user, name='Burek')
+    assert 'Pupil Burek jest chory — zabierz go do szpitala.' in build_push_text(_koszyk(user, alerts=[(p, LEVEL_SICK)]))[1]
+    assert push_path(_koszyk(user, alerts=[(p, LEVEL_CRITICAL)], deaths=[p])) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, deaths=[p])) == '/client/pupile/ogrod'
+    assert push_path(_koszyk(user, healed=[p])) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, eggs_ready=[p])) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, alerts=[(p, LEVEL_SAD)])) == '/client/pupile/domek'
