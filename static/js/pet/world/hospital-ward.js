@@ -17,6 +17,11 @@
  * - `?pupil=ID` otwiera okno pupila w szpitalu; pupil spoza szpitala / nieistniejący → sala bez okna.
  * - Zmiana stanu przy otwartym oknie: pupil leży → treść odświeżona; zniknął (odebrany w innej karcie,
  *   odszedł) → okno się zamyka, fokus na scenie.
+ * - Wystrój (same dekoracje: aria-hidden, bez kliknięć): sala to ściana u góry (duże okno z zasłonkami,
+ *   parapetem i roślinką, zegar z czasem serwera, plakat, szafka z lekami — rozmiar z miejsca nad łóżkami,
+ *   CSS: kontener ward-wall) i rzędy łóżek pod nią. Każde łóżko ma parawan, szafkę nocną z lampką
+ *   (świeci nocą i w ciemnym motywie) i drobiazgiem, kroplówkę z monitorem serca (leczony) albo balonik
+ *   (wyzdrowiały). Podłoga zaczyna się na wysokości wezgłowi pierwszego rzędu (--ward-floor-y z JS).
  * Rejestruje się w window.PetsWorld.scenes.izba.
  */
 (function () {
@@ -28,17 +33,23 @@
 
     var MIN_SLOTS = 3;
 
-    // Kroplówka: stojak na kółkach, worek z płynem, kapiąca kropla, wężyk do łóżka (viewBox 40×160)
+    // Kroplówka z monitorem serca: stojak na kółkach, worek, kapiąca kropla, wężyk do łóżka, monitor z linią EKG
+    // (viewBox 56×190, stopy przy dole pola)
     var DRIP_SVG =
-        '<svg viewBox="0 0 40 160" aria-hidden="true" focusable="false">' +
-        '<path class="drip-pole" d="M24 10v140"/>' +
-        '<path class="drip-hook" d="M15 12h18"/>' +
-        '<path class="drip-feet" d="M10 156l14-8 14 8"/>' +
-        '<rect class="drip-bag" x="11" y="14" width="22" height="32" rx="7"/>' +
-        '<path class="drip-liquid" d="M13 30h18v8a5 5 0 0 1-5 5h-8a5 5 0 0 1-5-5z"/>' +
-        '<rect class="drip-chamber" x="18" y="48" width="6" height="11" rx="2"/>' +
-        '<circle class="drip-drop" cx="21" cy="52" r="1.6"/>' +
-        '<path class="drip-tube" d="M21 59c0 22-6 34-30 44"/>' +
+        '<svg viewBox="0 0 56 190" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">' +
+        '<path class="drip-pole" d="M28 10v170"/>' +
+        '<path class="drip-hook" d="M16 12h24"/>' +
+        '<path class="drip-feet" d="M10 188l18-9 18 9"/>' +
+        '<rect class="drip-bag" x="17" y="14" width="22" height="32" rx="7"/>' +
+        '<path class="drip-liquid" d="M19 30h18v8a5 5 0 0 1-5 5h-8a5 5 0 0 1-5-5z"/>' +
+        '<rect class="drip-chamber" x="25" y="48" width="6" height="11" rx="2"/>' +
+        '<circle class="drip-drop" cx="28" cy="52" r="1.6"/>' +
+        '<path class="drip-tube" d="M28 59c0 30-14 46-46 58"/>' +
+        '<path class="mon-clamp" d="M28 101h4"/>' +
+        '<rect class="mon-case" x="31" y="90" width="24" height="22" rx="4"/>' +
+        '<rect class="mon-screen" x="34" y="93" width="18" height="12" rx="2"/>' +
+        '<path class="mon-line" pathLength="30" d="M35 99.5h4l1.6-3.5 2.2 7 2-5.5 1.2 2h5"/>' +
+        '<circle class="mon-led" cx="51" cy="108.5" r="1.3"/>' +
         '</svg>';
 
     // Puste łóżko — ta sama bryła co łóżeczko rigu (pose 'bed'), kołderka zaścielona na płasko
@@ -66,15 +77,212 @@
         '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="3" ' +
         'stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>';
 
-    var WINDOW_SVG =
-        '<svg viewBox="0 0 120 90" aria-hidden="true" focusable="false">' +
-        '<rect class="ww-frame" x="2" y="2" width="116" height="86" rx="8"/>' +
-        '<rect class="ww-sky" x="9" y="9" width="102" height="72" rx="4"/>' +
-        '<circle class="ww-sun" cx="88" cy="28" r="9"/>' +
-        '<ellipse class="ww-cloud" cx="38" cy="30" rx="16" ry="6"/><ellipse class="ww-cloud" cx="50" cy="26" rx="10" ry="6"/>' +
-        '<path class="ww-hill" d="M9 70q26-16 52-6t50-4v21H9z"/>' +
-        '<path class="ww-bar" d="M60 9v72M9 45h102"/>' +
+    // Parawan za szafką nocną: trzy łukowate skrzydła ustawione w harmonijkę (środkowe jaśniejsze), materiał
+    // w groszki (kolor wg miejsca — CSS), nóżki na podłodze
+    var DOTS = (function () {
+        var d = '';
+        [[9, 36], [16, 52], [9, 68], [16, 84], [9, 100], [16, 116], [9, 132]].forEach(function (p) {
+            [0, 22, 44].forEach(function (dx) {       // skrzydła co 22 jednostki; środkowe wyżej o 6
+                d += 'M' + (p[0] + dx) + ' ' + (p[1] - (dx === 22 ? 6 : 0)) + 'a2 2 0 1 0 4 0a2 2 0 1 0-4 0';
+            });
+        });
+        return d;
+    })();
+    var SCREEN_SVG =
+        '<svg viewBox="0 0 72 170" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">' +
+        '<path class="sc-foot" d="M6 156v12M22 156v12M50 156v12M66 156v12M29.5 152v16M42.5 152v16"/>' +
+        '<path class="sc-frame" d="M2 158V30a12 12 0 0 1 24 0v128z"/>' +
+        '<path class="sc-frame" d="M46 158V30a12 12 0 0 1 24 0v128z"/>' +
+        '<path class="sc-cloth" d="M6 150V32a8 8 0 0 1 16 0v118z"/>' +
+        '<path class="sc-cloth" d="M50 150V32a8 8 0 0 1 16 0v118z"/>' +
+        '<path class="sc-frame sc-frame--mid" d="M24 154V24a12 12 0 0 1 24 0v130z"/>' +
+        '<path class="sc-cloth sc-cloth--mid" d="M28 146V26a8 8 0 0 1 16 0v120z"/>' +
+        '<path class="sc-dots" d="' + DOTS + '"/>' +
         '</svg>';
+
+    // Szafka nocna z lampką (świeci nocą i w ciemnym motywie — CSS) i drobiazgiem zależnym od miejsca
+    var TULIP = 'M-3.5 0c-.6-3 .4-5.5 1.6-6.5l1.9 2 1.9-2c1.2 1 2.2 3.5 1.6 6.5-.7 2-6.3 2-7 0z';
+    var STAND_ITEMS = [
+        // wazon z tulipanami
+        '<path class="ns-stem" d="M42 35Q38 30 35 23M42 35Q43 26 44 17M42 35Q47 30 51 25"/>' +
+        '<path class="ns-bloom" transform="translate(35 23)" d="' + TULIP + '"/>' +
+        '<path class="ns-bloom ns-bloom--b" transform="translate(44 17)" d="' + TULIP + '"/>' +
+        '<path class="ns-bloom" transform="translate(51 25) rotate(14)" d="' + TULIP + '"/>' +
+        '<path class="ns-vase" d="M36.5 46c-3-4-2-9 1-11h9c3 2 4 7 1 11z"/>',
+        // kubek z serduszkiem na książce
+        '<rect class="ns-book" x="29" y="40" width="27" height="6" rx="1.5"/>' +
+        '<path class="ns-book-line" d="M32 43h21"/>' +
+        '<path class="ns-steam" d="M39 25c-2-3 2-4 0-7M43.5 25c-2-3 2-4 0-7"/>' +
+        '<path class="ns-mug-handle" d="M46.5 31a3.6 3.6 0 0 1 0 7.2"/>' +
+        '<path class="ns-mug" d="M35 28.5h12v9a2.5 2.5 0 0 1-2.5 2.5h-7a2.5 2.5 0 0 1-2.5-2.5z"/>' +
+        '<path class="ns-mug-heart" transform="translate(38.5 31) scale(.42)" d="' + HEART + '"/>',
+        // laurka z serduszkiem i jabłko
+        '<path class="ns-card" d="M31 46l2.5-17h16l-2.5 17z"/>' +
+        '<path class="ns-card-heart" transform="translate(36.6 33.2) scale(.62)" d="' + HEART + '"/>' +
+        '<circle class="ns-apple" cx="52.5" cy="41.5" r="4.5"/>' +
+        '<path class="ns-apple-leaf" d="M52.5 37.2c.6-2 2.4-3.2 4.2-3.2-.6 2-2.2 3.2-4.2 3.2z"/>'
+    ];
+
+    function standSvg(kind) {
+        return '<svg viewBox="0 0 60 100" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">' +
+            '<path class="ns-lamp-stem" d="M15 45V27"/>' +
+            '<ellipse class="ns-lamp-base" cx="15" cy="45" rx="7" ry="2.6"/>' +
+            '<path class="ns-shade" d="M6 28l4-13h10l4 13z"/>' +
+            STAND_ITEMS[kind % STAND_ITEMS.length] +
+            '<rect class="ns-top" x="1" y="46" width="58" height="7" rx="3.5"/>' +
+            '<rect class="ns-body" x="5" y="52" width="50" height="41" rx="5"/>' +
+            '<rect class="ns-drawer" x="10" y="57" width="40" height="13" rx="3"/>' +
+            '<rect class="ns-drawer" x="10" y="74" width="40" height="14" rx="3"/>' +
+            '<circle class="ns-knob" cx="30" cy="63.5" r="2.3"/><circle class="ns-knob" cx="30" cy="81" r="2.3"/>' +
+            '<path class="ns-leg" d="M11 93v5M49 93v5"/>' +
+            '</svg>';
+    }
+
+    // Balonik-serduszko przywiązany do łóżka wyzdrowiałego
+    var BALLOON_SVG =
+        '<svg viewBox="0 0 40 120" preserveAspectRatio="xMidYMin meet" aria-hidden="true" focusable="false">' +
+        '<path class="bl-string" d="M20 50c-5 12 5 22-2 34s-8 22-16 34"/>' +
+        '<path class="bl-heart" d="M20 48C8 40 2 31 2 21 2 12 8 6 14 6c3 0 5 2 6 5 1-3 3-5 6-5 6 0 12 6 12 15 0 10-6 19-18 27z"/>' +
+        '<path class="bl-shine" d="M9 18c1-4 3-6 6-7"/>' +
+        '<path class="bl-knot" d="M17.5 47.5h5l-2.5 4z"/>' +
+        '</svg>';
+
+    // --- ściana sali: zegar, plakat, duże okno z zasłonkami i parapetem, szafka z lekami ---------------
+    var CLOCK_TICKS = (function () {
+        var d = '';
+        for (var i = 0; i < 12; i++) {
+            var a = i * Math.PI / 6, r1 = i % 3 ? 32 : 28.5, r2 = 35.5;
+            var sx = Math.sin(a), cy = -Math.cos(a);
+            d += 'M' + (50 + sx * r1).toFixed(1) + ' ' + (50 + cy * r1).toFixed(1) +
+                'L' + (50 + sx * r2).toFixed(1) + ' ' + (50 + cy * r2).toFixed(1);
+        }
+        return d;
+    })();
+
+    var CLOCK_SVG =
+        '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' +
+        '<circle class="wk-rim" cx="50" cy="50" r="47"/>' +
+        '<circle class="wk-face" cx="50" cy="50" r="39"/>' +
+        '<path class="wk-tick" d="' + CLOCK_TICKS + '"/>' +
+        '<path class="wk-hand wk-hand--h" d="M50 54V31"/>' +
+        '<path class="wk-hand wk-hand--m" d="M50 55V19"/>' +
+        '<circle class="wk-pin" cx="50" cy="50" r="4"/>' +
+        '</svg>';
+
+    var SPARK = 'l1.5 3.5 3.5 1.5-3.5 1.5-1.5 3.5-1.5-3.5-3.5-1.5 3.5-1.5z';
+    var POSTER_SVG =
+        '<svg viewBox="0 0 80 100" aria-hidden="true" focusable="false">' +
+        '<rect class="wp-frame" x="3" y="6" width="74" height="91" rx="7"/>' +
+        '<rect class="wp-paper" x="9" y="12" width="62" height="79" rx="4"/>' +
+        '<path class="wp-heart" d="M40 70C24 60 17 51 17 41c0-8 6-13 12-13 5 0 9 3 11 7 2-4 6-7 11-7 6 0 12 5 12 13 0 10-7 19-23 29z"/>' +
+        '<g transform="rotate(-32 40 48)"><rect class="wp-plaster" x="24" y="43" width="32" height="10" rx="5"/>' +
+        '<rect class="wp-pad" x="35" y="44.5" width="10" height="7" rx="1.5"/></g>' +
+        '<path class="wp-line" d="M24 79h32M29 85h22"/>' +
+        '<path class="wp-spark" d="M19 19' + SPARK + 'M61 21' + SPARK + '"/>' +
+        '<rect class="wp-tape" x="31" y="2" width="18" height="9" rx="2" transform="rotate(-5 40 6)"/>' +
+        '</svg>';
+
+    var CABINET_SVG =
+        '<svg viewBox="0 0 100 128" aria-hidden="true" focusable="false">' +
+        '<rect class="wcab-body" x="6" y="14" width="88" height="108" rx="9"/>' +
+        '<rect class="wcab-crown" x="2" y="9" width="96" height="10" rx="5"/>' +
+        '<rect class="wcab-glass" x="13" y="24" width="35" height="64" rx="4"/>' +
+        '<rect class="wcab-glass" x="52" y="24" width="35" height="64" rx="4"/>' +
+        '<rect class="wcab-b1" x="17" y="33" width="7" height="14" rx="2"/>' +
+        '<rect class="wcab-b2" x="27" y="37" width="9" height="10" rx="3"/>' +
+        '<rect class="wcab-b3" x="39" y="35" width="5" height="12" rx="2"/>' +
+        '<rect class="wcab-b2" x="56" y="34" width="8" height="13" rx="2"/>' +
+        '<rect class="wcab-b3" x="67" y="38" width="9" height="9" rx="4"/>' +
+        '<rect class="wcab-b1" x="79" y="36" width="5" height="11" rx="2"/>' +
+        '<rect class="wcab-b3" x="16" y="59" width="10" height="11" rx="3"/>' +
+        '<rect class="wcab-b1" x="29" y="56" width="6" height="14" rx="2"/>' +
+        '<rect class="wcab-box" x="38" y="61" width="8" height="9" rx="1.5"/>' +
+        '<rect class="wcab-box" x="55" y="60" width="14" height="10" rx="1.5"/>' +
+        '<rect class="wcab-b2" x="72" y="57" width="7" height="13" rx="2"/>' +
+        '<rect class="wcab-b3" x="81" y="62" width="4" height="8" rx="1.5"/>' +
+        '<rect class="wcab-b2" x="17" y="78" width="12" height="10" rx="3"/>' +
+        '<rect class="wcab-b1" x="33" y="80" width="10" height="8" rx="4"/>' +
+        '<rect class="wcab-box" x="56" y="79" width="12" height="9" rx="1.5"/>' +
+        '<rect class="wcab-b3" x="72" y="77" width="6" height="11" rx="2"/>' +
+        '<path class="wcab-shelf" d="M13 47h35M52 47h35M13 70h35M52 70h35"/>' +
+        '<path class="wcab-shine" d="M16 40l12-14M55 40l12-14"/>' +
+        '<circle class="wcab-knob" cx="44.5" cy="56" r="2.2"/><circle class="wcab-knob" cx="55.5" cy="56" r="2.2"/>' +
+        '<rect class="wcab-drawer" x="13" y="94" width="74" height="19" rx="4"/>' +
+        '<path class="wcab-cross" d="M47.5 97h5v4.5h4.5v5h-4.5v4.5h-5v-4.5H43v-5h4.5z"/>' +
+        '</svg>';
+
+    // Widok za oknem: niebo (słońce i chmurki / księżyc i gwiazdy — CSS wg motywu i nocy) przycięte od góry
+    // i krajobraz (wzgórza, drzewa) przycięty od dołu — okno może być wysokie albo panoramiczne
+    var STAR = 'l1.2 3.3 3.3 1.2-3.3 1.2-1.2 3.3-1.2-3.3-3.3-1.2 3.3-1.2z';
+    var SKY_SVG =
+        '<svg class="ww-sky" viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" aria-hidden="true" focusable="false">' +
+        '<g class="wv-day"><circle class="wv-halo" cx="292" cy="70" r="44"/><circle class="wv-sun" cx="292" cy="70" r="25"/></g>' +
+        '<g class="wv-night"><path class="wv-moon" d="M118 40a32 32 0 1 0 38 44 26 26 0 1 1-38-44z"/>' +
+        '<path class="wv-star" d="M60 34' + STAR + 'M210 28' + STAR + 'M318 52' + STAR + '"/>' +
+        '<path class="wv-star wv-star--b" d="M176 82' + STAR + 'M262 104' + STAR + 'M352 24' + STAR + 'M30 96' + STAR + '"/></g>' +
+        '<g class="wv-clouds">' +
+        '<path class="wv-cloud" d="M52 116a15 15 0 0 1 27-9 19 19 0 0 1 35 4 12 12 0 0 1 2 24H54a10 10 0 0 1-2-19z"/>' +
+        '<path class="wv-cloud" d="M214 44a11 11 0 0 1 21-6 14 14 0 0 1 26 4 9 9 0 0 1 1 18h-46a8 8 0 0 1-2-16z"/>' +
+        '</g>' +
+        '</svg>';
+
+    var LAND_SVG =
+        '<svg class="ww-land" viewBox="0 0 400 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">' +
+        '<path class="wv-hill wv-hill--far" d="M0 222c60-30 120-34 190-12s140 10 210-12V300H0z"/>' +
+        '<rect class="wv-trunk" x="66" y="196" width="6" height="22" rx="2"/><circle class="wv-crown" cx="69" cy="188" r="18"/>' +
+        '<rect class="wv-trunk" x="300" y="184" width="6" height="26" rx="2"/><ellipse class="wv-crown wv-crown--b" cx="303" cy="172" rx="15" ry="22"/>' +
+        '<rect class="wv-trunk" x="334" y="190" width="5" height="18" rx="2"/><circle class="wv-crown" cx="336" cy="183" r="13"/>' +
+        '<path class="wv-hill wv-hill--near" d="M0 262c80-26 150-26 230-6s120 8 170-6V300H0z"/>' +
+        '<rect class="wv-trunk" x="150" y="226" width="7" height="26" rx="2"/><circle class="wv-crown wv-crown--n" cx="153" cy="214" r="22"/>' +
+        '<g class="wv-flowers"><circle cx="40" cy="274" r="3"/><circle cx="72" cy="282" r="2.6"/><circle cx="252" cy="270" r="3"/>' +
+        '<circle cx="356" cy="276" r="2.6"/><circle cx="214" cy="286" r="2.4"/></g>' +
+        '</svg>';
+
+    var CURTAIN_SVG =
+        '<svg viewBox="0 0 60 200" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
+        '<path class="wcur-fabric" d="M0 0h60c-4 38-20 78-30 104 6 30 18 64 24 96H0z"/>' +
+        '<path class="wcur-fold" d="M14 4c0 40-2 70-4 100 2 32 6 64 8 92M32 4c-2 34-10 66-16 98M24 112c4 28 10 56 14 84"/>' +
+        '<rect class="wcur-tie" x="0" y="98" width="34" height="12" rx="6"/>' +
+        '</svg>';
+
+    var PLANT_SVG =
+        '<svg viewBox="0 0 60 80" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">' +
+        '<path class="wpl-leaf wpl-leaf--b" d="M30 52C22 46 13 46 5 50c8 7 17 7 25 2z"/>' +
+        '<path class="wpl-leaf wpl-leaf--b" d="M30 52c8-6 17-6 25-2-8 7-17 7-25 2z"/>' +
+        '<path class="wpl-leaf" d="M30 52C16 48 8 36 10 22c10 4 18 15 20 30z"/>' +
+        '<path class="wpl-leaf" d="M30 52c12-6 20-18 18-32-10 4-18 16-18 32z"/>' +
+        '<path class="wpl-leaf wpl-leaf--c" d="M30 52c-4-14-2-30 6-44 6 13 4 30-6 44z"/>' +
+        '<path class="wpl-pot" d="M16 54h28l-4 24H20z"/>' +
+        '<rect class="wpl-rim" x="13" y="51" width="34" height="7" rx="3"/>' +
+        '</svg>';
+
+    var CACTUS_SVG =
+        '<svg viewBox="0 0 40 60" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">' +
+        '<path class="wpl-cactus" d="M8 26a3 3 0 0 1 6 0v5h2V18a5 5 0 0 1 10 0v18h1v-7a3 3 0 0 1 6 0v6a7 7 0 0 1-7 7v4H15v-6a7 7 0 0 1-7-7z"/>' +
+        '<circle class="wpl-bud" cx="21" cy="12" r="3.6"/>' +
+        '<path class="wpl-pot wpl-pot--b" d="M10 44h20l-3 15H13z"/>' +
+        '<rect class="wpl-rim wpl-rim--b" x="8" y="41" width="24" height="6" rx="2.5"/>' +
+        '</svg>';
+
+    var WALL_HTML =
+        '<div class="pets-ward__decor">' +
+        '<div class="pets-ward__side pets-ward__side--l">' +
+        '<span class="pets-ward__clock">' + CLOCK_SVG + '</span>' +
+        '<span class="pets-ward__poster">' + POSTER_SVG + '</span>' +
+        '</div>' +
+        '<div class="pets-ward__window">' +
+        '<span class="ww-rod"></span>' +
+        '<span class="ww-frame">' + SKY_SVG + LAND_SVG + '</span>' +
+        '<span class="ww-curtain ww-curtain--l">' + CURTAIN_SVG + '</span>' +
+        '<span class="ww-curtain ww-curtain--r">' + CURTAIN_SVG + '</span>' +
+        '<span class="ww-sill"></span>' +
+        '<span class="ww-plant">' + PLANT_SVG + '</span>' +
+        '<span class="ww-cactus">' + CACTUS_SVG + '</span>' +
+        '</div>' +
+        '<div class="pets-ward__side pets-ward__side--r">' +
+        '<span class="pets-ward__cabinet">' + CABINET_SVG + '</span>' +
+        '</div>' +
+        '</div>';
 
     var MOOD_TEXT = { chory: 'Chory', krytyczny: 'W stanie krytycznym' };
 
@@ -98,18 +306,23 @@
         var discharging = null;
 
         // --- szkielet -------------------------------------------------------------------------
+        // Scena właściwa: podłoga do krawędzi sceny (pod przewijanym wnętrzem) + wnętrze = ściana z wystrojem
+        // (rośnie w wolne miejsce nad łóżkami) i rzędy łóżek
         var stage = el('div', 'pets-stage pets-ward');
         var floor = el('div', 'pets-ward__floor');
         floor.setAttribute('aria-hidden', 'true');
-        var wallWindow = el('div', 'pets-ward__window');
-        wallWindow.setAttribute('aria-hidden', 'true');
-        wallWindow.innerHTML = WINDOW_SVG;
         var scroll = el('div', 'pets-scroll pets-ward__scroll');
         scroll.setAttribute('data-window-backdrop', '');
+        var room = el('div', 'pets-ward__room');
+        var wall = el('div', 'pets-ward__wall');
+        wall.setAttribute('aria-hidden', 'true');
+        wall.innerHTML = WALL_HTML;
+        var clock = wall.querySelector('.pets-ward__clock');
         var row = el('div', 'pets-ward__row');
-        scroll.appendChild(row);
+        room.appendChild(wall);
+        room.appendChild(row);
+        scroll.appendChild(room);
         stage.appendChild(floor);
-        stage.appendChild(wallWindow);
         stage.appendChild(scroll);
         host.appendChild(stage);
 
@@ -125,6 +338,60 @@
             if (node.textContent !== text) node.textContent = text;
         }
 
+        // --- podłoga i zegar ----------------------------------------------------------------------
+        // Podłoga (tło do krawędzi sceny, poza przewijanym wnętrzem) zaczyna się na styku ściany z wezgłowiami
+        // pierwszego rzędu — pozycję czyta ze znacznika w łóżku, także po przewinięciu i zmianie rozmiaru.
+        var floorQueued = false;
+        var floorSet = '';
+
+        function syncFloor() {
+            floorQueued = false;
+            var first = views[0];
+            var h = stage.offsetHeight;
+            if (!first || !h) return;
+            var box = stage.getBoundingClientRect();
+            var k = box.height / h || 1;            // wejście sceny skaluje ją (0,97) — pozycja w px sceny
+            var y = Math.round((first.line.getBoundingClientRect().top - box.top) / k) + 'px';
+            var w = Math.round(first.el.offsetWidth) + 'px';
+            if (floorSet === y + w) return;
+            floorSet = y + w;
+            stage.style.setProperty('--ward-floor-y', y);
+            stage.style.setProperty('--ward-bed-w', w);
+        }
+
+        function queueFloor() {
+            if (floorQueued) return;
+            floorQueued = true;
+            // Ukryta karta nie rysuje klatek — wtedy od razu (inaczej podłoga czekałaby na powrót do karty)
+            if (document.visibilityState === 'hidden' || !window.requestAnimationFrame) syncFloor();
+            else window.requestAnimationFrame(syncFloor);
+        }
+
+        scroll.addEventListener('scroll', queueFloor, { passive: true });
+        if (window.ResizeObserver) {
+            // scroll = rozmiar sceny (okno ≥ 1024 px, sidebar); rząd z paddingiem (arkusz < 1024 px dokłada go
+            // od dołu); ściana kurczy się/rośnie, gdy rząd jedzie w górę/dół bez zmiany własnego rozmiaru
+            var floorObs = new ResizeObserver(function () { queueFloor(); });
+            floorObs.observe(scroll);
+            floorObs.observe(row, { box: 'border-box' });
+            floorObs.observe(wall);
+        } else {
+            window.addEventListener('resize', queueFloor);
+        }
+
+        // Zegar na ścianie: czas serwera (ten sam co noc pupili), wskazówki przestawiane co minutę
+        var clockMin = -1;
+
+        function tickClock() {
+            if (!clock) return;
+            var now = new Date(u.serverNow ? u.serverNow() : Date.now());
+            var m = now.getHours() * 60 + now.getMinutes();
+            if (m === clockMin) return;
+            clockMin = m;
+            clock.style.setProperty('--wk-h', (m % 720) / 2 + 'deg');
+            clock.style.setProperty('--wk-m', now.getMinutes() * 6 + 'deg');
+        }
+
         // --- łóżka ----------------------------------------------------------------------------
         function bedView(i) {
             var b = el('button', 'pets-bed');
@@ -132,15 +399,22 @@
             b.dataset.bedSlot = String(i);
             var scene = el('span', 'pets-bed__scene');
             scene.setAttribute('aria-hidden', 'true');
+            var line = el('span', 'pets-bed__line');          // styk podłogi ze ścianą (syncFloor)
+            var screen = el('span', 'pets-bed__screen');
+            screen.innerHTML = SCREEN_SVG;
+            var stand = el('span', 'pets-bed__stand');
+            stand.innerHTML = standSvg(i);
             var glow = el('span', 'pets-bed__glow');
             var drip = el('span', 'pets-bed__drip');
             drip.innerHTML = DRIP_SVG;
             var art = el('span', 'pets-bed__art');
+            var balloon = el('span', 'pets-bed__balloon');
+            balloon.innerHTML = BALLOON_SVG;
             var hearts = el('span', 'pets-bed__hearts');
             hearts.innerHTML = HEARTS_SVG;
             var plus = el('span', 'pets-bed__plus');
             plus.innerHTML = PLUS_SVG;
-            [glow, drip, art, hearts, plus].forEach(function (n) { scene.appendChild(n); });
+            [line, screen, stand, glow, drip, art, balloon, hearts, plus].forEach(function (n) { scene.appendChild(n); });
             var plate = el('span', 'pets-bed__plate');
             plate.setAttribute('aria-hidden', 'true');
             var main = el('span', 'pets-bed__plate-main');
@@ -149,7 +423,7 @@
             plate.appendChild(sub);
             b.appendChild(scene);
             b.appendChild(plate);
-            return { el: b, art: art, main: main, sub: sub, rig: null, petId: undefined, pet: null };
+            return { el: b, line: line, art: art, main: main, sub: sub, rig: null, petId: undefined, pet: null };
         }
 
         function destroyView(view) {
@@ -580,6 +854,8 @@
             slots.forEach(function (id) { if (id != null) delete prefer[id]; });
             syncViews(state);
             row.style.setProperty('--n', String(slots.length));     // kolumn najwyżej tyle, ile łóżek (CSS)
+            tickClock();
+            queueFloor();
             if (pending) {
                 applyParams(pending, state);
                 return;
@@ -611,6 +887,7 @@
                 var state = ctx.state();
                 if (!state) return;
                 views.forEach(tickBed);
+                tickClock();
                 if (refs && open && open.type === 'bed') fillBed(refs);
             }
         };
