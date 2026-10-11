@@ -46,6 +46,25 @@ body:has(.pets-page--full),
     }
 }
 
+/* Bez :has() (Firefox < 121, Safari < 15.4, Chromium < 105) reguły wyżej nie działają: .main-content nie ma
+   wysokości, a sceny są absolutne — świat miałby 0 px i strona byłaby pusta. Strona świata bierze wtedy
+   wysokość sama (z paddingami layoutu; drobne przewinięcie strony jest tu akceptowalne). */
+@supports not selector(:has(*)) {
+    .pets-page--full {
+        height: calc(100vh - var(--topbar-height, 64px));
+    }
+
+    @media (max-width: 768px) {
+        .pets-page--full { height: calc(100vh - 60px - 2 * var(--space-4, 16px)); }
+    }
+
+    @media (display-mode: standalone) {
+        .pets-page--full {
+            height: calc(100vh - 136px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        }
+    }
+}
+
 .pets-page {
     position: relative;
     display: flex;
