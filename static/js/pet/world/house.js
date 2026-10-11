@@ -8,8 +8,8 @@
  * - Klik w pupila → room.focus(id) + okno (fokus zostaje na pupilu); drugi klik w tego samego pupila
  *   przy otwartym oknie = pat pat (dłoń w rigu + paczka w pets.js).
  * - Zamknięcie okna: ×, Esc, klik w pokój (poza pupilem), przeciągnięcie arkusza w dół — obsługuje okno sceny.
- * - `?pupil=ID` otwiera okno (fokus na kartę); pupil w szpitalu → przekierowanie sceny na szpital
- *   (replaceState); pupil nieistniejący / odeszły → pokój bez okna i bez błędu (Review Focus 5). Otwarte
+ * - `?pupil=ID` otwiera okno (fokus na kartę); pupil w szpitalu → przekierowanie na Izbę przyjęć z jego
+ *   oknem (replaceState); pupil nieistniejący / odeszły → pokój bez okna i bez błędu (Review Focus 5). Otwarte
  *   okno aktualizuje adres przez replaceState (bez nowych wpisów historii).
  * Rejestruje się w window.PetsWorld.scenes.domek.
  */
@@ -101,7 +101,8 @@
             return ctx.send('/' + pet.id + '/szpital', {}).then(function (resp) {
                 u.toast('Pupil ' + (pet.name || '') + ' trafił do szpitala. Wróci zdrowy!', 'success');
                 closePanel(false);
-                ctx.go('szpital', { pupil: pet.id });
+                // Spec v3.1 §4.4: prosto do Izby przyjęć, z otwartym oknem pupila w łóżku
+                ctx.go('izba', { pupil: pet.id });
                 return resp;
             });
         }
@@ -175,8 +176,8 @@
                 (inHospital.length === 1 ? 'W szpitalu: ' : 'W szpitalu są: ') + names.join(', ') +
                 (ready ? ' — ktoś już wyzdrowiał i czeka na odbiór. ' : '. ')));
             var link = u.el('a', 'pets-link', 'Przejdź do szpitala');
-            link.href = ctx.href('szpital');
-            link.dataset.sceneLink = 'szpital';
+            link.href = ctx.href('izba');
+            link.dataset.sceneLink = 'izba';
             away.appendChild(link);
         }
 
@@ -184,8 +185,9 @@
             intro.hidden = !empty;
             tip.hidden = empty;
             if (!empty) return;
-            var hasEgg = (state.eggs || []).length > 0 || (state.eggs_available || []).length > 0;
-            var sig = (hasEgg ? 'egg' : 'none') + '|' + (state.night ? state.night.start + '-' + state.night.end : '');
+            var toClaim = (state.eggs_available || []).length > 0;
+            var hasEgg = (state.eggs || []).length > 0 || toClaim;
+            var sig = (toClaim ? 'claim' : hasEgg ? 'egg' : 'none') + '|' +(state.night ? state.night.start + '-' + state.night.end : '');
             if (intro.dataset.sig === sig) return;
             intro.dataset.sig = sig;
             intro.innerHTML = '';
@@ -193,17 +195,19 @@
             var list = u.el('ul', 'pets-house__rules');
             var night = state.night || {};
             [
-                'Jajka odbierasz i wykluwasz w szpitalu (inkubatornia). Ogrzewaj je przy każdej wizycie — tak wyklują się szybciej.',
+                'Jajka odbierasz na recepcji w szpitalu, a wykluwasz w Inkubatorium. Ogrzewaj je przy każdej wizycie — tak wyklują się szybciej.',
                 'Każde jajko to losowy z ośmiu gatunków. Zbierz wszystkie w albumie w ogrodzie wspomnień!',
                 'Karm, baw się i myj pupila. Jedna wizyta dziennie wystarczy, żeby był zdrowy, dwie–trzy — żeby był szczęśliwy.',
                 'W nocy (' + (night.start != null && night.start !== night.end ? night.start + ':00–' + night.end + ':00' : '23:00–7:00') +
                     ') pupil śpi. Zaniedbany choruje — wtedy zabierz go do szpitala.'
             ].forEach(function (text) { list.appendChild(u.el('li', null, text)); });
             intro.appendChild(list);
+            // Jajko do odebrania → recepcja w holu; jajka w inkubacji → Inkubatorium; nic → hol szpitala
+            var target = hasEgg && !toClaim ? 'inkubatorium' : 'szpital';
             var go = u.el('a', 'pet-btn pet-btn--primary pets-house__go');
-            go.href = ctx.href('szpital');
-            go.dataset.sceneLink = 'szpital';
-            go.textContent = hasEgg ? 'Do inkubatorni' : 'Do szpitala';
+            go.href = ctx.href(target);
+            go.dataset.sceneLink = target;
+            go.textContent = toClaim ? 'Odbierz jajko na recepcji' : hasEgg ? 'Do Inkubatorium' : 'Do szpitala';
             intro.appendChild(go);
         }
 
@@ -218,7 +222,7 @@
             }
             var pet = ctx.findPet(id, state);
             if (pet && pet.hospital) {
-                ctx.go('szpital', { pupil: id }, { replace: true });
+                ctx.go('izba', { pupil: id }, { replace: true });
                 return;
             }
             if (!pet) {

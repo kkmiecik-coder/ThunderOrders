@@ -3,7 +3,7 @@
  *
  * Szkielet: templates/components/pet_companion.html
  *   #petCompanion[hidden][data-user-id][data-api][data-home-url][data-house-url][data-hospital-url]
- *                [data-mode="walk|sit"][data-celebrate="0|1"]
+ *                [data-ward-url][data-mode="walk|sit"][data-celebrate="0|1"]
  *   #petCompanionHit (przycisk ≥ 44 px nad sceną) · #petCompanionScene (rig) · #petCompanionBubble (dymek)
  *
  * Wymaga: window.PetRig (pet-rig.js), window.PetsState/PetsApi (pets-core.js). window.Haptics opcjonalnie.
@@ -58,6 +58,7 @@
     var homeUrl = el.getAttribute('data-home-url') || '/client/pupile';
     var houseUrl = el.getAttribute('data-house-url') || homeUrl + '/domek';
     var hospitalUrl = el.getAttribute('data-hospital-url') || homeUrl + '/szpital';
+    var wardUrl = el.getAttribute('data-ward-url') || hospitalUrl + '/izba-przyjec';
     var celebratePending = el.getAttribute('data-celebrate') === '1';
     var bubbleKey = 'pets_bubble_shown_' + userId;
     var posKey = 'pets_companion_pos_' + userId;
@@ -230,12 +231,14 @@
     }
 
     // Dymek opieki: tekst + cel linku wg potrzeby (spec v3 §3.1: dymek towarzysza → miejsce właściwe dla
-    // potrzeby): głód / smutek / brud / nuda → domek z panelem pupila; choroba i jajka → szpital
+    // potrzeby): głód / smutek / brud / nuda → domek z panelem pupila; choroba → Izba przyjęć (spec v3.1 §5);
+    // jajka → hol szpitala (recepcja; pielęgniarka wskaże salę)
     function careBubble(state) {
         var m = pet && pet.mood;
         var house = { href: houseUrl + '?pupil=' + encodeURIComponent(pet.id), label: 'Do domku' };
         var hospital = { href: hospitalUrl, label: 'Do szpitala' };
-        if (m === 'krytyczny' || m === 'chory') return { text: 'Źle się czuję…', link: hospital };
+        var ward = { href: wardUrl, label: 'Do szpitala' };
+        if (m === 'krytyczny' || m === 'chory') return { text: 'Źle się czuję…', link: ward };
         if (m === 'glodny') return { text: 'Jestem głodny!', link: house };
         if (m === 'smutny' || m === 'znudzony') return { text: 'Pobaw się ze mną!', link: house };
         if (m === 'brudny') return { text: 'Umyj mnie!', link: house };
