@@ -115,3 +115,23 @@ def test_enum_kategorii_odznak_zawiera_pets(db):
     db.session.add(a)
     db.session.commit()
     assert Achievement.query.filter_by(category='pets').count() == 1
+
+
+def test_twarde_usuniecie_usera_kasuje_pupile_kaskada(db, make_user):
+    """Recenzja (Important 1): admin ma trasę db.session.delete(client) — backrefy nie mogą
+    próbować NULL-ować pets.user_id (NOT NULL); kaskadę robi baza (ondelete=CASCADE)."""
+    from modules.pets.models import PetProfile, Pet, PetEvent
+    user = make_user()
+    profil = PetProfile(user_id=user.id)
+    pet = Pet(user_id=user.id, egg_source='start', egg_hours=48)
+    db.session.add_all([profil, pet])
+    db.session.commit()
+    profil.companion_pet_id = pet.id
+    db.session.add(PetEvent(pet_id=pet.id, user_id=user.id, type='claim'))
+    db.session.commit()
+    uid = user.id
+    db.session.delete(user)
+    db.session.commit()
+    assert PetProfile.query.filter_by(user_id=uid).count() == 0
+    assert Pet.query.filter_by(user_id=uid).count() == 0
+    assert PetEvent.query.filter_by(user_id=uid).count() == 0

@@ -41,7 +41,9 @@ class PetProfile(db.Model):
                                      server_default=db.text('0'))
     created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
 
-    user = db.relationship('User', backref=db.backref('pet_profile', uselist=False))
+    # passive_deletes: przy db.session.delete(user) kasuje baza (ondelete=CASCADE),
+    # ORM nie próbuje NULL-ować user_id (NOT NULL) — recenzja etapu 2, Important 1
+    user = db.relationship('User', backref=db.backref('pet_profile', uselist=False, passive_deletes=True))
     companion_pet = db.relationship('Pet', foreign_keys=[companion_pet_id])
 
     def __repr__(self):
@@ -99,7 +101,7 @@ class Pet(db.Model):
         db.Index('ix_pets_user_status', 'user_id', 'status'),
     )
 
-    user = db.relationship('User', backref=db.backref('pets', lazy='select'))
+    user = db.relationship('User', backref=db.backref('pets', lazy='select', passive_deletes=True))
     merged_into = db.relationship('Pet', remote_side=[id], foreign_keys=[merged_into_pet_id])
 
     def __repr__(self):
@@ -123,7 +125,7 @@ class PetEvent(db.Model):
         db.Index('ix_pet_events_user_created', 'user_id', 'created_at'),
     )
 
-    pet = db.relationship('Pet', backref=db.backref('events', lazy='dynamic'))
+    pet = db.relationship('Pet', backref=db.backref('events', lazy='dynamic', passive_deletes=True))
 
     def __repr__(self):
         return f'<PetEvent {self.type} pet={self.pet_id} value={self.value}>'
