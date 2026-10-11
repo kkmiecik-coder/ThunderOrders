@@ -1,0 +1,14 @@
+Cześć {{ user_name or '' }}!
+{% for p in dead %}
+Pupil {{ p.name }} odszedł do gwiazd. {{ p.species_name }} {{ p.name }} był z Tobą {{ p.age_days }} dni, z czego {{ p.care_days }} to dni Twojej opieki{% if p.stars %}, i zdobył {{ p.stars }} gwiazdek{% endif %}. Dziękujemy, że się nim opiekowałeś. W domku czeka już jajko ratunkowe.
+{% endfor %}{% if critical %}
+Stan krytyczny: {{ critical | join(', ') }} — bez karmienia i leczenia pupil odejdzie do gwiazd w ciągu kilkunastu godzin.
+{% endif %}{% if rescue %}
+Od tygodnia czeka na Ciebie jajko ratunkowe ({% for n in rescue %}za pupila {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}). Odbierz je, kiedy będziesz gotowy.
+{% endif %}
+Przejdź do pupili: {{ url }}
+
+Powiadomienia o pupilach możesz wyłączyć w profilu.
+
+Pozdrawiamy,
+ThunderOrders

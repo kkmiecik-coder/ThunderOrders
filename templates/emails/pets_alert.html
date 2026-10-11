@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twoje pupile - ThunderOrders</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <div style="text-align: center; font-size: 48px; margin: 20px 0;">
+                                {% if dead %}✨{% elif critical %}🩺{% else %}🥚{% endif %}
+                            </div>
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                {% if user_name %}Cześć <strong>{{ user_name }}</strong>!{% else %}Cześć!{% endif %}
+                            </p>
+
+                            {% for p in dead %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 16px 0;">
+                                <tr>
+                                    <td style="background-color: #F5F5F5; padding: 24px; border-radius: 8px;">
+                                        <p style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: #240046;">
+                                            Pupil {{ p.name }} odszedł do gwiazd
+                                        </p>
+                                        <p style="margin: 0; font-size: 15px; color: #212121;">
+                                            {{ p.species_name }} {{ p.name }} był z Tobą <strong>{{ p.age_days }} dni</strong>,
+                                            z czego <strong>{{ p.care_days }}</strong> to dni Twojej opieki{% if p.stars %},
+                                            i zdobył {{ p.stars }} {% if p.stars == 1 %}gwiazdkę{% elif p.stars < 5 %}gwiazdki{% else %}gwiazdek{% endif %}{% endif %}.
+                                            Dziękujemy, że się nim opiekowałeś.
+                                        </p>
+                                        <p style="margin: 12px 0 0 0; font-size: 14px; color: #616161;">
+                                            W domku czeka już jajko ratunkowe — kiedy będziesz gotowy.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endfor %}
+
+                            {% if critical %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 16px 0;">
+                                <tr>
+                                    <td style="background-color: #FFF4F4; padding: 24px; border-radius: 8px; border: 1px solid #F5576C;">
+                                        <p style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #B3261E;">
+                                            Stan krytyczny: {{ critical | join(', ') }}
+                                        </p>
+                                        <p style="margin: 0; font-size: 15px; color: #212121;">
+                                            {% if critical | length == 1 %}Pupil {{ critical[0] }} potrzebuje pomocy{% else %}Twoje pupile potrzebują pomocy{% endif %} —
+                                            bez karmienia i leczenia odejdzie do gwiazd w ciągu kilkunastu godzin.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            {% if rescue %}
+                            <p style="margin: 16px 0; font-size: 15px; color: #212121;">
+                                Od tygodnia czeka na Ciebie jajko ratunkowe
+                                ({% for n in rescue %}za pupila {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}).
+                                Odbierz je, kiedy będziesz gotowy — nic nie przepada.
+                            </p>
+                            {% endif %}
+
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ url }}" style="display: inline-block; background: linear-gradient(135deg, #7B2CBF 0%, #240046 100%); color: #FFFFFF; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 18px; text-align: center;">
+                                            Przejdź do pupili
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 10px 0 20px 0; font-size: 14px; color: #616161; text-align: center;">
+                                Lub przejdź bezpośrednio pod adres:<br>
+                                <a href="{{ url }}" style="color: #7B2CBF; text-decoration: underline; font-size: 14px; word-break: break-all;">{{ url }}</a>
+                            </p>
+
+                            <p style="margin: 20px 0 0 0; font-size: 13px; color: #9E9E9E;">
+                                Powiadomienia o pupilach możesz wyłączyć w profilu (Pupile → Powiadomienia o pupilach).
+                            </p>
+
+                            <p style="margin: 20px 0 0 0; font-size: 16px; color: #212121;">
+                                Pozdrawiamy,<br>
+                                ThunderOrders
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
