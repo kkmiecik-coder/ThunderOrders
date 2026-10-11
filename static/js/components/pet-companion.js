@@ -561,7 +561,8 @@
             return;
         }
         haptic();
-        rig.playAction('pat').then(noop, noop);
+        // spec v3 §5: pat pat z dłonią (rig.pat); starszy rig — dawna animacja
+        (typeof rig.pat === 'function' ? rig.pat() : rig.playAction('pat')).then(noop, noop);
         if (walking) {
             stopWalk();
             scheduleWalk(PAUSE_MIN + Math.random() * (PAUSE_MAX - PAUSE_MIN));
