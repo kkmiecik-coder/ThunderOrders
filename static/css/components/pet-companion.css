@@ -1,0 +1,11 @@
+/* ================================================
+   Pupile — elementy globalne stron klienta
+   (etap 4: kropka „pupil potrzebuje opieki" w nawigacji; etap 5: towarzysz)
+   ================================================ */
+
+/* Kropka „pupil potrzebuje opieki" przy pozycji w nawigacji (ustawia JS z api/stan) */
+.sidebar-dot { position: absolute; top: 10px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: #f5576c; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9); }
+.sidebar-dot[hidden] { display: none; }
+[data-theme="dark"] .sidebar-dot { box-shadow: 0 0 0 2px rgba(21, 18, 28, 0.9); }
+.pets-sheet-dot { background: #f5576c; color: #fff; }
+[data-theme="dark"] .pets-sheet-dot { background: #f5576c; color: #ffffff; box-shadow: 0 0 0 1px rgba(240, 147, 251, 0.3); }

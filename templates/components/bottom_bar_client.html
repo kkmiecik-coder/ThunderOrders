@@ -80,6 +80,15 @@
                 <span>Osiągnięcia</span>
             </a>
         </li>
+        {% if pets_enabled %}
+        <li>
+            <a href="{{ url_for('pets.home') }}" class="pwa-sheet-item {% if request.endpoint and request.endpoint.startswith('pets.') %}active{% endif %}">
+                <img src="{{ url_for('static', filename='img/icons/paw.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Moje pupile</span>
+                <span class="pwa-sheet-badge pets-sheet-dot" id="pwaSheetPetsDot" style="display:none;">•</span>
+            </a>
+        </li>
+        {% endif %}
         <li class="pwa-sheet-accordion">
             <button class="pwa-sheet-item pwa-sheet-accordion-toggle">
                 <img src="{{ url_for('static', filename='img/icons/truck.svg') }}" alt="" class="pwa-sheet-icon">

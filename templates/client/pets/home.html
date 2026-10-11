@@ -1,0 +1,46 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Moje pupile - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-rig.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-card.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/pets.css') }}">
+{% endblock %}
+
+{% block content %}
+<div id="petsApp" class="pets-page"
+     data-state='{{ state_json | e }}'
+     data-species='{{ species_json | e }}'
+     data-api="{{ api_base }}">
+    <header class="pets-page__header">
+        <h1 class="pets-page__title">Moje pupile</h1>
+    </header>
+    <section id="petsNest" class="pets-section pets-section--nest" aria-labelledby="petsNestTitle">
+        <h2 id="petsNestTitle" class="pets-section__title">Gniazdko</h2>
+        <div class="pets-section__body"></div>
+    </section>
+    <section id="petsHome" class="pets-section pets-section--home" aria-labelledby="petsHomeTitle">
+        <h2 id="petsHomeTitle" class="pets-section__title">Domek</h2>
+        <div class="pets-section__body pets-grid"></div>
+    </section>
+    <section id="petsAlbum" class="pets-section pets-section--album" aria-labelledby="petsAlbumTitle">
+        <h2 id="petsAlbumTitle" class="pets-section__title">Album <span class="pets-album__count"></span></h2>
+        <div class="pets-section__body pets-album"></div>
+    </section>
+    <section id="petsSettings" class="pets-section pets-section--settings" aria-labelledby="petsSettingsTitle">
+        <h2 id="petsSettingsTitle" class="pets-section__title">Towarzysz i powiadomienia</h2>
+        <div class="pets-section__body"></div>
+    </section>
+    <noscript><p class="pets-noscript">Do opieki nad pupilem potrzebny jest włączony JavaScript.</p></noscript>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/utils/haptics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pet/species.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pet-rig.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pet-card.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/client/pets.js') }}"></script>
+{% endblock %}

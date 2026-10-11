@@ -11,3 +11,4 @@ pets_bp = Blueprint('pets', __name__, url_prefix='/client/pupile')
 pets_admin_bp = Blueprint('pets_admin', __name__, url_prefix='/admin/pupile')
 
 from . import models  # noqa: E402,F401  (create_all() i Alembic potrzebują modeli)
+from . import routes  # noqa: E402,F401

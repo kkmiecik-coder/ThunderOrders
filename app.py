@@ -1927,12 +1927,22 @@ def register_context_processors(app):
             """Pomocnicza funkcja do pobierania aktywnych metod płatności"""
             return PaymentMethod.get_active()
 
+        def _pets_enabled():
+            """Pozycja „Moje pupile" w nawigacji tylko dla tych, którzy widzą funkcję (inaczej 404)."""
+            try:
+                from flask_login import current_user
+                from modules.pets.config import pets_feature_for
+                return pets_feature_for(current_user)
+            except Exception:   # noqa: BLE001 — np. render poza żądaniem (maile z CLI)
+                return False
+
         from flask import g
         return {
             'app_name': 'ThunderOrders',
             'app_version': '1.0.0-MVP',
             'get_active_payment_methods': get_active_payment_methods,
             'maintenance_mode': getattr(g, 'maintenance_mode', False),
+            'pets_enabled': _pets_enabled(),
         }
 
     # Opcje selektora „ile na stronie" — jedno źródło prawdy z backendem.
