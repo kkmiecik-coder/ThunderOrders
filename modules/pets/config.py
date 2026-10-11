@@ -142,7 +142,9 @@ def feature_flags():
     sprawdzono = _feature_cache['checked_at']
     if sprawdzono is None or teraz - sprawdzono > ttl:
         from modules.auth.models import Settings
-        _feature_cache['enabled'] = bool(Settings.get_value('pets_enabled', False))
+        surowe = Settings.get_value('pets_enabled', False)
+        # Wiersz typu string z 'False' dałby bool('False') == True — kill-switch musi działać
+        _feature_cache['enabled'] = surowe if isinstance(surowe, bool) else str(surowe).strip().lower() in ('true', '1', 'yes')
         try:
             pct = int(Settings.get_value('pets_rollout_pct', 0))
         except (TypeError, ValueError):

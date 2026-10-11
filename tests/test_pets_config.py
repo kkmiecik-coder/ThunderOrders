@@ -144,3 +144,18 @@ def test_cache_flag_wymaga_resetu(db):
     assert feature_flags() == (False, 0)      # jeszcze z cache (TTL 10 s)
     reset_feature_cache()
     assert feature_flags() == (True, 25)
+
+
+def test_flaga_zapisana_jako_tekst_False_wylacza(db):
+    """Recenzja: kill-switch. Settings.set_value('pets_enabled', False) bez type='boolean'
+    zapisuje tekst 'False' — bool('False') to True, a ma być wyłączone."""
+    from modules.auth.models import Settings
+    from modules.pets.config import feature_flags, reset_feature_cache
+    Settings.set_value('pets_enabled', 'true', type='boolean')
+    db.session.commit()
+    reset_feature_cache()
+    assert feature_flags()[0] is True
+    Settings.set_value('pets_enabled', False, type='string')
+    db.session.commit()
+    reset_feature_cache()
+    assert feature_flags()[0] is False

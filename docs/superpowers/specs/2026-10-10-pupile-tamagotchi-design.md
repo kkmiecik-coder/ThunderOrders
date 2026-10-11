@@ -602,6 +602,14 @@ Role `admin`/`mod` (`role_required`). Pozycja w `sidebar_admin.html` obok Konkur
   „Wykluj" dwóch jajek nie dadzą dwóch żywych tego samego gatunku, dwa „Odbierz" nie dadzą dwóch
   miesięcznych. Na SQLite `FOR UPDATE` jest no-op — test wyścigu nie istnieje, inwariant pilnują
   testy sekwencyjne + warunkowe UPDATE-y.
+  **Uzupełnienie po recenzji etapu 2:** MariaDB w REPEATABLE READ robi snapshot przy pierwszym
+  zwykłym SELECT w transakcji, a Flask-Login wczytuje usera *przed* naszą blokadą — więc sam
+  mutex nie wystarczy. **Odczyty po blokadzie też muszą być blokujące** (`FOR UPDATE` +
+  `populate_existing`): wiersz profilu, wiersz pupila, lista żywych gatunków przy wykluciu, suma
+  klepnięć pat pat, kontrola istnienia kamienia milowego. Kolejność blokad zawsze profil → pupil
+  (także w zapisie odejścia z odczytu), żeby nie było zakleszczeń. Podwójny „Odbierz" startowego
+  (brak wiersza do zablokowania) łapie `IntegrityError` na `UNIQUE(user_id)` i zwraca 409.
+  Odczyty bez zapisu (`state_for_user`) nie blokują niczego.
 - Odejście przy odczycie: warunkowy UPDATE z `rowcount` (3.1).
 - Limit pat pat liczony z `pet_events` (`SUM(value)`), `count` przycinany do 1–50; limiter per
   użytkownik.
