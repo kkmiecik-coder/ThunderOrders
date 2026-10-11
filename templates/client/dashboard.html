@@ -7,6 +7,11 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/onboarding-tour.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/dashboard.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/contest.css') }}">
+{% if pets_widget %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-rig.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-card.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-widget.css') }}">
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -23,6 +28,9 @@
 
     <!-- Contest Hero Banner -->
     {% include 'client/_contest_widget.html' %}
+
+    <!-- Pupil (osobny widget pod konkursem — decyzja Konrada) -->
+    {% include 'client/pets/_widget.html' %}
 
     <!-- Kafelki z metrykami -->
     <div class="dashboard-metrics">
@@ -319,4 +327,12 @@
 <script src="{{ url_for('static', filename='js/vendor/shepherd.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/components/onboarding-tour.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/client/contest.js') }}"></script>
+{% if pets_widget %}
+<script src="{{ url_for('static', filename='js/pet/species.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pet-rig.js') }}"></script>
+<script src="{{ url_for('static', filename='js/utils/haptics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pet/pets-core.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pet-card.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/client/pets-widget.js') }}"></script>
+{% endif %}
 {% endblock %}

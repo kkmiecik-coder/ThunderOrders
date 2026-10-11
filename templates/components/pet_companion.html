@@ -1,0 +1,20 @@
+{# Towarzysz (spec §4.4): SSR nie pyta bazy — o widoczności decyduje JS ze stanu lite w localStorage.
+   Parametry include: companion_mode ('walk' panel klienta | 'sit' strony ofert), pet_celebrate (bool). #}
+{% if current_user.is_authenticated and pets_enabled %}
+<div class="pet-companion" id="petCompanion" hidden
+     data-user-id="{{ current_user.id }}"
+     data-api="/client/pupile/api"
+     data-home-url="{{ url_for('pets.home') }}"
+     data-mode="{{ companion_mode | default('walk') }}"
+     data-celebrate="{{ '1' if pet_celebrate | default(false) else '0' }}"
+     aria-label="Twój pupil">
+    <button type="button" class="pet-companion__hit" id="petCompanionHit" aria-label="Pogłaszcz pupila"></button>
+    <div class="pet-companion__scene" id="petCompanionScene"></div>
+    <div class="pet-companion__bubble" id="petCompanionBubble" hidden></div>
+</div>
+<script src="{{ url_for('static', filename='js/pet/species.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pet-rig.js') }}"></script>
+<script src="{{ url_for('static', filename='js/utils/haptics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pet/pets-core.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/pet-companion.js') }}"></script>
+{% endif %}

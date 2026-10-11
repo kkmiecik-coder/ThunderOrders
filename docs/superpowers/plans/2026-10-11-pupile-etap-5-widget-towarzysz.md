@@ -109,10 +109,16 @@ def test_dashboard_widget_z_pupilem(client, login, make_user, db):
     assert stan['most_in_need_pet_id'] == pet.id and stan['pets'][0]['name'] == 'Puszek'
 
 
-def test_towarzysz_na_stronie_oferty_siedzi_i_tylko_zalogowany(client, login, make_user, db, strona_sprzedazy):
+def test_towarzysz_gosc_na_stronie_oferty_nic_nie_widzi(client, db, strona_sprzedazy):
+    # Osobny test (świeża aplikacja): w jednym teście żądanie gościa i późniejsze `login` tego samego
+    # procesu dzielą stan uwierzytelnienia (quirk środowiska testowego), więc nie mieszamy ich.
+    _wlacz(db)
+    r = client.get(f'/offer/{strona_sprzedazy.token}/thank-you')
+    assert r.status_code == 200 and b'id="petCompanion"' not in r.data
+
+
+def test_towarzysz_na_stronie_oferty_siedzi_i_celebruje(client, login, make_user, db, strona_sprzedazy):
     strona = strona_sprzedazy
-    r = client.get(f'/offer/{strona.token}/thank-you')
-    assert b'id="petCompanion"' not in r.data            # gość: nic
     user = make_user(profile_completed=True)
     login(user)
     _wlacz(db)

@@ -68,6 +68,12 @@
     <!-- GA4 helpers — MUSI być przed skryptami stron ofert (extra_js) -->
     <script src="{{ url_for('static', filename='js/utils/analytics.js') }}"></script>
 
+    <!-- Towarzysz (pupil): siedzi w rogu, fetch stanu odroczony, żeby nie konkurować z live dropem -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-companion.css') }}">
+    {% with companion_mode='sit', pet_celebrate=(request.endpoint == 'offers.thank_you') %}
+    {% include 'components/pet_companion.html' %}
+    {% endwith %}
+
     {% block extra_js %}{% endblock %}
 
     <!-- Flash messages as toasts -->

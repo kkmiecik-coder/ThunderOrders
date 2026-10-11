@@ -1,0 +1,16 @@
+{# Widget pupila na dashboardzie (spec §4.3) — szkielet SSR, treść renderuje pets-widget.js z data-state #}
+{% if pets_widget %}
+<div class="dashboard-section pets-widget" id="petsWidget"
+     data-state='{{ pets_widget | tojson }}'
+     data-api="/client/pupile/api"
+     data-user-id="{{ current_user.id }}"
+     data-home-url="{{ url_for('pets.home') }}">
+    <div class="widget">
+        <div class="widget-header">
+            <h2 class="widget-title">🐾 Mój pupil</h2>
+            <a href="{{ url_for('pets.home') }}" class="widget-link">Do domku &rarr;</a>
+        </div>
+        <div class="widget-body pets-widget__body" aria-live="polite"></div>
+    </div>
+</div>
+{% endif %}

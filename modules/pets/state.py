@@ -70,6 +70,7 @@ def state_for_user(user, lite=False, now=None, cfg=None):
         stan['album'] = _album(zywe, zmarle, now)
 
     auto = most_in_need(zywe)
+    stan['most_in_need_pet_id'] = auto['id'] if auto else None   # widget dashboardu i towarzysz (etap 5)
     wybrany = None
     if profil is not None and profil.companion_pet_id is not None:
         wybrany = next((p for p in zywe if p['id'] == profil.companion_pet_id), None)

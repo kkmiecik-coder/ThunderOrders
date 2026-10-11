@@ -128,6 +128,12 @@ def dashboard():
     _display_contest = contest_utils.get_display_contest()
     contest_widget = contest_utils.widget_context(_display_contest, current_user) if _display_contest else None
 
+    # Widget pupila (spec §4.3): pełny stan z serwisu, tylko gdy użytkownik widzi funkcję.
+    # state_for_user może zapisać wyliczone odejście (commit) — tak samo jak strona domku.
+    from modules.pets import service as pets_service
+    from modules.pets.config import pets_feature_for
+    pets_widget = pets_service.state_for_user(_viewer) if pets_feature_for(current_user) else None
+
     return render_template(
         'client/dashboard.html',
         title='Panel Klienta',
@@ -141,6 +147,7 @@ def dashboard():
         offer_pages=offer_pages,
         show_tour=not current_user.has_seen_tour,
         contest_widget=contest_widget,
+        pets_widget=pets_widget,
     )
 
 

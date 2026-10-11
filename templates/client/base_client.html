@@ -34,6 +34,12 @@
 <!-- PWA Bottom Bar -->
 {% include 'components/bottom_bar_client.html' %}
 
+<!-- Towarzysz (pupil) — poza blokiem extra_css, bo część szablonów nadpisuje go bez super() -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-companion.css') }}">
+{% with companion_mode='walk', pet_celebrate=(request.endpoint == 'shop.order_success') %}
+{% include 'components/pet_companion.html' %}
+{% endwith %}
+
 <!-- Cart Sidebar -->
 {% include 'client/shop/partials/cart_sidebar.html' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/cart-sidebar.css') }}">
@@ -42,5 +48,4 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/layouts/client-layout.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-companion.css') }}">
 {% endblock %}
