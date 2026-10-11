@@ -6,6 +6,7 @@
 <title>Rig pupili — demo</title>
 <link rel="stylesheet" href="../css/core/variables.css">
 <link rel="stylesheet" href="../css/components/pet-rig.css">
+<link rel="stylesheet" href="../css/components/modals.css">
 <link rel="stylesheet" href="pet-rig-demo.css">
 </head>
 <body>
@@ -27,6 +28,17 @@
     <button type="button" data-mood="krytyczny">krytyczny</button>
     <button type="button" data-asleep="1">śpi</button><button type="button" data-asleep="0">nie śpi</button>
   </div>
+  <div class="demo-row"><span>Potrzeba:</span>
+    <button type="button" data-need="">brak (mood)</button><button type="button" data-need="happy">happy</button>
+    <button type="button" data-need="hungry">hungry</button><button type="button" data-need="dirty">dirty</button>
+    <button type="button" data-need="sad">sad</button><button type="button" data-need="bored">bored</button>
+    <button type="button" data-need="sick">sick</button><button type="button" data-need="critical">critical</button>
+    <button type="button" data-need="sleep">sleep</button>
+  </div>
+  <div class="demo-row"><span>Poza:</span>
+    <button type="button" data-pose="stand">stand</button><button type="button" data-pose="sit">sit</button>
+    <button type="button" data-pose="lie">lie</button><button type="button" data-pose="bed">bed</button>
+  </div>
   <div class="demo-row"><span>Gest:</span>
     <button type="button" data-gesture="jump">jump</button><button type="button" data-gesture="blink">blink</button>
     <button type="button" data-gesture="sway">sway</button><button type="button" data-gesture="spin">spin</button>
@@ -39,16 +51,47 @@
     <button type="button" data-action="pat">pat</button><button type="button" data-action="wake">wake</button>
     <button type="button" data-action="celebrate">celebrate</button><button type="button" data-action="hatch">hatch</button>
   </div>
+  <div class="demo-row"><span>Wariant:</span>
+    <button type="button" data-variant="feed:miska">miska</button><button type="button" data-variant="feed:jablko">jabłko</button>
+    <button type="button" data-variant="feed:ciastko">ciastko</button><button type="button" data-variant="play:pilka">piłka</button>
+    <button type="button" data-variant="play:wloczka">włóczka</button><button type="button" data-variant="play:banki">bańki</button>
+    <button type="button" data-variant="wash:kapiel">kąpiel</button><button type="button" data-variant="wash:prysznic">prysznic</button>
+    <button type="button" data-variant="wash:gabka">gąbka</button>
+  </div>
+  <div class="demo-row"><span>Dłoń:</span>
+    <button type="button" data-hand="1">pat() ×1</button><button type="button" data-hand="5">pat() ×5 w 0,5 s</button>
+  </div>
   <div class="demo-row"><span>Gwiazdki:</span>
     <button type="button" data-stars="0">0</button><button type="button" data-stars="1">1</button>
     <button type="button" data-stars="2">2</button><button type="button" data-stars="3">3</button>
     <button type="button" data-stars="5">5</button>
-    <span class="demo-log" id="demoLog"></span>
+    <span class="demo-log" id="demoLog" aria-live="polite"></span>
   </div>
 </section>
 
-<h2>Gatunki × stadia <small>(klik w postać = pat pat)</small></h2>
+<h2>Gatunki × stadia <small>(klik w postać = dłoń; przyciski powyżej działają na tę siatkę)</small></h2>
 <div class="demo-grid" id="demoGrid"></div>
+
+<h2>Potrzeby × pozy <small>(klik = dłoń)</small></h2>
+<div class="demo-row demo-row--pad">
+  <label>Gatunek <select id="needSpecies"></select></label>
+  <label>Stadium <select id="needStage"><option value="maluch">maluch</option><option value="dziecko">dziecko</option><option value="dorosly" selected>dorosły</option></select></label>
+</div>
+<div class="demo-needs" id="demoNeeds"></div>
+
+<h2>Skórki jajek <small>(klik = wyklucie)</small></h2>
+<div class="demo-grid" id="demoSkins"></div>
+
+<h2>Nakładka wyklucia <small>(atrapa hatch())</small></h2>
+<div class="demo-row demo-row--pad">
+  <label>Skórka <select id="hatchSkin"><option value="0">kropki</option><option value="1">niebo</option><option value="2">łączka</option><option value="3">paski</option><option value="4">łaty</option></select></label>
+  <button type="button" data-hatch="new">wyklucie (new)</button>
+  <button type="button" data-hatch="dupe">wyklucie (dupe)</button>
+  <button type="button" data-hatch="slow">new, wolne żądanie 3 s</button>
+  <button type="button" data-hatch="error">błąd hatch()</button>
+  <button type="button" data-hatch="badname">new, serwer odrzuca 1. imię</button>
+  <span class="demo-log" id="hatchLog" aria-live="polite"></span>
+</div>
 
 <h2>Jajko <small>(klik = wyklucie)</small></h2>
 <div class="demo-grid" id="demoEggs"></div>
@@ -61,6 +104,7 @@
 
 <script src="../js/pet/species.js"></script>
 <script src="../js/components/pet-rig.js"></script>
+<script src="../js/components/pet-hatch.js"></script>
 <script src="pet-rig-demo.js"></script>
 </body>
 </html>
