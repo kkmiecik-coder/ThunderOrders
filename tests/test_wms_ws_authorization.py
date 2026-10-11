@@ -155,6 +155,27 @@ def test_niezalogowany_nie_dolaczy_do_sesji_wms(app, db, client, wms_session):
     tc.disconnect()
 
 
+def test_anonim_nie_dziedziczy_admina_z_wczesniejszego_zadania_http(
+        app, db, client, login, make_user, wms_session):
+    """Anonimowe połączenie nie dołącza do sesji jako admin z poprzedniego żądania.
+
+    Pilnuje izolacji `g` z conftest (`_zadania_ze_swiezym_g`): bez niej zdarzenie
+    Socket.IO dzieliło kontekst aplikacji z wcześniejszym żądaniem HTTP i Flask-Login
+    zwracał jego użytkownika, więc test bramki mógł przejść albo paść nie z powodu
+    samej bramki.
+    """
+    login(make_user(role='admin', email='admin-http@example.com'))
+    client.get('/client/dashboard')
+
+    tc = socketio.test_client(app, flask_test_client=app.test_client())
+    tc.emit('join_session', {'session_id': wms_session.id, 'role': 'desktop'})
+
+    zdarzenia = _odbierz(tc)
+    assert zdarzenia('session_state') == []
+    assert zdarzenia('error')
+    tc.disconnect()
+
+
 # ---------------------------------------------------------------------------
 # AKCEPTACJA — role magazynowe
 # ---------------------------------------------------------------------------

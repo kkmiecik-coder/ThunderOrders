@@ -1,6 +1,8 @@
 import sqlite3
 
 import pytest
+from flask import g, has_app_context, has_request_context
+from flask.ctx import RequestContext
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -100,6 +102,41 @@ def _zasiej_slowniki():
     _db.session.commit()
 
 
+def _zadania_ze_swiezym_g(app, kontekst_testu):
+    """Każde żądanie w teście startuje z pustym `g` — tak jak na produkcji.
+
+    Na produkcji żądanie nie ma pod sobą żadnego kontekstu aplikacji, więc Flask
+    zakłada mu nowy, a z nim świeże `g`. W testach fixture `app` trzyma przez cały
+    test JEDEN kontekst aplikacji (bez niego nie działa `db.session` w ciele testu),
+    a Flask 3 nie zakłada nowego, jeśli kontekst tej samej aplikacji już istnieje —
+    żądanie dzieli go z ciałem testu i ze wszystkimi wcześniejszymi żądaniami.
+
+    `g` żyje w kontekście aplikacji, a Flask-Login wczytuje użytkownika raz i trzyma
+    go w `g._login_user`. Efekt bez tej podmiany: pierwsze żądanie testu (np. gościa)
+    utrwalało tożsamość dla wszystkich następnych — klient z ciasteczkiem
+    zalogowanego dostawał 302, a klient BEZ ciasteczek był „zalogowany", łącznie z
+    kanałem Socket.IO (anonim dołączał do sesji WMS jako admin z wcześniejszego
+    żądania HTTP). To samo dotyczyło innych cache'y „na czas żądania" w `g`
+    (`_pet_config`, `_cache_ikon_odznak`).
+
+    Podmiana `request_context` łapie wszystkie wejścia naraz: klienta testowego
+    HTTP (`wsgi_app`), `test_request_context` i zdarzenia Flask-SocketIO. Czyścimy
+    WYŁĄCZNIE przy pierwszym wejściu żądania najwyższego poziomu na kontekst testu:
+    ponowny push tego samego żądania (`stream_with_context`) i żądanie zagnieżdżone
+    w innym zachowują `g` — na produkcji też je dzielą.
+    """
+    class _ZadanieZeSwiezymG(RequestContext):
+        def push(self):
+            if (self.session is None
+                    and not has_request_context()
+                    and has_app_context()
+                    and g._get_current_object() is kontekst_testu.g):
+                vars(kontekst_testu.g).clear()
+            super().push()
+
+    app.request_context = lambda environ: _ZadanieZeSwiezymG(app, environ)
+
+
 @pytest.fixture
 def app():
     app = create_app('testing')
@@ -112,7 +149,8 @@ def app():
     # zmienia się wyłącznie izolacja. Dotąd obchodził to tylko
     # tests/test_mobile_api_ws.py, we własnym zakresie.
     init_state(None)
-    with app.app_context():
+    with app.app_context() as kontekst_testu:
+        _zadania_ze_swiezym_g(app, kontekst_testu)
         _db.create_all()
         _zasiej_slowniki()
         yield app
