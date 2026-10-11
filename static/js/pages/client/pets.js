@@ -377,7 +377,8 @@
     function updateHeader(name) {
         var def = SCENES[name] || {};
         var isMap = name === 'mapa';
-        if (header.bar) header.bar.hidden = isMap;
+        var back = root.querySelector('[data-scene-back]');
+        if (back) back.hidden = isMap;
         if (header.title) header.title.textContent = isMap ? 'Moje pupile' : (def.title || 'Moje pupile');
         if (header.lead) header.lead.textContent = def.lead || '';
         root.setAttribute('data-scene', name);

@@ -16,26 +16,27 @@
 {% endblock %}
 
 {% block content %}
-{# Spec v3 §3: jeden szablon dla wszystkich miejsc świata; scenę przełącza pets.js (pushState/popstate) #}
-<div id="petsApp" class="pets-page" data-scene="{{ scene }}" data-user-id="{{ current_user.id }}"
+{# Spec v3 §3: jeden szablon dla wszystkich miejsc świata; scenę przełącza pets.js (pushState/popstate).
+   Spec v3.1 §3: każda scena na cały wolny ekran; pigułka zastępuje nagłówek; okna kontekstowe w scenie. #}
+<div id="petsApp" class="pets-page pets-page--full" data-scene="{{ scene }}" data-user-id="{{ current_user.id }}"
      data-state='{{ state_json | e }}'
      data-species='{{ species_json | e }}'
      data-api="{{ api_base }}">
-    <header class="pets-page__header">
-        <nav class="pets-scene-bar" data-scene-bar aria-label="Świat pupili" {% if scene == 'mapa' %}hidden{% endif %}>
-            <a class="pets-back" href="{{ url_for('pets.home') }}" data-scene-link="mapa">
-                <svg class="pets-back__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
-                <span>Świat</span>
-            </a>
-        </nav>
-        <h1 class="pets-page__title" data-scene-title tabindex="-1">Moje pupile</h1>
-        <p class="pets-page__lead" data-scene-lead>Wykluwaj, karm i rozpieszczaj swoje pupile. Jedna wizyta dziennie wystarczy, żeby były zdrowe.</p>
-        <p class="pets-night" data-pets-night role="status" hidden></p>
-    </header>
+    <nav class="pets-pill" data-scene-bar aria-label="Świat pupili">
+        <a class="pets-pill__back" href="{{ url_for('pets.home') }}" data-scene-link="mapa" data-scene-back
+           {% if scene == 'mapa' %}hidden{% endif %}>
+            <svg class="pets-pill__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+            <span data-scene-back-label>Świat</span>
+        </a>
+        <h1 class="pets-pill__title" data-scene-title tabindex="-1">Moje pupile</h1>
+        <p class="pets-pill__night" data-pets-night role="status" hidden></p>
+    </nav>
     <div class="pets-world">
         <section class="pets-scene pets-scene--mapa" data-scene-view="mapa" aria-label="Mapa świata" hidden></section>
         <section class="pets-scene pets-scene--domek" data-scene-view="domek" aria-label="Domek" hidden></section>
         <section class="pets-scene pets-scene--szpital" data-scene-view="szpital" aria-label="Szpital" hidden></section>
+        <section class="pets-scene pets-scene--inkubatorium" data-scene-view="inkubatorium" aria-label="Inkubatorium" hidden></section>
+        <section class="pets-scene pets-scene--izba" data-scene-view="izba" aria-label="Izba przyjęć" hidden></section>
         <section class="pets-scene pets-scene--warsztat" data-scene-view="warsztat" aria-label="Warsztat" hidden></section>
         <section class="pets-scene pets-scene--ogrod" data-scene-view="ogrod" aria-label="Ogród wspomnień" hidden></section>
     </div>
@@ -47,6 +48,7 @@
 {# haptics.js, species.js, pet-rig.js i pets-core.js ładuje już include towarzysza w base_client (strona jest za bramką funkcji) #}
 <script src="{{ url_for('static', filename='js/components/pet-card.js') }}"></script>
 <script src="{{ url_for('static', filename='js/components/pet-hatch.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pet/world/scene-window.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pet/world/room.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pet/world/map.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pet/world/house.js') }}"></script>

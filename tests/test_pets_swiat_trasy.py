@@ -102,3 +102,16 @@ def test_sale_szpitala_za_flaga(client, login, make_user):
     login(make_user(profile_completed=True))
     assert client.get('/client/pupile/szpital/inkubatorium').status_code == 404
     assert client.get('/client/pupile/szpital/izba-przyjec').status_code == 404
+
+
+def test_szablon_pelny_ekran_z_pigulka(client, login, make_user, db):
+    """Spec v3.1 §3: scena na pełny ekran, nagłówek strony zastąpiony pigułką, kontenery obu sal szpitala."""
+    login(make_user(profile_completed=True))
+    _wlacz(db)
+    html = client.get('/client/pupile/szpital/izba-przyjec').data.decode()
+    assert re.search(r'id="petsApp" class="pets-page pets-page--full"', html)
+    assert 'class="pets-pill"' in html and 'data-scene-back-label' in html
+    assert 'data-scene-lead' not in html
+    for klucz in ('mapa', 'domek', 'szpital', 'inkubatorium', 'izba', 'warsztat', 'ogrod'):
+        assert f'data-scene-view="{klucz}"' in html, klucz
+    assert html.index('js/pet/world/scene-window.js') < html.index('js/pet/world/house.js')
