@@ -90,6 +90,9 @@
     color: var(--text-primary, #212121);
 }
 
+/* Nagłówek dostaje focus programowo (tabindex=-1) po zamknięciu modalu — bez ramki */
+.pets-section__title:focus { outline: none; }
+
 .pets-section__body {
     min-width: 0;
 }

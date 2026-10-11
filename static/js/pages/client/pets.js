@@ -234,7 +234,7 @@
 
     // --- Żądania z kolejnością: starsza odpowiedź nie nadpisze nowszego stanu -------------
 
-    var seq = 0, appliedSeq = 0, lastRefreshAt = 0, refreshing = null;
+    var seq = 0, appliedSeq = 0, lastRefreshAt = 0, refreshing = null, refreshQueued = false;
 
     function applyState(state, mySeq) {
         if (!state || mySeq < appliedSeq) return;
@@ -243,7 +243,12 @@
     }
 
     function refresh() {
-        if (refreshing) return refreshing;
+        // Odświeżenie w locie mogło wystartować przed zdarzeniem, które je wywołuje (np. 409) —
+        // wtedy po nim leci jeszcze jedno, świeże
+        if (refreshing) {
+            refreshQueued = true;
+            return refreshing;
+        }
         var mySeq = ++seq;
         lastRefreshAt = Date.now();
         refreshing = PetsApi.get('/stan').then(function (state) {
@@ -251,7 +256,13 @@
         }, function (err) {
             // Odświeżenie w tle: bez toastu poza wygasłą sesją (i tak nic nie da się zrobić)
             if (err && err.error === 'session_expired') toast(err.message, 'warning');
-        }).then(function () { refreshing = null; });
+        }).then(function () {
+            refreshing = null;
+            if (refreshQueued) {
+                refreshQueued = false;
+                refresh();
+            }
+        });
         return refreshing;
     }
 
@@ -908,7 +919,8 @@
                     var rig = hatch.rig;
                     rig.playAction('celebrate').then(function () { if (hatch.rig === rig) rig.setStars(stars); });
                 }
-                var who = starred.name ? 'Twój ' + starred.name : 'Twój pupil';
+                // „Twój pupil {imię}" — bez rodzaju imienia („Twój Iskra" brzmi źle)
+                var who = starred.name ? 'Twój pupil ' + starred.name : 'Twój pupil';
                 // „Znowu …!" zamiast „To drugi …!" ze specu — bez rodzaju („drugi Wiewiórka" brzmi źle)
                 hm.title.textContent = 'Znowu ' + name + '!';
                 hm.text.textContent = stars > prevStars ? who + ' dostaje gwiazdkę ⭐' : who + ' ma już komplet gwiazdek ⭐';

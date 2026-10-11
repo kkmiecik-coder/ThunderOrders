@@ -29,8 +29,9 @@
 
     function vibrate(pattern) {
         if (!enabled()) return false;
+        // Chrome bez wcześniejszego gestu użytkownika odmawia i loguje błąd w konsoli — nie próbujemy
+        if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return false;
         try {
-            // Chrome bez wcześniejszego gestu użytkownika odmawia i loguje ostrzeżenie — to nie błąd
             return navigator.vibrate(pattern) !== false;
         } catch (e) {
             return false;
