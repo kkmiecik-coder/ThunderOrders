@@ -5,6 +5,8 @@
  *   (POST /towarzysz — jak dotąd),
  * - dzwonek = przełącznik „Powiadomienia o pupilach” (GET/POST /notifications/preferences {pet_updates}),
  * - książeczka = krótkie zasady gry (liczby z state.config / state.night, nie na sztywno).
+ * Pełny ekran (spec v3.1 §3.5): deska stołu to tło całej sceny, karty w scenie właściwej (.pets-stage);
+ * na niskim ekranie przewija się wnętrze deski (.pets-scroll), nie strona.
  * Rejestruje się w window.PetsWorld.scenes.warsztat.
  */
 (function () {
@@ -43,10 +45,14 @@
         var rulesSig = null;
         var notifyLoaded = false;
 
+        var stage = el('div', 'pets-stage');
+        var scroll = el('div', 'pets-scroll');
         var wrap = el('div', 'pets-workshop');
         var table = el('div', 'pets-workshop__table');
         wrap.appendChild(table);
-        host.appendChild(wrap);
+        scroll.appendChild(wrap);
+        stage.appendChild(scroll);
+        host.appendChild(stage);
 
         function tool(kind, title) {
             var box = el('section', 'pets-tool pets-tool--' + kind);
@@ -261,7 +267,6 @@
 
     W.scenes.warsztat = {
         title: 'Warsztat',
-        lead: 'Ustawienia świata pupili: towarzysz, powiadomienia i zasady gry.',
         create: create
     };
 })();

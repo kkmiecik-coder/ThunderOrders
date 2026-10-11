@@ -1,20 +1,21 @@
 /* ================================================
    Świat pupili — warsztat (spec v3 §6.5): drewniany stół z narzędziami
    (ramka = towarzysz, dzwonek = powiadomienia, książeczka = zasady). Logika: js/pet/world/workshop.js
+   Pełny ekran (spec v3.1 §3.5): deska stołu to tło całej sceny, karty w scenie właściwej,
+   przewijanie wewnątrz deski (.pets-scroll z pets.css), gdy karty nie mieszczą się w pionie.
    ================================================ */
+
+.pets-scene--warsztat {
+    background:
+        repeating-linear-gradient(180deg, transparent 0 46px, rgba(122, 80, 40, 0.18) 46px 48px),
+        linear-gradient(180deg, #d9a877 0%, #c99a6b 100%);
+}
 
 .pets-workshop__table {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
     gap: 16px;
     align-items: start;
-    padding: 22px;
-    border-radius: 24px;
-    background:
-        repeating-linear-gradient(180deg, transparent 0 46px, rgba(122, 80, 40, 0.18) 46px 48px),
-        linear-gradient(180deg, #d9a877 0%, #c99a6b 100%);
-    border: 1px solid #b98a5c;
-    box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.08), 0 6px 20px rgba(90, 61, 36, 0.14);
 }
 
 .pets-tool {
@@ -79,12 +80,11 @@
     padding: 6px 0;
 }
 
-[data-theme="dark"] .pets-workshop__table {
+[data-theme="dark"] .pets-scene--warsztat {
     background:
         repeating-linear-gradient(180deg, transparent 0 46px, rgba(0, 0, 0, 0.18) 46px 48px),
         linear-gradient(180deg, rgba(201, 154, 107, 0.28) 0%, rgba(168, 123, 79, 0.22) 100%);
-    border-color: rgba(240, 147, 251, 0.15);
-    box-shadow: none;
+    background-color: var(--bg-primary, #0f0c29);
 }
 
 [data-theme="dark"] .pets-tool {
@@ -103,7 +103,7 @@
 [data-theme="dark"] .pets-tool__rules { color: rgba(255, 255, 255, 0.72); }
 
 @media (max-width: 480px) {
-    .pets-workshop__table { padding: 12px; gap: 12px; border-radius: 18px; }
+    .pets-workshop__table { gap: 12px; }
     .pets-tool { padding: 14px; }
 
     .pets-setting--select {

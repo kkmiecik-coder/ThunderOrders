@@ -1,42 +1,134 @@
 /* ================================================
-   Świat pupili — domek (spec v3 §6.1): pokój + panel pupila
-   Pokój: components/pet-room.css · panel (arkusz/bok): components/modals.css „Pet panel sheet”
+   Świat pupili — domek (spec v3 §6.1, spec v3.1 §3.5): pokój na całą scenę + panel pupila w oknie sceny
+   Pokój: components/pet-room.css · okno sceny (karta/arkusz): components/modals.css „Okno sceny (v3.1)”
+   Logika: static/js/pet/world/house.js
    ================================================ */
 
+/* Podłoga pod pokojem (widać ją tylko za zaokrąglonymi rogami arkusza, gdy pokój jedzie w górę) */
+.pets-scene--domek { background: #dcae7f; }
+
+[data-theme="dark"] .pets-scene--domek { background: #c99d70; }
+
 .pets-house {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    position: absolute;
+    inset: 0;
     min-width: 0;
 }
 
-.pets-house__stage {
+/* Pokój wypełnia scenę właściwą; ściana, podłoga i nocny cień sięgają krawędzi sceny (scena przycina).
+   Meble i pupile zostają w % sceny właściwej — pupile spacerują po jej szerokości. */
+.pets-house .pet-room {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    aspect-ratio: auto;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.pets-house .pet-room__wall,
+.pets-house .pet-room__floor {
+    left: -100vw;
+    right: -100vw;
+}
+
+.pets-house .pet-room__dark {
+    inset: -100vh -100vw;
+}
+
+/* Niski widok (laptop 1366×600, telefon poziomo): pupil nie wyższy niż ~1/5 wysokości ekranu, żeby wybrany
+   zmieścił się nad arkuszem razem z imieniem */
+.pets-house .pet-room__pet { width: min(var(--pet-w), 22vh, 170px); }
+
+[data-theme="dark"] .pets-house .pet-room {
+    border: none;
+    box-shadow: none;
+}
+
+/* Arkusz (< 1024 px): pokój jedzie w górę o wysokość arkusza (--window-h z okna sceny) i odrobinę więcej,
+   żeby wybrany pupil (podchodzi na środek, przy dolnej krawędzi) i jego imię były tuż nad arkuszem. */
+@media (max-width: 1023.98px) {
+    .pets-scene--domek .pets-stage { transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .pets-scene--domek.has-window .pets-stage { transform: translateY(calc(-1 * var(--window-h, 0px) - 2.5%)); }
+}
+
+/* Podpowiedzi na ścianie: prawy górny róg sceny właściwej (pigułka jest w lewym) */
+.pets-house__notes {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 160;                /* nad pupilami (z-index do 150 z room.js) */
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
     gap: 8px;
-    min-width: 0;
+    max-width: min(340px, calc(100% - 32px));
+    pointer-events: none;
+}
+
+.pets-house__notes > * { pointer-events: auto; }
+
+.pets-house__tip,
+.pets-house__away {
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 2px 10px rgba(90, 61, 36, 0.12);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
 }
 
 .pets-house__tip {
-    margin: 0;
-    font-size: var(--text-sm, 0.875rem);
-    color: var(--text-secondary, #616161);
-    text-align: center;
+    background: rgba(255, 255, 255, 0.82);
+    color: #5a3d24;
+    pointer-events: none;
 }
+
+.pets-house__away {
+    background: rgba(239, 246, 255, 0.92);
+    border: 1px solid #DBEAFE;
+    color: #1E3A8A;
+}
+
+.pets-house__away .pets-link { min-height: 32px; }
 
 .pets-house__tip[hidden],
 .pets-house__away[hidden],
 .pets-house__intro[hidden] { display: none; }
 
-.pets-house__away {
-    margin: 0;
-    padding: 10px 14px;
-    border-radius: 12px;
-    background: #EFF6FF;
-    border: 1px solid #DBEAFE;
-    color: #1E3A8A;
-    font-size: var(--text-sm, 0.875rem);
-    line-height: 1.45;
+/* Okno otwarte: podpowiedź już niepotrzebna */
+.pets-scene.has-window .pets-house__tip { display: none; }
+
+[data-theme="dark"] .pets-house__tip {
+    background: rgba(26, 18, 48, 0.78);
+    color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .pets-house__away {
+    background: rgba(26, 18, 48, 0.82);
+    border-color: rgba(240, 147, 251, 0.25);
+    color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* Pusty domek: karta z zasadami na środku pokoju */
+.pets-house__intro {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 170;
+    box-sizing: border-box;
+    width: min(520px, calc(100% - 32px));
+    max-height: calc(100% - 96px);
+    overflow-y: auto;
+    transform: translate(-50%, -40%);
 }
 
 .pets-house__rules {
@@ -55,40 +147,32 @@
     text-decoration: none;
 }
 
-[data-theme="dark"] .pets-house__tip { color: rgba(255, 255, 255, 0.65); }
-
-[data-theme="dark"] .pets-house__away {
-    background: rgba(96, 165, 250, 0.1);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: rgba(255, 255, 255, 0.85);
+[data-theme="dark"] .pets-house__intro {
+    background: rgba(26, 18, 48, 0.88);
 }
 
 [data-theme="dark"] .pets-house__rules { color: rgba(255, 255, 255, 0.75); }
 
-/* Telefon/tablet: miejsce pod arkuszem, żeby pokój dało się przewinąć nad niego */
-@media (max-width: 1023.98px) {
-    .pets-house.has-panel { padding-bottom: 56vh; }
-}
+/* Noc: pigułka nocy obok nazwy miejsca — podpowiedzi zjeżdżają pod rząd pigułek */
+.pets-page--night .pets-house__notes { top: 68px; }
 
-/* Desktop: panel z boku pokoju */
-@media (min-width: 1024px) {
-    .pets-house.has-panel {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 380px;
-        grid-template-areas: "stage panel" "away panel" "intro panel";
-        align-items: start;
-        column-gap: 20px;
+/* Telefon: podpowiedzi pod pigułką, na całą szerokość */
+@media (max-width: 599.98px) {
+    .pets-house__notes {
+        top: 68px;
+        left: 12px;
+        right: 12px;
+        align-items: stretch;
+        max-width: none;
     }
 
-    .pets-house.has-panel .pets-house__stage { grid-area: stage; }
-    .pets-house.has-panel .pet-sheet { grid-area: panel; }
-    .pets-house.has-panel .pets-house__away { grid-area: away; }
-    .pets-house.has-panel .pets-house__intro { grid-area: intro; }
+    .pets-page--night .pets-house__notes { top: 120px; }
 
-    /* Panel jest sticky pod topbarem (modals.css), ale .main-wrapper i .main-content mają overflow-x: hidden
-       (admin-layout.css) — to robi z nich kontenery przewijania, które same nigdy się nie przewijają, więc
-       sticky nie działał. clip przycina poziomo tak samo, a kontenera przewijania nie tworzy; tylko przy
-       otwartym panelu. Przeglądarka bez clip zostaje przy hidden (panel przewija się ze stroną jak dotąd). */
-    .main-wrapper:has(.pets-house.has-panel),
-    .main-content:has(.pets-house.has-panel) { overflow-x: clip; }
+    .pets-house__intro { max-height: calc(100% - 84px); transform: translate(-50%, -42%); }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-scene--domek .pets-stage { transition: none; }
+}
+
+html.pet-rig-rm .pets-scene--domek .pets-stage { transition: none; }

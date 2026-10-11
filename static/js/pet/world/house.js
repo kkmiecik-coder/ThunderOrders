@@ -1,12 +1,16 @@
 /**
- * Świat pupili — scena „domek” (spec v3 §6.1–6.2): pokój (PetRoom) + panel pupila (PetCard).
+ * Świat pupili — scena „domek” (spec v3 §6.1–6.2, spec v3.1 §3.5): pokój (PetRoom) na całą scenę + panel
+ * pupila (PetCard) w oknie sceny (PetsSceneWindow: karta ≥ 1024 px, arkusz od dołu < 1024 px).
  *
- * - Klik w pupila → room.focus(id) + panel (arkusz od dołu < 1024 px, panel z boku ≥ 1024 px);
- *   drugi klik w tego samego pupila przy otwartym panelu = pat pat (dłoń w rigu + paczka w pets.js).
- * - Zamknięcie panelu: przeciągnięcie uchwytu w dół, klik w pokój (poza pupilem), ESC, przycisk ×.
- * - `?pupil=ID` otwiera panel; pupil w szpitalu → przekierowanie sceny na szpital (replaceState);
- *   pupil nieistniejący / odeszły → pokój bez panelu i bez błędu (Review Focus 5). Otwarty panel
- *   aktualizuje adres przez replaceState (bez nowych wpisów historii).
+ * - Pokój wypełnia scenę: ściana i podłoga sięgają krawędzi, meble i pupile w .pets-stage (max 1200 px);
+ *   przy otwartej karcie scena właściwa rezerwuje prawe 376 px, przy arkuszu pokój jedzie w górę o jego
+ *   wysokość (--window-h), żeby wybrany pupil i jego imię zostały widoczne nad arkuszem.
+ * - Klik w pupila → room.focus(id) + okno (fokus zostaje na pupilu); drugi klik w tego samego pupila
+ *   przy otwartym oknie = pat pat (dłoń w rigu + paczka w pets.js).
+ * - Zamknięcie okna: ×, Esc, klik w pokój (poza pupilem), przeciągnięcie arkusza w dół — obsługuje okno sceny.
+ * - `?pupil=ID` otwiera okno (fokus na kartę); pupil w szpitalu → przekierowanie sceny na szpital
+ *   (replaceState); pupil nieistniejący / odeszły → pokój bez okna i bez błędu (Review Focus 5). Otwarte
+ *   okno aktualizuje adres przez replaceState (bez nowych wpisów historii).
  * Rejestruje się w window.PetsWorld.scenes.domek.
  */
 (function () {
@@ -16,9 +20,6 @@
     W.scenes = W.scenes || {};
     if (W.scenes.domek) return;
 
-    var DESKTOP = '(min-width: 1024px)';
-    var DRAG_CLOSE_PX = 90;
-
     function create(ctx, host) {
         var u = ctx.u;
         var room = null;
@@ -27,45 +28,22 @@
         var pending = null;          // parametry z adresu czekające na stan
         var lastPets = [];
 
+        var stage = u.el('div', 'pets-stage');
         var wrap = u.el('div', 'pets-house');
-        var stage = u.el('div', 'pets-house__stage');
+        var notes = u.el('div', 'pets-house__notes');
         var tip = u.el('p', 'pets-house__tip', 'Kliknij pupila, żeby się nim zająć. Kliknij go jeszcze raz, żeby go pogłaskać.');
         var away = u.el('p', 'pets-house__away');
         away.hidden = true;
         var intro = u.el('div', 'pets-house__intro pets-block');
         intro.hidden = true;
-        stage.appendChild(tip);
-
-        var sheet = u.el('aside', 'pet-sheet');
-        sheet.hidden = true;
-        var grip = u.el('div', 'pet-sheet__grip');
-        grip.setAttribute('aria-hidden', 'true');
-        grip.appendChild(u.el('span', 'pet-sheet__grip-bar'));
-        var closeBtn = u.el('button', 'pet-sheet__close');
-        closeBtn.type = 'button';
-        closeBtn.setAttribute('aria-label', 'Zamknij panel pupila');
-        closeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-        var body = u.el('div', 'pet-sheet__body');
-        sheet.appendChild(grip);
-        sheet.appendChild(closeBtn);
-        sheet.appendChild(body);
-
-        wrap.appendChild(stage);
-        wrap.appendChild(sheet);
-        wrap.appendChild(away);
+        notes.appendChild(away);
+        notes.appendChild(tip);
+        wrap.appendChild(notes);
         wrap.appendChild(intro);
-        host.appendChild(wrap);
+        stage.appendChild(wrap);
+        host.appendChild(stage);
 
-        function isDesktop() {
-            return !!(window.matchMedia && window.matchMedia(DESKTOP).matches);
-        }
-
-        // Dół elementu w dokumencie bez transformów (offsetTop ich nie widzi, getBoundingClientRect tak)
-        function layoutBottom(node) {
-            var top = 0;
-            for (var n = node; n; n = n.offsetParent) top += n.offsetTop + (n !== node ? n.clientTop : 0);
-            return top + node.offsetHeight;
-        }
+        var win = window.PetsSceneWindow ? window.PetsSceneWindow.attach(host) : null;
 
         function homePets(state) {
             return ((state && state.pets) || []).filter(function (p) { return !p.hospital; });
@@ -91,17 +69,16 @@
 
         function ensureRoom(state) {
             if (room) return;
-            room = window.PetRoom.mount(stage, {
+            room = window.PetRoom.mount(wrap, {
                 pets: homePets(state),
                 night: !!(state && state.night && state.night.is_night),
                 compact: false,
                 interactive: true,
                 onPetClick: onPetClick
             });
-            stage.insertBefore(room.el, tip);
-            room.el.addEventListener('click', function (e) {
-                if (!e.target.closest('.pet-room__pet') && openId != null) closePanel(false);
-            });
+            wrap.insertBefore(room.el, notes);
+            // Klik w pokój poza pupilem zamyka okno sceny (pupile to przyciski — okno je pomija)
+            room.el.setAttribute('data-window-backdrop', '');
         }
 
         // --- panel -------------------------------------------------------------------------
@@ -129,11 +106,25 @@
             });
         }
 
+        /** Okno zamknięte (×, Esc, tło, przeciągnięcie albo closePanel) — sprzątanie po panelu. */
+        function onWindowClosed() {
+            if (openId == null) return;
+            openId = null;
+            ctx.flushPats();
+            if (card) {
+                card.destroy();
+                card = null;
+            }
+            if (room) room.focus(null);
+            if (ctx.isActive('domek')) ctx.setQuery({});
+        }
+
         function openPanel(id, o) {
             o = o || {};
             var state = ctx.state();
             var pet = ctx.findPet(id, state);
-            if (!pet || pet.hospital || !window.PetCard) return false;
+            if (!pet || pet.hospital || !window.PetCard || !win) return false;
+            // Inny pupil przy otwartym oknie: okno podmienia treść (bez onClose) — starą kartę sprzątamy sami
             if (card) {
                 card.destroy();
                 card = null;
@@ -141,85 +132,32 @@
             ctx.flushPats();
             openId = id;
             if (room) room.focus(id);
-            card = window.PetCard.render(body, pet, {
+            var box = u.el('div', 'pets-house__panel');
+            card = window.PetCard.render(box, pet, {
                 onAction: onAction, onPlay: onPlay, onRename: onRename, onAdmit: onAdmit,
                 onStars: function (p) { if (room) room.playAction(p.id, 'celebrate'); },
                 now: cardCtx(state).now, night: cardCtx(state).night, config: cardCtx(state).config
             });
-            sheet.setAttribute('aria-label', 'Panel pupila ' + (pet.name || ''));
-            sheet.hidden = false;
-            sheet.classList.remove('is-dragging');
-            sheet.style.removeProperty('--drag');
-            void sheet.offsetWidth;
-            sheet.classList.add('is-open');
-            wrap.classList.add('has-panel');
+            var title = box.querySelector('.pet-card__title');
+            win.open({
+                content: box,
+                labelledBy: title ? title.id : null,
+                returnFocus: room ? room.petButton(id) : null,
+                onClose: onWindowClosed,
+                closeLabel: 'Zamknij panel pupila',
+                // Klik w pupila: fokus zostaje na nim (Enter jeszcze raz = pat pat); z adresu — na kartę
+                focus: o.focusPanel ? card.el : false
+            });
             ctx.setQuery({ pupil: id });
-            if (!isDesktop() && room) {
-                // Arkusz zasłania dół ekranu — dół pokoju (tam stoi wybrany pupil) ma wypaść tuż nad nim.
-                // Wymiary z offset*, nie z getBoundingClientRect: arkusz właśnie wjeżdża (transform), a pokój
-                // przy wejściu w scenę jest w trakcie zoomu (scale 0,97 — dół pokoju wyszedłby za wysoko)
-                var sheetTop = window.innerHeight - sheet.offsetHeight;
-                var target = layoutBottom(room.el) - sheetTop + 8;
-                if (Math.abs(window.pageYOffset - target) > 4) {
-                    window.scrollTo({ top: Math.max(0, target), behavior: u.reducedMotion() ? 'auto' : 'smooth' });
-                }
-            }
-            if (o.focusPanel) card.focus();
             return true;
         }
 
-        function closePanel(returnFocus) {
+        /** Zamknięcie z kodu (zmiana stanu, wyjście ze sceny); `restoreFocus` — fokus wraca na pupila/scenę. */
+        function closePanel(restoreFocus) {
             if (openId == null) return;
-            var id = openId;
-            openId = null;
-            ctx.flushPats();
-            if (card) {
-                card.destroy();
-                card = null;
-            }
-            sheet.classList.remove('is-open', 'is-dragging');
-            sheet.style.removeProperty('--drag');
-            wrap.classList.remove('has-panel');
-            sheet.hidden = true;
-            if (room) room.focus(null);
-            if (ctx.isActive('domek')) ctx.setQuery({});
-            if (returnFocus && room) {
-                var btn = room.petButton(id);
-                if (btn) btn.focus();
-            }
+            if (win && win.isOpen()) win.close({ restoreFocus: !!restoreFocus });
+            else onWindowClosed();
         }
-
-        closeBtn.addEventListener('click', function () { closePanel(true); });
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key !== 'Escape' || openId == null || !ctx.isActive('domek') || e.defaultPrevented) return;
-            e.preventDefault();
-            closePanel(true);
-        });
-
-        // Przeciągnięcie uchwytu w dół zamyka arkusz (telefon); pointer events = mysz, dotyk i rysik
-        var drag = null;
-        grip.addEventListener('pointerdown', function (e) {
-            if (isDesktop() || openId == null) return;
-            drag = { y0: e.clientY, dy: 0, id: e.pointerId };
-            try { grip.setPointerCapture(e.pointerId); } catch (err) { /* stare przeglądarki */ }
-            sheet.classList.add('is-dragging');
-        });
-        grip.addEventListener('pointermove', function (e) {
-            if (!drag || e.pointerId !== drag.id) return;
-            drag.dy = Math.max(0, e.clientY - drag.y0);
-            sheet.style.setProperty('--drag', drag.dy + 'px');
-        });
-        function endDrag(e) {
-            if (!drag || (e && e.pointerId !== drag.id)) return;
-            var dy = drag.dy;
-            drag = null;
-            sheet.classList.remove('is-dragging');
-            sheet.style.removeProperty('--drag');
-            if (dy > DRAG_CLOSE_PX) closePanel(false);
-        }
-        grip.addEventListener('pointerup', endDrag);
-        grip.addEventListener('pointercancel', endDrag);
 
         // --- treść poza pokojem -------------------------------------------------------------
 
@@ -304,8 +242,10 @@
                 return;
             }
             if (openId != null) {
+                // Zmiana stanu przy otwartym oknie (odświeżenie, druga karta): pupil jest → karta w miejscu;
+                // zniknął (szpital, odejście) → okno zamyka się, fokus z okna wraca na scenę (Review Focus 3)
                 var pet = ctx.findPet(openId, state);
-                if (!pet || pet.hospital) closePanel(false);
+                if (!pet || pet.hospital) closePanel(true);
                 else if (card) card.update(pet, cardCtx(state));
             }
         }
@@ -336,7 +276,6 @@
 
     W.scenes.domek = {
         title: 'Domek',
-        lead: 'Tu mieszkają Twoje pupile. Po zachowaniu poznasz, czego im trzeba.',
         create: create
     };
 })();

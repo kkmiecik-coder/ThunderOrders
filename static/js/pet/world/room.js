@@ -183,18 +183,32 @@
 
         function width() { return el.clientWidth || 600; }
         function height() { return el.clientHeight || 300; }
-        // Wąski pokój (≤ 640 px szerokości — telefon albo domek z panelem z boku) jest wyższy i ma wyższą
-        // podłogę (.is-narrow w pet-room.css) — głębię spaceru rozciągamy na nią
+        // Wąski pokój (≤ 640 px szerokości albo proporcje węższe niż 3:2 — telefon, domek na pełnym ekranie
+        // z oknem sceny z boku, prawie kwadratowy monitor) ma wyższą podłogę i większych pupili
+        // (.is-narrow w pet-room.css) — głębię spaceru rozciągamy na nią
         var narrow = false;
+        var layoutWidth = 0;         // szerokość pokoju przy ostatnim rozstawieniu
+        var resizeTimer = 0;
         function yScale() { return narrow ? 1.45 : 1; }
         function checkNarrow() {
             if (destroyed) return;
-            var n = !compact && width() <= 640;
-            if (n === narrow) return;
-            narrow = n;
-            el.classList.toggle('is-narrow', n);
-            // Inna wysokość podłogi i większi pupile — rozstaw od nowa (bez marszu), kolizje z nowymi progami
-            if (order.length) layout(true);
+            var w = width();
+            var n = !compact && (w <= 640 || w < el.clientHeight * 1.5);
+            if (n !== narrow) {
+                narrow = n;
+                el.classList.toggle('is-narrow', n);
+                // Inna wysokość podłogi i większi pupile — rozstaw od nowa (bez marszu), kolizje z nowymi progami
+                if (order.length) layout(true);
+                return;
+            }
+            // Wyraźnie inna szerokość (domek: okno sceny rezerwuje prawe 376 px, zwinięty sidebar, obrót) —
+            // pozycje w % zostają, ale pupile są względem pokoju więksi/mniejsi: rozstaw od nowa, spacerem
+            if (!compact && order.length && layoutWidth && Math.abs(w - layoutWidth) / layoutWidth > 0.12) {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function () {
+                    if (!destroyed) layout(false);
+                }, 160);
+            }
         }
 
         function place(entry, x, y, instant) {
@@ -352,6 +366,7 @@
 
         /** Rozmieszcza pupili wg potrzeb (albo wg układu widgetu). */
         function layout(instant) {
+            layoutWidth = width();
             if (compact) {
                 var slot = 0;
                 order.forEach(function (id) {
@@ -572,6 +587,7 @@
             if (destroyed) return;
             Object.keys(entries).forEach(destroyEntry);
             destroyed = true;
+            clearTimeout(resizeTimer);
             if (resizeObs) resizeObs.disconnect();
             else window.removeEventListener('resize', checkNarrow);
             if (el.parentNode) el.parentNode.removeChild(el);
