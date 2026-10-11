@@ -217,9 +217,30 @@ body:has(.pets-page--full),
 
 /* Wąsko: pigułka nocy pod spodem */
 @media (max-width: 599.98px) {
-    .pets-pill { top: 12px; left: 12px; max-width: calc(100% - 24px); }
     .pets-pill__night { flex-basis: 100%; margin-left: 0; justify-content: flex-start; }
     .pets-pill__title { font-size: 0.95rem; }
+}
+
+/* Niski i szeroki widok (telefon poziomo, niski laptop): pigułka nocy jako sam księżyc 44 × 44 — pełny tekst
+   zostaje dla czytników (font-size 0 go nie ukrywa) i w podpowiedzi (title), a pigułka nie zasłania pupila
+   nad arkuszem */
+@media (max-height: 520px) and (min-width: 600px) {
+    .pets-pill__night {
+        width: 44px;
+        padding: 0;
+        font-size: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%2336398A' d='M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 22px 22px;
+    }
+
+    [data-theme="dark"] .pets-pill__night {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23FFF4C2' d='M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 22px 22px;
+    }
 }
 
 .pets-noscript {
@@ -263,9 +284,9 @@ body:has(.pets-page--full),
 }
 
 @media (max-width: 599.98px) {
-    .pets-scroll { padding: 68px 12px 16px; }
+    .pets-scroll { padding: 72px 12px 16px; }
     /* Noc: pigułka nocy w drugim rzędzie pigułki */
-    .pets-page--night .pets-scroll { padding-top: 116px; }
+    .pets-page--night .pets-scroll { padding-top: 124px; }
 }
 
 /* === Wspólne bloki scen (szpital, warsztat, ogród) === */

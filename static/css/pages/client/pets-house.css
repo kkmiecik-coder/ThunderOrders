@@ -159,14 +159,14 @@
 /* Telefon: podpowiedzi pod pigułką, na całą szerokość */
 @media (max-width: 599.98px) {
     .pets-house__notes {
-        top: 64px;
+        top: 68px;
         left: 12px;
         right: 12px;
         align-items: stretch;
         max-width: none;
     }
 
-    .pets-page--night .pets-house__notes { top: 116px; }
+    .pets-page--night .pets-house__notes { top: 120px; }
 
     .pets-house__intro { max-height: calc(100% - 84px); transform: translate(-50%, -42%); }
 }

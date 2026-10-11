@@ -263,10 +263,10 @@
 
 /* Telefon: tabliczka albumu pod pigułką, łąka niżej */
 @media (max-width: 599.98px) {
-    .pets-garden__sign { top: 64px; right: 12px; }
-    .pets-scene--ogrod .pets-scroll { padding-top: 120px; }
-    .pets-page--night .pets-garden__sign { top: 116px; }
-    .pets-page--night .pets-scene--ogrod .pets-scroll { padding-top: 172px; }
+    .pets-garden__sign { top: 68px; right: 12px; }
+    .pets-scene--ogrod .pets-scroll { padding-top: 124px; }
+    .pets-page--night .pets-garden__sign { top: 120px; }
+    .pets-page--night .pets-scene--ogrod .pets-scroll { padding-top: 176px; }
     .pets-graves { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
 }
 
