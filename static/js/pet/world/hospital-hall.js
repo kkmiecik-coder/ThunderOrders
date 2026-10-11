@@ -14,6 +14,10 @@
  *   pod nimi (CSS, zapytania kontenera na scenie właściwej).
  * - Zmiana stanu przy otwartym oknie: jajko nadal na ladzie → treść odświeżona; zniknęło (odebrane w innej
  *   karcie) → okno się zamyka, fokus wraca na scenę.
+ * - Wystrój (.pets-hall__decor): okno z niebem i chmurkami (wieczór w ciemnym motywie, noc w grze = księżyc),
+ *   lampy wiszące, plakaty, tablica ogłoszeń, dystrybutor wody, rośliny, ławka, dywan; wycieraczki w ramach
+ *   drzwi. Same ozdoby (aria-hidden, pointer-events: none) pod drzwiami i recepcją; stałe znaczniki bez
+ *   danych użytkownika. Układ wg wysokości sceny i ruch (z wyłączeniem w ograniczonym ruchu) — CSS.
  * Rejestruje się w window.PetsWorld.scenes.szpital.
  */
 (function () {
@@ -94,6 +98,208 @@
         '<svg class="pets-hall__talk-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" ' +
         'stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>';
 
+    // --- wystrój holu (same ozdoby: aria-hidden, bez zdarzeń; układ i ruch w pets-hospital-hall.css) -------
+    var NS = ' aria-hidden="true" focusable="false"';
+
+    // Lampa wisząca: sznur (wysokość z CSS) + klosz; poświata w ciemnym motywie i nocą
+    var LAMP_HTML =
+        '<span class="pets-hall__lamp-cord"></span>' +
+        '<svg class="pets-hall__lamp-shade" viewBox="0 0 64 46"' + NS + '>' +
+        '<rect class="hall-lamp-cap" x="26" y="0" width="12" height="8" rx="2"/>' +
+        '<path class="hall-lamp-shade" d="M32 6C17 6 7 18 5 33h54C57 18 47 6 32 6z"/>' +
+        '<path class="hall-lamp-shine" d="M19 15c-4 4-6 9-7 14"/>' +
+        '<path class="hall-lamp-bulb" d="M24 36h16a8 8 0 0 1-16 0z"/>' +
+        '<rect class="hall-lamp-rim" x="2" y="31" width="60" height="6" rx="3"/>' +
+        '</svg>' +
+        '<span class="pets-hall__lamp-glow"></span>';
+
+    // Kafel chmur (dwa identyczne obok siebie = płynna pętla przesuwu)
+    var CLOUD_TILE =
+        '<svg class="pets-hall__cloud-tile" viewBox="0 0 200 120" preserveAspectRatio="xMidYMin meet"' + NS + '>' +
+        '<g class="hall-cloud"><circle cx="34" cy="38" r="10"/><circle cx="48" cy="31" r="13"/><circle cx="62" cy="39" r="9"/>' +
+        '<rect x="25" y="38" width="46" height="11" rx="5.5"/></g>' +
+        '<g class="hall-cloud hall-cloud--far"><circle cx="120" cy="20" r="6"/><circle cx="129" cy="15" r="8"/><circle cx="138" cy="20" r="6"/>' +
+        '<rect x="114" y="19" width="30" height="7" rx="3.5"/></g>' +
+        '<g class="hall-cloud"><circle cx="146" cy="64" r="8"/><circle cx="158" cy="58" r="11"/><circle cx="170" cy="65" r="7.5"/>' +
+        '<rect x="139" y="63" width="38" height="9" rx="4.5"/></g>' +
+        '</svg>';
+
+    // Okno z niebem: dzień (słońce, chmurki), wieczór w ciemnym motywie i noc w grze (księżyc, gwiazdy)
+    var WINDOW_HTML =
+        '<div class="pets-hall__window">' +
+        '<div class="pets-hall__sky">' +
+        '<span class="pets-hall__sun"></span>' +
+        '<svg class="pets-hall__night" viewBox="0 0 200 120" preserveAspectRatio="xMidYMin meet"' + NS + '>' +
+        '<path class="hall-moon" d="M158 16a15 15 0 1 0 15 21a12 12 0 1 1-15-21z"/>' +
+        '<g class="hall-stars hall-stars--a"><circle cx="28" cy="18" r="1.7"/><circle cx="74" cy="10" r="1.3"/>' +
+        '<circle cx="112" cy="30" r="1.6"/><circle cx="186" cy="64" r="1.3"/><circle cx="58" cy="50" r="1.1"/></g>' +
+        '<g class="hall-stars hall-stars--b"><circle cx="46" cy="34" r="1.3"/><circle cx="96" cy="12" r="1.7"/>' +
+        '<circle cx="132" cy="54" r="1.2"/><circle cx="14" cy="52" r="1.4"/><circle cx="138" cy="8" r="1.1"/></g>' +
+        '</svg>' +
+        '<div class="pets-hall__clouds">' + CLOUD_TILE + CLOUD_TILE + '</div>' +
+        '<svg class="pets-hall__hills" viewBox="0 0 200 52" preserveAspectRatio="xMidYMax meet"' + NS + '>' +
+        '<path class="hall-hill hall-hill--back" d="M0 32C28 16 58 16 90 28S152 10 200 24V52H0z"/>' +
+        '<rect class="hall-trunk" x="149" y="22" width="4" height="12" rx="2"/>' +
+        '<circle class="hall-tree" cx="151" cy="19" r="9"/><circle class="hall-tree hall-tree--small" cx="38" cy="26" r="6"/>' +
+        '<rect class="hall-trunk" x="36.5" y="27" width="3" height="8" rx="1.5"/>' +
+        '<path class="hall-hill hall-hill--front" d="M0 42C40 30 82 32 120 42S182 36 200 38V52H0z"/>' +
+        '</svg>' +
+        '</div>' +
+        '<span class="pets-hall__panes"></span>' +
+        '<span class="pets-hall__sill"></span>' +
+        '<svg class="pets-hall__sill-pot" viewBox="0 0 40 48"' + NS + '>' +
+        '<path class="hall-cactus" d="M20 8c6 0 9 6 9 14v10H11V22c0-8 3-14 9-14z"/>' +
+        '<path class="hall-cactus-line" d="M20 12v18M15 16v14M25 16v14"/>' +
+        '<circle class="hall-cactus-flower" cx="20" cy="8" r="4"/><circle class="hall-flower-c" cx="20" cy="8" r="1.6"/>' +
+        '<path class="hall-pot hall-pot--sill" d="M8 31h24l-3 15H11z"/><rect class="hall-pot-rim hall-pot-rim--sill" x="6" y="29" width="28" height="5" rx="2.5"/>' +
+        '</svg>' +
+        '</div>';
+
+    // Plakaty o zdrowiu pupili (taśma u góry, krótkie hasło)
+    var POSTERS_HTML =
+        '<div class="pets-hall__posters">' +
+        '<svg class="pets-hall__poster pets-hall__poster--paw" viewBox="0 0 80 100"' + NS + '>' +
+        '<rect class="hall-poster-paper" x="2" y="2" width="76" height="96" rx="6"/>' +
+        '<rect class="hall-poster-bg hall-poster-bg--pink" x="8" y="8" width="64" height="62" rx="4"/>' +
+        '<ellipse class="hall-paw" cx="40" cy="49" rx="12.5" ry="10.5"/>' +
+        '<ellipse class="hall-paw" cx="25" cy="35" rx="4.8" ry="6" transform="rotate(-22 25 35)"/>' +
+        '<ellipse class="hall-paw" cx="34.5" cy="27" rx="4.8" ry="6" transform="rotate(-7 34.5 27)"/>' +
+        '<ellipse class="hall-paw" cx="45.5" cy="27" rx="4.8" ry="6" transform="rotate(7 45.5 27)"/>' +
+        '<ellipse class="hall-paw" cx="55" cy="35" rx="4.8" ry="6" transform="rotate(22 55 35)"/>' +
+        '<circle class="hall-soap" cx="60" cy="58" r="5"/><circle class="hall-soap" cx="18" cy="58" r="3.6"/>' +
+        '<circle class="hall-soap" cx="63" cy="18" r="3.2"/><circle class="hall-soap" cx="16" cy="18" r="2.4"/>' +
+        '<text class="hall-poster-text hall-poster-text--pink" x="40" y="87" text-anchor="middle" textLength="58" ' +
+        'lengthAdjust="spacingAndGlyphs">MYJ ŁAPKI!</text>' +
+        '<rect class="hall-tape" x="29" y="-2" width="22" height="9" rx="1.5" transform="rotate(-5 40 2)"/>' +
+        '</svg>' +
+        '<svg class="pets-hall__poster pets-hall__poster--food" viewBox="0 0 80 100"' + NS + '>' +
+        '<rect class="hall-poster-paper" x="2" y="2" width="76" height="96" rx="6"/>' +
+        '<rect class="hall-poster-bg hall-poster-bg--mint" x="8" y="8" width="64" height="62" rx="4"/>' +
+        '<circle class="hall-apple" cx="27" cy="46" r="12"/>' +
+        '<path class="hall-apple-stem" d="M27 34c0-4 1-7 3-9"/>' +
+        '<path class="hall-food-leaf" d="M30 30c3-4 8-5 11-3-3 4-7 5-11 3z"/>' +
+        '<path class="hall-carrot" d="M40 62c-2 1-4-1-3-3l12-26c2-4 8-5 11-1s1 8-2 10z"/>' +
+        '<path class="hall-carrot-line" d="M46 44l4 2M43 51l4 2M50 37l3 2"/>' +
+        '<path class="hall-food-leaf" d="M58 30c0-6 2-11 7-13 0 6-2 10-7 13zM60 33c4-4 9-5 13-3-4 4-8 5-13 3z"/>' +
+        '<text class="hall-poster-text hall-poster-text--mint" x="40" y="87" text-anchor="middle" textLength="58" ' +
+        'lengthAdjust="spacingAndGlyphs">WITAMINKI</text>' +
+        '<rect class="hall-tape" x="29" y="-2" width="22" height="9" rx="1.5" transform="rotate(4 40 2)"/>' +
+        '</svg>' +
+        '</div>';
+
+    // Tablica ogłoszeń: karteczki, zdjęcie pupila, serduszko, pinezki; pod nią (wysoka scena) plakat o śnie
+    var BOARD_HTML =
+        '<div class="pets-hall__board">' +
+        '<svg class="pets-hall__board-art" viewBox="0 0 160 120"' + NS + '>' +
+        '<rect class="hall-board-frame" x="2" y="2" width="156" height="116" rx="10"/>' +
+        '<rect class="hall-board-cork" x="10" y="10" width="140" height="100" rx="5"/>' +
+        '<g transform="rotate(-5 40 40)"><rect class="hall-note hall-note--yellow" x="18" y="18" width="44" height="42" rx="3"/>' +
+        '<path class="hall-note-line" d="M24 32h30M24 40h25M24 48h30"/></g>' +
+        '<g transform="rotate(6 100 44)"><rect class="hall-photo" x="76" y="16" width="48" height="56" rx="3"/>' +
+        '<rect class="hall-photo-pic" x="81" y="21" width="38" height="36" rx="2"/>' +
+        '<path class="hall-photo-pet" d="M90 36l-3-8 7 4zM110 36l3-8-7 4z"/><circle class="hall-photo-pet" cx="100" cy="44" r="11"/>' +
+        '<circle class="hall-photo-eye" cx="96" cy="43" r="1.6"/><circle class="hall-photo-eye" cx="104" cy="43" r="1.6"/>' +
+        '<path class="hall-photo-mouth" d="M98 48q2 2 4 0"/></g>' +
+        '<g transform="rotate(4 45 88)"><rect class="hall-note hall-note--pink" x="22" y="70" width="46" height="32" rx="3"/>' +
+        '<path class="hall-note-heart" d="M45 96c-7-5-10-8-10-12a4.5 4.5 0 0 1 10-2.4a4.5 4.5 0 0 1 10 2.4c0 4-3 7-10 12z"/></g>' +
+        '<g transform="rotate(-6 118 91)"><rect class="hall-note hall-note--blue" x="97" y="78" width="42" height="28" rx="3"/>' +
+        '<path class="hall-note-cross" d="M115 84h6v5h5v6h-5v5h-6v-5h-5v-6h5z"/></g>' +
+        '<circle class="hall-pin hall-pin--a" cx="40" cy="20" r="3.6"/><circle class="hall-pin hall-pin--b" cx="100" cy="18" r="3.6"/>' +
+        '<circle class="hall-pin hall-pin--c" cx="45" cy="72" r="3.4"/><circle class="hall-pin hall-pin--a" cx="118" cy="80" r="3.4"/>' +
+        '</svg>' +
+        '<svg class="pets-hall__poster pets-hall__poster--sleep" viewBox="0 0 80 100"' + NS + '>' +
+        '<rect class="hall-poster-paper" x="2" y="2" width="76" height="96" rx="6"/>' +
+        '<rect class="hall-poster-bg hall-poster-bg--lilac" x="8" y="8" width="64" height="62" rx="4"/>' +
+        '<path class="hall-poster-moon" d="M34 20a19 19 0 1 0 24 27a15 15 0 1 1-24-27z"/>' +
+        '<path class="hall-zz" d="M50 16h8l-8 9h8M61 29h6l-6 7h6"/>' +
+        '<circle class="hall-poster-star" cx="18" cy="20" r="1.9"/><circle class="hall-poster-star" cx="63" cy="60" r="1.6"/>' +
+        '<circle class="hall-poster-star" cx="16" cy="58" r="1.4"/>' +
+        '<text class="hall-poster-text hall-poster-text--lilac" x="40" y="87" text-anchor="middle" textLength="60" ' +
+        'lengthAdjust="spacingAndGlyphs">ŚPIJ ZDROWO</text>' +
+        '<rect class="hall-tape" x="29" y="-2" width="22" height="9" rx="1.5" transform="rotate(-3 40 2)"/>' +
+        '</svg>' +
+        '</div>';
+
+    // Dystrybutor wody: bąbelki w baniaku, mrugająca lampka
+    var COOLER_HTML =
+        '<div class="pets-hall__cooler">' +
+        '<svg viewBox="0 0 70 160"' + NS + '>' +
+        '<rect class="hall-cooler-cap" x="27" y="2" width="16" height="8" rx="2.5"/>' +
+        '<path class="hall-cooler-bottle" d="M24 9h22v5c9 2 14 8 14 17v27c0 6-4 10-10 10H20c-6 0-10-4-10-10V31c0-9 5-15 14-17z"/>' +
+        '<path class="hall-cooler-water" d="M10.5 36h49v22c0 5.5-4 9.5-9.5 9.5H20c-5.5 0-9.5-4-9.5-9.5z"/>' +
+        '<path class="hall-cooler-shine" d="M17 32v22"/>' +
+        '<circle class="hall-bubble hall-bubble--1" cx="27" cy="62" r="2.3"/><circle class="hall-bubble hall-bubble--2" cx="43" cy="63" r="1.7"/>' +
+        '<circle class="hall-bubble hall-bubble--3" cx="35" cy="64" r="1.9"/>' +
+        '<rect class="hall-cooler-neck" x="23" y="66" width="24" height="7" rx="2"/>' +
+        '<rect class="hall-cooler-body" x="6" y="71" width="58" height="84" rx="9"/>' +
+        '<rect class="hall-cooler-panel" x="14" y="81" width="42" height="33" rx="6"/>' +
+        '<rect class="hall-tap hall-tap--cold" x="19" y="91" width="9" height="12" rx="2.5"/>' +
+        '<rect class="hall-tap hall-tap--hot" x="42" y="91" width="9" height="12" rx="2.5"/>' +
+        '<circle class="hall-cooler-led" cx="35" cy="88" r="2.6"/>' +
+        '<path class="hall-cooler-cup" d="M30 104h10l-1.5 9h-7z"/>' +
+        '<rect class="hall-cooler-tray" x="16" y="113" width="38" height="5" rx="2.5"/>' +
+        '<rect class="hall-cooler-foot" x="10" y="153" width="50" height="6" rx="3"/>' +
+        '</svg>' +
+        '</div>';
+
+    // Roślina w donicy (wysoka) i krzaczek z kwiatkami (niska) — liście się kołyszą
+    var PLANT_TALL_HTML =
+        '<div class="pets-hall__plant pets-hall__plant--tall">' +
+        '<svg viewBox="0 0 100 170"' + NS + '>' +
+        '<g class="hall-sway">' +
+        '<path class="hall-stem" d="M50 120C48 98 40 80 28 62M50 120c0-28 6-50 20-70M50 120c0-22-2-42-4-62M50 120c2-16 12-28 28-36M50 120c-4-10-9-18-16-24"/>' +
+        '<path class="hall-leaf" d="M28 62Q6 52 8 30Q30 36 28 62z"/>' +
+        '<path class="hall-leaf hall-leaf--light" d="M70 50Q72 26 96 22Q92 48 70 50z"/>' +
+        '<path class="hall-leaf" d="M46 58Q30 34 46 8Q62 34 46 58z"/>' +
+        '<path class="hall-leaf hall-leaf--light" d="M78 84Q82 62 98 60Q96 82 78 84z"/>' +
+        '<path class="hall-leaf hall-leaf--light" d="M34 96Q18 82 4 88Q16 104 34 96z"/>' +
+        '<path class="hall-vein" d="M27 60L11 33M71 48L93 25M46 55V12M79 82L96 62M32 95L8 89"/>' +
+        '</g>' +
+        '<rect class="hall-pot-rim" x="22" y="116" width="56" height="12" rx="5"/>' +
+        '<path class="hall-pot" d="M26 126h48l-6 41H32z"/>' +
+        '<path class="hall-pot-band" d="M28 142h44"/>' +
+        '</svg>' +
+        '</div>';
+
+    var PLANT_SMALL_HTML =
+        '<div class="pets-hall__plant pets-hall__plant--small">' +
+        '<svg viewBox="0 0 80 100"' + NS + '>' +
+        '<g class="hall-sway hall-sway--b">' +
+        '<circle class="hall-bush" cx="27" cy="46" r="16"/><circle class="hall-bush" cx="53" cy="45" r="17"/>' +
+        '<circle class="hall-bush hall-bush--light" cx="40" cy="30" r="19"/>' +
+        '<circle class="hall-flower" cx="30" cy="28" r="3.6"/><circle class="hall-flower" cx="50" cy="22" r="3.6"/>' +
+        '<circle class="hall-flower" cx="58" cy="44" r="3.6"/><circle class="hall-flower" cx="22" cy="46" r="3.2"/>' +
+        '<circle class="hall-flower" cx="41" cy="40" r="3.2"/>' +
+        '<circle class="hall-flower-c" cx="30" cy="28" r="1.4"/><circle class="hall-flower-c" cx="50" cy="22" r="1.4"/>' +
+        '<circle class="hall-flower-c" cx="58" cy="44" r="1.4"/><circle class="hall-flower-c" cx="22" cy="46" r="1.2"/>' +
+        '<circle class="hall-flower-c" cx="41" cy="40" r="1.2"/>' +
+        '</g>' +
+        '<path class="hall-pot hall-pot--round" d="M17 60h46l-5 33c0 3-3 5-6 5H28c-3 0-6-2-6-5z"/>' +
+        '<rect class="hall-pot-rim hall-pot-rim--round" x="13" y="55" width="54" height="10" rx="5"/>' +
+        '</svg>' +
+        '</div>';
+
+    // Ławka poczekalni z poduszką-serduszkiem
+    var BENCH_HTML =
+        '<div class="pets-hall__bench">' +
+        '<svg viewBox="0 0 200 100"' + NS + '>' +
+        '<rect class="hall-bench-leg" x="24" y="58" width="9" height="38" rx="3"/>' +
+        '<rect class="hall-bench-leg" x="167" y="58" width="9" height="38" rx="3"/>' +
+        '<rect class="hall-bench-back" x="14" y="8" width="172" height="40" rx="14"/>' +
+        '<path class="hall-bench-tuft" d="M72 28h0M100 28h0M128 28h0M156 28h0"/>' +
+        '<rect class="hall-bench-seat" x="6" y="44" width="188" height="20" rx="10"/>' +
+        '<path class="hall-bench-seam" d="M100 47v14"/>' +
+        '<path class="hall-pillow" d="M42 47c-12-8-18-14-18-21a9 9 0 0 1 18-3a9 9 0 0 1 18 3c0 7-6 13-18 21z"/>' +
+        '</svg>' +
+        '</div>';
+
+    var DECOR_HTML =
+        '<span class="pets-hall__rug"></span>' +
+        WINDOW_HTML + POSTERS_HTML + BOARD_HTML +
+        '<span class="pets-hall__lamp pets-hall__lamp--l">' + LAMP_HTML + '</span>' +
+        '<span class="pets-hall__lamp pets-hall__lamp--r">' + LAMP_HTML + '</span>' +
+        COOLER_HTML + PLANT_TALL_HTML + PLANT_SMALL_HTML + BENCH_HTML;
+
     function create(ctx, host) {
         var H = window.PetsHospital;
         var u = ctx.u;
@@ -131,6 +337,10 @@
             sign.appendChild(el('span', 'pets-hall__sign-text', label));
             var frame = el('span', 'pets-hall__frame');
             frame.innerHTML = art;
+            // Wycieraczka pod skrzydłem (ozdoba; w ramie, żeby trzymała się drzwi także przy szerszym szyldzie)
+            var mat = el('span', 'pets-hall__mat');
+            mat.setAttribute('aria-hidden', 'true');
+            frame.appendChild(mat);
             var badge = el('span', 'pets-hall__badge');
             badge.setAttribute('aria-hidden', 'true');
             badge.hidden = true;
@@ -164,7 +374,13 @@
         desk.appendChild(nurse);
         desk.appendChild(counter);
 
-        [floor, clock, doorInc.a, doorWard.a, desk].forEach(function (n) { stage.appendChild(n); });
+        // Wystrój (okno z niebem, lampy, plakaty, tablica, rośliny, ławka, dystrybutor, dywan) — pod drzwiami
+        // i recepcją, bez zdarzeń: klik w ozdobę = klik w tło sceny (zamyka okno sceny jak dotąd)
+        var decor = el('div', 'pets-hall__decor');
+        decor.setAttribute('aria-hidden', 'true');
+        decor.innerHTML = DECOR_HTML;
+
+        [floor, decor, clock, doorInc.a, doorWard.a, desk].forEach(function (n) { stage.appendChild(n); });
         host.appendChild(stage);
 
         var win = window.PetsSceneWindow ? window.PetsSceneWindow.attach(host) : null;
