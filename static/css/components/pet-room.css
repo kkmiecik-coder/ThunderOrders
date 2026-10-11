@@ -274,8 +274,9 @@
     color: #ffffff;
 }
 
-/* === Wąski pokój (≤ 640 px szerokości: telefon albo domek z panelem z boku) — klasa .is-narrow z room.js,
-   bo o układzie decyduje szerokość pokoju, nie okna. Wyższa podłoga, więksi pupile. === */
+/* === Wąski pokój (≤ 640 px szerokości albo proporcje węższe niż 3:2: telefon, domek na pełnym ekranie z oknem
+   sceny z boku) — klasa .is-narrow z room.js, bo o układzie decyduje pokój, nie okno przeglądarki.
+   Wyższa podłoga, więksi pupile. === */
 .pet-room.is-narrow {
     --pet-w: 19%;
     aspect-ratio: 4 / 3.4;

@@ -27,6 +27,7 @@ body:has(.pets-page--full),
     padding-right: 0;
     padding-bottom: 0;
     overflow: hidden;
+    overflow: clip;              /* clip: nie da się go przewinąć nawet programowo (fokus, scrollIntoView) */
 }
 
 @media (max-width: 768px) {
@@ -61,11 +62,14 @@ body:has(.pets-page--full),
     min-width: 0;
 }
 
-/* Scena: tło na całą powierzchnię (każda scena w swoim pliku), treść w .pets-stage */
+/* Scena: tło na całą powierzchnię (każda scena w swoim pliku), treść w .pets-stage. Przycina (clip, nie
+   hidden): tła scen celowo wychodzą poza nią (pokój domku), a scena z overflow: hidden dałaby się przewinąć
+   programowo — fokus na pupilu przesuwał cały pokój. Przewija się tylko .pets-scroll w środku. */
 .pets-scene {
     position: absolute;
     inset: 0;
     overflow: hidden;
+    overflow: clip;
     background: var(--bg-primary, #F5F6FA);
 }
 
