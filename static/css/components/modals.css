@@ -5340,3 +5340,130 @@
     background: #78350f;
     color: #fde68a;
 }
+
+/* === Pet hatch modal === */
+/* Modal wyklucia pupila (#petHatchModal, templates/client/pets/home.html, logika w pets.js).
+   Wzorzec modal-overlay + modal-content, otwieranie .active, zamykanie .closing. */
+.pet-hatch-modal {
+    align-items: center;
+    padding-top: 20px;
+}
+
+.pet-hatch-modal .pet-hatch {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    outline: none;
+}
+
+.pet-hatch .modal-title { font-size: 1.125rem; }
+
+.pet-hatch .modal-close {
+    width: 44px;
+    height: 44px;
+}
+
+.pet-hatch .modal-close[hidden] { display: none; }
+
+.pet-hatch__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding-top: 12px;
+}
+
+.pet-hatch__stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 210px;
+    height: 210px;
+    max-width: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 58%, #FFE9F4 0%, #F4EEFF 52%, rgba(244, 238, 255, 0) 72%);
+}
+
+.pet-hatch__stage .pet-rig { width: 180px; }
+
+.pet-hatch__text {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--gray-800, #212121);
+    overflow-wrap: anywhere;
+}
+
+.pet-hatch__form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+}
+
+.pet-hatch__form[hidden] { display: none; }
+
+.pet-hatch__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-600, #616161);
+}
+
+.pet-hatch__input {
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #D8B4FE;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #212121;
+    font: inherit;
+    font-size: 1rem;
+}
+
+.pet-hatch__input:focus {
+    outline: none;
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.25);
+}
+
+.pet-hatch__input[aria-invalid="true"] { border-color: #EF4444; }
+
+.pet-hatch__error {
+    margin: 0;
+    font-size: 13px;
+    color: #DC2626;
+}
+
+.pet-hatch__error[hidden] { display: none; }
+.pet-hatch__submit { width: 100%; }
+.pet-hatch__footer[hidden] { display: none; }
+.pet-hatch__footer .pet-btn { min-width: 140px; }
+
+[data-theme="dark"] .pet-hatch__stage {
+    background: radial-gradient(circle at 50% 58%, rgba(240, 147, 251, 0.22) 0%, rgba(240, 147, 251, 0.08) 50%, rgba(240, 147, 251, 0) 72%);
+}
+
+[data-theme="dark"] .pet-hatch__text { color: #ffffff; }
+[data-theme="dark"] .pet-hatch__label { color: rgba(255, 255, 255, 0.7); }
+
+[data-theme="dark"] .pet-hatch__input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pet-hatch__input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .pet-hatch__input[aria-invalid="true"] { border-color: #F87171; }
+[data-theme="dark"] .pet-hatch__error { color: #FCA5A5; }
+
+@media (max-width: 480px) {
+    .pet-hatch-modal { padding-left: 16px; padding-right: 16px; }
+    .pet-hatch__stage { width: 180px; height: 180px; }
+    .pet-hatch__stage .pet-rig { width: 160px; }
+}
