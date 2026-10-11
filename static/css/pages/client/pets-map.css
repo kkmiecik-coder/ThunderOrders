@@ -21,6 +21,11 @@
     justify-content: center;
 }
 
+/* Telefon w nocy: pigułka nocy w drugim rzędzie — plansza odrobinę niżej (mieści się, bo jest węższa niż scena) */
+@media (max-width: 599.98px) {
+    .pets-page--night .pets-map { padding-top: 52px; }
+}
+
 .pets-map__board {
     position: relative;
     width: 100%;

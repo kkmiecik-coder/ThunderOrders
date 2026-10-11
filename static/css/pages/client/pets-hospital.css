@@ -23,6 +23,7 @@
 
 @media (max-width: 599.98px) {
     .pets-scene--szpital > .pets-hospital { padding: 68px 12px 16px; }
+    .pets-page--night .pets-scene--szpital > .pets-hospital { padding-top: 116px; }
 }
 
 .pets-hospital {

@@ -570,6 +570,8 @@
         if (!header.night) return;
         var night = state.night || {};
         header.night.hidden = !night.is_night;
+        // Pigułka nocy zajmuje miejsce u góry sceny — sceny zsuwają w dół podpowiedzi i tabliczki (CSS)
+        root.classList.toggle('pets-page--night', !!night.is_night);
         if (night.is_night) {
             var factor = state.config && state.config.night_factor;
             var slower = factor > 0 && factor < 1 ? Math.round(1 / factor) + '× wolniej' : 'wolniej';

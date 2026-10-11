@@ -40,8 +40,9 @@
     inset: -100vh -100vw;
 }
 
-/* Niski widok (laptop 1366×600, telefon poziomo): pupil nie wyższy niż ~1/4 wysokości ekranu */
-.pets-house .pet-room__pet { width: min(var(--pet-w), 26vh, 170px); }
+/* Niski widok (laptop 1366×600, telefon poziomo): pupil nie wyższy niż ~1/5 wysokości ekranu, żeby wybrany
+   zmieścił się nad arkuszem razem z imieniem */
+.pets-house .pet-room__pet { width: min(var(--pet-w), 22vh, 170px); }
 
 [data-theme="dark"] .pets-house .pet-room {
     border: none;
@@ -152,6 +153,9 @@
 
 [data-theme="dark"] .pets-house__rules { color: rgba(255, 255, 255, 0.75); }
 
+/* Noc: pigułka nocy obok nazwy miejsca — podpowiedzi zjeżdżają pod rząd pigułek */
+.pets-page--night .pets-house__notes { top: 68px; }
+
 /* Telefon: podpowiedzi pod pigułką, na całą szerokość */
 @media (max-width: 599.98px) {
     .pets-house__notes {
@@ -161,6 +165,8 @@
         align-items: stretch;
         max-width: none;
     }
+
+    .pets-page--night .pets-house__notes { top: 116px; }
 
     .pets-house__intro { max-height: calc(100% - 84px); transform: translate(-50%, -42%); }
 }

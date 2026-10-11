@@ -35,7 +35,9 @@
 }
 
 /* Arkusz (< 1024 px): miejsce pod łąką, żeby wybrany nagrobek dało się przewinąć nad arkusz */
-.pets-scene--ogrod.has-window .pets-garden { padding-bottom: calc(var(--window-h, 0px) + 24px); }
+@media (max-width: 1023.98px) {
+    .pets-scene--ogrod.has-window .pets-garden { padding-bottom: calc(var(--window-h, 0px) + 24px); }
+}
 
 /* Tabliczka „Album gatunków n/8” — prawy górny róg sceny właściwej (pigułka jest w lewym) */
 .pets-garden__sign {
@@ -255,10 +257,16 @@
 
 [data-theme="dark"] .pets-grave__lights { color: #FCD34D; }
 
+/* Noc: pigułka nocy obok nazwy miejsca — tabliczka albumu i łąka pod rzędem pigułek */
+.pets-page--night .pets-garden__sign { top: 68px; }
+.pets-page--night .pets-scene--ogrod .pets-scroll { padding-top: 124px; }
+
 /* Telefon: tabliczka albumu pod pigułką, łąka niżej */
 @media (max-width: 599.98px) {
     .pets-garden__sign { top: 64px; right: 12px; }
     .pets-scene--ogrod .pets-scroll { padding-top: 120px; }
+    .pets-page--night .pets-garden__sign { top: 116px; }
+    .pets-page--night .pets-scene--ogrod .pets-scroll { padding-top: 172px; }
     .pets-graves { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
 }
 

@@ -264,6 +264,8 @@ body:has(.pets-page--full),
 
 @media (max-width: 599.98px) {
     .pets-scroll { padding: 68px 12px 16px; }
+    /* Noc: pigułka nocy w drugim rzędzie pigułki */
+    .pets-page--night .pets-scroll { padding-top: 116px; }
 }
 
 /* === Wspólne bloki scen (szpital, warsztat, ogród) === */

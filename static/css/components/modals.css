@@ -5691,7 +5691,7 @@ html.pet-hatch-open body { overflow: hidden; }
 /* Wspólne okno kontekstowe świata pupili (static/js/pet/world/scene-window.js, spec v3.1 §3.4): panel pupila
    w domku, okna szpitala, album i nagrobki w ogrodzie. Zawsze position: absolute w section.pets-scene —
    pływa w granicach sceny, nie obok niej. Nie-modalne: scena zostaje widoczna i klikalna.
-   < 1024 px: arkusz od dołu (max. 75% wysokości sceny i zawsze ≥ 140 px sceny nad nim, żeby wybrany obiekt
+   < 1024 px: arkusz od dołu (max. 75% wysokości sceny i zawsze ≥ 160 px sceny nad nim, żeby wybrany obiekt
    był widoczny), uchwyt 44 px, przeciągnięcie w dół zamyka (--drag z JS). ≥ 1024 px: karta 360 px przy
    prawej krawędzi, od wysokości pigułki do dołu sceny z marginesem 16 px, przewijanie w środku. */
 .pets-window {
@@ -5704,7 +5704,7 @@ html.pet-hatch-open body { overflow: hidden; }
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    max-height: max(50%, min(75%, calc(100% - 140px)));
+    max-height: max(50%, min(75%, calc(100% - 160px)));
     overflow: hidden;
     border-radius: 22px 22px 0 0;
     background: #ffffff;
@@ -5839,6 +5839,12 @@ html.pet-hatch-open body { overflow: hidden; }
     .pets-window__grip { display: none; }
     .pets-window__close { top: 8px; }
     .pets-window__body { padding: 18px; }
+
+    /* Noc: rząd pigułek jest dłuższy (pigułka nocy) — karta zaczyna się pod nim */
+    .pets-page--night .pets-window {
+        top: 68px;
+        max-height: calc(100% - 84px);
+    }
 
     [data-theme="dark"] .pets-window {
         border-color: rgba(240, 147, 251, 0.2);
