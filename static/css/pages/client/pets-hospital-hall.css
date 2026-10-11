@@ -17,6 +17,7 @@
 .pets-hall {
     --floor: 30%;                      /* linia podłogi: drzwi stoją na niej, recepcja przed nią */
     --top: 72px;                       /* miejsce na pigułkę u góry sceny */
+    container-name: pets-hall;         /* typ kontenera (size) w pets-hospital.css; nazwa dla zapytań z wnętrza ozdób */
     transition: margin-right 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -80,6 +81,750 @@
 
 @container (max-height: 700px) {
     .pets-hall__clock { display: none; }
+}
+
+/* =====================================================================
+   Wystrój holu (feedback: „w szpitalu smutno i pusto”) — okno z niebem, lampy wiszące, plakaty, tablica
+   ogłoszeń, dystrybutor wody, rośliny, ławka, dywan i wycieraczki. Same ozdoby (aria-hidden, bez zdarzeń),
+   pod drzwiami (z-index 2) i recepcją (3). Rozmiary w jednostkach kontenera (.pets-hall), więc kompozycja
+   rośnie z wysokością sceny: wysoko — wyższe okno, zegar nad nim, lampy nad drzwiami, dwa plakaty;
+   nisko — okno niższe, lampy krótsze; bardzo nisko i wąsko — tylko ozdoby podłogi.
+   Bez jednostek kontenera (stare przeglądarki) wystrój się nie pokazuje — hol działa jak dawniej.
+   ===================================================================== */
+
+/* Wspólne miary (zmienne liczone na elemencie, który je deklaruje — nadpisania w zapytaniach też tutaj) */
+.pets-hall__decor,
+.pets-hall__clock {
+    --door-x: 5%;                                                      /* jak .pets-hall__door--inc/--ward */
+    --door-h: clamp(96px, min(calc(70cqh - 108px), 40cqw), 330px);     /* jak .pets-hall__frame */
+    --door-w: calc(var(--door-h) * 100 / 170);
+    --desk-w: clamp(220px, 40cqw, 420px);                              /* jak .pets-hall__desk */
+    --win-w: clamp(150px, 30cqw, 340px);
+    --win-top: 166px;                                                  /* pigułka + zegar nad oknem */
+    --win-h: min(calc(var(--win-w) * 1.4), calc(100% - var(--floor) - 70px - var(--win-top)));
+    --win-bottom: calc(var(--floor) + 70px);                           /* nad lamperią */
+    --side-gap: calc(45% - var(--door-w) - var(--win-w) / 2);         /* ściana między drzwiami a oknem */
+    --cooler-h: clamp(60px, min(17cqh, 16cqw), 170px);
+    --plant-h: clamp(76px, min(21cqh, 20cqw), 210px);
+    --plant-s-h: clamp(54px, min(12cqh, 11cqw), 116px);
+    --bench-w: clamp(110px, 17cqw, 210px);
+}
+
+.pets-hall__decor {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: none;
+    pointer-events: none;
+}
+
+@supports (width: 1cqw) {
+    .pets-hall__decor { display: block; }
+
+    /* Zegar wisi nad oknem (pokazuje się tylko w wysokiej scenie) */
+    .pets-hall__clock {
+        z-index: 1;
+        top: auto;
+        bottom: calc(var(--win-bottom) + var(--win-h) + 18px);
+    }
+}
+
+.pets-hall__decor svg {
+    display: block;
+    overflow: visible;
+}
+
+/* Falbanka pod sufitem — przez całą szerokość sceny, jak podłoga */
+.pets-hall__decor::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100vw;
+    right: -100vw;
+    height: 22px;
+    background:
+        radial-gradient(circle at 50% 0, #bfe3d8 10px, transparent 10.5px) 0 4px / 24px 14px repeat-x,
+        linear-gradient(#bfe3d8, #bfe3d8) 0 0 / 100% 5px no-repeat;
+}
+
+[data-theme="dark"] .pets-hall__decor::before {
+    background:
+        radial-gradient(circle at 50% 0, #24434a 10px, transparent 10.5px) 0 4px / 24px 14px repeat-x,
+        linear-gradient(#24434a, #24434a) 0 0 / 100% 5px no-repeat;
+}
+
+/* --- Okno z niebem (środek ściany, za recepcją) --- */
+.pets-hall__window {
+    position: absolute;
+    left: 50%;
+    bottom: var(--win-bottom);
+    box-sizing: border-box;
+    width: var(--win-w);
+    height: var(--win-h);
+    margin-left: calc(var(--win-w) / -2);
+    border: 7px solid #ffffff;
+    border-radius: 50% 50% 10px 10px / 32% 32% 10px 10px;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px #bfe3d8, 0 10px 22px rgba(40, 90, 80, 0.14);
+}
+
+.pets-hall__sky {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    isolation: isolate;
+    background: linear-gradient(180deg, #9fd6ff 0%, #c9ecff 62%, #e6f7ff 100%);
+}
+
+.pets-hall__sun {
+    position: absolute;
+    top: 12%;
+    right: 16%;
+    width: 16%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #ffe27a;
+    box-shadow: 0 0 0 5px rgba(255, 226, 122, 0.35), 0 0 22px 6px rgba(255, 214, 102, 0.4);
+}
+
+.pets-hall__decor .pets-hall__night {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
+.pets-hall .hall-moon { fill: #fff1b8; }
+.pets-hall .hall-stars { fill: #fffbe6; }
+
+/* Chmurki: pas dwóch identycznych kafli przesuwa się o jeden kafel = płynna pętla */
+.pets-hall__clouds {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    width: 200%;
+    height: 100%;
+    animation: pets-hall-clouds 80s linear infinite;
+}
+
+.pets-hall__decor .pets-hall__cloud-tile {
+    flex: 0 0 50%;
+    width: 50%;
+    height: 100%;
+}
+
+.pets-hall .hall-cloud { fill: #ffffff; }
+.pets-hall .hall-cloud--far { opacity: 0.75; }
+
+.pets-hall__decor .pets-hall__hills {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 200 / 52;
+}
+
+.pets-hall .hall-hill--back { fill: #c3e9bb; }
+.pets-hall .hall-hill--front { fill: #a3dc9e; }
+.pets-hall .hall-tree { fill: #86cf8e; }
+.pets-hall .hall-trunk { fill: #c99a6e; }
+
+/* Szprosy + odblask szyby */
+.pets-hall__panes {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        linear-gradient(90deg, transparent calc(50% - 3px), #ffffff calc(50% - 3px) calc(50% + 3px), transparent calc(50% + 3px)),
+        linear-gradient(180deg, transparent calc(58% - 3px), #ffffff calc(58% - 3px) calc(58% + 3px), transparent calc(58% + 3px)),
+        linear-gradient(125deg, transparent 16%, rgba(255, 255, 255, 0.32) 16% 22%, transparent 22% 27%, rgba(255, 255, 255, 0.2) 27% 30%, transparent 30%);
+}
+
+.pets-hall__sill {
+    position: absolute;
+    left: -18px;
+    right: -18px;
+    bottom: -19px;
+    height: 13px;
+    border-radius: 7px;
+    background: #ffffff;
+    box-shadow: 0 0 0 2px #bfe3d8, 0 6px 10px rgba(40, 90, 80, 0.12);
+}
+
+.pets-hall__decor .pets-hall__sill-pot {
+    position: absolute;
+    left: 7%;
+    bottom: -8px;
+    width: clamp(22px, 13%, 40px);
+    height: auto;
+    aspect-ratio: 40 / 48;
+}
+
+.pets-hall .hall-cactus { fill: #86cf8e; }
+.pets-hall .hall-cactus-line { fill: none; stroke: #6cb879; stroke-width: 1.4; stroke-linecap: round; }
+.pets-hall .hall-cactus-flower { fill: #ff9fc0; }
+
+/* Ciemny motyw: wieczór — granatowo-fioletowe niebo, księżyc i gwiazdy, przygaszone wzgórza */
+[data-theme="dark"] .pets-hall__window {
+    border-color: #2f4850;
+    background: #2f4850;
+    box-shadow: 0 0 0 3px #23383e, 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .pets-hall__sky { background: linear-gradient(180deg, #1c2354 0%, #3a3a7a 58%, #85608f 100%); }
+[data-theme="dark"] .pets-hall__sun { display: none; }
+[data-theme="dark"] .pets-hall__night { display: block; }
+[data-theme="dark"] .pets-hall .hall-cloud { fill: rgba(200, 190, 255, 0.38); }
+[data-theme="dark"] .pets-hall .hall-hill--back { fill: #2d4d55; }
+[data-theme="dark"] .pets-hall .hall-hill--front { fill: #253f44; }
+[data-theme="dark"] .pets-hall .hall-tree { fill: #2f5a4c; }
+[data-theme="dark"] .pets-hall .hall-trunk { fill: #5a4a3e; }
+[data-theme="dark"] .pets-hall .hall-moon { fill: #ffe9a6; }
+
+[data-theme="dark"] .pets-hall__panes {
+    background:
+        linear-gradient(90deg, transparent calc(50% - 3px), #2f4850 calc(50% - 3px) calc(50% + 3px), transparent calc(50% + 3px)),
+        linear-gradient(180deg, transparent calc(58% - 3px), #2f4850 calc(58% - 3px) calc(58% + 3px), transparent calc(58% + 3px)),
+        linear-gradient(125deg, transparent 16%, rgba(255, 255, 255, 0.08) 16% 22%, transparent 22% 27%, rgba(255, 255, 255, 0.05) 27% 30%, transparent 30%);
+}
+
+[data-theme="dark"] .pets-hall__sill {
+    background: #2f4850;
+    box-shadow: 0 0 0 2px #23383e, 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .pets-hall .hall-cactus { fill: #4f8f63; }
+[data-theme="dark"] .pets-hall .hall-cactus-line { stroke: #3f7a52; }
+[data-theme="dark"] .pets-hall .hall-cactus-flower { fill: #d4789b; }
+
+/* Noc w grze (pupile śpią): za oknem granatowe niebo z księżycem — w obu motywach */
+.pets-page--night .pets-hall__sky { background: linear-gradient(180deg, #1b2250 0%, #2c3672 70%, #3d4a86 100%); }
+.pets-page--night .pets-hall__sun { display: none; }
+.pets-page--night .pets-hall__night { display: block; }
+.pets-page--night .pets-hall .hall-cloud { fill: rgba(255, 255, 255, 0.26); }
+.pets-page--night .pets-hall .hall-hill--back { fill: #36615a; }
+.pets-page--night .pets-hall .hall-hill--front { fill: #2f564f; }
+.pets-page--night .pets-hall .hall-tree { fill: #3a6d5c; }
+
+[data-theme="dark"] .pets-page--night .pets-hall__sky { background: linear-gradient(180deg, #121738 0%, #222a5c 70%, #2f3a72 100%); }
+[data-theme="dark"] .pets-page--night .pets-hall .hall-hill--back { fill: #24413f; }
+[data-theme="dark"] .pets-page--night .pets-hall .hall-hill--front { fill: #1d3634; }
+
+.pets-hall .hall-stars--a { animation: pets-hall-twinkle 3.2s ease-in-out infinite alternate; }
+.pets-hall .hall-stars--b { animation: pets-hall-twinkle 4.4s ease-in-out -2s infinite alternate; }
+
+/* --- Lampy wiszące: nad ścianą między drzwiami a oknem; w wysokiej scenie nad drzwiami --- */
+.pets-hall__lamp {
+    --lamp-w: clamp(44px, 6cqw, 70px);
+    --cord: clamp(76px, calc(14cqh - 20px), 120px);   /* klosz poniżej pigułki (także nocnej) */
+    position: absolute;
+    top: 0;
+    left: calc(var(--door-x) + var(--door-w) + var(--side-gap) / 2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: var(--lamp-w);
+    margin-left: calc(var(--lamp-w) / -2);
+    transform-origin: 50% 0;
+    animation: pets-hall-lamp 7s ease-in-out infinite alternate;
+}
+
+.pets-hall__lamp--r {
+    left: auto;
+    right: calc(var(--door-x) + var(--door-w) + var(--side-gap) / 2);
+    margin-left: 0;
+    margin-right: calc(var(--lamp-w) / -2);
+    animation-delay: -3.5s;
+}
+
+.pets-hall__lamp-cord {
+    display: block;
+    width: 2px;
+    height: var(--cord);
+    background: #9fbcb5;
+}
+
+.pets-hall__decor .pets-hall__lamp-shade {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 64 / 46;
+    margin-top: -1px;
+}
+
+/* Poświata żarówki (ciemny motyw, noc) */
+.pets-hall__lamp-glow {
+    position: absolute;
+    top: calc(var(--cord) + var(--lamp-w) * 0.6 - var(--lamp-w) * 1.4);
+    left: 50%;
+    width: calc(var(--lamp-w) * 2.8);
+    height: calc(var(--lamp-w) * 2.8);
+    margin-left: calc(var(--lamp-w) * -1.4);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 222, 150, 0.55) 0%, rgba(255, 222, 150, 0.18) 40%, rgba(255, 222, 150, 0) 70%);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+
+.pets-hall .hall-lamp-cap { fill: #c9bfd9; }
+.pets-hall .hall-lamp-shade { fill: #ffcf9e; }
+.pets-hall .hall-lamp-rim { fill: #f7b27c; }
+.pets-hall .hall-lamp-bulb { fill: #fff4cf; }
+.pets-hall .hall-lamp-shine { fill: none; stroke: rgba(255, 255, 255, 0.7); stroke-width: 3; stroke-linecap: round; }
+
+[data-theme="dark"] .pets-hall__lamp-cord { background: #4f6b66; }
+[data-theme="dark"] .pets-hall .hall-lamp-cap { fill: #6f6588; }
+[data-theme="dark"] .pets-hall .hall-lamp-shade { fill: #d9a676; }
+[data-theme="dark"] .pets-hall .hall-lamp-rim { fill: #c48a5c; }
+[data-theme="dark"] .pets-hall .hall-lamp-bulb { fill: #ffe9a8; }
+[data-theme="dark"] .pets-hall .hall-lamp-shine { stroke: rgba(255, 255, 255, 0.25); }
+
+[data-theme="dark"] .pets-hall__lamp-glow,
+.pets-page--night .pets-hall__lamp-glow { opacity: 1; }
+
+/* --- Plakaty (lewa ściana obok okna) i tablica ogłoszeń (prawa) — na wysokości środka okna.
+   Szerokość z miejsca między drzwiami a oknem; za mało miejsca = ozdoba znika (zapytanie hall-side). --- */
+.pets-hall__posters,
+.pets-hall__board {
+    position: absolute;
+    bottom: calc(var(--win-bottom) + var(--win-h) / 2);
+    container: hall-side / inline-size;
+}
+
+.pets-hall__posters {
+    left: calc(var(--door-x) + var(--door-w) + var(--side-gap) / 2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    width: min(92px, calc(var(--side-gap) - 30px));
+    transform: translate(-50%, 50%);
+}
+
+.pets-hall__board {
+    right: calc(var(--door-x) + var(--door-w) + var(--side-gap) / 2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    width: min(156px, calc(var(--side-gap) - 26px));
+    transform: translate(50%, 50%);
+}
+
+.pets-hall__decor .pets-hall__poster {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 80 / 100;
+    filter: drop-shadow(0 4px 6px rgba(40, 80, 70, 0.14));
+}
+
+.pets-hall__decor .pets-hall__poster--paw { transform: rotate(-4deg); }
+
+.pets-hall__decor .pets-hall__poster--food {
+    display: none;
+    transform: rotate(3deg);
+}
+
+.pets-hall__decor .pets-hall__poster--sleep {
+    display: none;
+    width: min(100%, 92px);
+    transform: rotate(-2deg);
+}
+
+.pets-hall__decor .pets-hall__board-art {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 160 / 120;
+    filter: drop-shadow(0 5px 8px rgba(40, 80, 70, 0.16));
+}
+
+/* Wysoka scena: drugi plakat pod pierwszym */
+@container pets-hall (min-height: 760px) {
+    .pets-hall__decor .pets-hall__poster--food,
+    .pets-hall__decor .pets-hall__poster--sleep { display: block; }
+}
+
+@container hall-side (max-width: 58px) {
+    .pets-hall__posters .pets-hall__poster,
+    .pets-hall__board .pets-hall__poster { display: none; }
+}
+
+@container hall-side (max-width: 84px) {
+    .pets-hall__board .pets-hall__board-art { display: none; }
+}
+
+.pets-hall .hall-poster-paper { fill: #ffffff; }
+.pets-hall .hall-poster-bg--pink { fill: #ffe1ec; }
+.pets-hall .hall-poster-bg--mint { fill: #dcf5e7; }
+.pets-hall .hall-poster-bg--lilac { fill: #e6defc; }
+.pets-hall .hall-poster-text--lilac { fill: #5b45a8; }
+.pets-hall .hall-poster-moon { fill: #ffd86b; }
+.pets-hall .hall-poster-star { fill: #ffffff; }
+.pets-hall .hall-zz { fill: none; stroke: #8c76d6; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.pets-hall .hall-poster-text { font-size: 11px; font-weight: 800; letter-spacing: 0.02em; }
+.pets-hall .hall-poster-text--pink { fill: #b23a6a; }
+.pets-hall .hall-poster-text--mint { fill: #2f7a58; }
+.pets-hall .hall-paw { fill: #f39ab8; }
+.pets-hall .hall-soap { fill: rgba(232, 246, 255, 0.9); stroke: #9fd3f5; stroke-width: 1.4; }
+.pets-hall .hall-tape { fill: rgba(255, 236, 170, 0.85); }
+.pets-hall .hall-apple { fill: #ff8193; }
+.pets-hall .hall-apple-stem { fill: none; stroke: #a8744a; stroke-width: 2; stroke-linecap: round; }
+.pets-hall .hall-food-leaf { fill: #7cc98a; }
+.pets-hall .hall-carrot { fill: #ffa95e; }
+.pets-hall .hall-carrot-line { fill: none; stroke: #e98a3c; stroke-width: 1.4; stroke-linecap: round; }
+
+.pets-hall .hall-board-frame { fill: #e2ad83; }
+.pets-hall .hall-board-cork { fill: #f3d6ac; }
+.pets-hall .hall-note--yellow { fill: #fff1a8; }
+.pets-hall .hall-note--pink { fill: #ffd5e3; }
+.pets-hall .hall-note--blue { fill: #d4eaff; }
+.pets-hall .hall-note-line { fill: none; stroke: #d8c06e; stroke-width: 2; stroke-linecap: round; }
+.pets-hall .hall-note-heart { fill: #f5577c; }
+.pets-hall .hall-note-cross { fill: #5fa8e8; }
+.pets-hall .hall-photo { fill: #ffffff; }
+.pets-hall .hall-photo-pic { fill: #cfeaf7; }
+.pets-hall .hall-photo-pet { fill: #f6c38b; }
+.pets-hall .hall-photo-eye { fill: #3b2a3a; }
+.pets-hall .hall-photo-mouth { fill: none; stroke: #3b2a3a; stroke-width: 1.2; stroke-linecap: round; }
+.pets-hall .hall-pin--a { fill: #f5576c; }
+.pets-hall .hall-pin--b { fill: #5f87ad; }
+.pets-hall .hall-pin--c { fill: #7cc98a; }
+
+[data-theme="dark"] .pets-hall__decor .pets-hall__poster,
+[data-theme="dark"] .pets-hall__decor .pets-hall__board-art { filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.4)); }
+[data-theme="dark"] .pets-hall .hall-poster-paper { fill: #cdc5d9; }
+[data-theme="dark"] .pets-hall .hall-poster-bg--pink { fill: #d4adbf; }
+[data-theme="dark"] .pets-hall .hall-poster-bg--mint { fill: #a8c9b8; }
+[data-theme="dark"] .pets-hall .hall-poster-text--pink { fill: #8a2f55; }
+[data-theme="dark"] .pets-hall .hall-poster-text--mint { fill: #245e44; }
+[data-theme="dark"] .pets-hall .hall-poster-bg--lilac { fill: #b3a7d6; }
+[data-theme="dark"] .pets-hall .hall-poster-text--lilac { fill: #3f2f80; }
+[data-theme="dark"] .pets-hall .hall-poster-moon { fill: #e3bd55; }
+[data-theme="dark"] .pets-hall .hall-poster-star { fill: #f2eefc; }
+[data-theme="dark"] .pets-hall .hall-zz { stroke: #6a55b8; }
+[data-theme="dark"] .pets-hall .hall-paw { fill: #cf7697; }
+[data-theme="dark"] .pets-hall .hall-soap { fill: rgba(205, 225, 240, 0.85); stroke: #7fb2d6; }
+[data-theme="dark"] .pets-hall .hall-tape { fill: rgba(220, 200, 140, 0.8); }
+[data-theme="dark"] .pets-hall .hall-apple { fill: #d9677a; }
+[data-theme="dark"] .pets-hall .hall-food-leaf { fill: #4f8f63; }
+[data-theme="dark"] .pets-hall .hall-carrot { fill: #dc8a48; }
+[data-theme="dark"] .pets-hall .hall-carrot-line { stroke: #b9692c; }
+[data-theme="dark"] .pets-hall .hall-board-frame { fill: #8c6248; }
+[data-theme="dark"] .pets-hall .hall-board-cork { fill: #b8946a; }
+[data-theme="dark"] .pets-hall .hall-note--yellow { fill: #d9cb85; }
+[data-theme="dark"] .pets-hall .hall-note--pink { fill: #d9adbd; }
+[data-theme="dark"] .pets-hall .hall-note--blue { fill: #a9c3dc; }
+[data-theme="dark"] .pets-hall .hall-note-line { stroke: #ad9a52; }
+[data-theme="dark"] .pets-hall .hall-note-heart { fill: #d9506f; }
+[data-theme="dark"] .pets-hall .hall-note-cross { fill: #4f8cc4; }
+[data-theme="dark"] .pets-hall .hall-photo { fill: #d3cfe2; }
+[data-theme="dark"] .pets-hall .hall-photo-pic { fill: #a9c6d6; }
+[data-theme="dark"] .pets-hall .hall-photo-pet { fill: #d9a874; }
+
+/* --- Podłoga: dywan pod recepcją, wycieraczki pod drzwiami --- */
+.pets-hall__rug {
+    position: absolute;
+    left: 50%;
+    bottom: 1.2%;
+    width: calc(var(--desk-w) + 110px);
+    height: clamp(30px, 8cqh, 92px);
+    margin-left: calc((var(--desk-w) + 110px) / -2);
+    border-radius: 50%;
+    background: radial-gradient(circle, #f6c4d6 1.6px, transparent 2.2px) 0 0 / 18px 18px, #fbe3ec;
+    box-shadow: inset 0 0 0 5px #f6c4d6, inset 0 0 0 9px #fbe3ec, inset 0 0 0 11px #f6c4d6;
+}
+
+/* Wycieraczka: w ramie drzwi (hospital-hall.js), tuż pod skrzydłem; podniesienie drzwi przy najechaniu
+   jest kompensowane, żeby wycieraczka leżała na podłodze */
+.pets-hall__mat {
+    position: absolute;
+    left: 7%;
+    right: 7%;
+    top: calc(100% + 8px);
+    height: 14px;
+    height: clamp(10px, 2.2cqh, 22px);
+    border-radius: 7px;
+    pointer-events: none;
+    transition: transform 0.2s ease;
+}
+
+.pets-hall__door:hover .pets-hall__mat { transform: translateY(3px); }
+
+.pets-hall__door--inc .pets-hall__mat {
+    background: repeating-linear-gradient(90deg, #f6d0ad 0 7px, #efc196 7px 14px);
+    box-shadow: inset 0 0 0 2px #e2ad83;
+}
+
+.pets-hall__door--ward .pets-hall__mat {
+    background: repeating-linear-gradient(90deg, #d6eaf8 0 7px, #c3dcf1 7px 14px);
+    box-shadow: inset 0 0 0 2px #98bfe2;
+}
+
+[data-theme="dark"] .pets-hall__rug {
+    background: radial-gradient(circle, #54467c 1.6px, transparent 2.2px) 0 0 / 18px 18px, #3a3156;
+    box-shadow: inset 0 0 0 5px #4b3f70, inset 0 0 0 9px #3a3156, inset 0 0 0 11px #4b3f70;
+}
+
+[data-theme="dark"] .pets-hall__door--inc .pets-hall__mat {
+    background: repeating-linear-gradient(90deg, #8c6a50 0 7px, #806046 7px 14px);
+    box-shadow: inset 0 0 0 2px #6e4f3a;
+}
+
+[data-theme="dark"] .pets-hall__door--ward .pets-hall__mat {
+    background: repeating-linear-gradient(90deg, #4a6584 0 7px, #425b78 7px 14px);
+    box-shadow: inset 0 0 0 2px #34506e;
+}
+
+/* --- Meble i rośliny na podłodze: dystrybutor + wysoka roślina z lewej, krzaczek + ławka z prawej --- */
+.pets-hall__cooler,
+.pets-hall__plant,
+.pets-hall__bench {
+    position: absolute;
+}
+
+/* Cień na podłodze pod meblem (pod wszystkimi ozdobami, nad podłogą) */
+.pets-hall__cooler::before,
+.pets-hall__plant::before,
+.pets-hall__bench::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 10%;
+    right: 10%;
+    bottom: -5px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(120, 90, 60, 0.16);
+}
+
+.pets-hall__cooler svg,
+.pets-hall__plant svg,
+.pets-hall__bench svg {
+    width: 100%;
+    height: 100%;
+}
+
+.pets-hall__cooler {
+    left: 3%;
+    bottom: 3%;
+    height: var(--cooler-h);
+    aspect-ratio: 70 / 160;
+}
+
+.pets-hall__plant--tall {
+    left: calc(3% + var(--cooler-h) * 70 / 160 + 10px);
+    bottom: 5%;
+    height: var(--plant-h);
+    aspect-ratio: 100 / 170;
+}
+
+.pets-hall__bench {
+    right: 3%;
+    bottom: 3.5%;
+    width: var(--bench-w);
+    aspect-ratio: 2 / 1;
+}
+
+.pets-hall__plant--small {
+    right: calc(3% + var(--bench-w) + 8px);
+    bottom: 4%;
+    height: var(--plant-s-h);
+    aspect-ratio: 80 / 100;
+}
+
+/* Rośliny: liście kołyszą się od donicy */
+.pets-hall .hall-sway {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: pets-hall-sway 5.5s ease-in-out infinite alternate;
+}
+
+.pets-hall .hall-sway--b { animation-duration: 4.6s; animation-delay: -2s; }
+
+.pets-hall .hall-stem { fill: none; stroke: #5fae6e; stroke-width: 3; stroke-linecap: round; }
+.pets-hall .hall-leaf { fill: #74c487; }
+.pets-hall .hall-leaf--light { fill: #96d895; }
+.pets-hall .hall-vein { fill: none; stroke: rgba(225, 250, 220, 0.7); stroke-width: 1.6; stroke-linecap: round; }
+.pets-hall .hall-bush { fill: #7ecb88; }
+.pets-hall .hall-bush--light { fill: #9edb9b; }
+.pets-hall .hall-flower { fill: #ff9fc0; }
+.pets-hall .hall-flower-c { fill: #ffe27a; }
+.pets-hall .hall-pot { fill: #f4a99a; }
+.pets-hall .hall-pot-rim { fill: #f8bcae; }
+.pets-hall .hall-pot-band { fill: none; stroke: #ffd9cf; stroke-width: 4; stroke-linecap: round; }
+.pets-hall .hall-pot--round { fill: #a9d8f2; }
+.pets-hall .hall-pot-rim--round { fill: #c3e5f8; }
+.pets-hall .hall-pot--sill { fill: #f8c4d6; }
+.pets-hall .hall-pot-rim--sill { fill: #fbd5e2; }
+
+/* Dystrybutor wody: bąbelki w baniaku, zielona lampka mruga */
+.pets-hall .hall-cooler-cap { fill: #5fa8e8; }
+.pets-hall .hall-cooler-bottle { fill: rgba(205, 236, 255, 0.85); stroke: #9cc9ea; stroke-width: 1.6; }
+.pets-hall .hall-cooler-water { fill: #92cff5; }
+.pets-hall .hall-cooler-shine { fill: none; stroke: rgba(255, 255, 255, 0.85); stroke-width: 3; stroke-linecap: round; }
+.pets-hall .hall-bubble { fill: rgba(255, 255, 255, 0.85); }
+.pets-hall .hall-cooler-neck { fill: #d4e2ea; }
+.pets-hall .hall-cooler-body { fill: #ffffff; stroke: #d3e1e8; stroke-width: 1.6; }
+.pets-hall .hall-cooler-panel { fill: #eef5f9; }
+.pets-hall .hall-tap--cold { fill: #6bb7ef; }
+.pets-hall .hall-tap--hot { fill: #ff8a8a; }
+.pets-hall .hall-cooler-led { fill: #5fd38a; }
+.pets-hall .hall-cooler-cup { fill: #ffffff; stroke: #d3e1e8; stroke-width: 1.2; }
+.pets-hall .hall-cooler-tray,
+.pets-hall .hall-cooler-foot { fill: #c7d6df; }
+
+.pets-hall .hall-cooler-led { animation: pets-hall-led 2.8s ease-in-out infinite; }
+
+.pets-hall .hall-bubble { animation: pets-hall-bubble 5s ease-in infinite; }
+.pets-hall .hall-bubble--2 { animation-delay: -1.7s; }
+.pets-hall .hall-bubble--3 { animation-delay: -3.4s; }
+
+/* Ławka z poduszką */
+.pets-hall .hall-bench-leg { fill: #c99a6e; }
+.pets-hall .hall-bench-back { fill: #cdbdf3; }
+.pets-hall .hall-bench-seat { fill: #b7a3ec; }
+.pets-hall .hall-bench-tuft { fill: none; stroke: #a18be0; stroke-width: 5; stroke-linecap: round; }
+.pets-hall .hall-bench-seam { fill: none; stroke: #a18be0; stroke-width: 2; stroke-linecap: round; }
+.pets-hall .hall-pillow { fill: #ffb3c7; }
+
+[data-theme="dark"] .pets-hall__cooler::before,
+[data-theme="dark"] .pets-hall__plant::before,
+[data-theme="dark"] .pets-hall__bench::before { background: rgba(0, 0, 0, 0.3); }
+[data-theme="dark"] .pets-hall .hall-stem { stroke: #3f7a52; }
+[data-theme="dark"] .pets-hall .hall-leaf { fill: #4c8a60; }
+[data-theme="dark"] .pets-hall .hall-leaf--light { fill: #5f9e6d; }
+[data-theme="dark"] .pets-hall .hall-vein { stroke: rgba(200, 235, 200, 0.3); }
+[data-theme="dark"] .pets-hall .hall-bush { fill: #4f8f63; }
+[data-theme="dark"] .pets-hall .hall-bush--light { fill: #5f9e6d; }
+[data-theme="dark"] .pets-hall .hall-flower { fill: #d4789b; }
+[data-theme="dark"] .pets-hall .hall-flower-c { fill: #d8b85a; }
+[data-theme="dark"] .pets-hall .hall-pot { fill: #b9786c; }
+[data-theme="dark"] .pets-hall .hall-pot-rim { fill: #c98a7e; }
+[data-theme="dark"] .pets-hall .hall-pot-band { stroke: #d9a297; }
+[data-theme="dark"] .pets-hall .hall-pot--round { fill: #5f86a3; }
+[data-theme="dark"] .pets-hall .hall-pot-rim--round { fill: #7298b4; }
+[data-theme="dark"] .pets-hall .hall-pot--sill { fill: #b98aa0; }
+[data-theme="dark"] .pets-hall .hall-pot-rim--sill { fill: #c99ab0; }
+[data-theme="dark"] .pets-hall .hall-cooler-cap { fill: #4682b8; }
+[data-theme="dark"] .pets-hall .hall-cooler-bottle { fill: rgba(120, 170, 210, 0.5); stroke: #5f8db0; }
+[data-theme="dark"] .pets-hall .hall-cooler-water { fill: #4f8fc0; }
+[data-theme="dark"] .pets-hall .hall-cooler-shine { stroke: rgba(255, 255, 255, 0.35); }
+[data-theme="dark"] .pets-hall .hall-bubble { fill: rgba(220, 235, 255, 0.6); }
+[data-theme="dark"] .pets-hall .hall-cooler-neck { fill: #8fa3b1; }
+[data-theme="dark"] .pets-hall .hall-cooler-body { fill: #c4cfd8; stroke: #9fb0bd; }
+[data-theme="dark"] .pets-hall .hall-cooler-panel { fill: #aebdc8; }
+[data-theme="dark"] .pets-hall .hall-tap--cold { fill: #4f8fc0; }
+[data-theme="dark"] .pets-hall .hall-tap--hot { fill: #d96a6a; }
+[data-theme="dark"] .pets-hall .hall-cooler-led { fill: #6dff9e; }
+[data-theme="dark"] .pets-hall .hall-cooler-cup { fill: #dfe6ec; stroke: #9fb0bd; }
+[data-theme="dark"] .pets-hall .hall-cooler-tray,
+[data-theme="dark"] .pets-hall .hall-cooler-foot { fill: #8fa3b1; }
+[data-theme="dark"] .pets-hall .hall-bench-leg { fill: #8c6248; }
+[data-theme="dark"] .pets-hall .hall-bench-back { fill: #6f5fa8; }
+[data-theme="dark"] .pets-hall .hall-bench-seat { fill: #5f4f98; }
+[data-theme="dark"] .pets-hall .hall-bench-tuft,
+[data-theme="dark"] .pets-hall .hall-bench-seam { stroke: #4f4185; }
+[data-theme="dark"] .pets-hall .hall-pillow { fill: #d4789b; }
+
+/* Wysoka scena: lampy wiszą nad drzwiami (dłuższy sznur wypełnia ścianę nad szyldami) */
+@container (min-height: 870px) {
+    .pets-hall__lamp {
+        --cord: clamp(60px, calc(70cqh - var(--door-h) - 210px), 260px);
+        left: calc(var(--door-x) + var(--door-w) / 2);
+    }
+
+    .pets-hall__lamp--r {
+        left: auto;
+        right: calc(var(--door-x) + var(--door-w) / 2);
+    }
+}
+
+/* Bez zegara (niższa scena): okno zaczyna się tuż pod pigułką */
+@container (max-height: 700px) {
+    .pets-hall__decor { --win-top: 84px; }
+}
+
+/* Bardzo nisko (telefon poziomo): na ścianie nie ma miejsca — zostają ozdoby podłogi */
+@container (max-height: 440px) {
+    .pets-hall__window,
+    .pets-hall__posters,
+    .pets-hall__board,
+    .pets-hall__lamp { display: none; }
+
+    .pets-hall__decor { --plant-h: clamp(64px, 19cqh, 100px); }
+}
+
+/* Wąsko (telefon pionowo): drzwi u góry zajmują ścianę — okno, lampy, plakaty i tablica znikają;
+   roślina i dystrybutor stoją za ladą po bokach pielęgniarki, ławka i krzaczek się nie mieszczą */
+@container (max-width: 599.98px) and (min-height: 460px) {
+    .pets-hall__decor {
+        --floor: 46%;
+        --door-x: 4%;
+        --door-h: clamp(96px, min(calc(54cqh - var(--top) - 46px), 70cqw), 300px);
+        --desk-w: min(92cqw, 380px);
+        --cooler-h: clamp(60px, 14cqh, 120px);
+        --plant-h: clamp(70px, 16cqh, 130px);
+    }
+
+    .pets-hall__window,
+    .pets-hall__posters,
+    .pets-hall__board,
+    .pets-hall__lamp,
+    .pets-hall__bench,
+    .pets-hall__plant--small { display: none; }
+
+    .pets-hall__plant--tall {
+        left: 6%;
+        bottom: calc(3% + 30px);
+    }
+
+    .pets-hall__cooler {
+        left: auto;
+        right: 7%;
+        bottom: calc(3% + 30px);
+    }
+
+    .pets-hall__rug {
+        width: calc(var(--desk-w) + 20px);
+        margin-left: calc((var(--desk-w) + 20px) / -2);
+        bottom: 0.5%;
+    }
+}
+
+@keyframes pets-hall-clouds {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+@keyframes pets-hall-twinkle {
+    from { opacity: 1; }
+    to { opacity: 0.35; }
+}
+
+@keyframes pets-hall-lamp {
+    from { transform: rotate(-1.4deg); }
+    to { transform: rotate(1.4deg); }
+}
+
+@keyframes pets-hall-sway {
+    from { transform: rotate(-1.8deg); }
+    to { transform: rotate(1.8deg); }
+}
+
+@keyframes pets-hall-led {
+    0%, 55%, 100% { opacity: 1; }
+    62%, 90% { opacity: 0.25; }
+}
+
+@keyframes pets-hall-bubble {
+    0% { transform: translateY(0); opacity: 0; }
+    15%, 75% { opacity: 0.9; }
+    100% { transform: translateY(-26px); opacity: 0; }
 }
 
 /* --- Drzwi (linki do sal) --- */
@@ -585,21 +1330,38 @@
 @media (prefers-reduced-motion: reduce) {
     .pets-hall,
     .pets-hall__frame,
+    .pets-hall__mat,
     .pets-hall__talk-bubble { transition: none; }
     .pets-hall__badge,
     .pets-nurse .nurse-eyes,
     .pets-hall__nurse.is-calling .pets-nurse,
     .pets-hall__frame.is-receiving,
     .pets-hall__egg:hover .pets-gift,
-    .pets-hall__egg:focus-visible .pets-gift { animation: none; }
+    .pets-hall__egg:focus-visible .pets-gift,
+    .pets-hall__clouds,
+    .pets-hall__lamp,
+    .pets-hall .hall-stars,
+    .pets-hall .hall-sway,
+    .pets-hall .hall-cooler-led,
+    .pets-hall .hall-bubble { animation: none; }
+
+    .pets-hall__lamp-glow { transition: none; }
 }
 
 html.pet-rig-rm .pets-hall,
-html.pet-rig-rm .pets-hall__frame { transition: none; }
+html.pet-rig-rm .pets-hall__frame,
+html.pet-rig-rm .pets-hall__mat,
+html.pet-rig-rm .pets-hall__lamp-glow { transition: none; }
 
 html.pet-rig-rm .pets-hall__badge,
 html.pet-rig-rm .pets-nurse .nurse-eyes,
 html.pet-rig-rm .pets-hall__nurse.is-calling .pets-nurse,
 html.pet-rig-rm .pets-hall__frame.is-receiving,
 html.pet-rig-rm .pets-hall__egg:hover .pets-gift,
-html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }
+html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift,
+html.pet-rig-rm .pets-hall__clouds,
+html.pet-rig-rm .pets-hall__lamp,
+html.pet-rig-rm .pets-hall .hall-stars,
+html.pet-rig-rm .pets-hall .hall-sway,
+html.pet-rig-rm .pets-hall .hall-cooler-led,
+html.pet-rig-rm .pets-hall .hall-bubble { animation: none; }
