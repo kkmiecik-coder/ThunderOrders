@@ -6,6 +6,8 @@
      data-user-id="{{ current_user.id }}"
      data-api="/client/pupile/api"
      data-home-url="{{ url_for('pets.home') }}"
+     data-house-url="{{ url_for('pets.scene', scene='domek') }}"
+     data-hospital-url="{{ url_for('pets.scene', scene='szpital') }}"
      data-mode="{{ companion_mode | default('walk') }}"
      data-celebrate="{{ '1' if pet_celebrate | default(false) else '0' }}"
      data-rig-css="{{ url_for('static', filename='css/components/pet-rig.css') }}"

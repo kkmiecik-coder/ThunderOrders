@@ -121,3 +121,19 @@ def test_towarzysz_podaje_adres_css_rigu_do_leniwego_ladowania(app, client, logi
         m = re.search(r'id="petCompanion"[^>]*data-rig-css="([^"]+)"', html, re.S)
         assert m and '/static/css/components/pet-rig.css' in m.group(1), url
         assert '<link rel="stylesheet" href="' + m.group(1) not in html, url   # nie ładujemy go z góry
+
+
+def test_towarzysz_podaje_adresy_domku_i_szpitala_dla_dymka(client, login, make_user, db):
+    """Spec v3 §3.1: link w dymku opieki prowadzi tam, gdzie da się pomóc (domek z panelem / szpital),
+    a nie zawsze na mapę świata — JS bierze adresy z data-* (url_for), nie skleja ich na ślepo."""
+    import re
+    user = make_user(profile_completed=True)
+    login(user)
+    _wlacz(db)
+    html = client.get('/client/dashboard').data.decode()
+    m = re.search(r'<div class="pet-companion" id="petCompanion"[^>]*>', html, re.S)
+    assert m, 'brak #petCompanion'
+    tag = m.group(0)
+    assert 'data-house-url="/client/pupile/domek"' in tag
+    assert 'data-hospital-url="/client/pupile/szpital"' in tag
+    assert 'data-home-url="/client/pupile"' in tag
