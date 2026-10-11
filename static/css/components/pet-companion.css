@@ -16,18 +16,33 @@
 .pet-companion {
     position: fixed;
     left: 16px;
-    bottom: calc(16px + var(--pet-companion-offset, 0px) + var(--pet-companion-lift, 0px));
+    bottom: calc(16px + var(--pet-companion-lift, 0px));
     /* Kolejność nakładek: POD wszystkimi nakładkami panelu (tło mobilnego sidebara 999 — remis
        z nim sprawiał, że towarzysz przechwytywał tapnięcie zamykające sidebar; pasek PWA 1000 i jego
        arkusz 1001–1002, mobilny sidebar 1000, szuflada koszyka 1090–1100, pełnoekranowe
        powiadomienia/wyszukiwarka 1200, banery PWA/push, modale, toasty), NAD treścią i paskami stron
-       ofert (≤ 100). Pasku PWA nie zasłania, bo stoi nad nim (--pet-companion-offset). */
+       ofert (≤ 100). Pasku PWA nie zasłania — JS trzyma go nad nim (obszar spaceru, FLOOR_OBSTACLES). */
     z-index: 998;
     width: 72px;
     height: 72px;
     pointer-events: none;
-    /* bez przejścia na bottom: JS mierzy położenie (getBoundingClientRect) do omijania pasków CTA */
-    transition: left var(--pet-companion-walk, 0s) linear, opacity 0.2s ease, visibility 0.2s;
+    /* env(safe-area-inset-*) dla JS (pet-companion.js: safeInsets) — scroll-margin nie wpływa na układ */
+    scroll-margin: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) 0;
+    /* spacer: left + top z tym samym czasem = marsz po prostej; bez przejścia na bottom: JS mierzy
+       położenie (getBoundingClientRect) do omijania pasków CTA */
+    transition: left var(--pet-companion-walk, 0s) linear, top var(--pet-companion-walk, 0s) linear,
+        opacity 0.2s ease, visibility 0.2s;
+}
+
+/* Panel klienta: spacerując po całym obszarze treści chodzi POD topbarem (900) i jego rozwijanymi
+   menu oraz wyszukiwarką (899) — inaczej stawałby na otwartej liście powiadomień. Nadal nad treścią
+   (≤ 500) i pod nakładkami telefonu (mobilny pasek/sidebar 1000, tło sidebara 999, pasek PWA 1000). */
+.pet-companion--walk { z-index: 890; }
+
+/* Swobodna pozycja (spacer po całym ekranie, przeniesiony pupil): left/top w px ustawia JS */
+.pet-companion.pet-companion--free {
+    right: auto;
+    bottom: auto;
 }
 
 .pet-companion[hidden] { display: none; }
@@ -39,8 +54,7 @@
 
 .pet-companion > * { pointer-events: auto; }
 
-.pet-companion--sit,
-.pet-companion--corner {
+.pet-companion--sit {
     left: auto;
     right: 16px;
 }
@@ -61,6 +75,7 @@
     align-items: flex-end;
     justify-content: center;
     pointer-events: none;
+    transition: transform 0.15s ease;
 }
 
 .pet-companion > .pet-companion__scene { pointer-events: none; }
@@ -77,6 +92,56 @@
     to { translate: 0 -3px; }
 }
 
+/* Podniesiony (chwycony myszą / przytrzymany palcem): większy i nad ziemią, z cieniem pod sobą,
+   macha łapkami (śpiący — nie). Własny cień rigu znika, bo jedzie w górę razem z postacią. */
+.pet-companion::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    z-index: 0;
+    width: 48px;
+    height: 10px;
+    margin-left: -24px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(60, 30, 80, 0.3), rgba(60, 30, 80, 0));
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    pointer-events: none;
+}
+
+[data-theme="dark"] .pet-companion::before {
+    background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+
+.pet-companion--held::before {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.pet-companion--held .pet-companion__scene { transform: translateY(-12px) scale(1.12); }
+
+.pet-companion--held .pet-rig .rig-shadow { opacity: 0; }
+
+.pet-companion.pet-companion--held:not(.pet-companion--asleep) .pet-rig .rig-arm-l {
+    animation: pet-companion-paw-l 0.28s ease-in-out infinite alternate;
+}
+
+.pet-companion.pet-companion--held:not(.pet-companion--asleep) .pet-rig .rig-arm-r {
+    animation: pet-companion-paw-r 0.28s ease-in-out infinite alternate;
+}
+
+@keyframes pet-companion-paw-l {
+    from { transform: rotate(20deg); }
+    to { transform: rotate(85deg); }
+}
+
+@keyframes pet-companion-paw-r {
+    from { transform: rotate(-85deg); }
+    to { transform: rotate(-20deg); }
+}
+
 /* Cel dotykowy: cała scena, min. 44 × 44 px */
 .pet-companion__hit {
     position: absolute;
@@ -89,17 +154,22 @@
     border: none;
     border-radius: 50%;
     background: transparent;
-    cursor: pointer;
+    cursor: grab;
     -webkit-tap-highlight-color: transparent;
+    /* przewijanie strony palcem działa (pan), bez opóźnienia dwukliku; przytrzymanie bez zaznaczania/menu */
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
+
+.pet-companion--held .pet-companion__hit { cursor: grabbing; }
 
 .pet-companion__hit:focus { outline: none; }
 
 .pet-companion__hit:focus-visible { box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.45); }
 
 [data-theme="dark"] .pet-companion__hit:focus-visible { box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.55); }
-
-.pet-companion--asleep .pet-companion__hit { cursor: default; }
 
 /* Dymek */
 .pet-companion__bubble {
@@ -131,17 +201,15 @@
     translate: 0 0;
 }
 
-.pet-companion--bubble-left .pet-companion__bubble {
-    left: auto;
-    right: 0;
-}
+/* Pod pupilem, gdy u góry brakuje miejsca (JS: placeBubble) */
+.pet-companion--bubble-below .pet-companion__bubble:not(.is-visible) { translate: 0 -4px; }
 
 /* Ogonek */
 .pet-companion__bubble::after {
     content: '';
     position: absolute;
     top: 100%;
-    left: 26px;
+    left: var(--pet-companion-tail, 26px);
     width: 10px;
     height: 10px;
     margin-top: -5px;
@@ -151,9 +219,12 @@
     transform: rotate(45deg);
 }
 
-.pet-companion--bubble-left .pet-companion__bubble::after {
-    left: auto;
-    right: 26px;
+.pet-companion--bubble-below .pet-companion__bubble::after {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: -5px;
+    transform: rotate(225deg);
 }
 
 .pet-companion__bubble-text { display: block; }
@@ -205,31 +276,28 @@
         height: 56px;
     }
 
-    .pet-companion--sit,
-    .pet-companion--corner { right: 12px; }
+    .pet-companion--sit { right: 12px; }
 
     .pet-companion__bubble { max-width: 200px; }
 }
 
-/* Nad dolnym paskiem PWA — ten sam warunek, w którym bottom-bar.css go pokazuje (tylko panel klienta;
-   strony ofert paska nie mają) */
-@media (display-mode: standalone) {
-    .pet-companion--walk { --pet-companion-offset: calc(60px + env(safe-area-inset-bottom, 0px)); }
+/* Dolny pasek PWA (bottom-bar.css, tylko standalone w panelu klienta) omija JS: .pwa-bottom-bar jest
+   przeszkodą przy dolnej krawędzi obszaru spaceru (pet-companion.js: FLOOR_OBSTACLES). */
 
-    @media (orientation: landscape) {
-        .pet-companion--walk { --pet-companion-offset: calc(48px + env(safe-area-inset-bottom, 0px)); }
-    }
-}
-
-/* Ograniczony ruch: bez przejść i kołysania (spacer wyłącza JS) */
+/* Ograniczony ruch: bez przejść i kołysania (spacer wyłącza JS); podniesiony bez animacji łapek
+   (rig gasi je sam), przenoszenie działa */
 @media (prefers-reduced-motion: reduce) {
     .pet-companion,
+    .pet-companion::before,
+    .pet-companion__scene,
     .pet-companion__bubble { transition: none; }
 
     .pet-companion--walking .pet-companion__scene { animation: none; }
 }
 
 .pet-rig-rm .pet-companion,
+.pet-rig-rm .pet-companion::before,
+.pet-rig-rm .pet-companion__scene,
 .pet-rig-rm .pet-companion__bubble { transition: none; }
 
 .pet-rig-rm .pet-companion--walking .pet-companion__scene { animation: none; }
