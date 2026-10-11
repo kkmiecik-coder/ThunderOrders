@@ -191,3 +191,153 @@ def test_ogrzej_tylko_jajko_i_tylko_swoje(db, make_user):
     with pytest.raises(PetError) as e:
         warm_egg(b, jajko.id, now=T0, cfg=_cfg())
     assert e.value.status == 403
+
+
+# --- wyklucie ---
+
+def _gotowe_jajko(user, now=T0):
+    # 168 h postępu zapisane → gotowe od razu
+    return zaloz_jajko(user, now=now, egg_progress_sec=168 * 3600)
+
+
+def test_wykluj_niegotowe_409(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    from modules.pets.errors import PetError
+    user = make_user()
+    zaloz_profil(user)
+    jajko = zaloz_jajko(user, now=T0)
+    with pytest.raises(PetError) as e:
+        hatch_egg(user, jajko.id, now=T0 + timedelta(hours=100), cfg=_cfg(), rng=RngStaly('kotek'))
+    assert e.value.code == 'egg_not_ready'
+
+
+def test_wykluj_nowy_gatunek(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    from modules.pets.models import PetEvent, PetProfile
+    from modules.pets.species import SPECIES_SLUGS
+    user = make_user()
+    zaloz_profil(user)
+    jajko = _gotowe_jajko(user)
+    rng = RngStaly('kotek')
+    wynik = hatch_egg(user, jajko.id, now=T0 + timedelta(hours=1), cfg=_cfg(), rng=rng)
+    assert wynik['result'] == 'new' and wynik['species'] == 'kotek' and wynik['starred_pet'] is None
+    assert set(rng.ostatni_wybor_z) == set(SPECIES_SLUGS)   # bez gwarancji: losowanie z całej ósemki
+    pet = wynik['pet']
+    assert pet.status == 'alive' and pet.species == 'kotek' and pet.name == 'Kotek'
+    assert pet.hatched_at == T0 + timedelta(hours=1) and pet.state_at == T0 + timedelta(hours=1)
+    assert (pet.hunger, pet.fun, pet.clean, pet.health) == (100.0, 100.0, 100.0, 100.0)
+    assert PetEvent.query.filter_by(pet_id=pet.id, type='hatch_new').count() == 1
+    assert PetProfile.query.filter_by(user_id=user.id).one().dupes_in_row == 0
+    assert wynik['new_achievements'] == []   # metryki pet_event dochodzą w etapie 6
+
+
+def test_wykluj_duplikat_daje_gwiazdke_i_merged(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    from modules.pets.models import PetEvent, PetProfile
+    from modules.pets.common import MILESTONE_FIRST_STAR
+    user = make_user()
+    zaloz_profil(user)
+    zywy = zaloz_pupila(user, species='kotek')
+    jajko = _gotowe_jajko(user)
+    wynik = hatch_egg(user, jajko.id, now=T0 + timedelta(hours=1), cfg=_cfg(), rng=RngStaly('kotek'))
+    assert wynik['result'] == 'dupe' and wynik['starred_pet'] is zywy
+    assert zywy.stars == 1
+    assert jajko.status == 'merged' and jajko.species == 'kotek' and jajko.merged_into_pet_id == zywy.id
+    assert PetProfile.query.filter_by(user_id=user.id).one().dupes_in_row == 1
+    assert PetEvent.query.filter_by(pet_id=jajko.id, type='hatch_dupe').count() == 1
+    assert PetEvent.query.filter_by(pet_id=zywy.id, type='merge', value=1).count() == 1
+    assert PetEvent.query.filter_by(pet_id=zywy.id, type='milestone', value=MILESTONE_FIRST_STAR).count() == 1
+
+
+def test_gwiazdki_max_5(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    user = make_user()
+    zaloz_profil(user)
+    zywy = zaloz_pupila(user, species='kotek', stars=5)
+    jajko = _gotowe_jajko(user)
+    hatch_egg(user, jajko.id, now=T0, cfg=_cfg(), rng=RngStaly('kotek'))
+    assert zywy.stars == 5
+
+
+def test_gwarancja_po_dwoch_duplikatach(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    user = make_user()
+    profil = zaloz_profil(user)
+    zaloz_pupila(user, species='kotek')
+    zaloz_pupila(user, species='mis')
+    profil.dupes_in_row = 2
+    db.session.commit()
+    jajko = _gotowe_jajko(user)
+    rng = RngStaly('kotek')   # chce kotka, ale gwarancja nie pozwoli
+    wynik = hatch_egg(user, jajko.id, now=T0, cfg=_cfg(), rng=rng)
+    assert set(rng.ostatni_wybor_z) == {'wiewiorka', 'kroliczek', 'szczeniak', 'piesek', 'kurczaczek', 'czarny-kotek'}
+    assert wynik['result'] == 'new' and wynik['species'] != 'kotek'
+    assert profil.dupes_in_row == 0
+
+
+def test_gwarancja_liczy_zmarlych_jako_brakujacych(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    user = make_user()
+    profil = zaloz_profil(user)
+    for slug in ('wiewiorka', 'kroliczek', 'szczeniak', 'piesek', 'kotek', 'kurczaczek', 'czarny-kotek'):
+        zaloz_pupila(user, species=slug)
+    zaloz_zmarlego(user, species='mis', died_at=T0 - timedelta(days=1))
+    profil.dupes_in_row = 2
+    db.session.commit()
+    rng = RngStaly('kotek')
+    wynik = hatch_egg(user, _gotowe_jajko(user).id, now=T0, cfg=_cfg(), rng=rng)
+    assert rng.ostatni_wybor_z == ['mis'] and wynik['result'] == 'new' and wynik['species'] == 'mis'
+
+
+def test_wszystkie_osiem_zyje_gwarancja_nie_ma_z_czego(db, make_user):
+    """Review Focus 3."""
+    from modules.pets.eggs import hatch_egg
+    from modules.pets.species import SPECIES_SLUGS
+    user = make_user()
+    profil = zaloz_profil(user)
+    for slug in SPECIES_SLUGS:
+        zaloz_pupila(user, species=slug)
+    profil.dupes_in_row = 2
+    db.session.commit()
+    rng = RngStaly('mis')
+    wynik = hatch_egg(user, _gotowe_jajko(user).id, now=T0, cfg=_cfg(), rng=rng)
+    assert len(rng.ostatni_wybor_z) == 8 and wynik['result'] == 'dupe'
+    assert profil.dupes_in_row == 3
+
+
+def test_licznik_duplikatow_ponizej_progu_losuje_ze_wszystkich(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    user = make_user()
+    profil = zaloz_profil(user)
+    zaloz_pupila(user, species='kotek')
+    profil.dupes_in_row = 1
+    db.session.commit()
+    rng = RngStaly('kotek')
+    wynik = hatch_egg(user, _gotowe_jajko(user).id, now=T0, cfg=_cfg(), rng=rng)
+    assert len(rng.ostatni_wybor_z) == 8 and wynik['result'] == 'dupe' and profil.dupes_in_row == 2
+
+
+def test_nigdy_dwa_zywe_tego_samego_gatunku(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    from modules.pets.models import Pet
+    user = make_user()
+    zaloz_profil(user)
+    zaloz_pupila(user, species='kotek')
+    from modules.pets.config import PetConfig
+    bez_gwarancji = PetConfig(pity_after=99)   # izolujemy inwariant od gwarancji (ta po 2 dupach dałaby nowy gatunek)
+    for _ in range(3):
+        hatch_egg(user, _gotowe_jajko(user).id, now=T0, cfg=bez_gwarancji, rng=RngStaly('kotek'))
+    assert Pet.query.filter_by(user_id=user.id, status='alive', species='kotek').count() == 1
+    assert Pet.query.filter_by(user_id=user.id, status='merged').count() == 3
+
+
+def test_wykluj_cudze_jajko_403(db, make_user):
+    from modules.pets.eggs import hatch_egg
+    from modules.pets.errors import PetError
+    a, b = make_user(), make_user()
+    zaloz_profil(a)
+    zaloz_profil(b)
+    jajko = _gotowe_jajko(a)
+    with pytest.raises(PetError) as e:
+        hatch_egg(b, jajko.id, now=T0, cfg=_cfg(), rng=RngStaly('kotek'))
+    assert e.value.status == 403

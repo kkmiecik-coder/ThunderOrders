@@ -74,3 +74,48 @@ def warm_egg(user, pet_id, now=None, cfg=None):
     add_event(user.id, 'warm', now, pet_id=jajko.id)
     db.session.commit()
     return jajko
+
+
+def hatch_egg(user, pet_id, now=None, cfg=None, rng=None):
+    """Wyklucie: losowanie gatunku, duplikat → gwiazdka, gwarancja po `pity_after` duplikatach."""
+    now, cfg, rng = now_or(now), cfg_or(cfg), rng_or(rng)
+    profil = lock_profile(user)
+    jajko = own_pet(user, pet_id, ('egg',))
+    if not rules.egg_is_ready(egg_progress(jajko, now, cfg), jajko.egg_hours):
+        raise PetError('egg_not_ready', 'Jajko jeszcze się nie wykluło.', 409)
+
+    zywe = {p.species: p for p in Pet.query.filter_by(user_id=user.id, status='alive').all()}
+    kandydaci = list(SPECIES_SLUGS)
+    if profil.dupes_in_row >= int(cfg.pity_after):
+        brakujace = [slug for slug in SPECIES_SLUGS if slug not in zywe]
+        if brakujace:
+            kandydaci = brakujace
+    wybrany = rng.choice(kandydaci)
+
+    if wybrany in zywe:
+        istniejacy = zywe[wybrany]
+        istniejacy.stars = min(int(istniejacy.stars) + 1, int(cfg.max_stars))
+        jajko.status = 'merged'
+        jajko.species = wybrany
+        jajko.merged_into_pet_id = istniejacy.id
+        jajko.hatched_at = now
+        profil.dupes_in_row += 1
+        add_event(user.id, 'hatch_dupe', now, pet_id=jajko.id)
+        add_event(user.id, 'merge', now, pet_id=istniejacy.id, value=istniejacy.stars)
+        if istniejacy.stars == 1:
+            add_milestone(istniejacy, MILESTONE_FIRST_STAR, now)
+        wynik, starred = 'dupe', istniejacy
+    else:
+        jajko.status = 'alive'
+        jajko.species = wybrany
+        jajko.name = SPECIES_BY_SLUG[wybrany].name
+        jajko.hatched_at = now
+        apply_state(jajko, rules.PetState(), now)
+        profil.dupes_in_row = 0
+        add_event(user.id, 'hatch_new', now, pet_id=jajko.id)
+        wynik, starred = 'new', None
+
+    db.session.commit()
+    nowe_odznaki = achievements_after_commit(user)
+    return {'result': wynik, 'species': wybrany, 'pet': jajko, 'starred_pet': starred,
+            'new_achievements': nowe_odznaki}
