@@ -1,302 +1,537 @@
 /* ================================================
-   Świat pupili — szpital (spec v3 §6.3): inkubatornia + sala chorych
-   Logika: static/js/pet/world/hospital.js. Wspólne bloki i pasek postępu: pets.css.
-   Nakładka wyklucia: components/modals.css („Pet hatch overlay (v3)”).
+   Świat pupili — szpital jako minigra (spec v3.1 §4): hol z recepcją, Inkubatorium, Izba przyjęć
+   Logika: static/js/pet/world/hospital-common.js · hospital-hall.js · hospital-incubator.js · hospital-ward.js
+   Treść okien szpitala: components/modals.css „Okna szpitala (v3.1)”; nakładka wyklucia: „Pet hatch overlay (v3)”.
+   Każda sala to tło na całą scenę (ściana) + scena właściwa (.pets-stage) jako kontener zapytań
+   (container-type: size) — obiekty skalują się do jej szerokości i wysokości (niski widok, telefon).
    ================================================ */
 
-/* Pełny ekran (spec v3.1 §3): do przebudowy na hol / Inkubatorium / Izbę (paczka F2) szpital to kolumna
-   bloków przewijana wewnątrz sceny (strona się nie przewija), z miejscem na pigułkę u góry. */
+/* =====================================================================
+   Wspólne
+   ===================================================================== */
+
+/* Scena właściwa sal: kontener zapytań (cqw / cqh); bez jednostek kontenera działają wartości zapasowe */
+.pets-hall,
+.pets-inc,
+.pets-ward { container-type: size; }
+
+/* Odbiór jajka: okno znika, a scena wraca na miejsce bez przejścia (pozycje lotu są już ostateczne) */
+.pets-scene.is-snap .pets-stage { transition: none; }
+
+/* Jajko z kokardką (lada w holu, lot do drzwi, okno odbioru). Kolor kokardki wg źródła jajka. */
+.pets-gift {
+    --bow: #f5576c;
+    --bow-dark: #d63d55;
+    --bow-knot: #ff9db0;
+    position: relative;
+    display: block;
+    width: 100%;
+    line-height: 0;
+}
+
+.pets-gift .pet-rig { width: 100%; }
+
+.pets-gift__bow {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    width: 44%;
+    transform: translateX(-50%);
+    overflow: visible;
+    pointer-events: none;
+}
+
+.pets-gift .bow-loop { fill: var(--bow); }
+.pets-gift .bow-tail { fill: var(--bow-dark); }
+.pets-gift .bow-knot { fill: var(--bow-knot); }
+
+.pets-gift--start { --bow: #e879f9; --bow-dark: #c04fd3; --bow-knot: #f8c8ff; }
+.pets-gift--rescue { --bow: #a78bfa; --bow-dark: #7c5fd6; --bow-knot: #ddd2ff; }
+.pets-gift--granted { --bow: #f5b83d; --bow-dark: #d6921a; --bow-knot: #ffe39a; }
+
+[data-theme="dark"] .pets-gift {
+    --bow: #f0657a;
+    --bow-dark: #c9475d;
+    --bow-knot: #ffb3c1;
+}
+
+[data-theme="dark"] .pets-gift--start { --bow: #e48ef5; --bow-dark: #b65bc9; --bow-knot: #f5d0ff; }
+[data-theme="dark"] .pets-gift--rescue { --bow: #b49cff; --bow-dark: #8a6fe0; --bow-knot: #e2d9ff; }
+[data-theme="dark"] .pets-gift--granted { --bow: #f2be55; --bow-dark: #cf9628; --bow-knot: #ffe7ad; }
+
+@keyframes pets-hosp-wiggle {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-8deg); }
+    60% { transform: rotate(7deg); }
+}
+
+/* =====================================================================
+   Hol z recepcją (spec v3.1 §4.2)
+   ===================================================================== */
+
+/* Ściana w miętowe pasy do krawędzi sceny */
 .pets-scene--szpital {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    background: linear-gradient(180deg, #EEF7FB 0%, #F7FBFF 100%);
+    background: repeating-linear-gradient(90deg, #e8f6f2 0 36px, #ddf1eb 36px 72px);
 }
 
-[data-theme="dark"] .pets-scene--szpital { background: var(--bg-primary, #0f0c29); }
-
-.pets-scene--szpital > .pets-hospital {
-    box-sizing: border-box;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 76px 20px 24px;
+[data-theme="dark"] .pets-scene--szpital {
+    background: repeating-linear-gradient(90deg, #172a2e 0 36px, #1a3035 36px 72px);
 }
 
-@media (max-width: 599.98px) {
-    .pets-scene--szpital > .pets-hospital { padding: 72px 12px 16px; }
-    .pets-page--night .pets-scene--szpital > .pets-hospital { padding-top: 124px; }
+.pets-hall {
+    --floor: 30%;                      /* linia podłogi: drzwi stoją na niej, recepcja przed nią */
+    --top: 72px;                       /* miejsce na pigułkę u góry sceny */
+    transition: margin-right 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.pets-hospital {
+/* Podłoga w kratkę + lamperia nad nią — wychodzą poza scenę właściwą do krawędzi sceny */
+.pets-hall__floor {
+    position: absolute;
+    left: -100vw;
+    right: -100vw;
+    bottom: 0;
+    height: var(--floor);
+    background: repeating-conic-gradient(#f6efe6 0 25%, #ebdfcd 0 50%) 0 0 / 48px 48px;
+    box-shadow: inset 0 8px 0 #dccab2;
+}
+
+.pets-hall__floor::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 54px;
+    background: #d3eee6;
+    border-top: 5px solid #bfe3d8;
+}
+
+[data-theme="dark"] .pets-hall__floor {
+    background: repeating-conic-gradient(#28263c 0 25%, #2f2d47 0 50%) 0 0 / 48px 48px;
+    box-shadow: inset 0 8px 0 #3a3756;
+}
+
+[data-theme="dark"] .pets-hall__floor::before {
+    background: #1d373c;
+    border-top-color: #2a4a50;
+}
+
+/* Zegar na ścianie (czas serwera) — tylko gdy jest na niego miejsce nad recepcją */
+.pets-hall__clock {
+    position: absolute;
+    top: max(84px, 12%);
+    left: 50%;
+    width: 64px;
+    height: 64px;
+    transform: translateX(-50%);
+}
+
+.pets-hall__clock svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.pets-hall__clock .clock-face { fill: #ffffff; stroke: #8fcfc0; stroke-width: 4; }
+.pets-hall__clock .clock-ticks path { stroke: #9bbab3; stroke-width: 2.4; stroke-linecap: round; }
+.pets-hall__clock .clock-hand { stroke: #3b5a55; stroke-width: 3; stroke-linecap: round; }
+.pets-hall__clock .clock-hand--m { stroke-width: 2.2; }
+.pets-hall__clock .clock-pin { fill: #f5576c; }
+
+[data-theme="dark"] .pets-hall__clock .clock-face { fill: #22343f; stroke: #3f7f73; }
+[data-theme="dark"] .pets-hall__clock .clock-ticks path { stroke: #6f958d; }
+[data-theme="dark"] .pets-hall__clock .clock-hand { stroke: #e6f4f0; }
+
+@container (max-height: 700px) {
+    .pets-hall__clock { display: none; }
+}
+
+/* --- Drzwi (linki do sal) --- */
+.pets-hall__door {
+    position: absolute;
+    bottom: calc(var(--floor) - 4px);
+    z-index: 2;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-}
-
-/* === Inkubatornia === */
-.pets-incubator {
-    background: linear-gradient(180deg, #FFF7EA 0%, #ffffff 70%);
-    border-color: #F6E2C2;
-}
-
-.pets-claim {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
-}
-
-.pets-claim[hidden],
-.pets-nests[hidden],
-.pets-incubator__monthly[hidden] { display: none; }
-
-.pets-claim__tile {
-    display: grid;
-    grid-template-columns: 76px minmax(0, 1fr);
-    grid-template-areas: "art info" "btn btn";
-    gap: 10px 12px;
     align-items: center;
-    padding: 14px;
+    gap: 6px;
+    border-radius: 14px;
+    color: inherit;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pets-hall__door--inc { left: 5%; }
+.pets-hall__door--ward { right: 5%; }
+
+.pets-hall__door:focus { outline: none; }
+
+.pets-hall__door:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 4px;
+}
+
+.pets-hall__sign {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 12px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-shadow: 0 3px 0 rgba(60, 40, 20, 0.12);
+}
+
+.pets-hall__sign-icon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.pets-hall__door--inc .pets-hall__sign { background: #ffd36b; color: #5e3700; }
+.pets-hall__door--ward .pets-hall__sign { background: #bfe3ff; color: #103b66; }
+
+[data-theme="dark"] .pets-hall__door--inc .pets-hall__sign { background: #e6b84f; color: #2e1b00; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); }
+[data-theme="dark"] .pets-hall__door--ward .pets-hall__sign { background: #8fc3ee; color: #0a2540; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); }
+
+/* Skrzydło drzwi: wysokość z miejsca nad podłogą (pigułka u góry) i z szerokości sceny */
+.pets-hall__frame {
+    position: relative;
+    display: block;
+    height: 200px;
+    height: clamp(96px, min(calc(70cqh - 124px), 40cqw), 330px);
+    aspect-ratio: 100 / 170;
+    transition: transform 0.2s ease;
+}
+
+.pets-hall__door-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 6px 10px rgba(40, 80, 70, 0.16));
+}
+
+.pets-hall__door:hover .pets-hall__frame { transform: translateY(-3px); }
+
+.pets-hall__door--inc .door-frame { fill: #e2ad83; }
+.pets-hall__door--inc .door-leaf { fill: #f7c9a1; }
+.pets-hall__door--inc .door-panel { fill: #f0b98c; }
+.pets-hall__door--inc .door-window { fill: #ffe7a0; stroke: #dfb07a; stroke-width: 2; }
+.pets-hall__door--inc .door-light { fill: #fff6cf; }
+.pets-hall__door--inc .door-knob { fill: #a86b3c; }
+.pets-hall .door-egg { fill: #fff7e8; stroke: #e2c9a3; stroke-width: 1.6; }
+.pets-hall .door-egg-spot { fill: #ffb9d1; }
+
+.pets-hall__door--ward .door-frame { fill: #98bfe2; }
+.pets-hall__door--ward .door-leaf { fill: #cfe6f7; }
+.pets-hall__door--ward .door-panel { fill: #bcd9f0; }
+.pets-hall__door--ward .door-window { fill: #eef8ff; stroke: #8fb8dd; stroke-width: 2; }
+.pets-hall__door--ward .door-knob { fill: #5f87ad; }
+.pets-hall .door-bedpost { fill: #9fb6d2; }
+.pets-hall .door-pet { fill: #f6a65b; }
+.pets-hall .door-quilt { fill: #b8d4ff; }
+.pets-hall .door-bed { fill: #ffffff; stroke: #c4d3e6; stroke-width: 1.2; }
+.pets-hall .door-cross { fill: #ff6b7d; }
+
+/* Noc i ciemny motyw: przygaszone drzwi, ciepło świecące okienka */
+[data-theme="dark"] .pets-hall__door-art { filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45)); }
+[data-theme="dark"] .pets-hall__door--inc .door-frame { fill: #8c6248; }
+[data-theme="dark"] .pets-hall__door--inc .door-leaf { fill: #b58763; }
+[data-theme="dark"] .pets-hall__door--inc .door-panel { fill: #a67a58; }
+[data-theme="dark"] .pets-hall__door--inc .door-window { fill: #ffd977; stroke: #c99a52; }
+[data-theme="dark"] .pets-hall__door--inc .door-light { fill: #fff2b8; }
+[data-theme="dark"] .pets-hall__door--inc .door-knob { fill: #6e4426; }
+[data-theme="dark"] .pets-hall__door--ward .door-frame { fill: #3f5f82; }
+[data-theme="dark"] .pets-hall__door--ward .door-leaf { fill: #5f83a8; }
+[data-theme="dark"] .pets-hall__door--ward .door-panel { fill: #56789c; }
+[data-theme="dark"] .pets-hall__door--ward .door-window { fill: #cfe4f6; stroke: #8fb8dd; }
+[data-theme="dark"] .pets-hall__door--ward .door-knob { fill: #2c4a68; }
+
+/* Znaczek spraw na drzwiach */
+.pets-hall__badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 7px;
+    border-radius: 999px;
+    border: 2px solid #ffffff;
+    background: #f5576c;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: 0 3px 8px rgba(245, 87, 108, 0.35);
+    animation: pets-hall-badge 2.6s ease-in-out infinite;
+}
+
+.pets-hall__badge[hidden] { display: none; }
+
+[data-theme="dark"] .pets-hall__badge {
+    border-color: #1a1230;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+@keyframes pets-hall-badge {
+    0%, 80%, 100% { transform: translateY(0); }
+    88% { transform: translateY(-4px); }
+}
+
+/* Jajko „dojechało” — drzwi Inkubatorium podskakują */
+.pets-hall__frame.is-receiving { animation: pets-hall-receive 0.7s ease-out; }
+
+@keyframes pets-hall-receive {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.06) translateY(-4px); }
+    100% { transform: scale(1); }
+}
+
+/* --- Recepcja --- */
+.pets-hall__desk {
+    position: absolute;
+    left: 50%;
+    bottom: 5%;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 300px;
+    width: clamp(220px, 40cqw, 420px);
+    transform: translateX(-50%);
+}
+
+/* Dymek pielęgniarki (tekst albo link do sali) */
+.pets-hall__talk {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.pets-hall__talk-bubble {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-sizing: border-box;
+    max-width: min(100%, 320px);
+    min-height: 40px;
+    margin: 0;
+    padding: 8px 14px;
     border-radius: 16px;
     background: #ffffff;
-    border: 1px solid #F3D9F7;
-}
-
-.pets-claim__tile--rescue {
-    background: #F8F5FF;
-    border-color: #DDD3FF;
-}
-
-.pets-claim__art {
-    grid-area: art;
-    position: relative;
-    display: flex;
-    justify-content: center;
-}
-
-.pets-claim__art .pet-rig { width: 72px; }
-
-/* Kokardka na jajku do odebrania */
-.pets-claim__bow {
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    width: 30px;
-    height: 14px;
-    transform: translateX(-50%);
-    pointer-events: none;
-}
-
-.pets-claim__bow::before,
-.pets-claim__bow::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    width: 14px;
-    height: 14px;
-    border-radius: 50% 50% 50% 0;
-    background: #f5576c;
-}
-
-.pets-claim__bow::before { left: 0; transform: rotate(-30deg); }
-.pets-claim__bow::after { right: 0; transform: rotate(120deg); }
-
-.pets-claim__info { grid-area: info; min-width: 0; }
-.pets-claim__tile > .pet-btn { grid-area: btn; width: 100%; }
-
-.pets-claim__title {
-    margin: 0 0 4px;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary, #212121);
-}
-
-.pets-claim__desc {
-    margin: 0;
+    border: 2px solid #e2d6ee;
+    box-shadow: 0 4px 12px rgba(90, 24, 154, 0.1);
+    color: #3b2a4a;
     font-size: 13px;
-    line-height: 1.4;
-    color: var(--text-secondary, #616161);
-}
-
-.pets-nests {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-    gap: 14px;
-}
-
-.pets-nest {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 0 14px 14px;
-    border-radius: 18px;
-    background: #ffffff;
-    border: 1px solid #F6E2C2;
+    font-weight: 600;
+    line-height: 1.35;
     text-align: center;
-    overflow: hidden;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    text-decoration: none;
 }
 
-/* Ciepła lampa nad gniazdkiem */
-.pets-nest__lamp {
-    position: relative;
-    width: 64px;
-    height: 18px;
-    border-radius: 0 0 32px 32px;
-    background: #F4B860;
-    box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.08);
-}
-
-.pets-nest__lamp::after {
+/* Ogonek dymka w stronę pielęgniarki */
+.pets-hall__talk-bubble::after {
     content: "";
     position: absolute;
-    top: 14px;
     left: 50%;
-    width: 180px;
-    height: 120px;
-    transform: translateX(-50%);
-    background: radial-gradient(ellipse at 50% 0%, rgba(255, 196, 92, 0.45) 0%, rgba(255, 196, 92, 0) 70%);
-    pointer-events: none;
+    top: 100%;
+    width: 12px;
+    height: 12px;
+    background: inherit;
+    border-right: 2px solid #e2d6ee;
+    border-bottom: 2px solid #e2d6ee;
+    transform: translate(-50%, -6px) rotate(45deg);
 }
 
-.pets-nest.is-boosted .pets-nest__lamp::after {
-    background: radial-gradient(ellipse at 50% 0%, rgba(255, 146, 60, 0.6) 0%, rgba(255, 146, 60, 0) 72%);
+.pets-hall__talk-bubble.is-link {
+    min-height: 44px;
+    color: #5a189a;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
 }
 
-.pets-nest__art {
+.pets-hall__talk-bubble.is-link:hover { background: #faf5ff; }
+.pets-hall__talk-bubble.is-link:focus { outline: none; }
+
+.pets-hall__talk-bubble.is-link:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pets-hall__talk-arrow {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+[data-theme="dark"] .pets-hall__talk-bubble {
+    background: rgba(30, 22, 54, 0.92);
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-hall__talk-bubble::after { border-color: rgba(240, 147, 251, 0.3); }
+[data-theme="dark"] .pets-hall__talk-bubble.is-link { color: #f5c2fc; }
+[data-theme="dark"] .pets-hall__talk-bubble.is-link:hover { background: rgba(60, 40, 100, 0.95); }
+
+/* Pielęgniarka (własna postać, nie gatunek pupila) — dół chowa się za ladą */
+.pets-hall__nurse {
     position: relative;
-    display: flex;
-    justify-content: center;
-    padding-bottom: 6px;
+    z-index: 0;
+    width: 110px;
+    width: clamp(72px, 19cqh, 150px);
+    margin-bottom: -14px;
 }
 
-.pets-nest__art .pet-rig {
+.pets-nurse {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.pets-nurse .nurse-uniform { fill: #ffffff; stroke: #f3b6cb; stroke-width: 2.5; }
+.pets-nurse .nurse-collar { fill: none; stroke: #f3b6cb; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.pets-nurse .nurse-pocket { fill: #ffe3ee; }
+.pets-nurse .nurse-face { fill: #ffe4d2; stroke: #e8b598; stroke-width: 2.5; }
+.pets-nurse .nurse-hair { fill: #8a5a44; }
+.pets-nurse .nurse-cap { fill: #ffffff; stroke: #f3b6cb; stroke-width: 2.5; stroke-linejoin: round; }
+.pets-nurse .nurse-cross { fill: #f5576c; }
+.pets-nurse .nurse-eyes ellipse { fill: #3b2a3a; }
+.pets-nurse .nurse-shine { fill: #ffffff; }
+.pets-nurse .nurse-cheek { fill: #ffb3c7; opacity: 0.75; }
+.pets-nurse .nurse-mouth { fill: none; stroke: #3b2a3a; stroke-width: 2.6; stroke-linecap: round; }
+
+/* Mruganie; gdy czeka jajko — podskok co kilka sekund */
+.pets-nurse .nurse-eyes {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pets-nurse-blink 5.2s ease-in-out infinite;
+}
+
+.pets-hall__nurse.is-calling .pets-nurse {
+    transform-origin: 50% 100%;
+    animation: pets-nurse-hop 3s ease-in-out infinite;
+}
+
+@keyframes pets-nurse-blink {
+    0%, 93%, 100% { transform: scaleY(1); }
+    96% { transform: scaleY(0.1); }
+}
+
+@keyframes pets-nurse-hop {
+    0%, 70%, 100% { transform: translateY(0); }
+    80% { transform: translateY(-7px); }
+    90% { transform: translateY(0); }
+}
+
+/* Postać w ciemnym motywie zostaje w swoich kolorach (jak rig pupili), z delikatną poświatą */
+[data-theme="dark"] .pets-nurse { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.22)); }
+[data-theme="dark"] .pets-nurse .nurse-uniform,
+[data-theme="dark"] .pets-nurse .nurse-cap { fill: #f4eef8; }
+
+/* Lada: jajka stoją na blacie, front z napisem „Recepcja” */
+.pets-hall__counter {
     position: relative;
     z-index: 1;
-    width: 120px;
-}
-
-/* Gniazdko ze słomy pod jajkiem */
-.pets-nest__art::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    width: 130px;
-    height: 34px;
-    transform: translateX(-50%);
-    border-radius: 0 0 65px 65px / 0 0 34px 34px;
-    background:
-        repeating-linear-gradient(115deg, rgba(122, 80, 40, 0.35) 0 3px, transparent 3px 9px),
-        linear-gradient(180deg, #d9a96b 0%, #b7834a 100%);
-}
-
-.pets-nest.is-ready {
-    border-color: #FBCFE8;
-    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.18);
-}
-
-.pets-nest__title {
-    margin: 0;
-    font-size: 0.9375rem;
-    font-weight: 700;
-    color: var(--text-primary, #212121);
-}
-
-.pets-nest .pets-progress { width: 100%; }
-
-.pets-nest__status {
-    margin: 0;
-    min-height: 2.6em;
-    font-size: 12.5px;
-    line-height: 1.3;
-    color: var(--text-secondary, #616161);
-}
-
-.pets-nest__actions { width: 100%; }
-.pets-nest__actions .pet-btn { width: 100%; }
-
-.pets-incubator__monthly {
-    margin: 0;
-    font-size: var(--text-sm, 0.875rem);
-    color: var(--text-secondary, #616161);
-}
-
-[data-theme="dark"] .pets-incubator {
-    background: linear-gradient(180deg, rgba(255, 196, 92, 0.08) 0%, rgba(255, 255, 255, 0.05) 70%);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .pets-claim__tile,
-[data-theme="dark"] .pets-nest {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .pets-claim__tile--rescue {
-    background: rgba(167, 139, 250, 0.1);
-    border-color: rgba(167, 139, 250, 0.3);
-}
-
-[data-theme="dark"] .pets-nest.is-ready {
-    border-color: rgba(240, 147, 251, 0.45);
-    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .pets-claim__title,
-[data-theme="dark"] .pets-nest__title { color: #ffffff; }
-
-[data-theme="dark"] .pets-claim__desc,
-[data-theme="dark"] .pets-nest__status,
-[data-theme="dark"] .pets-incubator__monthly { color: rgba(255, 255, 255, 0.7); }
-
-/* === Sala chorych === */
-.pets-ward {
-    background: linear-gradient(180deg, #F2F8FF 0%, #ffffff 70%);
-    border-color: #DCE9F8;
-}
-
-.pets-beds {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
-}
-
-.pets-beds[hidden],
-.pets-sick[hidden] { display: none; }
-
-.pets-bed {
-    display: grid;
-    grid-template-columns: 112px minmax(0, 1fr);
-    grid-template-areas: "pet info" "actions actions";
-    gap: 10px 12px;
-    align-items: center;
-    padding: 14px;
-    border-radius: 18px;
-    background: #ffffff;
-    border: 1px solid #DCE9F8;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.pets-bed.is-ready {
-    border-color: #86EFAC;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
-}
-
-.pets-bed.is-highlight,
-.pets-sick__row.is-highlight { animation: pets-bed-highlight 1.8s ease-out; }
-
-@keyframes pets-bed-highlight {
-    0% { box-shadow: 0 0 0 0 rgba(240, 147, 251, 0.6); }
-    100% { box-shadow: 0 0 0 16px rgba(240, 147, 251, 0); }
-}
-
-.pets-bed__pet {
-    grid-area: pet;
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+}
+
+.pets-hall__eggs {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    min-height: 44px;
+    align-items: flex-end;
+    gap: 2px 6px;
+    margin: 0 -16px -12px;
+}
+
+.pets-hall__counter-top {
+    position: relative;
+    z-index: 1;
+    height: 16px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 2px solid #e2d6ee;
+    box-shadow: inset 0 -4px 0 #f3eafd;
+}
+
+.pets-hall__bell {
+    position: absolute;
+    right: 14px;
+    bottom: 100%;
+    width: 30px;
+    margin-bottom: -3px;
+}
+
+.pets-hall__counter.has-eggs .pets-hall__bell { right: 6px; }
+
+.pets-hall__bell .bell-dome { fill: #f5c24a; }
+.pets-hall__bell .bell-knob { fill: #dda12c; }
+.pets-hall__bell .bell-base { fill: #c4882a; }
+
+.pets-hall__counter-front {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 54px;
+    height: clamp(40px, 10cqh, 70px);
+    margin: 0 8px;
+    border: 2px solid #e2d6ee;
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    background: linear-gradient(180deg, #f3eafd 0%, #ffffff 100%);
+}
+
+.pets-hall__counter-sign {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #5a189a;
+}
+
+[data-theme="dark"] .pets-hall__counter-top {
+    background: #3a2f57;
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: inset 0 -4px 0 #2e2547;
+}
+
+[data-theme="dark"] .pets-hall__counter-front {
+    background: linear-gradient(180deg, #2f2649 0%, #241c3a 100%);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pets-hall__counter-sign { color: #f5c2fc; }
+[data-theme="dark"] .pets-hall__bell .bell-dome { fill: #e0b04a; }
+
+/* Jajko do odebrania na ladzie (przycisk, cel dotyku ≥ 44 px) */
+.pets-hall__egg {
+    position: relative;
+    width: 60px;
+    width: clamp(50px, 8cqh, 76px);
+    height: auto;
+    aspect-ratio: 15 / 16;
     padding: 0;
     border: none;
     border-radius: 14px;
@@ -306,194 +541,111 @@
     touch-action: manipulation;
 }
 
-.pets-bed__pet:focus { outline: none; }
-.pets-bed__pet:focus-visible { outline: 3px solid #f093fb; outline-offset: 2px; }
-
-/* Luz nad pupilem: dłoń pat pat wychodzi ponad obszar riga (overflow: visible) */
-.pets-bed__art { line-height: 0; width: 108px; padding-top: 14px; }
-.pets-bed__art .pet-rig { width: 100%; }
-
-.pets-bed__info {
-    grid-area: info;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 0;
+.pets-hall__egg .pets-gift {
+    width: 100%;
+    transform-origin: 50% 90%;
 }
 
-.pets-bed__name {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary, #212121);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.pets-hall__egg:hover .pets-gift,
+.pets-hall__egg:focus-visible .pets-gift { animation: pets-hosp-wiggle 0.6s ease-in-out; }
+
+.pets-hall__egg:focus { outline: none; }
+
+.pets-hall__egg:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 2px;
 }
 
-.pets-bed__status {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: #166534;
-}
-
-.pets-bed:not(.is-ready) .pets-bed__status { color: #1E40AF; }
-
-.pets-bed__note {
-    margin: 0;
-    font-size: 12.5px;
-    line-height: 1.35;
-    color: var(--text-secondary, #616161);
-}
-
-.pets-bed__actions {
-    grid-area: actions;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.pets-bed__actions > .pet-btn { width: 100%; }
-
-.pets-bed__confirm {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.4;
-    color: var(--text-primary, #212121);
-}
-
-.pets-bed__confirm-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.pets-bed__confirm-row .pet-btn { flex: 1 1 140px; }
-
-/* Chorzy w domku */
-.pets-sick {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.pets-sick__title {
-    margin: 4px 0 0;
-    font-size: 0.9375rem;
-    font-weight: 700;
-    color: var(--text-primary, #212121);
-}
-
-.pets-sick__list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.pets-sick__row {
-    display: flex;
+.pets-hall__egg-count {
+    position: absolute;
+    right: -2px;
+    bottom: 8px;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 14px;
-    background: #FFF5F6;
-    border: 1px solid #FBD5DB;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #5a189a;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
 }
 
-.pets-sick__art { flex: 0 0 64px; line-height: 0; }
-.pets-sick__art .pet-rig { width: 64px; }
+.pets-hall__egg-count[hidden] { display: none; }
 
-.pets-sick__info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1 1 auto;
-    min-width: 0;
+[data-theme="dark"] .pets-hall__egg-count {
+    background: #f093fb;
+    color: #1a1230;
 }
 
-.pets-sick__name {
-    font-weight: 700;
-    color: var(--text-primary, #212121);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+/* Lot odebranego jajka do drzwi Inkubatorium (WAAPI w hospital-hall.js) */
+.pets-hall__flyer {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    will-change: transform, opacity;
 }
 
-.pets-sick__meta {
-    font-size: 12.5px;
-    color: #BE123C;
+[data-theme="dark"] .pets-hall__flyer { filter: drop-shadow(0 0 6px rgba(255, 214, 120, 0.45)); }
+
+/* Arkusz okna (< 1024 px): recepcja jedzie w górę, żeby wybrane jajko było nad arkuszem (--lift z JS) */
+@media (max-width: 1023.98px) {
+    .pets-scene--szpital.has-window .pets-hall { transform: translateY(calc(-1 * var(--lift, 0px))); }
 }
 
-.pets-sick__action {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 2px;
-    flex: 0 0 auto;
+/* Niski widok (laptop 1366×600, telefon poziomo): mniejsze jajka i lada, żeby recepcja nie sięgała pigułki */
+@container (max-height: 440px) {
+    .pets-hall__talk { margin-bottom: 8px; }
+    .pets-hall__talk-bubble { padding: 6px 12px; }
+    .pets-hall__counter-front { height: 36px; }
 }
 
-.pets-sick__reason {
-    margin: 0;
-    font-size: 11.5px;
-    text-align: center;
-    color: var(--text-secondary, #616161);
+/* Wąsko (telefon pionowo, wąska scena przy otwartej karcie): drzwi obok siebie u góry, recepcja pod nimi */
+@container (max-width: 599.98px) and (min-height: 460px) {
+    /* (zapytanie kontenera nie stylizuje samego kontenera — linia podłogi ustawiana na dzieciach) */
+    .pets-hall__floor { height: 46%; }
+    .pets-hall__door { bottom: calc(46% - 4px); }
+    .pets-hall__door--inc { left: 4%; }
+    .pets-hall__door--ward { right: 4%; }
+
+    .pets-hall__frame {
+        height: clamp(96px, min(calc(54cqh - var(--top) - 46px), 70cqw), 300px);
+    }
+
+    .pets-hall__desk {
+        bottom: 3%;
+        width: min(92cqw, 380px);
+    }
+
+    .pets-hall__nurse { width: clamp(60px, 14cqh, 120px); }
+    .pets-hall__counter-front { height: clamp(36px, 7cqh, 56px); }
 }
 
-.pets-sick__reason:empty { display: none; }
-
-[data-theme="dark"] .pets-ward {
-    background: linear-gradient(180deg, rgba(96, 165, 250, 0.08) 0%, rgba(255, 255, 255, 0.05) 70%);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .pets-bed {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .pets-bed.is-ready {
-    border-color: rgba(134, 239, 172, 0.5);
-    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
-}
-
-[data-theme="dark"] .pets-bed__name,
-[data-theme="dark"] .pets-bed__confirm,
-[data-theme="dark"] .pets-sick__title,
-[data-theme="dark"] .pets-sick__name { color: #ffffff; }
-
-[data-theme="dark"] .pets-bed__status { color: #86EFAC; }
-[data-theme="dark"] .pets-bed:not(.is-ready) .pets-bed__status { color: #93C5FD; }
-
-[data-theme="dark"] .pets-bed__note,
-[data-theme="dark"] .pets-sick__reason { color: rgba(255, 255, 255, 0.65); }
-
-[data-theme="dark"] .pets-sick__row {
-    background: rgba(251, 113, 133, 0.08);
-    border-color: rgba(251, 113, 133, 0.25);
-}
-
-[data-theme="dark"] .pets-sick__meta { color: #FDA4AF; }
-
-@media (max-width: 480px) {
-    .pets-claim,
-    .pets-beds { grid-template-columns: minmax(0, 1fr); }
-    .pets-nests { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .pets-nest { padding: 0 10px 12px; }
-    .pets-nest__art .pet-rig { width: 96px; }
-    .pets-nest__art::after { width: 104px; height: 28px; }
-    .pets-bed { grid-template-columns: 96px minmax(0, 1fr); }
-    .pets-bed__art { width: 92px; }
-    .pets-sick__row { flex-wrap: wrap; }
-    .pets-sick__action { flex: 1 1 100%; }
-}
+/* Noc: pigułka nocy jest pod spodem pigułki (< 600 px) — drzwi zaczynają się niżej */
+.pets-page--night .pets-hall { --top: 124px; }
 
 @media (prefers-reduced-motion: reduce) {
-    .pets-nest,
-    .pets-bed { transition: none; }
-    .pets-bed.is-highlight,
-    .pets-sick__row.is-highlight { animation: none; }
+    .pets-hall,
+    .pets-hall__frame,
+    .pets-hall__talk-bubble { transition: none; }
+    .pets-hall__badge,
+    .pets-nurse .nurse-eyes,
+    .pets-hall__nurse.is-calling .pets-nurse,
+    .pets-hall__frame.is-receiving,
+    .pets-hall__egg:hover .pets-gift,
+    .pets-hall__egg:focus-visible .pets-gift { animation: none; }
 }
+
+html.pet-rig-rm .pets-hall,
+html.pet-rig-rm .pets-hall__frame { transition: none; }
+
+html.pet-rig-rm .pets-hall__badge,
+html.pet-rig-rm .pets-nurse .nurse-eyes,
+html.pet-rig-rm .pets-hall__nurse.is-calling .pets-nurse,
+html.pet-rig-rm .pets-hall__frame.is-receiving,
+html.pet-rig-rm .pets-hall__egg:hover .pets-gift,
+html.pet-rig-rm .pets-hall__egg:focus-visible .pets-gift { animation: none; }

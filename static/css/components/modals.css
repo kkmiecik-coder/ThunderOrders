@@ -5862,3 +5862,38 @@ html.pet-hatch-open body { overflow: hidden; }
 }
 
 html.pet-rig-rm .pets-window { transition: none; animation: none; }
+
+/* === Okna szpitala (v3.1) === */
+/* Treść okien sceny w szpitalu (spec v3.1 §4): odbiór jajka (hol), jajko w inkubatorze (Inkubatorium),
+   pupil w łóżku i „Kogo przyjąć?” (Izba przyjęć). Ramę okna daje „Okno sceny (v3.1)” powyżej;
+   logika: static/js/pet/world/hospital-*.js. */
+.pets-hosp-win {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pets-hosp-win .pets-window__title,
+.pets-hosp-win .pets-window__text { margin-bottom: 0; }
+
+.pets-hosp-win__hero {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.pets-hosp-win__gift { width: 72px; }
+
+.pets-hosp-win__head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pets-hosp-win .pets-window__actions { margin-top: 2px; }
+.pets-hosp-win .pets-window__actions > .pet-btn { flex: 1 1 160px; }
+
+[data-theme="dark"] .pets-hosp-win__gift { filter: drop-shadow(0 0 4px rgba(255, 214, 120, 0.3)); }

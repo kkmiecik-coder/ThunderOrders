@@ -74,11 +74,17 @@ def test_szablon_swiata_linkuje_sceny(client, login, make_user, db):
     login(make_user(profile_completed=True))
     _wlacz(db)
     html = client.get('/client/pupile/domek').data.decode()
-    pliki = ['js/pet/world/map.js', 'js/pet/world/room.js', 'js/pet/world/house.js', 'js/pet/world/hospital.js',
+    pliki = ['js/pet/world/map.js', 'js/pet/world/room.js', 'js/pet/world/house.js',
+             'js/pet/world/hospital-common.js', 'js/pet/world/hospital-hall.js', 'js/pet/world/hospital-incubator.js',
+             'js/pet/world/hospital-ward.js',
              'js/pet/world/workshop.js', 'js/pet/world/garden.js', 'js/components/pet-hatch.js']
     for plik in pliki:
         assert plik in html, plik
         assert html.index(plik) < html.index('js/pages/client/pets.js'), plik   # sceny rejestrują się przed routerem
+    # Spec v3.1 §7: wspólny moduł szpitala przed salami, stary jednoplikowy szpital usunięty
+    for sala in ('hospital-hall.js', 'hospital-incubator.js', 'hospital-ward.js'):
+        assert html.index('js/pet/world/hospital-common.js') < html.index('js/pet/world/' + sala), sala
+    assert 'js/pet/world/hospital.js' not in html
     for css in ('css/components/pet-room.css', 'css/pages/client/pets-map.css', 'css/pages/client/pets-house.css',
                 'css/pages/client/pets-hospital.css', 'css/pages/client/pets-workshop.css', 'css/pages/client/pets-garden.css'):
         assert css in html, css
