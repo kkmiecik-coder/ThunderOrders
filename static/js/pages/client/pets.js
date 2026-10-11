@@ -572,6 +572,468 @@
     }
 
     // ------------------------------------------------------------------------------------
+    // Album: 8 kart — nieodkryty (sylwetka) / żyje / karta pamięci
+    // ------------------------------------------------------------------------------------
+
+    var albumBody = root.querySelector('#petsAlbum .pets-album');
+    var albumCount = root.querySelector('#petsAlbum .pets-album__count');
+    var albumSlots = [];
+    var STAGE_LABEL = { maluch: 'Maluch', dziecko: 'Dziecko', dorosly: 'Dorosły' };
+
+    function formatDate(iso) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+        return m ? m[3] + '.' + m[2] + '.' + m[1] : '?';
+    }
+
+    function daysText(n) {
+        n = Math.max(0, parseInt(n, 10) || 0);
+        return n + ' ' + (n === 1 ? 'dzień' : 'dni');
+    }
+
+    function buildAlbumSlot(entry, pet) {
+        var card = el('article', 'pets-album__card pets-album__card--' + entry.status);
+        var art = el('div', 'pets-album__art');
+        var info = el('div', 'pets-album__info');
+        card.appendChild(art);
+        card.appendChild(info);
+        var rig = null;
+        var R = window.PetRig;
+        if (entry.status === 'alive' && pet) {
+            if (R) rig = R.mount(art, { species: entry.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: pet.asleep, size: 'mini' });
+            info.appendChild(el('h3', 'pets-album__name', pet.name || speciesName(entry.species)));
+            info.appendChild(el('p', 'pets-album__meta', speciesName(entry.species) + ' · ' + (STAGE_LABEL[pet.stage] || '')));
+        } else if (entry.status === 'memorial') {
+            if (R) rig = R.mountMemorial(art, { species: entry.species, size: 'mini', lit: !entry.can_light });
+            info.appendChild(el('h3', 'pets-album__name', speciesName(entry.species)));
+            info.appendChild(el('p', 'pets-album__memorial',
+                (entry.name ? 'Pupil ' + entry.name : 'Twój pupil') + ' odszedł do gwiazd.'));
+            info.appendChild(el('p', 'pets-album__meta', formatDate(entry.hatched_at) + ' – ' + formatDate(entry.died_at)));
+            info.appendChild(el('p', 'pets-album__meta', 'Wiek: ' + daysText(entry.age_days) + ' · ' + daysText(entry.care_days) + ' opieki'));
+            var lights = parseInt(entry.lights_count, 10) || 0;
+            info.appendChild(el('p', 'pets-album__lights', 'Światełka: ' + lights));
+            if (entry.can_light) {
+                card.appendChild(button('Zapal światełko', 'flame', null, { albumAction: 'light', petId: String(entry.pet_id) }));
+            } else {
+                card.appendChild(el('p', 'pets-album__lit', 'Dziś już świeci światełko'));
+            }
+        } else {
+            art.classList.add('pets-album__art--silhouette');
+            if (R) rig = R.mount(art, { species: entry.species, stage: 'dorosly', size: 'mini' });
+            info.appendChild(el('h3', 'pets-album__name', 'Nieodkryty'));
+            info.appendChild(el('p', 'pets-album__meta', 'Wykluj jajko, żeby go poznać'));
+        }
+        return { el: card, rig: rig, key: '' };
+    }
+
+    function renderAlbum(state) {
+        var album = state.album;
+        if (!albumBody || !album) return;   // stan „lite" nie ma albumu
+        var petsById = {};
+        (state.pets || []).forEach(function (p) { petsById[p.id] = p; });
+        var known = album.filter(function (a) { return a.status !== 'unknown'; }).length;
+        if (albumCount) {
+            albumCount.textContent = known + '/' + album.length;
+            albumCount.setAttribute('aria-label', 'Odkryte gatunki: ' + known + ' z ' + album.length);
+        }
+        album.forEach(function (entry, i) {
+            var pet = entry.status === 'alive' ? petsById[entry.pet_id] : null;
+            var key = [entry.species, entry.status, entry.pet_id, entry.name, entry.lights_count, entry.can_light,
+                pet ? pet.name : '', pet ? pet.stage : ''].join('|');
+            var slot = albumSlots[i];
+            if (slot && slot.key === key) {
+                if (pet && slot.rig) slot.rig.update({ stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: pet.asleep });
+                return;
+            }
+            var fresh = buildAlbumSlot(entry, pet);
+            fresh.key = key;
+            if (slot) {
+                if (slot.rig) slot.rig.destroy();
+                albumBody.replaceChild(fresh.el, slot.el);
+            } else {
+                albumBody.appendChild(fresh.el);
+            }
+            albumSlots[i] = fresh;
+        });
+    }
+
+    if (albumBody) {
+        albumBody.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-album-action="light"]');
+            if (!btn || btn.disabled || !albumBody.contains(btn)) return;
+            setBusy(btn, true);
+            send('/' + parseInt(btn.dataset.petId, 10) + '/swiatelko', {}).then(function () {
+                if (window.Haptics) window.Haptics.tap();
+            }, function () { setBusy(btn, false); });
+        });
+    }
+
+    // ------------------------------------------------------------------------------------
+    // Towarzysz i powiadomienia
+    // ------------------------------------------------------------------------------------
+
+    var settingsBody = root.querySelector('#petsSettings .pets-section__body');
+    var settings = null;
+
+    function switchRow(id, label, hint) {
+        var row = el('div', 'pets-setting');
+        var text = el('div', 'pets-setting__text');
+        var lab = el('label', 'pets-setting__label', label);
+        lab.htmlFor = id;
+        text.appendChild(lab);
+        if (hint) text.appendChild(el('p', 'pets-setting__hint', hint));
+        var sw = el('label', 'pets-switch');
+        var input = el('input', 'pets-switch__input');
+        input.type = 'checkbox';
+        input.id = id;
+        input.setAttribute('role', 'switch');
+        var slider = el('span', 'pets-switch__slider');
+        slider.setAttribute('aria-hidden', 'true');
+        sw.appendChild(input);
+        sw.appendChild(slider);
+        row.appendChild(text);
+        row.appendChild(sw);
+        return { row: row, input: input };
+    }
+
+    function buildSettings() {
+        settings = { petsSig: null, saving: false };
+        var pick = el('div', 'pets-setting pets-setting--select');
+        var pickText = el('div', 'pets-setting__text');
+        var pickLabel = el('label', 'pets-setting__label', 'Kto Ci towarzyszy');
+        pickLabel.htmlFor = 'petsCompanionSelect';
+        pickText.appendChild(pickLabel);
+        pickText.appendChild(el('p', 'pets-setting__hint', 'Pupil, który będzie z Tobą na dole stron panelu klienta.'));
+        var select = el('select', 'pets-select');
+        select.id = 'petsCompanionSelect';
+        pick.appendChild(pickText);
+        pick.appendChild(select);
+
+        var show = switchRow('petsCompanionToggle', 'Pokazuj towarzysza na stronach', null);
+        var empty = el('p', 'pets-settings__empty', 'Towarzysza wybierzesz, gdy w domku zamieszka pierwszy pupil.');
+        var notify = switchRow('petsNotifyToggle', 'Powiadomienia o pupilach (push i e-mail)',
+            'Damy znać, gdy pupil będzie głodny albo chory, gdy jajko będzie gotowe do wyklucia i gdy czeka nowe.');
+
+        settingsBody.appendChild(pick);
+        settingsBody.appendChild(show.row);
+        settingsBody.appendChild(empty);
+        settingsBody.appendChild(notify.row);
+        settings.pick = pick;
+        settings.select = select;
+        settings.showRow = show.row;
+        settings.show = show.input;
+        settings.empty = empty;
+        settings.notify = notify.input;
+
+        select.addEventListener('change', saveCompanion);
+        show.input.addEventListener('change', saveCompanion);
+        notify.input.addEventListener('change', saveNotify);
+        loadNotify();
+    }
+
+    function renderSettings(state) {
+        if (!settingsBody) return;
+        if (!settings) buildSettings();
+        if (settings.saving) return;
+        var pets = state.pets || [];
+        var companion = state.companion || { enabled: true, pet_id: null, auto: true };
+        var has = pets.length > 0;
+        settings.pick.hidden = !has;
+        settings.showRow.hidden = !has;
+        settings.empty.hidden = has;
+        var sig = pets.map(function (p) { return p.id + ':' + p.name; }).join('|');
+        if (sig !== settings.petsSig) {
+            settings.petsSig = sig;
+            settings.select.innerHTML = '';
+            var auto = el('option', null, 'Automatycznie — ten, kto najbardziej potrzebuje opieki');
+            auto.value = 'auto';
+            settings.select.appendChild(auto);
+            pets.forEach(function (p) {
+                var opt = el('option', null, (p.name || speciesName(p.species)) + ' (' + speciesName(p.species) + ')');
+                opt.value = String(p.id);
+                settings.select.appendChild(opt);
+            });
+        }
+        settings.select.value = companion.auto || companion.pet_id == null ? 'auto' : String(companion.pet_id);
+        settings.show.checked = !!companion.enabled;
+        settings.select.disabled = false;
+        settings.show.disabled = false;
+    }
+
+    function saveCompanion() {
+        var value = settings.select.value;
+        var body = { pet_id: value === 'auto' ? null : parseInt(value, 10), enabled: !!settings.show.checked };   // boolean, nie string
+        settings.saving = true;
+        settings.select.disabled = true;
+        settings.show.disabled = true;
+        send('/towarzysz', body).then(function () {
+            toast('Zapisano ustawienia towarzysza.', 'success');
+        }, function () { /* toast/odświeżenie już były */ }).then(function () {
+            settings.saving = false;
+            if (PetsState.current) renderSettings(PetsState.current);
+        });
+    }
+
+    // Ten sam zapis co przełącznik w profilu (POST /notifications/preferences {pet_updates})
+    var PREFS_URL = '/notifications/preferences';
+
+    function prefsRequest(init) {
+        return fetch(PREFS_URL, init).then(function (r) {
+            if (r.redirected) throw fail('session_expired', 'Sesja wygasła — zaloguj się ponownie.', r.status);
+            var type = r.headers.get('Content-Type') || '';
+            if (!r.ok || type.indexOf('application/json') === -1) throw fail('bad_response', GENERIC_ERROR, r.status);
+            return r.json();
+        }, function () {
+            throw fail('network', 'Brak połączenia — spróbuj za chwilę.', 0);
+        });
+    }
+
+    function loadNotify() {
+        var input = settings.notify;
+        input.disabled = true;   // do wczytania stanu z serwera — inaczej „włączone" kłamałoby przy błędzie
+        prefsRequest({ credentials: 'same-origin', headers: { 'Accept': 'application/json' } }).then(function (prefs) {
+            if (prefs && 'pet_updates' in prefs) input.checked = !!prefs.pet_updates;
+            input.disabled = false;
+        }, function () {
+            settings.notify.closest('.pets-setting').classList.add('is-unavailable');
+        });
+    }
+
+    function saveNotify() {
+        var input = settings.notify;
+        var on = input.checked;
+        input.disabled = true;
+        prefsRequest({
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+            body: JSON.stringify({ pet_updates: on })
+        }).then(function (data) {
+            if (!data || !data.success) throw fail('bad_response', GENERIC_ERROR, 0);
+            toast(on ? 'Powiadomienia o pupilach włączone.' : 'Powiadomienia o pupilach wyłączone.', 'success');
+        }).catch(function (err) {
+            input.checked = !on;
+            toast(err && err.error === 'session_expired' ? err.message : 'Nie udało się zapisać ustawienia powiadomień.', 'error');
+        }).then(function () { input.disabled = false; });
+    }
+
+    // ------------------------------------------------------------------------------------
+    // Modal wyklucia (#petHatchModal): jajko pęka → POST wykluj → nowy gatunek z konfetti
+    // ------------------------------------------------------------------------------------
+
+    var modal = document.getElementById('petHatchModal');
+    var hatch = { phase: 'idle', egg: null, rig: null, trigger: null, petId: null, defaultName: '', achievements: false };
+
+    function reducedMotion() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    if (modal) {
+        // Poza <main>: przodkowie z backdrop-filter/transform tworzą kontekst warstw i chowali
+        // fixed overlay pod topbar/sidebar (ta sama lekcja co dropdowny statusów)
+        if (modal.parentNode !== document.body) document.body.appendChild(modal);
+        var hm = {
+            content: modal.querySelector('.pet-hatch'),
+            title: modal.querySelector('#petHatchTitle'),
+            stage: modal.querySelector('[data-hatch-stage]'),
+            text: modal.querySelector('[data-hatch-text]'),
+            form: modal.querySelector('[data-hatch-form]'),
+            input: modal.querySelector('#petHatchName'),
+            error: modal.querySelector('[data-hatch-error]'),
+            footer: modal.querySelector('.pet-hatch__footer'),
+            done: modal.querySelector('[data-hatch-done]'),
+            close: modal.querySelector('.modal-close')
+        };
+
+        var clearStage = function () {
+            if (hatch.egg) { hatch.egg.destroy(); hatch.egg = null; }
+            if (hatch.rig) { hatch.rig.destroy(); hatch.rig = null; }
+            hm.stage.innerHTML = '';
+        };
+
+        var setChrome = function (interactive) {
+            hm.footer.hidden = !interactive;
+            hm.close.hidden = !interactive;
+        };
+
+        var setFormDisabled = function (on) {
+            hm.input.disabled = on;
+            Array.prototype.forEach.call(hm.form.querySelectorAll('button'), function (b) { b.disabled = on; });
+        };
+
+        var showNameError = function (message) {
+            hm.error.textContent = message;
+            hm.error.hidden = false;
+            hm.input.setAttribute('aria-invalid', 'true');
+            hm.input.focus();
+        };
+
+        var findPet = function (list, id) {
+            for (var i = 0; i < (list || []).length; i++) if (list[i].id === id) return list[i];
+            return null;
+        };
+
+        var reveal = function (resp, prevPets) {
+            hatch.phase = 'reveal';
+            if (window.Haptics) window.Haptics.pattern('hatch');
+            clearStage();
+            var pets = (resp.state && resp.state.pets) || [];
+            var name = resp.species_name || speciesName(resp.species);
+            hatch.achievements = !!(resp.new_achievements && resp.new_achievements.length);
+            var R = window.PetRig;
+            if (resp.result === 'new') {
+                var pet = findPet(pets, resp.pet_id) || {};
+                hatch.petId = resp.pet_id;
+                hatch.defaultName = pet.name || name;
+                if (R) hatch.rig = R.mount(hm.stage, { species: resp.species, stage: pet.stage || 'maluch', size: 'card' });
+                if (hatch.rig) hatch.rig.playAction('celebrate');
+                hm.title.textContent = 'Masz nowego pupila!';
+                hm.text.textContent = 'To ' + name + '! Jak go nazwiesz?';
+                hm.input.value = hatch.defaultName;
+                hm.input.removeAttribute('aria-invalid');
+                hm.error.hidden = true;
+                hm.form.hidden = false;
+                setFormDisabled(false);
+                hm.done.textContent = 'Później';
+                hm.done.className = 'pet-btn pet-btn--ghost';
+                setChrome(true);
+                hm.input.focus();
+                hm.input.select();
+            } else {
+                var starred = findPet(pets, resp.starred_pet_id) || {};
+                var before = findPet(prevPets, resp.starred_pet_id);
+                var stars = parseInt(starred.stars, 10) || 0;
+                var prevStars = before ? (parseInt(before.stars, 10) || 0) : Math.max(0, stars - 1);
+                if (R) hatch.rig = R.mount(hm.stage, { species: resp.species, stage: starred.stage || 'dorosly', stars: prevStars, size: 'card' });
+                if (hatch.rig) {
+                    var rig = hatch.rig;
+                    rig.playAction('celebrate').then(function () { if (hatch.rig === rig) rig.setStars(stars); });
+                }
+                var who = starred.name ? 'Twój ' + starred.name : 'Twój pupil';
+                // „Znowu …!" zamiast „To drugi …!" ze specu — bez rodzaju („drugi Wiewiórka" brzmi źle)
+                hm.title.textContent = 'Znowu ' + name + '!';
+                hm.text.textContent = stars > prevStars ? who + ' dostaje gwiazdkę ⭐' : who + ' ma już komplet gwiazdek ⭐';
+                hm.form.hidden = true;
+                hm.done.textContent = 'Super!';
+                hm.done.className = 'pet-btn pet-btn--primary';
+                setChrome(true);
+                hm.done.focus();
+            }
+        };
+
+        var closeHatch = function () {
+            if (hatch.phase !== 'reveal') return;   // w trakcie pękania nie zamykamy (żądanie w locie)
+            hatch.phase = 'closing';
+            modal.classList.add('closing');
+            setTimeout(function () {
+                modal.classList.remove('active', 'closing');
+                modal.setAttribute('aria-hidden', 'true');
+                clearStage();
+                hatch.phase = 'idle';
+                var back = hatch.trigger;
+                if (back && document.body.contains(back) && !back.disabled) back.focus();
+                else {
+                    var title = document.getElementById('petsHomeTitle');
+                    if (title) {
+                        title.setAttribute('tabindex', '-1');
+                        title.focus();
+                    }
+                }
+                if (hatch.achievements) {
+                    hatch.achievements = false;
+                    showAchievements();
+                }
+            }, reducedMotion() ? 0 : 350);
+        };
+
+        hatchEgg = function (eggId, trigger) {
+            if (hatch.phase !== 'idle' || !window.PetRig) return;
+            hatch.phase = 'hatching';
+            hatch.trigger = trigger || null;
+            hatch.petId = null;
+            hatch.achievements = false;
+            var prevPets = ((PetsState.current && PetsState.current.pets) || []).slice();
+            setBusy(trigger, true);
+            clearStage();
+            hm.title.textContent = 'Coś się dzieje…';
+            hm.text.textContent = 'Jajko pęka!';
+            hm.form.hidden = true;
+            setChrome(false);
+            hatch.egg = window.PetRig.mountEgg(hm.stage, { pct: 100, ready: true, size: 'card' });
+            modal.classList.remove('closing');
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            hm.content.focus();
+            var req = send('/jajka/' + eggId + '/wykluj', {}, { deferAchievements: true });
+            Promise.all([hatch.egg.hatch(), req]).then(function (results) {
+                reveal(results[1], prevPets);
+            }, function () {
+                // Błąd pokazał już handleError; zamykamy bez odsłaniania
+                hatch.phase = 'reveal';
+                setBusy(trigger, false);
+                closeHatch();
+            });
+        };
+
+        hm.form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (hatch.phase !== 'reveal' || !hatch.petId) return;
+            var name = String(hm.input.value || '').split(/\s+/).filter(Boolean).join(' ');
+            var len = Array.from(name).length;
+            hm.input.removeAttribute('aria-invalid');
+            hm.error.hidden = true;
+            if (len < 1 || len > 20) {
+                showNameError('Imię ma mieć od 1 do 20 znaków.');
+                return;
+            }
+            if (name === hatch.defaultName) {
+                closeHatch();
+                return;
+            }
+            setFormDisabled(true);
+            send('/' + hatch.petId + '/imie', { name: name }, { quiet: ['bad_name'] }).then(function (resp) {
+                toast('Witaj w domku, ' + resp.name + '!', 'success');
+                closeHatch();
+            }, function (err) {
+                setFormDisabled(false);
+                // Pupil już istnieje — modal zostaje otwarty, komunikat serwera przy polu (Review Focus 4)
+                if (err && err.error === 'bad_name') showNameError(err.message || 'Nieprawidłowe imię.');
+                else hm.input.focus();
+            });
+        });
+
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal || e.target.closest('[data-hatch-close]')) closeHatch();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (!modal.classList.contains('active')) return;
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeHatch();
+                return;
+            }
+            if (e.key !== 'Tab') return;
+            var items = Array.prototype.filter.call(
+                modal.querySelectorAll('button:not([disabled]), input:not([disabled]), [href]'),
+                function (x) { return x.offsetParent !== null; }
+            );
+            if (!items.length) {
+                e.preventDefault();
+                hm.content.focus();
+                return;
+            }
+            var first = items[0], last = items[items.length - 1];
+            if (e.shiftKey && (document.activeElement === first || document.activeElement === hm.content)) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------------------------
     // Render, zegar, odświeżanie
     // ------------------------------------------------------------------------------------
 
@@ -581,6 +1043,8 @@
         renderNight(state);
         renderNest(state);
         renderHome(state);
+        renderAlbum(state);
+        renderSettings(state);
         scheduleEventRefresh(state);
     }
 
