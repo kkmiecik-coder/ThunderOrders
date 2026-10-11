@@ -729,15 +729,48 @@
 .pet-rig.need-critical.is-critical .rig-bm { animation: rig-breath 5.6s ease-in-out infinite; }
 
 /* --- Dłoń (rig.pat) ----------------------------------------------------- */
-.pet-rig .fx-hand { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 2px)); }
-.pet-rig.is-handpat .rig-fx .fx-hand { display: inline; opacity: 1; animation: rig-hand 1.25s ease-in-out both; }
+/* Otwarta dłoń wjeżdża z prawej z góry; klepie, obracając się w nadgarstku (19, -13). */
+.pet-rig .fx-hand { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 1px)); }
+.pet-rig.is-handpat .rig-fx .fx-hand { display: inline; opacity: 1; animation: rig-hand 1.5s ease-in-out both; }
+.pet-rig .fx-hand-in { transform-origin: 19px -13px; }
+.pet-rig.is-handpat .fx-hand-in { animation: rig-hand-pat 1.5s ease-in-out both; }
 .pet-rig .hd-sleeve { fill: #F7A8C9; stroke: #D97AA3; stroke-width: 1.6; stroke-linejoin: round; }
 .pet-rig .hd-cuff { fill: #FFFFFF; stroke: #D97AA3; stroke-width: 1.4; stroke-linejoin: round; }
 .pet-rig .hd-skin { fill: #FFD9C2; stroke: #E0A98A; stroke-width: 1.4; stroke-linejoin: round; }
-.pet-rig .hd-line { fill: none; stroke: #E0A98A; stroke-width: 1.1; stroke-linecap: round; }
+.pet-rig .hd-fo { stroke: #E0A98A; stroke-linecap: round; }
+.pet-rig .hd-ff { stroke: #FFD9C2; stroke-linecap: round; }
 [data-theme="dark"] .pet-rig .fx-hand { filter: drop-shadow(0 0 2px rgba(255, 255, 255, .35)); }
 
-.pet-rig.is-handpat .rig-hm { animation: rig-hand-head 1.25s ease-in-out both; }
+.pet-rig.is-handpat .rig-hm { animation: rig-hand-head 1.5s ease-in-out both; }
+
+/* Chmurki „PAT” — po jednej na klepnięcie (24 / 43 / 62% animacji dłoni). */
+.pet-rig .fx-pat {
+    display: none;
+    transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy))) scale(var(--rig-pat-k, 1));
+}
+.pet-rig.is-handpat .rig-fx .fx-pat { display: inline; opacity: 1; }
+.pet-rig .pc-in { opacity: 0; }
+.pet-rig .pc-o circle { fill: #FFFFFF; stroke: #F2A7C3; stroke-width: 2.6; }
+.pet-rig .pc-f circle { fill: #FFFFFF; }
+.pet-rig .pc-t {
+    fill: #E4467A;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    text-anchor: middle;
+}
+.pet-rig.is-handpat .fx-pat-c1 .pc-in { animation: rig-pat-cloud .6s ease-out .36s both; }
+.pet-rig.is-handpat .fx-pat-c2 .pc-in { animation: rig-pat-cloud .6s ease-out .645s both; }
+.pet-rig.is-handpat .fx-pat-c3 .pc-in { animation: rig-pat-cloud .6s ease-out .93s both; }
+[data-theme="dark"] .pet-rig .pc-o circle { fill: #FFF5FB; stroke: #F093FB; }
+[data-theme="dark"] .pet-rig .pc-f circle { fill: #FFF5FB; }
+[data-theme="dark"] .pet-rig .pc-t { fill: #C2185B; }
+/* Ograniczony ruch: dłoń leży na głowie, jedna nieruchoma chmurka. */
+@media (prefers-reduced-motion: reduce) {
+    .pet-rig.is-handpat .fx-pat-c2 .pc-in { opacity: 1; }
+}
+.pet-rig-rm .pet-rig.is-handpat .fx-pat-c2 .pc-in { opacity: 1; }
 .pet-rig.is-handpat .e-open { opacity: 0; }
 .pet-rig.is-handpat .e-happy { opacity: 1; }
 .pet-rig.is-handpat .ck { opacity: 1; transform: scale(1.18); }
@@ -1014,20 +1047,32 @@
 @keyframes rig-need-yawn { 0%, 70%, 92%, 100% { opacity: 0; } 74%, 88% { opacity: 1; } }
 @keyframes rig-need-yawn-hide { 0%, 70%, 92%, 100% { opacity: 1; } 74%, 88% { opacity: 0; } }
 @keyframes rig-hand {
-    0% { transform: translate(100px, -40px); opacity: 0; }
+    0% { transform: translate(146px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 24px)); opacity: 0; }
     10% { opacity: 1; }
-    22% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 7px)); }
-    30% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 2px)); }
-    38% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 7px)); }
-    46% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 2px)); }
-    54% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 7px)); }
-    62% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 2px)); }
-    74% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 6px)); opacity: 1; }
-    100% { transform: translate(100px, -40px); opacity: 0; }
+    16%, 80% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 1px)); opacity: 1; }
+    94% { opacity: 1; }
+    100% { transform: translate(146px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 24px)); opacity: 0; }
+}
+@keyframes rig-hand-pat {
+    0%, 16% { transform: translateY(-5px) rotate(16deg); }
+    24% { transform: translateY(7px) rotate(0deg); }
+    33% { transform: translateY(-5px) rotate(16deg); }
+    43% { transform: translateY(7px) rotate(0deg); }
+    52% { transform: translateY(-5px) rotate(16deg); }
+    62% { transform: translateY(7px) rotate(0deg); }
+    70%, 78% { transform: translateY(0) rotate(-2deg); }
+    88%, 100% { transform: translateY(-5px) rotate(16deg); }
 }
 @keyframes rig-hand-head {
-    0%, 24%, 38%, 54%, 70%, 100% { transform: translateY(0) scale(1, 1); }
-    30%, 46%, 62% { transform: translateY(3px) scale(1.05, .93); }
+    0%, 16%, 33%, 52%, 72%, 100% { transform: translateY(0) scale(1, 1); }
+    24%, 43%, 62% { transform: translateY(3px) scale(1.05, .93); }
+}
+@keyframes rig-pat-cloud {
+    0% { opacity: 0; transform: translateY(2px) scale(.3); }
+    20% { opacity: 1; transform: translateY(0) scale(1.12); }
+    34% { transform: translateY(-2px) scale(1); }
+    72% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-14px) scale(1); }
 }
 @keyframes rig-v-prop {
     0% { transform: scale(.2); opacity: 0; }

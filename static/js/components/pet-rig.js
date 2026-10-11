@@ -12,7 +12,8 @@
  *         ograniczony ruch: ≤ 0,9 s i statyczne rekwizyty). Nieznany wariant = pierwszy z listy.
  *     rig.setNeed(need) — wygląd potrzeby (PetRig.NEEDS; null = jak dawniej, z mood/asleep)
  *     rig.setPose(pose) — PetRig.POSES: stand | sit | lie | bed (łóżeczko szpitalne z kołderką)
- *     rig.pat() -> Promise — dłoń klepie po głowie (~1,25 s); kolejne wywołanie w trakcie
+ *     rig.pat() -> Promise — otwarta dłoń wjeżdża z boku i klepie po głowie 3 razy, przy każdym
+ *       klepnięciu chmurka „PAT” (~1,5 s); kolejne wywołanie w trakcie
  *       odświeża animację i zwraca TEN SAM Promise.
  *   PetRig.needOf(pet) -> need — z pet_dict (szpital > krytyczny > chory > sen > głód > brud > smutek > nuda)
  *   PetRig.mountEgg(container, {pct, boosted, ready, size, skin}) -> egg
@@ -70,7 +71,7 @@
         pilka: 3600, wloczka: 3600, banki: 3600,
         kapiel: 3800, prysznic: 3600, gabka: 3600
     };
-    var HAND_MS = 1250;
+    var HAND_MS = 1500;
     var RM_MS = 800;   // ograniczony ruch: ≤ 0,9 s z zapasem na opóźnienia timerów
     var EGG_SKINS = ['kropki', 'niebo', 'laczka', 'paski', 'laty'];
     var EYE_Y = 95;
@@ -248,13 +249,29 @@
             '<g class="ck-chips"><circle class="ck-c1" cx="95" cy="135.5" r="1.9"/><circle class="ck-c2" cx="106" cy="134" r="1.7"/>' +
             '<circle class="ck-c3" cx="92" cy="143" r="1.8"/><circle class="ck-c4" cx="101" cy="146.5" r="2"/><circle class="ck-c5" cx="107.5" cy="144" r="1.7"/></g>'));
 
-    // Dłoń do pat pat (wjeżdża z góry; czubki palców w (0, 0)).
-    var HAND = g('fx-hand', g('fx-hand-in',
-        '<path class="hd-sleeve" d="M-11-70h22v44a4 4 0 0 1-4 4h-14a4 4 0 0 1-4-4z"/>' +
-        '<path class="hd-cuff" d="M-12.5-30h25v7a3 3 0 0 1-3 3h-19a3 3 0 0 1-3-3z"/>' +
-        '<path class="hd-skin" d="M-14-20c0-4 4-6 14-6s14 2 14 6v10c0 4-1 8-2 10H-12c-1-2-2-6-2-10z"/>' +
-        '<path class="hd-skin" d="M-13.6-4a3.3 4.2 0 0 0 6.6 0zM-6.6-3a3.3 4.4 0 0 0 6.6 0zM0-3a3.3 4.4 0 0 0 6.6 0zM7-4a3.3 4.2 0 0 0 6.6 0z"/>' +
-        '<path class="hd-line" d="M-7-6v3M0-6v3M7-6v3"/><path class="hd-skin" d="M13-16c5 0 8 3 7 7s-5 4-7 2z"/>'));
+    // Dłoń do pat pat: otwarta, wierzchem do widza, palce w lewo; rękaw wjeżdża z prawej z góry.
+    // (0, 0) = środek spodu dłoni na czubku głowy; nadgarstek ok. (19, -13) to oś klepania.
+    function finger(x1, y1, x2, y2, r) {
+        var d = 'x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"';
+        return '<line class="hd-fo" ' + d + ' stroke-width="' + (2 * r + 2.8) + '"/>' +
+            '<line class="hd-ff" ' + d + ' stroke-width="' + (2 * r) + '"/>';
+    }
+    var HAND = g('fx-hand', g('fx-hand-in', '<g transform="rotate(-8) scale(1.3)">' +
+        '<path class="hd-sleeve" d="M17.2-18.6L42-31L50-15L25.2-2.6z"/>' +
+        finger(4, -12.5, -12, -14.5, 2.7) + finger(4, -9.3, -17, -10.6, 2.9) +
+        finger(4, -5.9, -17.5, -6.2, 2.9) + finger(4, -2.6, -14, -1.9, 2.8) +
+        '<path class="hd-skin" d="M2-15.5Q9-18.5 15.5-16.5L21.5-.5Q12 2.2 2 .8Q-.8-7.4 2-15.5z"/>' +
+        finger(9, -.5, 2.5, 3.6, 2.7) +
+        '<path class="hd-cuff" d="M12-16L17.6-18.8L25.6-2.6L20 .2z"/></g>'));
+
+    // Chmurki „PAT” przy każdym klepnięciu (środek chmurki w (0, 0); cała grupa skalowana --rig-pat-k z rig.pat).
+    var PAT_PUFFS = '<circle cx="-15" cy="3.8" r="8.3"/><circle cx="-6" cy="-3.8" r="10.5"/>' +
+        '<circle cx="6.8" cy="-4.5" r="9.8"/><circle cx="15.8" cy="3" r="8.3"/><circle cx="0" cy="6" r="9.8"/>';
+    function patCloud(n, x, y, rot) {
+        return '<g class="fx-pat-c fx-pat-c' + n + '" transform="translate(' + x + ' ' + y + ') rotate(' + rot + ')">' +
+            g('pc-in', g('pc-o', PAT_PUFFS) + g('pc-f', PAT_PUFFS) + '<text class="pc-t" x="0" y="6.5">PAT</text>') + '</g>';
+    }
+    var PATS = g('fx-pat', patCloud(1, -50, -6, -8) + patCloud(2, -16, -40, 5) + patCloud(3, -60, -34, -4));
 
     // Rekwizyty 9 wariantów akcji (układ sceny 200×200, ziemia y 182).
     function drops(list) {
@@ -389,7 +406,7 @@
             el.innerHTML = '<svg viewBox="0 0 200 200" aria-hidden="true" focusable="false">' +
                 BED_BACK +
                 g('rig-shadow', '<ellipse cx="100" cy="183" rx="40" ry="6.5"/>') +
-                g('rig-fxb', FX_BACK + FXV_BACK) + buildFigure(sp) + BED_FRONT + g('rig-fx', FX + FXV + HAND) +
+                g('rig-fxb', FX_BACK + FXV_BACK) + buildFigure(sp) + BED_FRONT + g('rig-fx', FX + FXV + HAND + PATS) +
                 '<g class="rig-stars"></g>' + g('rig-status', STATUS) + '</svg>';
             applyPalette(el, sp);
             rig.setStars(o.stars);
@@ -639,9 +656,17 @@
             return enqueue(action, variant, action + (variant ? ':' + variant : ''));
         };
 
-        // Dłoń: wjeżdża z góry, klepie 3 razy, pupil mruży oczy, czasem serduszko.
+        // Chmurki „PAT” mają być czytelne także u małego towarzysza (72 px) — skala odwrotna do rozmiaru.
+        function setPatScale() {
+            var svg = el.querySelector('svg');
+            var w = svg ? svg.getBoundingClientRect().width : 0;
+            el.style.setProperty('--rig-pat-k', (w ? Math.max(1, Math.min(2, 120 / w)) : 1).toFixed(2));
+        }
+
+        // Dłoń: wjeżdża z boku, klepie 3 razy (chmurki „PAT”), pupil mruży oczy, czasem serduszko.
         rig.pat = function () {
             if (destroyed) return Promise.resolve();
+            setPatScale();
             if (current && current.key === 'hand') {
                 var job0 = current;
                 el.classList.toggle('hp-heart', Math.random() < 0.6);
