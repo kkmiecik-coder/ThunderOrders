@@ -13,11 +13,11 @@ z panelu admina. Instrukcja crona: `2026-10-11-pupile-cron-instrukcja.md`.
 - [ ] `pets_enabled` nie istnieje w `settings` → domyślnie `false`, `pets_rollout_pct` → `0`:
       klienci nic nie widzą, cron milczy (`skipped_disabled`).
 
-## 2. Ręcznie na serwerze (konto `konrad`, `cd /var/www/ThunderOrders`)
+## 2. Ręcznie na serwerze (konto z sudo, `cd /var/www/ThunderOrders`)
 - [ ] `venv/bin/flask achievements seed` — dopisuje 9 odznak kategorii `pets` (deploy.sh robi tylko `db upgrade`),
 - [ ] w panelu odznak dograć ikony dla slugów `pet-*` (seed nie tworzy plików),
-- [ ] crontab: `10 * * * * cd /var/www/ThunderOrders && venv/bin/flask pets tick >> logs/cron-pets.log 2>&1`
-      (`:00` i `:05` są zajęte — limit SMTP),
+- [ ] crontab: `10 * * * * cd /var/www/ThunderOrders && flock -n /tmp/pets-tick.lock venv/bin/flask pets tick >> logs/cron-pets.log 2>&1`
+      (`:00` i `:05` są zajęte — limit SMTP; `flock -n` = dwa przebiegi nie nachodzą na siebie),
 - [ ] sprawdzić, że `flask achievements check-daily` jest w crontabie (odznaka `pet-adults-8` jest cronowa),
 - [ ] `venv/bin/flask pets tick --dry-run` → „Funkcja pupili wyłączona … pominięty” (flaga off = OK),
 - [ ] `venv/bin/flask pets report --days 7` → tabela bez wyjątków (same zera).

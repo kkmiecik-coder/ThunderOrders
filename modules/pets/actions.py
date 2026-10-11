@@ -103,7 +103,8 @@ def perform_action(user, pet_id, action, count=1, now=None, cfg=None):
 
     if pierwsza_dzis:
         user.update_login_streak()   # commituje sam — dlatego po głównym commicie
-    nowe_odznaki = achievements_after_commit(user)
+    # Metryki odznak z akcji zależą tylko od care_days — sprawdzamy raz dziennie, nie przy każdej paczce pat
+    nowe_odznaki = achievements_after_commit(user) if pierwsza_dzis else []
     return {'pet': pet, 'accepted': zaliczone, 'first_care_today': pierwsza_dzis,
             'new_achievements': nowe_odznaki}
 

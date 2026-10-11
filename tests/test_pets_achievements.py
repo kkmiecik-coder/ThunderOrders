@@ -69,7 +69,7 @@ def test_adult_alive_liczy_stan_teraz(db, make_user):
     zaloz_profil(user)
     dawno = T0 - timedelta(days=100)
     for slug in SPECIES_SLUGS[:7]:
-        zaloz_pupila(user, species=slug, hatched_at=dawno, now=dawno)
+        zaloz_pupila(user, species=slug, hatched_at=dawno, now=T0)      # wykluty dawno, stan świeży (żywy w symulacji)
     zaloz_zmarlego(user, species=SPECIES_SLUGS[7], hatched_at=dawno, died_at=T0 - timedelta(hours=1))
     assert get_metric_value(user, 'pet_adult_alive', {'threshold': 8}, {'now': T0}) == (7, False)
     zaloz_pupila(user, species='kotek', name='Nowy', hatched_at=T0 - timedelta(days=1), now=T0, status='alive')
@@ -84,7 +84,7 @@ def test_cron_check_daily_odblokowuje_osmiu_doroslych(db, make_user):
     zaloz_profil(user)
     dawno = T0 - timedelta(days=400)
     for slug in SPECIES_SLUGS:
-        zaloz_pupila(user, species=slug, hatched_at=dawno, now=dawno)
+        zaloz_pupila(user, species=slug, hatched_at=dawno, now=T0)      # stan świeży — metryka symuluje do teraz
     AchievementService().run_daily_checks()
     assert 'pet-adults-8' in _odblokowane(user)
 

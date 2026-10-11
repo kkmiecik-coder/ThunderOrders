@@ -203,6 +203,8 @@ def api_light_candle(pet_id):
 @limiter.limit('120 per minute', key_func=_klucz_limitera)
 def api_rename(pet_id):
     dane = _body()
+    if not isinstance(dane.get('name'), str):
+        raise PetError('bad_request', 'Nieprawidłowe pole name.', 400)
     pet = service.rename_pet(current_user._get_current_object(), pet_id, dane.get('name'))
     return jsonify({'ok': True, 'name': pet.name, 'state': _state()})
 
@@ -213,7 +215,10 @@ def api_rename(pet_id):
 def api_companion():
     dane = _body()
     pet_id = _int_or_none(dane.get('pet_id'), 'pet_id')
-    service.set_companion(current_user._get_current_object(), pet_id=pet_id, enabled=bool(dane.get('enabled', True)))
+    enabled = dane.get('enabled', True)
+    if not isinstance(enabled, bool):   # bool("false") == True — front ma wysyłać prawdziwy boolean
+        raise PetError('bad_request', 'Nieprawidłowe pole enabled.', 400)
+    service.set_companion(current_user._get_current_object(), pet_id=pet_id, enabled=enabled)
     return jsonify({'ok': True, 'state': _state()})
 
 

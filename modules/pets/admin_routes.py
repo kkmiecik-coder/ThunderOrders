@@ -164,9 +164,8 @@ def search_users():
 @role_required('admin', 'mod')
 def grant_egg():
     dane = request.get_json(silent=True) or {}
-    try:
-        user_id = int(dane.get('user_id'))
-    except (TypeError, ValueError):
+    user_id = dane.get('user_id')
+    if isinstance(user_id, bool) or not isinstance(user_id, int):   # JSON true → int(True) == 1 — nie przyznawaj „użytkownikowi 1”
         raise PetError('bad_request', 'Nieprawidłowe pole user_id.', 400)
     user = db.session.get(User, user_id)
     if user is None:

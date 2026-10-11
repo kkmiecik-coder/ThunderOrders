@@ -91,3 +91,74 @@ def test_zapis_konfiguracji_przelicza_pupile_stara_konfiguracja(client, login, m
     assert 0 < pet.health < 100                                                     # 40 h starym tempem (72 h) ≈ 44
     stan = state_for_user(gracz)
     assert stan['pets'] and stan['pets'][0]['id'] == pet.id and stan['pets'][0]['mood'] != 'krytyczny' or stan['pets'][0]['bars']['health'] > 0
+
+
+# --- minory z recenzji A: walidacja wejścia, CSRF, koszt odznak, pet_adult_alive ---
+
+def test_przyznaj_odrzuca_bool_jako_user_id(client, login, make_user, db):
+    _admin(make_user, login)
+    assert client.post('/admin/pupile/przyznaj', json={'user_id': True}).status_code == 400
+    assert client.post('/admin/pupile/przyznaj', json={'user_id': '1; drop'}).status_code == 400
+
+
+def test_towarzysz_enabled_i_imie_musza_miec_wlasciwy_typ(client, login, make_user, db):
+    user = make_user()
+    login(user)
+    _wlacz(db)
+    zaloz_profil(user)
+    pet = zaloz_pupila(user)
+    r = client.post('/client/pupile/api/towarzysz', json={'pet_id': pet.id, 'enabled': 'false'})
+    assert r.status_code == 400 and r.get_json()['error'] == 'bad_request'
+    r = client.post(f'/client/pupile/api/{pet.id}/imie', json={'name': ['Mruczek']})
+    assert r.status_code == 400
+
+
+def test_csrf_chroni_api_i_panel(app, client, login, make_user, db, monkeypatch):
+    """Spec §8: testy CSRF. Przy włączonej ochronie POST bez tokenu = 400 JSON (front pokazuje „odśwież stronę”)."""
+    monkeypatch.setitem(app.config, 'WTF_CSRF_ENABLED', True)
+    user = make_user()
+    login(user)
+    _wlacz(db)
+    zaloz_profil(user)
+    pet = zaloz_pupila(user)
+    r = client.post(f'/client/pupile/api/{pet.id}/akcja', json={'action': 'feed'})
+    assert r.status_code == 400 and r.get_json()['error'] == 'bad_request'
+    admin = make_user(role='admin', profile_completed=True)
+    login(admin)
+    r = client.post('/admin/pupile/przyznaj', json={'user_id': user.id})
+    assert r.status_code == 400 and r.get_json()['ok'] is False
+    r = client.post('/admin/pupile/ustawienia', data={'scope': 'switch', 'pets_rollout_pct': '5'})
+    assert r.status_code == 400
+
+
+def test_odznaki_sprawdzane_tylko_przy_pierwszej_opiece_dnia(db, make_user, monkeypatch):
+    """Minor A: każda paczka pat robiła ~10 zapytań odznak; w perform_action zmienia się tylko care_days."""
+    from datetime import timedelta
+    from tests.pets_helpers import T0
+    from modules.achievements.services import AchievementService
+    from modules.pets.actions import perform_action
+    wywolania = []
+    monkeypatch.setattr(AchievementService, 'check_event', lambda self, user, ev, context=None: wywolania.append(ev) or [])
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user, hunger=20.0, fun=20.0)
+    _wlacz(db)
+    perform_action(user, pet.id, 'feed', now=T0 + timedelta(hours=1))
+    perform_action(user, pet.id, 'play', now=T0 + timedelta(hours=2))
+    assert wywolania == ['pet_event']
+
+
+def test_adult_alive_pomija_odejscie_wyliczone(db, make_user):
+    """Minor A: pupil 'alive' w bazie, ale martwy w symulacji (między przebiegami crona) nie liczy się jako dorosły."""
+    from datetime import timedelta
+    from tests.pets_helpers import T0
+    from modules.achievements.checkers import get_metric_value
+    from modules.pets.species import SPECIES_SLUGS
+    user = make_user()
+    zaloz_profil(user)
+    dawno = T0 - timedelta(days=200)
+    for slug in SPECIES_SLUGS[:7]:
+        zaloz_pupila(user, species=slug, hatched_at=dawno, now=T0)
+    # ósmy: dorosły, ale z paskiem na zerze od 10 dni → w symulacji odszedł
+    zaloz_pupila(user, species=SPECIES_SLUGS[7], hatched_at=dawno, now=T0 - timedelta(days=10), hunger=0.0)
+    assert get_metric_value(user, 'pet_adult_alive', {'threshold': 8}, {'now': T0}) == (7, False)

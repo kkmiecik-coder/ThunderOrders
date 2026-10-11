@@ -268,12 +268,15 @@ def _pet_species_discovered(user, config, context):
 def _pet_adult_alive(user, config, context):
     """Żywi dorośli TERAZ (stadium z czasu od wyklucia) — cron; context['now'] do testów."""
     from modules.pets import rules
+    from modules.pets.common import simulate_pet
     from modules.pets.config import PetConfig
     from modules.pets.models import Pet
     now = (context or {}).get('now') or get_local_now()
     cfg = PetConfig.load()
     zywe = Pet.query.filter(Pet.user_id == user.id, Pet.status == 'alive', Pet.hatched_at.isnot(None)).all()
-    n = sum(1 for p in zywe if rules.stage(p.hatched_at, now, cfg) == 'dorosly')
+    # żywy = także w symulacji (odejście między przebiegami crona jeszcze niezapisane)
+    n = sum(1 for p in zywe
+            if rules.stage(p.hatched_at, now, cfg) == 'dorosly' and simulate_pet(p, now, cfg).died_at is None)
     return (n, n >= config.get('threshold', 8))
 
 

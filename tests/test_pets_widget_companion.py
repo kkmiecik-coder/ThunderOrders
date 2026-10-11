@@ -63,6 +63,7 @@ def test_towarzysz_gosc_na_stronie_oferty_nic_nie_widzi(client, db, strona_sprze
     _wlacz(db)
     r = client.get(f'/offer/{strona_sprzedazy.token}/thank-you')
     assert r.status_code == 200 and b'id="petCompanion"' not in r.data
+    assert b'pet-companion.css' not in r.data      # gość nie ładuje CSS towarzysza (minor recenzji)
 
 
 def test_towarzysz_na_stronie_oferty_siedzi_i_celebruje(client, login, make_user, db, strona_sprzedazy):

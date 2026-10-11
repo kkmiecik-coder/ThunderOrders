@@ -1,6 +1,7 @@
 {# Towarzysz (spec §4.4): SSR nie pyta bazy — o widoczności decyduje JS ze stanu lite w localStorage.
    Parametry include: companion_mode ('walk' panel klienta | 'sit' strony ofert), pet_celebrate (bool). #}
 {% if current_user.is_authenticated and pets_enabled %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-companion.css') }}">
 <div class="pet-companion" id="petCompanion" hidden
      data-user-id="{{ current_user.id }}"
      data-api="/client/pupile/api"

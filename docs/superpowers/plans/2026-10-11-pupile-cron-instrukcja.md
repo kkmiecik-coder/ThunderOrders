@@ -7,7 +7,7 @@ Na serwerze (konto z dostępem do `/var/www/ThunderOrders`), `crontab -e`, dopis
 
 ```
 # Pupile (tamagotchi): zbiorcze pushe/maile o stanie pupili, raz na epizod; porządki pet_events (task 869ffdb58)
-10 * * * * cd /var/www/ThunderOrders && venv/bin/flask pets tick >> logs/cron-pets.log 2>&1
+10 * * * * cd /var/www/ThunderOrders && flock -n /tmp/pets-tick.lock venv/bin/flask pets tick >> logs/cron-pets.log 2>&1
 ```
 
 Przed pierwszym uruchomieniem na prodzie: `venv/bin/flask pets tick --dry-run` (wypisuje koszyki,
