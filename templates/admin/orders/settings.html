@@ -734,6 +734,16 @@
                             </div>
                             <div class="email-notif-item">
                                 <div class="email-notif-info">
+                                    <div class="email-notif-name">Pupile — stan krytyczny i odejście</div>
+                                    <div class="email-notif-desc">Mail, gdy pupil jest w stanie krytycznym, odszedł do gwiazd lub jajko ratunkowe czeka od tygodnia</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_pet_alert" {{ 'checked' if email_notif_config.get('notify_pet_alert', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
                                     <div class="email-notif-name">Status wysyłki</div>
                                     <div class="email-notif-desc">Zmiana statusu zlecenia wysyłki</div>
                                 </div>

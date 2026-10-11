@@ -2172,6 +2172,7 @@ def update_email_notification_settings():
         'notify_delivery_confirmation', 'notify_delivery_confirmed',
         'notify_delivery_autoclosed', 'notify_admin_delivery_confirmed',
         'notify_pickup_reminder',
+        'notify_pet_alert',
     }
 
     try:
