@@ -5723,7 +5723,7 @@ html.pet-hatch-open body { overflow: hidden; }
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 30px;
+    height: 44px;                /* cel dotyku ≥ 44 px (kreska uchwytu zostaje mała) */
     margin: 0 -18px;
     background: inherit;
     cursor: grab;
