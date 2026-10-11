@@ -5,11 +5,14 @@ startowego tworzy profil (jedyne miejsce, gdzie profil powstaje).
 """
 from datetime import timedelta
 
+from sqlalchemy.exc import IntegrityError
+
 from extensions import db
 from modules.pets import rules
 from modules.pets.common import (
-    MILESTONE_FIRST_STAR, achievements_after_commit, add_event, add_milestone, apply_state,
-    cfg_or, egg_progress, lock_profile, next_monthly_at, now_or, own_pet, rng_or,
+    MILESTONE_FIRST_STAR, achievements_after_commit, add_event, add_milestone, alive_pets_lock_query,
+    apply_state, cfg_or, egg_progress, lock_profile, next_monthly_at, now_or, own_pet, persist_death,
+    rng_or, simulate_pet,
 )
 from modules.pets.errors import PetError
 from modules.pets.models import EGG_SOURCES, Pet, PetProfile
@@ -28,7 +31,12 @@ def claim_egg(user, source, pet_id=None, now=None, cfg=None):
             raise PetError('start_claimed', 'Jajko startowe już odebrane.', 409)
         profil = PetProfile(user_id=user.id, start_egg_claimed_at=now, last_monthly_egg_at=now, created_at=now)
         db.session.add(profil)
-        db.session.flush()
+        try:
+            db.session.flush()
+        except IntegrityError:
+            # Dwa równoległe odbiory startowego: oba widziały brak profilu, drugi INSERT łamie UNIQUE(user_id)
+            db.session.rollback()
+            raise PetError('start_claimed', 'Jajko startowe już odebrane.', 409)
         godziny = int(cfg.start_egg_hours)
     elif source == 'monthly':
         if now < next_monthly_at(profil, cfg):
@@ -84,7 +92,15 @@ def hatch_egg(user, pet_id, now=None, cfg=None, rng=None):
     if not rules.egg_is_ready(egg_progress(jajko, now, cfg), jajko.egg_hours):
         raise PetError('egg_not_ready', 'Jajko jeszcze się nie wykluło.', 409)
 
-    zywe = {p.species: p for p in Pet.query.filter_by(user_id=user.id, status='alive').all()}
+    # Stan żywych liczony na teraz pod blokadą (spec §3.1): kto odszedł, nie jest już żywy
+    # (zapisujemy odejście), a gwiazdka ma działać od chwili wyklucia, nie wstecz od state_at.
+    zywe = {}
+    for zywy in alive_pets_lock_query(user.id).all():
+        sim = simulate_pet(zywy, now, cfg)
+        if sim.died_at is not None:
+            persist_death(zywy, sim, now)
+            continue
+        zywe[zywy.species] = (zywy, sim.state)
     kandydaci = list(SPECIES_SLUGS)
     if profil.dupes_in_row >= int(cfg.pity_after):
         brakujace = [slug for slug in SPECIES_SLUGS if slug not in zywe]
@@ -93,7 +109,8 @@ def hatch_egg(user, pet_id, now=None, cfg=None, rng=None):
     wybrany = rng.choice(kandydaci)
 
     if wybrany in zywe:
-        istniejacy = zywe[wybrany]
+        istniejacy, stan_teraz = zywe[wybrany]
+        apply_state(istniejacy, stan_teraz, now)
         istniejacy.stars = min(int(istniejacy.stars) + 1, int(cfg.max_stars))
         jajko.status = 'merged'
         jajko.species = wybrany

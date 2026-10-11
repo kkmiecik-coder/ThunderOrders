@@ -341,3 +341,46 @@ def test_wykluj_cudze_jajko_403(db, make_user):
     with pytest.raises(PetError) as e:
         hatch_egg(b, jajko.id, now=T0, cfg=_cfg(), rng=RngStaly('kotek'))
     assert e.value.status == 403
+
+
+# --- recenzja: wyklucie a symulowany stan żywych (Important 3) ---
+
+def test_wyklucie_nie_wtapia_w_pupila_ktory_juz_odszedl(db, make_user):
+    """Mapa żywych liczona po symulacji: odeszły nie dostaje gwiazdki, jajko nie przepada."""
+    from modules.pets.eggs import hatch_egg
+    from modules.pets.models import PetEvent
+    user = make_user()
+    zaloz_profil(user)
+    odchodzacy = zaloz_pupila(user, species='kotek', hunger=0.0, now=T0)   # odejdzie po 72 h
+    jajko = _gotowe_jajko(user, now=T0)
+    wynik = hatch_egg(user, jajko.id, now=T0 + timedelta(hours=80), cfg=_cfg(), rng=RngStaly('kotek'))
+    assert wynik['result'] == 'new' and wynik['species'] == 'kotek' and wynik['pet'].status == 'alive'
+    assert odchodzacy.status == 'dead' and odchodzacy.stars == 0
+    assert PetEvent.query.filter_by(pet_id=odchodzacy.id, type='die').count() == 1
+
+
+def test_gwiazdka_nie_dziala_wstecz(db, make_user):
+    """Przed +1 gwiazdką stan żywego jest przeliczony i zapisany (state_at = now)."""
+    from modules.pets.eggs import hatch_egg
+    user = make_user()
+    zaloz_profil(user)
+    zywy = zaloz_pupila(user, species='kotek', now=T0)
+    jajko = _gotowe_jajko(user, now=T0)
+    hatch_egg(user, jajko.id, now=T0 + timedelta(hours=12), cfg=_cfg(), rng=RngStaly('kotek'))
+    assert zywy.stars == 1 and zywy.state_at == T0 + timedelta(hours=12)
+    assert abs(zywy.hunger - 50.0) < 0.05   # 12 h pełnego tempa — gwiazdka działa od teraz, nie wstecz
+
+
+def test_podwojny_odbior_startowego_w_wyscigu_daje_409(db, make_user, monkeypatch):
+    """Dwa równoległe „Odbierz": oba widzą brak profilu, drugi INSERT łamie unikalność user_id —
+    ma być 409 start_claimed, nie 500."""
+    from modules.pets import eggs
+    from modules.pets.errors import PetError
+    from modules.pets.models import Pet
+    user = make_user()
+    zaloz_profil(user)                                                       # „pierwsze żądanie" zdążyło
+    monkeypatch.setattr(eggs, 'lock_profile', lambda user, required=True: None)   # drugie go nie widzi
+    with pytest.raises(PetError) as e:
+        eggs.claim_egg(user, 'start', now=T0, cfg=_cfg())
+    assert (e.value.code, e.value.status) == ('start_claimed', 409)
+    assert Pet.query.filter_by(user_id=user.id).count() == 0
