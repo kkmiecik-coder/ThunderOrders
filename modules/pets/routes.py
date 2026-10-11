@@ -108,17 +108,33 @@ def _species_json():
 # Strona
 # ---------------------------------------------------------------------------
 
-@pets_bp.route('')     # '' zamiast '/': adres /client/pupile bez 308 na wersję ze slashem
-@feature_required
-def home():
+SCENES = ('domek', 'szpital', 'warsztat', 'ogrod')   # spec v3 §3.1; '' = mapa
+
+
+def _render_scene(scene):
     stan = _state()
     return render_template(
         'client/pets/home.html',
         title='Moje pupile',
+        scene=scene,
         state_json=json.dumps(stan, ensure_ascii=False),
         species_json=_species_json(),
         api_base=API_BASE,
     )
+
+
+@pets_bp.route('')     # '' zamiast '/': adres /client/pupile bez 308 na wersję ze slashem
+@feature_required
+def home():
+    return _render_scene('mapa')
+
+
+@pets_bp.route('/<scene>')
+@feature_required
+def scene(scene):
+    if scene not in SCENES:
+        abort(404)
+    return _render_scene(scene)
 
 
 # ---------------------------------------------------------------------------
@@ -180,14 +196,35 @@ def api_action(pet_id):
     action = dane.get('action')
     if not isinstance(action, str):
         raise PetError('bad_action', 'Nieznana akcja.', 400)
-    wynik = service.perform_action(current_user._get_current_object(), pet_id, action, count=dane.get('count', 1))
+    variant = dane.get('variant')
+    if variant is not None and not isinstance(variant, str):
+        raise PetError('bad_variant', 'Nieznany wariant akcji.', 400)
+    wynik = service.perform_action(current_user._get_current_object(), pet_id, action,
+                                   count=dane.get('count', 1), variant=variant)
     return jsonify({
         'ok': True,
+        'variant': wynik['variant'],
         'accepted': wynik['accepted'],
         'first_care_today': wynik['first_care_today'],
         'new_achievements': wynik['new_achievements'],
         'state': _state(),
     })
+
+
+@pets_bp.route('/api/<int:pet_id>/szpital', methods=['POST'])
+@feature_required
+@limiter.limit('120 per minute', key_func=_klucz_limitera)
+def api_admit(pet_id):
+    service.admit_pet(current_user._get_current_object(), pet_id)
+    return jsonify({'ok': True, 'state': _state()})
+
+
+@pets_bp.route('/api/<int:pet_id>/wypis', methods=['POST'])
+@feature_required
+@limiter.limit('120 per minute', key_func=_klucz_limitera)
+def api_discharge(pet_id):
+    service.discharge_pet(current_user._get_current_object(), pet_id)
+    return jsonify({'ok': True, 'state': _state()})
 
 
 @pets_bp.route('/api/<int:pet_id>/swiatelko', methods=['POST'])

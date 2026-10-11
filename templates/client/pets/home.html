@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block content %}
-<div id="petsApp" class="pets-page" data-user-id="{{ current_user.id }}"
+<div id="petsApp" class="pets-page" data-scene="{{ scene }}" data-user-id="{{ current_user.id }}"
      data-state='{{ state_json | e }}'
      data-species='{{ species_json | e }}'
      data-api="{{ api_base }}">
