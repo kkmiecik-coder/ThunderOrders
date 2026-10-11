@@ -13,13 +13,13 @@
     function getSections() {
         if (isPWA()) {
             return [
-                { name: 'Dashboard', steps: ['metrics', 'offers', 'matrix', 'offer-open', 'recent-orders', 'badges'] },
+                { name: 'Dashboard', steps: ['pets', 'metrics', 'offers', 'matrix', 'offer-open', 'recent-orders', 'badges'] },
                 { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
                 { name: 'Menu', steps: ['pwa-bottom-bar', 'finish'] }
             ];
         }
         return [
-            { name: 'Dashboard', steps: ['metrics', 'offers', 'matrix', 'offer-open', 'recent-orders', 'badges'] },
+            { name: 'Dashboard', steps: ['pets', 'metrics', 'offers', 'matrix', 'offer-open', 'recent-orders', 'badges'] },
             { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
             { name: 'Menu', steps: ['nav-dashboard', 'nav-orders', 'nav-confirmations', 'nav-shipping', 'nav-collection', 'nav-achievements', 'nav-help', 'finish'] }
         ];
@@ -214,6 +214,13 @@
             },
 
             // --- SECTION: Dashboard ---
+            {
+                id: 'pets',
+                attachTo: { element: '#petsWidget', on: 'bottom' },
+                title: 'Twój pupil',
+                text: 'Tu mieszka Twój pupil 🐾 Karm go, baw się z nim i myj — jedna wizyta dziennie wystarczy, żeby był zdrowy. W nocy śpi. Pełny domek znajdziesz w „Moje pupile”.',
+                skipWhen: function() { return !document.querySelector('#petsWidget'); }
+            },
             {
                 id: 'metrics',
                 attachTo: { element: '.dashboard-metrics', on: 'bottom' },

@@ -39,7 +39,7 @@
     var REFRESH_MS = 5 * 60 * 1000;
     var EGG_TICK_MS = 30 * 1000;
     var STICKY_MS = 60 * 1000;          // tyle po interakcji karta trzyma tego samego pupila
-    var BOOST_FACTOR = 2;               // spec §2.2: ogrzanie = tempo ×2
+    var BOOST_FACTOR = 2;               // spec §2.2: ogrzanie = tempo ×2 (nadpisywane z state.config.boost_factor)
     var GENERIC_ERROR = 'Coś poszło nie tak, spróbuj za chwilę';
     var OWN_MESSAGE_ERRORS = { session_expired: 1, network: 1, rate_limited: 1 };
 
@@ -296,6 +296,7 @@
 
     /** Postęp i czas do wyklucia w chwili `elapsedSec` od odebrania stanu (spec §2.2, ogrzanie ×2). */
     function eggForecast(egg, state, elapsedSec) {
+        if (state && state.config && state.config.boost_factor > 0) BOOST_FACTOR = Number(state.config.boost_factor);
         var total = Math.max(1, (Number(egg.egg_hours) || 0) * 3600);
         var remaining = total * (1 - Math.min(100, Math.max(0, Number(egg.progress_pct) || 0)) / 100);
         var boostLeft = 0;
@@ -354,7 +355,7 @@
             var refs = view.refs = { eggId: egg.id };
             if (window.PetRig) view.egg = window.PetRig.mountEgg(t.scene, { pct: egg.progress_pct, boosted: false, size: 'mini' });
             refs.title = el('p', 'pets-widget__title', 'Jajko się wykluwa');
-            refs.badge = el('span', 'pets-widget__badge', 'ogrzane ×2');
+            refs.badge = el('span', 'pets-widget__badge', 'ogrzane ×' + BOOST_FACTOR);
             refs.title.appendChild(document.createTextNode(' '));
             refs.title.appendChild(refs.badge);
             refs.when = el('p', 'pets-widget__text');

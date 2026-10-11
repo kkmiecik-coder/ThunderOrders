@@ -196,6 +196,20 @@
         toast(GENERIC_ERROR, 'error');
     }
 
+    /** GA4 (docs/GOOGLE_ANALYTICS.md): tylko nazwa akcji i nastrój — bez imion, identyfikatorów i treści. */
+    function trackPetEvent(path, body, resp) {
+        if (typeof window.trackEvent !== 'function') return;
+        try {
+            if (/\/akcja$/.test(path) && body && body.action) {
+                var id = parseInt(path.split('/')[1], 10);
+                var pet = ((resp.state && resp.state.pets) || []).filter(function (p) { return p.id === id; })[0];
+                window.trackEvent('pet_action', { action: body.action, mood: pet ? pet.mood : 'unknown' });
+            } else if (/\/wykluj$/.test(path) && resp.result) {
+                window.trackEvent('pet_hatch', { result: resp.result });
+            }
+        } catch (e) { /* analityka nie może psuć gry */ }
+    }
+
     /** POST z kolejnością stanu i wspólną obsługą błędów; `quiet` = kody obsługiwane przez wołającego. */
     function send(path, body, opts) {
         opts = opts || {};
@@ -203,6 +217,7 @@
         return PetsApi.post(path, body, opts).then(function (resp) {
             applyState(resp.state, mySeq);
             if (resp.new_achievements && resp.new_achievements.length && !opts.deferAchievements) showAchievements();
+            trackPetEvent(path, body, resp);
             return resp;
         }, function (err) {
             if (!(opts.quiet && opts.quiet.indexOf(err && err.error) >= 0)) handleError(err);
@@ -235,8 +250,10 @@
         var night = state.night || {};
         nightBanner.hidden = !night.is_night;
         if (night.is_night) {
+            var factor = state.config && state.config.night_factor;
+            var slower = factor > 0 && factor < 1 ? Math.round(1 / factor) + '× wolniej' : 'wolniej';
             nightBanner.textContent = 'Jest noc (' + night.start + ':00–' + night.end + ':00) — pupile śpią, a ich ' +
-                'potrzeby rosną 4× wolniej. Głodny albo chory pupil nie zaśnie, dopóki się nim nie zajmiesz.';
+                'potrzeby rosną ' + slower + '. Głodny albo chory pupil nie zaśnie, dopóki się nim nie zajmiesz.';
         }
     }
 
@@ -349,7 +366,8 @@
             entry.status.textContent = 'Gotowe do wyklucia!';
         } else if (egg.boost_until) {
             var left = secondsUntil(egg.boost_until);
-            entry.status.textContent = pct + '% · ogrzane, ciepło (tempo ×2) jeszcze ' + formatDuration(left > 0 ? left : 0);
+            var boostFactor = (PetsState.current && PetsState.current.config && PetsState.current.config.boost_factor) || 2;
+            entry.status.textContent = pct + '% · ogrzane, ciepło (tempo ×' + boostFactor + ') jeszcze ' + formatDuration(left > 0 ? left : 0);
         } else {
             entry.status.textContent = pct + '% · ogrzej, żeby przyspieszyć wyklucie';
         }

@@ -135,3 +135,16 @@ def test_noc_w_stanie(db, make_user):
 def test_most_in_need_pusty(db):
     from modules.pets.state import most_in_need
     assert most_in_need([]) is None
+
+
+def test_stan_ma_config_dla_tekstow_ui(db, make_user):
+    """Etap 6 (uwaga C): teksty UI („4× wolniej”, „10 punktów”, „×2”) mają czytać liczby z konfiguracji."""
+    from modules.pets.config import PetConfig
+    from modules.pets.state import state_for_user
+    user = make_user()
+    cfg = PetConfig(night={'start': 23, 'end': 7, 'factor': 0.5}, boost={'hours': 6, 'factor': 3},
+                    actions={**PetConfig().actions, 'wake_penalty': 7, 'awake_minutes': 15})
+    for lite in (False, True):
+        stan = state_for_user(user, lite=lite, cfg=cfg)
+        assert stan['config'] == {'night_factor': 0.5, 'boost_factor': 3, 'boost_hours': 6,
+                                  'wake_penalty': 7, 'awake_minutes': 15}

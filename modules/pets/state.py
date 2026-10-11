@@ -65,6 +65,14 @@ def state_for_user(user, lite=False, now=None, cfg=None):
         'next_monthly_at': iso(next_monthly_at(profil, cfg)),
         'eggs': jajka,
         'pets': zywe,
+        # Liczby z konfiguracji do tekstów UI (etap 6): „potrzeby rosną N× wolniej”, „tempo ×N”, kara za obudzenie
+        'config': {
+            'night_factor': float(cfg.night['factor']),
+            'boost_factor': float(cfg.boost['factor']) if not float(cfg.boost['factor']).is_integer() else int(cfg.boost['factor']),
+            'boost_hours': int(cfg.boost['hours']),
+            'wake_penalty': int(cfg.actions['wake_penalty']),
+            'awake_minutes': int(cfg.actions['awake_minutes']),
+        },
     }
     if not lite:
         stan['album'] = _album(zywe, zmarle, now)
