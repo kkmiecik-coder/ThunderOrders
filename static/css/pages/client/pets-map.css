@@ -163,6 +163,139 @@
     50% { transform: translateY(-4px); }
 }
 
+/* Pupil w oknie domku (map.js: createPeek). Link leży dokładnie na wnętrzu okna (bez ramki z SVG, żeby ramka
+   ilustracji zostawała widoczna), okienko przycina rig, a rig wysuwa się zza parapetu i chowa.
+   Pozycje = wnętrze okna (HOUSE w map.js: okno 18×15, ramka 1) w układzie planszy: poziomo 640×460
+   (34×28 od 263,183 / 347,183), pionowo 360×640 (34×28 od 121,151 / 205,151). Obie proporcje 17:14 — % rigu wspólne. */
+.pets-map__peek {
+    position: absolute;
+    left: 41.09375%;
+    top: 39.7826%;
+    width: 5.3125%;
+    height: 6.087%;
+    pointer-events: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pets-map__peek[hidden] { display: none; }
+.pets-map__peek--r { left: 54.21875%; }
+
+.pets-map__peek.is-shown {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+/* Cel dotyku ≥ 44 px wokół małego okna (na telefonie okno ma ~38×31 px) */
+.pets-map__peek::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+}
+
+/* Tło = kolor szyby z ilustracji (.map-win), żeby filtr nocy niżej nie przyciemniał jej drugi raz */
+.pets-map__peek-win {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 11.8% / 14.3%;
+    background: #fff6c9;
+    transition: box-shadow 0.2s ease;
+}
+
+.pets-map.is-night .pets-map__peek-win { background: #ffd36b; }
+
+/* Noc: ten sam granatowy filtr co reszta planszy (.map-night-tint) na szybie i pupilu razem */
+.pets-map__peek-win::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #141c45;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pets-map.is-night .pets-map__peek-win::after { opacity: 0.42; }
+
+/* Rig 155% szerokości okna: głowa z uszami, broda tuż nad parapetem (stadia mają głowę na innej wysokości) */
+.pets-map__peek-pet {
+    position: absolute;
+    left: -27.5%;
+    top: -32%;
+    width: 155%;
+    translate: 0 100%;
+    transition: translate 0.45s ease-in;
+}
+
+.pets-map__peek[data-stage="dziecko"] .pets-map__peek-pet { top: -38.6%; }
+.pets-map__peek[data-stage="maluch"] .pets-map__peek-pet { top: -49%; }
+
+.pets-map__peek-pet .pet-rig {
+    display: block;
+    width: 100%;
+    max-width: none;
+}
+
+.pets-map__peek.is-shown .pets-map__peek-pet {
+    translate: 0 0;
+    transition: translate 0.6s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* Śpiący: wolniej i niżej — sennie wygląda zza parapetu */
+.pets-map__peek.is-sleepy .pets-map__peek-pet { transition: translate 0.9s ease-in; }
+
+.pets-map__peek.is-sleepy.is-shown .pets-map__peek-pet {
+    translate: 0 8%;
+    transition: translate 1.2s ease-out;
+}
+
+/* Łapka do machania: łapka rigu (g-wave) chowa się w tak małym oknie za głową i uszami, więc mapa rysuje własną
+   nad pupilem, w kolorach gatunku (zmienne --rig-* kopiowane z rigu w map.js); wyłania się zza parapetu przy geście */
+.pets-map__peek-paw {
+    position: absolute;
+    right: 4%;
+    bottom: -4%;
+    width: 30%;
+    aspect-ratio: 40 / 70;
+    transform: translateY(110%);
+    transform-origin: 50% 100%;
+    pointer-events: none;
+}
+
+.pets-map__peek-paw svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.pets-map__peek-paw .paw-arm {
+    fill: var(--rig-base, #f2c9a0);
+    stroke: var(--rig-line, #b98a5e);
+    stroke-width: 2.6;
+}
+
+.pets-map__peek-paw .paw-pad { fill: var(--rig-light, #fff1e0); }
+
+.pets-map__peek.is-waving .pets-map__peek-paw { animation: pets-map-paw-wave 1.2s ease-in-out; }
+
+@keyframes pets-map-paw-wave {
+    0% { transform: translateY(110%) rotate(0deg); }
+    18% { transform: translateY(0) rotate(-16deg); }
+    36% { transform: translateY(0) rotate(14deg); }
+    54% { transform: translateY(0) rotate(-16deg); }
+    74% { transform: translateY(0) rotate(12deg); }
+    100% { transform: translateY(110%) rotate(0deg); }
+}
+
+.pets-map__peek.is-shown:hover .pets-map__peek-win { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9); }
+
+[data-theme="dark"] .pets-map__peek.is-shown:hover .pets-map__peek-win { box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.85); }
+
 /* Zoom w stronę miejsca przed przejściem (pets.js: --zoom-x/--zoom-y) */
 .pets-map.is-zooming .pets-map__board {
     transform-origin: var(--zoom-x, 50%) var(--zoom-y, 50%);
@@ -205,6 +338,9 @@
     .pets-map__place--szpital { left: 3%; top: 41%; width: 44%; height: 23%; }
     .pets-map__place--warsztat { left: 53%; top: 56%; width: 44%; height: 23%; }
     .pets-map__place--ogrod { left: 24%; top: 80%; width: 52%; height: 18%; }
+
+    .pets-map__peek { left: 33.6111%; top: 23.5938%; width: 9.4444%; height: 4.375%; }
+    .pets-map__peek--r { left: 56.9444%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -214,7 +350,34 @@
     .pets-map__place,
     .pets-map__label,
     .pets-map .map-night-tint { transition: none; }
+
+    /* Pupil w oknie: bez wysuwania (i bez machania — gest rigu sam odmawia), tylko krótkie pojawienie */
+    .pets-map__peek .pets-map__peek-pet,
+    .pets-map__peek.is-shown .pets-map__peek-pet,
+    .pets-map__peek.is-sleepy .pets-map__peek-pet,
+    .pets-map__peek.is-sleepy.is-shown .pets-map__peek-pet {
+        translate: 0 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .pets-map__peek.is-sleepy .pets-map__peek-pet,
+    .pets-map__peek.is-sleepy.is-shown .pets-map__peek-pet { translate: 0 8%; }
+    .pets-map__peek:not(.is-shown) .pets-map__peek-pet { opacity: 0; }
+    .pets-map__peek-paw { display: none; }
 }
 
 html.pet-rig-rm .pets-map .map-star,
 html.pet-rig-rm .pets-map__badge { animation: none; }
+
+html.pet-rig-rm .pets-map__peek .pets-map__peek-pet,
+html.pet-rig-rm .pets-map__peek.is-shown .pets-map__peek-pet,
+html.pet-rig-rm .pets-map__peek.is-sleepy .pets-map__peek-pet,
+html.pet-rig-rm .pets-map__peek.is-sleepy.is-shown .pets-map__peek-pet {
+    translate: 0 0;
+    transition: opacity 0.3s ease;
+}
+
+html.pet-rig-rm .pets-map__peek.is-sleepy .pets-map__peek-pet,
+html.pet-rig-rm .pets-map__peek.is-sleepy.is-shown .pets-map__peek-pet { translate: 0 8%; }
+html.pet-rig-rm .pets-map__peek:not(.is-shown) .pets-map__peek-pet { opacity: 0; }
+html.pet-rig-rm .pets-map__peek-paw { display: none; }
