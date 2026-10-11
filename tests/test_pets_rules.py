@@ -25,6 +25,8 @@ def _cfg(**nadpisania):
         egg_hours=168, start_egg_hours=48,
         boost={'hours': 8, 'factor': 2},
         max_stars=5, stage_days={'child': 24, 'adult': 80},
+        actions={'feed': 50, 'play': 50, 'heal': 40, 'heal_cooldown_h': 12, 'allow_below': 80,
+                 'pat_gain': 0.25, 'pat_per_hour': 60, 'wake_penalty': 10, 'awake_minutes': 20},
     )
     bazowe.update(nadpisania)
     return SimpleNamespace(**bazowe)
@@ -308,9 +310,54 @@ def test_prawdziwy_PetConfig_jest_zgodny_z_regulami():
     from modules.pets.config import PetConfig
     cfg = PetConfig()
     for pole in ('decay_hours', 'night', 'health_drop_hours', 'health_regen_hours',
-                 'egg_hours', 'start_egg_hours', 'boost', 'max_stars', 'stage_days'):
+                 'egg_hours', 'start_egg_hours', 'boost', 'max_stars', 'stage_days', 'actions'):
         assert getattr(cfg, pole) == getattr(CFG, pole), pole
     wynik = rules.simulate(PELNY, cfg, PON_08, PON_08 + timedelta(hours=12))
     assert blisko(wynik.state.hunger, 50)
     assert rules.stage(PON_08, PON_08 + timedelta(days=30), cfg) == 'dziecko'
     assert rules.egg_progress_seconds(0, PON_08, None, PON_08 + timedelta(hours=1), cfg) == 3600
+
+
+# --- dostępność akcji ---
+
+def test_action_availability_dzien_pelny():
+    can, reasons = rules.action_availability(PELNY, PON_08, CFG)
+    assert can == {'feed': False, 'play': False, 'wash': False, 'heal': False, 'pat': True, 'wake': False}
+    assert reasons == {'feed': 'najedzony', 'play': 'nie chce się bawić', 'wash': 'czysty',
+                       'heal': 'zdrowy', 'wake': 'nie śpi'}
+
+
+def test_action_availability_progi_80():
+    stan = PetState(hunger=80, fun=80.1, clean=79.9)
+    can, _ = rules.action_availability(stan, PON_08, CFG)
+    assert can['feed'] is True and can['play'] is False and can['wash'] is True
+
+
+def test_action_availability_leczenie():
+    chory = PetState(health=60)
+    can, reasons = rules.action_availability(chory, PON_08, CFG)
+    assert can['heal'] is True
+    can, reasons = rules.action_availability(chory, PON_08, CFG, last_heal_at=PON_08 - timedelta(hours=11))
+    assert can['heal'] is False and reasons['heal'] == 'lek już podany'
+    can, _ = rules.action_availability(chory, PON_08, CFG, last_heal_at=PON_08 - timedelta(hours=12))
+    assert can['heal'] is True
+
+
+def test_action_availability_spiacy_tylko_obudz():
+    can, reasons = rules.action_availability(PetState(hunger=60), PON_23, CFG)
+    assert can == {'feed': False, 'play': False, 'wash': False, 'heal': False, 'pat': False, 'wake': True}
+    assert set(reasons.values()) == {'śpi'}
+
+
+def test_action_availability_obudzony_w_nocy():
+    stan = PetState(hunger=60, awake_until=PON_23 + timedelta(minutes=10))
+    can, _ = rules.action_availability(stan, PON_23, CFG)
+    assert can['feed'] is True and can['wake'] is False
+
+
+def test_gestures_rosna_ze_stadium():
+    g = rules.GESTURES_BY_STAGE
+    assert g['maluch'] == ['jump', 'blink', 'sway']
+    assert g['dziecko'] == ['jump', 'blink', 'sway', 'spin', 'wave']
+    assert g['dorosly'] == ['jump', 'blink', 'sway', 'spin', 'wave', 'dance', 'flip']
+    assert rules.ACTIONS == ('feed', 'play', 'wash', 'heal', 'pat', 'wake')

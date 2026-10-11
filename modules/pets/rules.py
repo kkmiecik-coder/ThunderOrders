@@ -226,3 +226,46 @@ def egg_progress_pct(progress_seconds, egg_hours):
     if calosc <= 0:
         return 100.0
     return round(min(100.0, 100.0 * float(progress_seconds) / calosc), 1)
+
+
+# ---------------------------------------------------------------------------
+# Akcje: dostępność (spec §2.5) i gesty per stadium (§2.7)
+# ---------------------------------------------------------------------------
+
+ACTIONS = ('feed', 'play', 'wash', 'heal', 'pat', 'wake')
+
+GESTURES_BY_STAGE = {
+    'maluch': ['jump', 'blink', 'sway'],
+    'dziecko': ['jump', 'blink', 'sway', 'spin', 'wave'],
+    'dorosly': ['jump', 'blink', 'sway', 'spin', 'wave', 'dance', 'flip'],
+}
+
+
+def action_availability(state, now, cfg, last_heal_at=None):
+    """`can` + `reasons` (po polsku, dla API §3.5). Śpiący: tylko „Obudź"."""
+    can, reasons = {}, {}
+
+    def ustaw(akcja, ok, powod):
+        can[akcja] = ok
+        if not ok:
+            reasons[akcja] = powod
+
+    if is_asleep(state, now, cfg):
+        for akcja in ('feed', 'play', 'wash', 'heal', 'pat'):
+            ustaw(akcja, False, 'śpi')
+        ustaw('wake', True, '')
+        return can, reasons
+
+    prog = float(cfg.actions['allow_below'])
+    ustaw('feed', state.hunger <= prog, 'najedzony')
+    ustaw('play', state.fun <= prog, 'nie chce się bawić')
+    ustaw('wash', state.clean <= prog, 'czysty')
+    if state.health >= SICK_BELOW:
+        ustaw('heal', False, 'zdrowy')
+    elif last_heal_at is not None and now < last_heal_at + timedelta(hours=float(cfg.actions['heal_cooldown_h'])):
+        ustaw('heal', False, 'lek już podany')
+    else:
+        ustaw('heal', True, '')
+    ustaw('pat', True, '')
+    ustaw('wake', False, 'nie śpi')
+    return can, reasons
