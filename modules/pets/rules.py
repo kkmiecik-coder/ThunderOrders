@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 STEP_SECONDS = 300          # krok symulacji: 5 minut
 BARS = ('hunger', 'fun', 'clean')
 HUNGRY_BELOW = 30           # głodny → budzi się w nocy
-SICK_BELOW = 75             # chory → budzi się, dostępne „Wylecz"
+SICK_BELOW = 75             # chory → budzi się, może iść do szpitala (spec v3 §4)
 CRITICAL_BELOW = 25
 HAPPY_FROM = 50             # wszystkie paski ≥ 50 = szczęśliwy; > 50 = regeneracja zdrowia
 
@@ -118,6 +118,7 @@ def rates_per_hour(state, dt, cfg):
 class SimResult:
     state: PetState
     died_at: datetime | None
+    discharged_at: datetime | None = None   # auto-wypis ze szpitala wyliczony w trakcie symulacji (spec v3 §4.1)
 
 
 def _advance(state, tempo, godziny):
@@ -160,6 +161,48 @@ def simulate(state, cfg, from_dt, to_dt):
         dt = dt + timedelta(seconds=krok)
         pozostalo -= krok
     return SimResult(state, None)
+
+
+# ---------------------------------------------------------------------------
+# Szpital (spec v3 §4.1, §4.4) — analitycznie, bez kroków
+# ---------------------------------------------------------------------------
+
+def _tesknota_na_h(state, cfg):
+    gwiazdki = min(max(int(state.stars or 0), 0), int(cfg.max_stars))
+    return (100.0 / float(cfg.decay_hours['fun'])) * (1.0 - 0.1 * gwiazdki)
+
+
+def hospital_state(state, cfg, from_dt, to_dt, healed_at):
+    """Stan w szpitalu w chwili to_dt (wołający pilnuje, by to_dt ≤ auto-wypis).
+
+    Sytość i czystość stoją. Zdrowie rośnie liniowo od stanu w from_dt do 100 w healed_at
+    (healed_at ustalone przy przyjęciu, więc zapis stanu w trakcie pobytu niczego nie przesuwa).
+    Radość stoi do healed_at, potem spada (tęsknota) bez nocnego spowolnienia. Brak odejścia.
+    """
+    state = clamp_state(state)
+    if to_dt <= from_dt:
+        return state
+    if to_dt >= healed_at or healed_at <= from_dt:
+        zdrowie = 100.0
+    else:
+        udzial = (to_dt - from_dt).total_seconds() / (healed_at - from_dt).total_seconds()
+        zdrowie = state.health + (100.0 - state.health) * udzial
+    start_tesknoty = max(from_dt, healed_at)
+    radosc = state.fun
+    if to_dt > start_tesknoty:
+        godziny = (to_dt - start_tesknoty).total_seconds() / 3600.0
+        radosc = state.fun - _tesknota_na_h(state, cfg) * godziny
+    return replace(state, health=_clamp(zdrowie), fun=_clamp(radosc))
+
+
+def hospital_rates(state, cfg, now, healed_at):
+    """Tempo na godzinę w szpitalu (do ekstrapolacji pasków w JS)."""
+    tempo = {'hunger': 0.0, 'fun': 0.0, 'clean': 0.0, 'health': 0.0}
+    if now < healed_at and state.health < 100:
+        tempo['health'] = (100.0 - state.health) / ((healed_at - now).total_seconds() / 3600.0)
+    if now >= healed_at and state.fun > 0:
+        tempo['fun'] = -_tesknota_na_h(state, cfg)
+    return tempo
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +275,12 @@ def egg_progress_pct(progress_seconds, egg_hours):
 # Akcje: dostępność (spec §2.5) i gesty per stadium (§2.7)
 # ---------------------------------------------------------------------------
 
-ACTIONS = ('feed', 'play', 'wash', 'heal', 'pat', 'wake')
+ACTIONS = ('feed', 'play', 'wash', 'pat', 'wake')
+ACTION_VARIANTS = {
+    'feed': ('miska', 'jablko', 'ciastko'),
+    'play': ('pilka', 'wloczka', 'banki'),
+    'wash': ('kapiel', 'prysznic', 'gabka'),
+}
 
 GESTURES_BY_STAGE = {
     'maluch': ['jump', 'blink', 'sway'],
@@ -241,8 +289,8 @@ GESTURES_BY_STAGE = {
 }
 
 
-def action_availability(state, now, cfg, last_heal_at=None):
-    """`can` + `reasons` (po polsku, dla API §3.5). Śpiący: tylko „Obudź"."""
+def action_availability(state, now, cfg, in_hospital=False):
+    """`can` + `reasons` (po polsku). Śpiący: tylko „Obudź”. W szpitalu: tylko pat. `admit` = przyjęcie do szpitala."""
     can, reasons = {}, {}
 
     def ustaw(akcja, ok, powod):
@@ -250,22 +298,26 @@ def action_availability(state, now, cfg, last_heal_at=None):
         if not ok:
             reasons[akcja] = powod
 
+    if in_hospital:
+        for akcja in ('feed', 'play', 'wash'):
+            ustaw(akcja, False, 'w szpitalu')
+        ustaw('pat', True, '')
+        ustaw('wake', False, 'nie śpi')
+        ustaw('admit', False, 'już w szpitalu')
+        return can, reasons
+
     if is_asleep(state, now, cfg):
-        for akcja in ('feed', 'play', 'wash', 'heal', 'pat'):
+        for akcja in ('feed', 'play', 'wash', 'pat'):
             ustaw(akcja, False, 'śpi')
         ustaw('wake', True, '')
+        ustaw('admit', False, 'śpi')
         return can, reasons
 
     prog = float(cfg.actions['allow_below'])
     ustaw('feed', state.hunger <= prog, 'najedzony')
     ustaw('play', state.fun <= prog, 'nie chce się bawić')
     ustaw('wash', state.clean <= prog, 'czysty')
-    if state.health >= SICK_BELOW:
-        ustaw('heal', False, 'zdrowy')
-    elif last_heal_at is not None and now < last_heal_at + timedelta(hours=float(cfg.actions['heal_cooldown_h'])):
-        ustaw('heal', False, 'lek już podany')
-    else:
-        ustaw('heal', True, '')
     ustaw('pat', True, '')
     ustaw('wake', False, 'nie śpi')
+    ustaw('admit', state.health < SICK_BELOW, 'zdrowy')
     return can, reasons

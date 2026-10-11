@@ -25,6 +25,7 @@ def _cfg(**nadpisania):
         egg_hours=168, start_egg_hours=48,
         boost={'hours': 8, 'factor': 2},
         max_stars=5, stage_days={'child': 24, 'adult': 80},
+        hospital={'hours': 8, 'floor': 60, 'wait_hours': 24},
         actions={'feed': 50, 'play': 50, 'heal': 40, 'heal_cooldown_h': 12, 'allow_below': 80,
                  'pat_gain': 0.25, 'pat_per_hour': 60, 'wake_penalty': 10, 'awake_minutes': 20},
     )
@@ -310,7 +311,7 @@ def test_prawdziwy_PetConfig_jest_zgodny_z_regulami():
     from modules.pets.config import PetConfig
     cfg = PetConfig()
     for pole in ('decay_hours', 'night', 'health_drop_hours', 'health_regen_hours',
-                 'egg_hours', 'start_egg_hours', 'boost', 'max_stars', 'stage_days', 'actions'):
+                 'egg_hours', 'start_egg_hours', 'boost', 'max_stars', 'stage_days', 'actions', 'hospital'):
         assert getattr(cfg, pole) == getattr(CFG, pole), pole
     wynik = rules.simulate(PELNY, cfg, PON_08, PON_08 + timedelta(hours=12))
     assert blisko(wynik.state.hunger, 50)
@@ -322,9 +323,9 @@ def test_prawdziwy_PetConfig_jest_zgodny_z_regulami():
 
 def test_action_availability_dzien_pelny():
     can, reasons = rules.action_availability(PELNY, PON_08, CFG)
-    assert can == {'feed': False, 'play': False, 'wash': False, 'heal': False, 'pat': True, 'wake': False}
+    assert can == {'feed': False, 'play': False, 'wash': False, 'pat': True, 'wake': False, 'admit': False}
     assert reasons == {'feed': 'najedzony', 'play': 'nie chce się bawić', 'wash': 'czysty',
-                       'heal': 'zdrowy', 'wake': 'nie śpi'}
+                       'wake': 'nie śpi', 'admit': 'zdrowy'}
 
 
 def test_action_availability_progi_80():
@@ -333,20 +334,68 @@ def test_action_availability_progi_80():
     assert can['feed'] is True and can['play'] is False and can['wash'] is True
 
 
-def test_action_availability_leczenie():
-    chory = PetState(health=60)
-    can, reasons = rules.action_availability(chory, PON_08, CFG)
-    assert can['heal'] is True
-    can, reasons = rules.action_availability(chory, PON_08, CFG, last_heal_at=PON_08 - timedelta(hours=11))
-    assert can['heal'] is False and reasons['heal'] == 'lek już podany'
-    can, _ = rules.action_availability(chory, PON_08, CFG, last_heal_at=PON_08 - timedelta(hours=12))
-    assert can['heal'] is True
+def test_dostepnosc_chory_moze_do_szpitala():
+    chory = PetState(hunger=40, fun=40, clean=40, health=60)
+    can, _ = rules.action_availability(chory, PON_08, CFG)
+    assert can['admit'] is True and can['feed'] is True
+
+
+def test_dostepnosc_w_szpitalu_tylko_pat():
+    stan = PetState(hunger=60, fun=60, clean=60, health=70)
+    can, reasons = rules.action_availability(stan, PON_08, CFG, in_hospital=True)
+    assert can == {'feed': False, 'play': False, 'wash': False, 'pat': True, 'wake': False, 'admit': False}
+    assert reasons['feed'] == 'w szpitalu' and reasons['admit'] == 'już w szpitalu'
 
 
 def test_action_availability_spiacy_tylko_obudz():
     can, reasons = rules.action_availability(PetState(hunger=60), PON_23, CFG)
-    assert can == {'feed': False, 'play': False, 'wash': False, 'heal': False, 'pat': False, 'wake': True}
+    assert can == {'feed': False, 'play': False, 'wash': False, 'pat': False, 'wake': True, 'admit': False}
     assert set(reasons.values()) == {'śpi'}
+
+
+def test_akcje_i_warianty():
+    assert rules.ACTIONS == ('feed', 'play', 'wash', 'pat', 'wake')
+    assert rules.ACTION_VARIANTS == {'feed': ('miska', 'jablko', 'ciastko'), 'play': ('pilka', 'wloczka', 'banki'),
+                                     'wash': ('kapiel', 'prysznic', 'gabka')}
+
+
+def test_szpital_zdrowie_liniowo_do_healed_at_paski_stoja():
+    stan = PetState(hunger=60, fun=60, clean=60, health=40)
+    healed = PON_08 + timedelta(hours=6)
+    po3h = rules.hospital_state(stan, CFG, PON_08, PON_08 + timedelta(hours=3), healed)
+    assert round(po3h.health, 6) == 70.0 and (po3h.hunger, po3h.fun, po3h.clean) == (60.0, 60.0, 60.0)
+    po6h = rules.hospital_state(stan, CFG, PON_08, healed, healed)
+    assert po6h.health == 100.0 and po6h.fun == 60.0
+
+
+def test_szpital_tesknota_po_wyzdrowieniu_bez_nocy():
+    stan = PetState(hunger=60, fun=60, clean=60, health=40, stars=0)
+    healed = PON_08 + timedelta(hours=6)
+    # 15 h po wyzdrowieniu (przez noc — w szpitalu bez spowolnienia): 60 − 15 × 100/30 = 10
+    pozniej = rules.hospital_state(stan, CFG, PON_08, healed + timedelta(hours=15), healed)
+    assert round(pozniej.fun, 6) == 10.0 and pozniej.health == 100.0 and pozniej.hunger == 60.0
+    bardzo = rules.hospital_state(stan, CFG, PON_08, healed + timedelta(hours=40), healed)
+    assert bardzo.fun == 0.0 and bardzo.health == 100.0            # w szpitalu zdrowie nie spada
+
+
+def test_szpital_tesknota_wolniej_z_gwiazdkami():
+    stan = PetState(hunger=60, fun=60, clean=60, health=100, stars=2)
+    po10h = rules.hospital_state(stan, CFG, PON_08, PON_08 + timedelta(hours=10), PON_08)
+    assert round(po10h.fun, 6) == round(60 - 10 * (100 / 30) * 0.8, 6)
+
+
+def test_szpital_czas_wstecz_bez_zmian():
+    stan = PetState(hunger=60, fun=60, clean=60, health=40)
+    wynik = rules.hospital_state(stan, CFG, PON_08, PON_08 - timedelta(hours=1), PON_08 + timedelta(hours=6))
+    assert wynik == rules.clamp_state(stan)
+
+
+def test_szpital_tempa():
+    stan = PetState(hunger=60, fun=60, clean=60, health=40)
+    t = rules.hospital_rates(stan, CFG, PON_08, PON_08 + timedelta(hours=6))
+    assert t == {'hunger': 0.0, 'fun': 0.0, 'clean': 0.0, 'health': 10.0}
+    po = rules.hospital_rates(PetState(fun=50, health=100), CFG, PON_08 + timedelta(hours=7), PON_08 + timedelta(hours=6))
+    assert po['health'] == 0.0 and round(po['fun'], 4) == round(-100 / 30, 4)
 
 
 def test_action_availability_obudzony_w_nocy():
@@ -360,4 +409,3 @@ def test_gestures_rosna_ze_stadium():
     assert g['maluch'] == ['jump', 'blink', 'sway']
     assert g['dziecko'] == ['jump', 'blink', 'sway', 'spin', 'wave']
     assert g['dorosly'] == ['jump', 'blink', 'sway', 'spin', 'wave', 'dance', 'flip']
-    assert rules.ACTIONS == ('feed', 'play', 'wash', 'heal', 'pat', 'wake')
