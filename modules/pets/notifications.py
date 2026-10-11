@@ -17,7 +17,7 @@ from extensions import db
 from modules.pets import rules
 from modules.pets.config import PetConfig
 from modules.pets.common import (
-    egg_progress, lock_profile, next_monthly_at, now_or, persist_death, simulate_pet,
+    add_event, egg_progress, lock_profile, next_monthly_at, now_or, persist_death, simulate_pet,
 )
 from modules.pets.models import PRUNABLE_EVENT_TYPES, Pet, PetEvent, PetProfile
 from modules.pets.species import SPECIES_BY_SLUG
@@ -161,6 +161,7 @@ def collect_for_user(user, now, cfg):
             poziom = level_of(sim.state)
             if poziom > int(pet.notify_level or 0):
                 pet.notify_level = poziom
+                add_event(user.id, 'alert', now, pet_id=pet.id, value=poziom)   # raport: czas reakcji na ostrzeżenie
                 basket['alerts'].append((pet, poziom))
             elif poziom == 0 and pet.notify_level:
                 pet.notify_level = 0          # koniec epizodu: żaden pasek na zerze, zdrowie ≥ 75
