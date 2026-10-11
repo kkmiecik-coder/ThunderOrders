@@ -19,6 +19,7 @@
 (function () {
     'use strict';
 
+    if (window.PetRig) return;   // plik ładuje się na kilku stronach (include towarzysza + skrypty strony)
     var STAGES = ['maluch', 'dziecko', 'dorosly'];
     var SIZES = ['card', 'mini', 'companion'];
     var MOOD_STATE = {

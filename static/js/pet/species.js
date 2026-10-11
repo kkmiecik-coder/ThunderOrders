@@ -21,6 +21,7 @@
 (function () {
     'use strict';
 
+    if (window.PetSpecies) return;   // plik ładuje się na kilku stronach (include towarzysza + skrypty strony)
     // Lustro względem osi x=100 (uszy, łapki, policzki itp.).
     function sym(s) {
         return s + '<g transform="matrix(-1 0 0 1 200 0)">' + s + '</g>';
