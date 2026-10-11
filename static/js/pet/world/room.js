@@ -66,8 +66,9 @@
     // Pupile na podłodze stoją najdalej na głębokości 0,26 — dalej, pod ścianą, stoją meble (≈ 0,27–0,3).
     var SPOTS = {
         bowl: [[0.24, 0.05], [0.31, 0.11], [0.2, 0.15], [0.36, 0.04]],
-        // koszyk, poduszka, (tu dwa miejsca na kanapie — SLEEP_SOFA_AT), dalej podłoga przy koszyku
-        basket: [[0.87, 0.08], [0.72, 0.05], [0.79, 0.16], [0.64, 0.12]],
+        // koszyk, poduszka (x ze środka legowiska w DOM — w wąskim pokoju są szersze), (tu dwa miejsca na
+        // kanapie — SLEEP_SOFA_AT), dalej podłoga przy koszyku
+        basket: [[0.87, 0.08, 'basket'], [0.72, 0.05, 'cushion'], [0.79, 0.16], [0.64, 0.12]],
         corner: [[0.07, 0.22], [0.15, 0.24], [0.1, 0.15], [0.22, 0.2]],
         toys: [[0.37, 0.23], [0.56, 0.23], [0.46, 0.17], [0.3, 0.17]],
         rug: [[0.44, 0.09], [0.56, 0.05], [0.5, 0.17], [0.38, 0.15]]
@@ -550,10 +551,19 @@
          * i poduszce — kanapa), potem siatka obszaru miejsca (najbliżej pierwszego slotu), potem cała podłoga;
          * bez wolnego — punkt z największym dystansem. Zwraca cel dla moveTo.
          */
+        /** Środek rzeczy w scenie (ułamek szerokości pokoju) — legowiska są w wąskim pokoju szersze. */
+        function centerX(name, fallback) {
+            var thing = el.querySelector('.pet-room__' + name);
+            var b = el.getBoundingClientRect();
+            var r = thing ? thing.getBoundingClientRect() : null;
+            if (!r || !r.width || !b.width) return fallback;
+            return (r.left - b.left + r.width / 2) / b.width;
+        }
+
         function freePlaceSpot(entry, placeName, only) {
             var box = petBox();
             var obs = obstacles(entry, only);
-            var slots = SPOTS[placeName];
+            var slots = SPOTS[placeName].map(function (s) { return s[2] ? [centerX(s[2], s[0]), s[1]] : s; });
             var anchor = slots[0];
             var area = grid(AREAS[placeName], 11, 7).sort(function (a, b) {
                 return Math.hypot(a[0] - anchor[0], a[1] - anchor[1]) - Math.hypot(b[0] - anchor[0], b[1] - anchor[1]);
