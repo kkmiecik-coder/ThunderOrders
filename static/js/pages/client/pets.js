@@ -1,11 +1,14 @@
 /**
  * Moje pupile — świat (spec v3 §3, §9): router scen i wspólne akcje.
  *
- * Sceny: mapa (/client/pupile), domek, szpital, warsztat, ogród (/client/pupile/<scena>). Każda scena to
- * osobny plik w static/js/pet/world/, który rejestruje się w window.PetsWorld.scenes[nazwa] =
- * { title, lead, create(ctx, host) -> {enter(params), leave(), render(state), setParams(params)?, tick()?} }.
+ * Sceny (spec v3.1 §4.1): mapa (/client/pupile), domek, szpital (hol), inkubatorium (/szpital/inkubatorium),
+ * izba (/szpital/izba-przyjec), warsztat, ogród. Każda scena to osobny plik w static/js/pet/world/, który
+ * rejestruje się w window.PetsWorld.scenes[klucz] =
+ * { title, create(ctx, host) -> {enter(params), leave(), render(state), setParams(params)?, tick()?} }.
+ * Znany klucz bez zarejestrowanego modułu = pusta scena (bez błędu, bez powrotu na mapę).
  * Ten plik ładuje się PO plikach scen (home.html), buduje wspólny `ctx` i przełącza sceny przez
- * history.pushState / popstate — bez przeładowania strony.
+ * history.pushState / popstate — bez przeładowania strony. Pigułka (h1 + link do rodzica) zamiast nagłówka;
+ * okna kontekstowe scen: window.PetsSceneWindow (static/js/pet/world/scene-window.js).
  *
  * Korzysta z window.PetsApi i window.PetsState z static/js/pet/pets-core.js (kontrakt bez zmian).
  *
@@ -33,7 +36,19 @@
     var PAT_DEBOUNCE_MS = 2000;
     var PAT_MAX = 50;
     var ZOOM_MS = 340;
-    var SCENE_ORDER = ['mapa', 'domek', 'szpital', 'warsztat', 'ogrod'];
+    // Spec v3.1 §4.1 / plan „Global Constraints”: klucze scen, adresy (jak trasy Flask), rodzic w pigułce
+    var SCENE_ORDER = ['mapa', 'domek', 'szpital', 'inkubatorium', 'izba', 'warsztat', 'ogrod'];
+    var SCENE_PATH = {
+        mapa: '', domek: '/domek', szpital: '/szpital', inkubatorium: '/szpital/inkubatorium',
+        izba: '/szpital/izba-przyjec', warsztat: '/warsztat', ogrod: '/ogrod'
+    };
+    var SCENE_TITLE = {
+        mapa: 'Moje pupile', domek: 'Domek', szpital: 'Szpital', inkubatorium: 'Inkubatorium',
+        izba: 'Izba przyjęć', warsztat: 'Warsztat', ogrod: 'Ogród wspomnień'
+    };
+    var SCENE_PARENT = { domek: 'mapa', szpital: 'mapa', warsztat: 'mapa', ogrod: 'mapa', inkubatorium: 'szpital', izba: 'szpital' };
+    var PARENT_LABEL = { mapa: 'Świat', szpital: 'Szpital' };
+    var QUERY_PARAMS = ['pupil', 'jajko'];      // głębokie linki: domek/izba ?pupil=ID, inkubatorium ?jajko=ID
 
     var World = window.PetsWorld = window.PetsWorld || {};
     var SCENES = World.scenes = World.scenes || {};
@@ -335,8 +350,9 @@
     var base = (PetsApi.base || '/client/pupile/api').replace(/\/api\/?$/, '') || '/client/pupile';
     var header = {
         bar: root.querySelector('[data-scene-bar]'),
+        back: root.querySelector('[data-scene-back]'),
+        backLabel: root.querySelector('[data-scene-back-label]'),
         title: root.querySelector('[data-scene-title]'),
-        lead: root.querySelector('[data-scene-lead]'),
         night: root.querySelector('[data-pets-night]')
     };
     var instances = {};
@@ -344,50 +360,86 @@
     var navigating = false;
     var baseTitle = document.title;
 
-    function href(name, params) {
-        var url = base + (name && name !== 'mapa' ? '/' + name : '');
-        if (params && params.pupil != null) url += '?pupil=' + encodeURIComponent(params.pupil);
-        return url;
+    function hostOf(name) {
+        return SCENE_ORDER.indexOf(name) >= 0 ? root.querySelector('[data-scene-view="' + name + '"]') : null;
     }
 
+    function href(name, params) {
+        var url = base + (SCENE_PATH[name] || '');
+        var query = [];
+        QUERY_PARAMS.forEach(function (key) {
+            if (params && params[key] != null) query.push(key + '=' + encodeURIComponent(params[key]));
+        });
+        return query.length ? url + '?' + query.join('&') : url;
+    }
+
+    /** Adres → {name, params}; ścieżka spoza znanych = mapa, parametr spoza liczb dodatnich = brak parametru. */
     function parseLocation() {
         var path = location.pathname.replace(/\/+$/, '');
         var name = 'mapa';
         if (path.indexOf(base) === 0) {
-            var rest = path.slice(base.length).replace(/^\//, '');
-            if (SCENE_ORDER.indexOf(rest) > 0) name = rest;
+            var rest = path.slice(base.length);
+            SCENE_ORDER.forEach(function (key) { if (SCENE_PATH[key] === rest) name = key; });
         }
         var params = {};
         try {
-            var id = parseInt(new URLSearchParams(location.search).get('pupil'), 10);
-            if (id > 0) params.pupil = id;
-        } catch (e) { /* stare przeglądarki — bez parametru */ }
+            var search = new URLSearchParams(location.search);
+            QUERY_PARAMS.forEach(function (key) {
+                var raw = search.get(key);
+                var id = /^\d+$/.test(raw || '') ? parseInt(raw, 10) : 0;
+                if (id > 0) params[key] = id;
+            });
+        } catch (e) { /* stare przeglądarki — bez parametrów */ }
         return { name: name, params: params };
+    }
+
+    /**
+     * Zgodność wstecz (spec v3.1 §4.1): stare `/szpital?pupil=ID` (wysłane pushe, stare karty) to dziś
+     * Izba przyjęć — adres podmieniany przez replaceState, bez nowego wpisu historii.
+     */
+    function canonical(loc) {
+        if (loc.name === 'szpital' && loc.params.pupil) {
+            loc = { name: 'izba', params: { pupil: loc.params.pupil } };
+            try { history.replaceState({ petsScene: loc.name }, '', href(loc.name, loc.params)); } catch (e) { /* bez historii */ }
+        }
+        return loc;
     }
 
     function instance(name) {
         if (instances[name]) return instances[name];
         var def = SCENES[name];
-        var host = root.querySelector('[data-scene-view="' + name + '"]');
+        var host = hostOf(name);
         if (!def || !host) return null;
         instances[name] = { def: def, host: host, scene: def.create(ctx, host) };
         return instances[name];
     }
 
+    function titleOf(name) {
+        var def = SCENES[name];
+        return (def && def.title) || SCENE_TITLE[name] || SCENE_TITLE.mapa;
+    }
+
+    /** Pigułka: link powrotu do rodzica (poziom 1 → mapa „Świat”, sale → hol „Szpital”) + nazwa miejsca (h1). */
     function updateHeader(name) {
-        var def = SCENES[name] || {};
-        var isMap = name === 'mapa';
-        var back = root.querySelector('[data-scene-back]');
-        if (back) back.hidden = isMap;
-        if (header.title) header.title.textContent = isMap ? 'Moje pupile' : (def.title || 'Moje pupile');
-        if (header.lead) header.lead.textContent = def.lead || '';
+        var parent = SCENE_PARENT[name] || null;
+        if (header.back) {
+            header.back.hidden = !parent;
+            if (parent) {
+                header.back.href = href(parent);
+                header.back.setAttribute('data-scene-link', parent);
+                if (header.backLabel) header.backLabel.textContent = PARENT_LABEL[parent] || titleOf(parent);
+                header.back.setAttribute('aria-label', 'Wróć: ' + (PARENT_LABEL[parent] || titleOf(parent)));
+            }
+        }
+        if (header.title) header.title.textContent = titleOf(name);
         root.setAttribute('data-scene', name);
-        document.title = isMap ? baseTitle : (def.title || '') + ' · ' + baseTitle;
+        document.title = name === 'mapa' ? baseTitle : titleOf(name) + ' · ' + baseTitle;
     }
 
     function show(name, params, opts) {
         opts = opts || {};
-        if (!SCENES[name] || !root.querySelector('[data-scene-view="' + name + '"]')) name = 'mapa';
+        // Znany klucz bez modułu sceny (np. sale szpitala przed ich paczką) = pusta scena, nie mapa
+        if (!hostOf(name)) name = 'mapa';
         params = params || {};
         if (current.name === name) {
             current.params = params;
@@ -396,34 +448,41 @@
             return;
         }
         flushAllPats();
-        var prev = current.name ? instances[current.name] : null;
+        var prevName = current.name;
+        var prev = prevName ? instances[prevName] : null;
         // Najpierw nowa scena jako bieżąca: leave() starej nie może już ruszać adresu (setQuery)
         current = { name: name, params: params };
-        if (prev) {
-            if (prev.scene.leave) prev.scene.leave();
-            prev.host.hidden = true;
-            prev.host.classList.remove('is-entering');
+        if (prev && prev.scene.leave) prev.scene.leave();
+        var prevHost = prevName ? hostOf(prevName) : null;
+        if (prevHost) {
+            prevHost.hidden = true;
+            prevHost.classList.remove('is-entering');
         }
+        var host = hostOf(name);
         var inst = instance(name);
-        if (!inst) return;
         updateHeader(name);
-        inst.host.hidden = false;
+        host.hidden = false;
         if (!reducedMotion() && opts.animate !== false) {
-            inst.host.classList.remove('is-entering');
-            void inst.host.offsetWidth;
-            inst.host.classList.add('is-entering');
+            host.classList.remove('is-entering');
+            void host.offsetWidth;
+            host.classList.add('is-entering');
         }
-        // Na górę przed render() — scena może sama przewinąć (łóżko z ?pupil=, panel pupila)
         if (opts.scroll !== false) window.scrollTo(0, 0);
+        if (!inst) {
+            if (opts.focus && header.title) focusTitle();
+            return;
+        }
         inst.scene.enter(params);
         // enter/render mogą same przekierować na inną scenę (np. pupil w szpitalu) — wtedy koniec
         if (current.name !== name) return;
         if (PetsState.current) inst.scene.render(PetsState.current);
         if (current.name !== name) return;
-        // Fokus na nagłówek sceny — chyba że scena sama go już ustawiła (np. otwarty panel pupila)
-        if (opts.focus && header.title && !inst.host.contains(document.activeElement)) {
-            try { header.title.focus({ preventScroll: true }); } catch (e) { header.title.focus(); }
-        }
+        // Fokus na nagłówek sceny — chyba że scena sama go już ustawiła (np. otwarte okno pupila)
+        if (opts.focus && header.title && !inst.host.contains(document.activeElement)) focusTitle();
+    }
+
+    function focusTitle() {
+        try { header.title.focus({ preventScroll: true }); } catch (e) { header.title.focus(); }
     }
 
     /** Przejście do sceny: pushState (albo replaceState) + przełączenie; z mapy krótki zoom w stronę miejsca. */
@@ -461,12 +520,15 @@
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
         var params = {};
-        if (link.dataset.pupil) params.pupil = parseInt(link.dataset.pupil, 10);
+        QUERY_PARAMS.forEach(function (key) {
+            var id = parseInt(link.dataset[key], 10);
+            if (id > 0) params[key] = id;
+        });
         go(link.dataset.sceneLink, params);
     });
 
     window.addEventListener('popstate', function () {
-        var loc = parseLocation();
+        var loc = canonical(parseLocation());
         show(loc.name, loc.params, { focus: true, scroll: false });
     });
 
@@ -501,7 +563,7 @@
     };
 
     // ------------------------------------------------------------------------------------
-    // Nagłówek: noc
+    // Pigułka nocy (spec v3.1 §3.3): krótko „Noc — pupile śpią do 7:00”, szczegóły w podpowiedzi
     // ------------------------------------------------------------------------------------
 
     function renderNight(state) {
@@ -511,10 +573,12 @@
         if (night.is_night) {
             var factor = state.config && state.config.night_factor;
             var slower = factor > 0 && factor < 1 ? Math.round(1 / factor) + '× wolniej' : 'wolniej';
-            var text = 'Jest noc (' + night.start + ':00–' + night.end + ':00) — pupile śpią, a ich ' +
-                'potrzeby rosną ' + slower + '. Głodny albo chory pupil nie zaśnie, dopóki się nim nie zajmiesz.';
+            var text = 'Noc — pupile śpią do ' + night.end + ':00';
+            var more = 'Noc trwa od ' + night.start + ':00 do ' + night.end + ':00 — pupile śpią, a ich potrzeby rosną ' +
+                slower + '. Głodny albo chory pupil nie zaśnie, dopóki się nim nie zajmiesz.';
             // role="status": każde przypisanie (co odświeżenie stanu) czytnik ogłosiłby od nowa
             if (header.night.textContent !== text) header.night.textContent = text;
+            if (header.night.title !== more) header.night.title = more;
         }
     }
 
@@ -583,5 +647,6 @@
     var serverScene = root.dataset.scene;
     if (SCENE_ORDER.indexOf(serverScene) >= 0 && serverScene !== start.name) start.name = serverScene;
     try { history.replaceState({ petsScene: start.name }, '', location.href); } catch (e) { /* bez historii */ }
+    start = canonical(start);
     show(start.name, start.params, { animate: false, scroll: false });
 })();
