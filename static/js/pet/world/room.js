@@ -161,6 +161,21 @@
 
         function width() { return el.clientWidth || 600; }
         function height() { return el.clientHeight || 300; }
+        // Wąski pokój (≤ 640 px szerokości — telefon albo domek z panelem z boku) jest wyższy i ma wyższą
+        // podłogę (.is-narrow w pet-room.css) — głębię spaceru rozciągamy na nią
+        var narrow = false;
+        function yScale() { return narrow ? 1.45 : 1; }
+        function checkNarrow() {
+            if (destroyed) return;
+            var n = !compact && width() <= 640;
+            if (n === narrow) return;
+            narrow = n;
+            el.classList.toggle('is-narrow', n);
+            order.forEach(function (id) {
+                var e = entries[id];
+                if (e && e.x != null) place(e, e.x, e.y, true);
+            });
+        }
 
         function place(entry, x, y, instant) {
             var dist = Math.hypot((x - entry.x) * width(), (y - entry.y) * height());
@@ -172,7 +187,7 @@
             entry.x = x;
             entry.y = y;
             entry.el.style.left = (x * 100).toFixed(2) + '%';
-            entry.el.style.bottom = (y * 100).toFixed(2) + '%';
+            entry.el.style.bottom = (y * yScale() * 100).toFixed(2) + '%';
             entry.el.style.zIndex = String(100 - Math.round(y * 100) + (entry.pet.id === focusedId ? 50 : 0));
             clearTimeout(entry.arrive);
             if (moving) {
@@ -355,6 +370,7 @@
         room.update = function (pets, o) {
             if (destroyed) return room;
             o = o || {};
+            var prevMain = mainId;
             if (o.night != null) night = !!o.night;
             if (o.mainPetId !== undefined) mainId = o.mainPetId;
             el.classList.toggle('is-night', night);
@@ -380,6 +396,7 @@
             });
             var nextOrder = list.map(function (p) { return p.id; });
             if (nextOrder.join(',') !== order.join(',')) relayout = true;
+            if (compact && mainId !== prevMain) relayout = true;     // nowy główny pupil widgetu
             order = nextOrder;
             el.classList.toggle('has-focus', focusedId != null && !!entries[focusedId]);
             if (relayout) layout(false);
@@ -431,6 +448,8 @@
             if (destroyed) return;
             Object.keys(entries).forEach(destroyEntry);
             destroyed = true;
+            if (resizeObs) resizeObs.disconnect();
+            else window.removeEventListener('resize', checkNarrow);
             if (el.parentNode) el.parentNode.removeChild(el);
         };
 
@@ -442,6 +461,14 @@
         });
 
         container.appendChild(el);
+        var resizeObs = null;
+        if (window.ResizeObserver) {
+            resizeObs = new ResizeObserver(checkNarrow);
+            resizeObs.observe(el);
+        } else {
+            window.addEventListener('resize', checkNarrow);
+        }
+        checkNarrow();
         room.update(opts.pets || [], { night: night, mainPetId: mainId });
         layout(true);
         return room;

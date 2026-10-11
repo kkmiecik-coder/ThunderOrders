@@ -412,6 +412,8 @@
             void inst.host.offsetWidth;
             inst.host.classList.add('is-entering');
         }
+        // Na górę przed render() — scena może sama przewinąć (łóżko z ?pupil=, panel pupila)
+        if (opts.scroll !== false) window.scrollTo(0, 0);
         inst.scene.enter(params);
         // enter/render mogą same przekierować na inną scenę (np. pupil w szpitalu) — wtedy koniec
         if (current.name !== name) return;
@@ -421,7 +423,6 @@
         if (opts.focus && header.title && !inst.host.contains(document.activeElement)) {
             try { header.title.focus({ preventScroll: true }); } catch (e) { header.title.focus(); }
         }
-        if (opts.scroll !== false) window.scrollTo(0, 0);
     }
 
     /** Przejście do sceny: pushState (albo replaceState) + przełączenie; z mapy krótki zoom w stronę miejsca. */

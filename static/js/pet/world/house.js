@@ -148,10 +148,12 @@
             wrap.classList.add('has-panel');
             ctx.setQuery({ pupil: id });
             if (!isDesktop() && room) {
-                // Arkusz zasłania dół ekranu — pokój z pupilem ma być nad nim
-                var top = room.el.getBoundingClientRect().top + window.pageYOffset - 12;
-                if (Math.abs(window.pageYOffset - top) > 4) {
-                    window.scrollTo({ top: Math.max(0, top), behavior: u.reducedMotion() ? 'auto' : 'smooth' });
+                // Arkusz zasłania dół ekranu — dół pokoju (tam stoi wybrany pupil) ma wypaść tuż nad nim.
+                // offsetHeight, nie getBoundingClientRect: arkusz właśnie wjeżdża (transform)
+                var sheetTop = window.innerHeight - sheet.offsetHeight;
+                var target = window.pageYOffset + room.el.getBoundingClientRect().bottom - sheetTop + 8;
+                if (Math.abs(window.pageYOffset - target) > 4) {
+                    window.scrollTo({ top: Math.max(0, target), behavior: u.reducedMotion() ? 'auto' : 'smooth' });
                 }
             }
             if (o.focusPanel) card.focus();

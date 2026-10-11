@@ -164,6 +164,11 @@
             u.setBusy(btn, true);
             ctx.send('/' + parseInt(btn.dataset.petId, 10) + '/swiatelko', {}).then(function () {
                 if (window.Haptics) window.Haptics.tap();
+                // Przycisk zniknął razem z przebudowanym nagrobkiem — fokus nie może spaść na <body>
+                if (!document.body.contains(btn)) {
+                    graveTitle.setAttribute('tabindex', '-1');
+                    try { graveTitle.focus({ preventScroll: true }); } catch (err) { graveTitle.focus(); }
+                }
             }, function () { u.setBusy(btn, false); });
         });
 

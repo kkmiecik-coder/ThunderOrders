@@ -5,7 +5,7 @@
    ================================================ */
 
 .pet-room {
-    --pet-w: clamp(64px, 13%, 128px);
+    --pet-w: clamp(72px, 15%, 150px);
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 8;
@@ -257,24 +257,27 @@
     color: #ffffff;
 }
 
-/* === Telefon === */
+/* === Wąski pokój (≤ 640 px szerokości: telefon albo domek z panelem z boku) — klasa .is-narrow z room.js,
+   bo o układzie decyduje szerokość pokoju, nie okna. Wyższa podłoga, więksi pupile. === */
+.pet-room.is-narrow {
+    --pet-w: 19%;
+    aspect-ratio: 4 / 3.4;
+    min-height: 0;
+    border-radius: 18px;
+}
+
+.pet-room.is-narrow .pet-room__wall { bottom: 46%; }
+.pet-room.is-narrow .pet-room__floor { height: 46%; }
+.pet-room.is-narrow .pet-room__window { width: 32%; top: 7%; }
+.pet-room.is-narrow .pet-room__picture { width: 10%; left: 8%; top: 12%; }
+.pet-room.is-narrow .pet-room__lamp { width: 7%; bottom: 43%; }
+.pet-room.is-narrow .pet-room__bowls { width: 22%; }
+.pet-room.is-narrow .pet-room__basket { width: 27%; }
+.pet-room.is-narrow .pet-room__cushion { width: 15%; right: 27%; }
+.pet-room.is-narrow .pet-room__toys { width: 11%; bottom: 35%; }
+.pet-room.is-narrow .pet-room__rug { width: 62%; height: 24%; }
+
 @media (max-width: 640px) {
-    .pet-room {
-        --pet-w: 19%;
-        aspect-ratio: 4 / 3.4;
-        min-height: 0;
-        border-radius: 18px;
-    }
-
-    .pet-room__window { width: 30%; }
-    .pet-room__picture { width: 10%; left: 9%; }
-    .pet-room__lamp { width: 7%; }
-    .pet-room__bowls { width: 22%; }
-    .pet-room__basket { width: 26%; }
-    .pet-room__cushion { width: 15%; right: 26%; }
-    .pet-room__toys { width: 11%; }
-    .pet-room__rug { width: 60%; }
-
     .pet-room--compact { aspect-ratio: 12 / 6; }
     .pet-room--compact .pet-room__window { width: 22%; }
 }

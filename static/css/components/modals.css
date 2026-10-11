@@ -5698,8 +5698,8 @@ html.pet-hatch-open body { overflow: hidden; }
     right: 0;
     bottom: 0;
     z-index: 1001;
-    max-height: 62vh;
-    max-height: 62dvh;
+    max-height: 56vh;
+    max-height: 56dvh;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 0 18px calc(18px + env(safe-area-inset-bottom, 0px));

@@ -220,6 +220,9 @@
 
 /* Link w treści (np. „Przejdź do szpitala”) */
 .pets-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     color: #9D174D;
     font-weight: 700;
     text-decoration: underline;

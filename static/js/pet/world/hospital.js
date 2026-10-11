@@ -159,6 +159,11 @@
                 }
                 view.actions.appendChild(btn);
                 if (hadFocus && !btn.disabled) btn.focus();
+                else if (hadFocus) {
+                    // „Ogrzej” zgasł po ogrzaniu — fokus na gniazdko, nie na <body>
+                    view.el.setAttribute('tabindex', '-1');
+                    view.el.focus({ preventScroll: true });
+                }
             }
             tickEgg(view);
         }
@@ -467,6 +472,10 @@
                         try { window.dispatchEvent(new Event('push-force-banner')); } catch (err) { /* stare przeglądarki */ }
                     }
                     u.toast('Jajko odebrane! Ogrzewaj je przy każdej wizycie, a szybciej się wykluje.', 'success');
+                    if (!document.body.contains(btn)) {
+                        incTitle.setAttribute('tabindex', '-1');
+                        try { incTitle.focus({ preventScroll: true }); } catch (err) { incTitle.focus(); }
+                    }
                 }, function () { u.setBusy(btn, false); });
             } else if (action === 'warm') {
                 u.setBusy(btn, true);

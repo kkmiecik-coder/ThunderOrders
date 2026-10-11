@@ -67,7 +67,7 @@
 
 /* Telefon/tablet: miejsce pod arkuszem, żeby pokój dało się przewinąć nad niego */
 @media (max-width: 1023.98px) {
-    .pets-house.has-panel { padding-bottom: 58vh; }
+    .pets-house.has-panel { padding-bottom: 56vh; }
 }
 
 /* Desktop: panel z boku pokoju */
