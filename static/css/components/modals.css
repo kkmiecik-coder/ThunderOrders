@@ -5798,6 +5798,36 @@ html.pet-hatch-open body { overflow: hidden; }
     margin-top: 6px;
 }
 
+/* Arkusz (< 1024 px): rząd przycisków przyklejony do dołu arkusza — na niskim widoku (np. 812×375)
+   główna akcja („Odbierz”, „Ogrzej”, „Wykluj”) nie może chować się pod krawędzią; treść przewija się nad nim. */
+@media (max-width: 1023.98px) {
+    .pets-window__actions {
+        position: sticky;
+        /* sticky liczy się od krawędzi treści body (bez jego dolnego paddingu) — przesunięcie o ten padding
+           kładzie pasek na samym dole arkusza; ujemny margines „zjada” padding, więc odstęp pod przyciskiem
+           zostaje jak w treści (18 px + safe-area) */
+        bottom: calc(-18px - env(safe-area-inset-bottom, 0px));
+        z-index: 1;
+        margin: 6px -18px calc(-18px - env(safe-area-inset-bottom, 0px));
+        padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+        background: #ffffff;
+        box-shadow: 0 -10px 12px -12px rgba(90, 24, 154, 0.35);
+    }
+
+    [data-theme="dark"] .pets-window__actions {
+        background: rgb(26, 18, 48);
+        box-shadow: 0 -10px 12px -12px rgba(0, 0, 0, 0.7);
+    }
+}
+
+@media (max-width: 1023.98px) and (display-mode: standalone) {
+    .pets-window__actions {
+        bottom: -18px;
+        margin-bottom: -18px;
+        padding-bottom: 18px;
+    }
+}
+
 [data-theme="dark"] .pets-window {
     background: rgba(26, 18, 48, 0.94);
     border-color: rgba(240, 147, 251, 0.2);
