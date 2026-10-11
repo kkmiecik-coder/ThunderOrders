@@ -323,6 +323,7 @@
         '<span class="pg-shoot"></span>' +
         '<span class="pg-cloud pg-cloud--1">' + CLOUD_SVG + '</span>' +
         '<span class="pg-cloud pg-cloud--2">' + CLOUD_SVG + '</span>' +
+        '<svg class="pg-birds" viewBox="0 0 60 24"' + NS + '><path d="M2 12q4-5 8 0q4-5 8 0M26 5q3-4 6 0q3-4 6 0M42 17q3.5-4.5 7 0q3.5-4.5 7 0"/></svg>' +
         HILLS_SVG +
         '<span class="pg-willow">' + WILLOW_SVG + '</span>' +
         '<span class="pg-mist"></span>' +

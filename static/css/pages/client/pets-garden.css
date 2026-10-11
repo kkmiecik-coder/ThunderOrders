@@ -239,9 +239,9 @@
 /* Słońce złotej godziny nisko nad wzgórzami, z miękką poświatą */
 .pg-sun {
     /* nisko nad wzgórzami, ale zawsze pod pigułką i tabliczką (niskie niebo = mniejsze słońce) */
-    --sun: clamp(0px, min(22cqh, calc(100cqh - var(--pg-ui-top) - var(--pg-hills-h) * 0.4 - 6px)), 100px);
+    --sun: clamp(0px, min(22cqh, calc(100cqh - var(--pg-ui-top) - var(--pg-hills-h) * 0.82 - 6px)), 100px);
     left: calc(var(--pg-cx) + min(28cqw, 330px) - var(--sun) / 2);
-    bottom: calc(var(--pg-hills-h) * 0.4);
+    bottom: calc(var(--pg-hills-h) * 0.82);
     width: var(--sun);
     height: var(--sun);
     border-radius: 50%;
@@ -314,13 +314,13 @@
 }
 
 .pg-cloud--1 {
-    top: calc(var(--pg-ui-top) + 10%);
+    top: clamp(var(--pg-ui-top), calc(var(--pg-ui-top) + 10%), calc(100% - var(--pg-hills-h) - 30px));
     left: calc(var(--pg-cx) - min(9cqw, 100px));
     animation: pg-cloud-drift 48s ease-in-out infinite alternate;
 }
 
 .pg-cloud--2 {
-    top: calc(var(--pg-ui-top) + 30%);
+    top: clamp(var(--pg-ui-top), calc(var(--pg-ui-top) + 30%), calc(100% - var(--pg-hills-h) - 24px));
     left: calc(var(--pg-cx) + min(34cqw, 400px));
     width: clamp(48px, 9cqw, 120px);
     animation: pg-cloud-drift 62s ease-in-out -24s infinite alternate-reverse;
@@ -332,8 +332,27 @@
 [data-theme="dark"] .pg-cloud-body { fill: rgba(196, 176, 255, 0.24); }
 [data-theme="dark"] .pg-cloud-shade { fill: rgba(150, 120, 220, 0.2); }
 
+/* Ptaki w oddali (tylko w dzień) */
+.pg-birds {
+    top: clamp(var(--pg-ui-top), calc(var(--pg-ui-top) + 22%), calc(100% - var(--pg-hills-h) - 30px));
+    left: calc(var(--pg-cx) + min(4cqw, 50px));
+    width: clamp(36px, 5cqw, 60px);
+    aspect-ratio: 60 / 24;
+    fill: none;
+    stroke: #9a86b8;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.7;
+    animation: pg-birds 38s ease-in-out infinite alternate;
+}
+
+[data-theme="dark"] .pg-birds,
+.pets-page--night .pg-birds { display: none; }
+
 @container pg-sky (max-height: 219.98px) {
-    .pg-cloud { display: none; }
+    .pg-cloud,
+    .pg-birds { display: none; }
 }
 
 /* Wzgórza z linią drzew (bliższe wzgórze ma kolor łąki — horyzont przechodzi w trawę) */
@@ -1256,6 +1275,18 @@
     .pets-grave__name { font-size: 14px; }
 }
 
+/* Szeroka scena z niskim niebem (np. 1366×600): księżyc nie mieści się pod pigułką — świeci w pierwszym
+   rzędzie, w przerwie między pigułką (z lewej) a tabliczką albumu (nocą zsuniętą niżej) */
+@container pets-garden (min-width: 900px) {
+    @container pg-sky (max-height: 279.98px) {
+        .pets-page--night .pg-moon {
+            --moon: clamp(0px, calc(100cqh - 24px - var(--pg-hills-h)), 46px);
+            top: 14px;
+            left: calc(var(--pg-cx) + min(16cqw, 190px));
+        }
+    }
+}
+
 /* Pas przedni niski: tylko kwiaty i ścieżka */
 @container pg-fore (max-height: 99.98px) {
     .pg-pond,
@@ -1288,6 +1319,11 @@
 @keyframes pg-cloud-drift {
     from { transform: translateX(-34px); }
     to { transform: translateX(34px); }
+}
+
+@keyframes pg-birds {
+    from { transform: translate(-30px, 6px); }
+    to { transform: translate(40px, -8px); }
 }
 
 @keyframes pg-shoot {
