@@ -71,7 +71,7 @@ chory czy brudny; opieka jest przyjemna (dłuższe, zróżnicowane animacje), a 
   `hospital_since := t0`, `state_at := t0`, zdarzenie `admit`.
 - **W szpitalu:** paski stoją (brak spadków), zdrowie rośnie liniowo `100 / hours` na godzinę (cap 100), pupil
   **nie może odejść**, nie śpi wg zegara (`asleep = false`; na łóżku wygląda na drzemiącego), starzeje się normalnie.
-  Akcje opieki poza `pat` → 409 `in_hospital`. `pat` działa normalnie (radość zablokowana na ≥ floor i tak rośnie)
+  Akcje opieki poza `pat` → 409 `not_available` z powodem „w szpitalu” (jak inne niedostępne akcje; front czyta `reasons`). `pat` działa normalnie (radość zablokowana na ≥ floor i tak rośnie)
   i liczy się jako opieka dnia (`care_days`, `login_streak`).
 - **Wyleczony:** chwila `healed_at = t0 + (100 − h0) / rate`. Od niej pupil „czeka na odbiór”.
 - **Tęsknota (decyzja Konrada):** zbyt długi pobyt po wyzdrowieniu zmniejsza szczęście. Od `healed_at` **radość
