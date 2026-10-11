@@ -48,6 +48,47 @@
     margin-bottom: var(--space-6);
 }
 
+/* ================================================
+   Rząd na dole: pupile + „Moje odznaki” (pół na pół)
+   Bez widgetu pupili odznaki zajmują cały rząd. Wiersz siatki wyrównuje wysokość obu
+   kart, a treść odznak wypełnia kartę (wyśrodkowana w pionie). Tylko układ — kolory
+   kart (light + dark) zostają przy .dashboard-section.
+   ================================================ */
+
+.dashboard-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+}
+
+.dashboard-pair--split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-pair--split > #achievements-widget {
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-pair--split > #achievements-widget > .widget {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-pair--split > #achievements-widget .widget-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Pół szerokości: odznaki w wierszach zamiast poziomego przewijania */
+.dashboard-pair--split .widget-badges {
+    flex-wrap: wrap;
+    overflow-x: visible;
+}
+
 /* Metric Card */
 .metric-card {
     background: var(--card-bg);
@@ -582,6 +623,16 @@ a.metric-card-clickable.metric-card-info:hover {
 @media (max-width: 1024px) {
     .dashboard-grid {
         grid-template-columns: 1fr;
+    }
+
+    /* Jak siatka wyżej: od tabletu w dół pupile i odznaki jeden pod drugim */
+    .dashboard-pair--split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-pair--split .widget-badges {
+        flex-wrap: nowrap;
+        overflow-x: auto;
     }
 
     .chart-container {

@@ -1,12 +1,24 @@
 /* ================================================
    Pet widget — pupile na dashboardzie klienta (spec v3 §7)
    Kontener dziedziczy .dashboard-section (tło/obramowanie light+dark z dashboard.css).
+   Stoi na dole dashboardu w rzędzie z „Moimi odznakami” (.dashboard-pair w dashboard.css):
+   pół szerokości na komputerze, cała szerokość od tabletu w dół — wysokość jak inne widgety.
    Gałąź „pokój” rysuje PetRoom (pet-room.css, .pet-room--compact); tu: nagłówek, sceny stanów
    bez pokoju (szpital / inkubator / jajko do odebrania / następne jajko) i podpisy.
+   Rozmiary scen zależą od szerokości samego widgetu (container queries), nie okna przeglądarki.
    ================================================ */
 
+/* Karta wypełnia wysokość wiersza (równa z odznakami), treść wyśrodkowana w pionie */
 .pets-widget {
-    margin: 0 0 24px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pets-widget > .widget {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .pets-widget .widget-header {
@@ -29,7 +41,13 @@
 }
 
 .pets-widget__body.widget-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     padding: 0 var(--space-6, 1.5rem) var(--space-6, 1.5rem);
+    container-type: inline-size;
+    container-name: pets-widget;
 }
 
 /* Region dla czytnika ekranu (komunikaty o zmianie treści widgetu) */
@@ -45,9 +63,14 @@
     border: 0;
 }
 
-/* === Mini-pokój === */
+/* === Mini-pokój ===
+   Pokój trzyma własne proporcje (pet-room.css), więc wysokość ograniczamy szerokością: w szerokim
+   widgecie (tablet, cała szerokość) stoi wyśrodkowany zamiast rosnąć do ~300 px wysokości. */
 .pets-widget__room {
     position: relative;
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
 }
 
 /* === Scena stanu bez pokoju (cała jest linkiem do świata) === */
@@ -433,6 +456,78 @@ a.pets-widget__stage:active {
 
     .pets-widget__nest .pets-widget__egg .pet-rig {
         width: 60px;
+    }
+}
+
+/* === Widget pół szerokości (rząd z odznakami na komputerze): mniejsze ilustracje, podpis obok ===
+   Progi liczone od szerokości treści widgetu (container queries); bez ich obsługi zostaje układ
+   z reguł wyżej. Łóżeczka pozostałych pupili lekko na siebie zachodzą, żeby zmieściły się trzy. */
+@container pets-widget (max-width: 559px) {
+    .pets-widget__stage {
+        gap: 14px;
+        padding: 14px 16px;
+    }
+
+    .pets-widget__art {
+        min-width: 88px;
+    }
+
+    .pets-widget__bed .pet-rig {
+        width: 100px;
+    }
+
+    .pets-widget__beds .pets-widget__bed + .pets-widget__bed {
+        margin-left: -12px;
+    }
+
+    .pets-widget__beds .pets-widget__bed + .pets-widget__bed .pet-rig {
+        width: 60px;
+    }
+
+    .pets-widget__nest {
+        min-width: 88px;
+        padding: 0 6px 6px;
+    }
+
+    .pets-widget__nest .pets-widget__egg .pet-rig {
+        width: 46px;
+    }
+
+    .pets-widget__lamp::after {
+        width: 96px;
+        height: 56px;
+    }
+
+    .pets-widget__egg--gift .pet-rig {
+        width: 92px;
+    }
+
+    .pets-widget__bow {
+        width: 40px;
+    }
+
+    .pets-widget__paw {
+        width: 48px;
+        height: 48px;
+    }
+
+    .pets-widget__pill {
+        padding: 7px 14px;
+    }
+}
+
+/* === Wąski widget (telefon, pół szerokości na małym laptopie): ilustracja nad podpisem === */
+@container pets-widget (max-width: 399px) {
+    .pets-widget__stage {
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+        text-align: center;
+    }
+
+    .pets-widget__caption {
+        align-items: center;
+        width: 100%;
     }
 }
 

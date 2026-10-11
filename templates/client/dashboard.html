@@ -29,9 +29,6 @@
     <!-- Contest Hero Banner -->
     {% include 'client/_contest_widget.html' %}
 
-    <!-- Pupil (osobny widget pod konkursem — decyzja Konrada) -->
-    {% include 'client/pets/_widget.html' %}
-
     <!-- Kafelki z metrykami -->
     <div class="dashboard-metrics">
         <!-- Rząd 1: Zamówienia -->
@@ -287,16 +284,21 @@
         </div>
     </div>
 
-    <!-- Achievements Widget -->
-    <div class="dashboard-section" id="achievements-widget">
-        <div class="widget">
-            <div class="widget-header">
-                <h2 class="widget-title">Moje odznaki</h2>
-                <a href="{{ url_for('achievements.gallery') }}" class="widget-link">Zobacz wszystkie &rarr;</a>
-            </div>
-            <div class="widget-body">
-                <div class="widget-badges" id="widget-badges" data-gallery-url="{{ url_for('achievements.gallery') }}">
-                    <div style="font-size:12px;opacity:0.5;">Ładowanie...</div>
+    <!-- Rząd na dole: pupile + odznaki pół na pół (decyzja Konrada); bez widgetu pupili odznaki na całą szerokość -->
+    <div class="dashboard-pair{% if pets_widget %} dashboard-pair--split{% endif %}">
+        {% include 'client/pets/_widget.html' %}
+
+        <!-- Achievements Widget -->
+        <div class="dashboard-section" id="achievements-widget">
+            <div class="widget">
+                <div class="widget-header">
+                    <h2 class="widget-title">Moje odznaki</h2>
+                    <a href="{{ url_for('achievements.gallery') }}" class="widget-link">Zobacz wszystkie &rarr;</a>
+                </div>
+                <div class="widget-body">
+                    <div class="widget-badges" id="widget-badges" data-gallery-url="{{ url_for('achievements.gallery') }}">
+                        <div style="font-size:12px;opacity:0.5;">Ładowanie...</div>
+                    </div>
                 </div>
             </div>
         </div>
