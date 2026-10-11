@@ -162,3 +162,17 @@ def test_adult_alive_pomija_odejscie_wyliczone(db, make_user):
     # ósmy: dorosły, ale z paskiem na zerze od 10 dni → w symulacji odszedł
     zaloz_pupila(user, species=SPECIES_SLUGS[7], hatched_at=dawno, now=T0 - timedelta(days=10), hunger=0.0)
     assert get_metric_value(user, 'pet_adult_alive', {'threshold': 8}, {'now': T0}) == (7, False)
+
+
+def test_formularz_liczb_bez_pol_wlacznika_zapisuje_sie(client, login, make_user, db):
+    """Po rozdzieleniu formularzy „Liczby gry” nie zawierają pets_enabled/pets_rollout_pct — nie mogą być wymagane."""
+    from modules.pets.config import PetConfig, feature_flags, reset_feature_cache
+    _admin(make_user, login)
+    _wlacz(db)                                       # flaga on, pct 100 — ma zostać nietknięta
+    dane = {k: v for k, v in PELNY_FORMULARZ.items() if k not in ('pets_enabled', 'pets_rollout_pct')}
+    dane['pets_decay_hours_hunger'] = '22'
+    r = client.post('/admin/pupile/ustawienia', data=dane)
+    assert r.status_code == 302
+    reset_feature_cache()
+    assert feature_flags() == (True, 100)
+    assert PetConfig.load(force=True).decay_hours['hunger'] == 22

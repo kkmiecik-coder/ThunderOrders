@@ -111,7 +111,13 @@ def index():
 @role_required('admin', 'mod')
 def save_settings():
     tylko_wlacznik = request.form.get('scope') == 'switch'
-    values, errors = validate_settings(request.form, only=SWITCH_KEYS if tylko_wlacznik else None)
+    if tylko_wlacznik:
+        zakres = SWITCH_KEYS
+    elif 'pets_rollout_pct' in request.form:
+        zakres = None                                   # pełny formularz (np. testy/API) — wszystko
+    else:
+        zakres = {klucz for klucz, *_ in ADMIN_FIELDS} - SWITCH_KEYS   # formularz „Liczby gry” bez włącznika
+    values, errors = validate_settings(request.form, only=zakres)
     if errors:
         formularz = dict(admin_form_values(PetConfig.load(force=True)), **request.form.to_dict()) if tylko_wlacznik else request.form
         return _render_index(formularz, errors, status=400)
