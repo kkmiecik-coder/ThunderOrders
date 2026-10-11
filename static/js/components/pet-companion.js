@@ -16,6 +16,11 @@
  *  - prefers-reduced-motion: bez spaceru, prawy dolny róg, bez wibracji (rig sam wycisza animacje).
  *  - Nie zasłania stałych pasków przy dolnej krawędzi (CTA oferty, pasek produktu) — podnosi się nad nie;
  *    chowa się, gdy na stronie oferty otwarty jest mobilny panel koszyka.
+ *  - Pamięć pozycji (spec v3 §8): sessionStorage['pets_companion_pos_<user_id>'] = {x_ratio, facing, t}
+ *    zapisywane przy każdym kroku spaceru i na pagehide; przy starcie w trybie walk zapis < 30 min stawia
+ *    towarzysza dokładnie tam (bez przejścia CSS), potem spacer dalej. Tryb sit ignoruje zapis (nie kasuje).
+ *  - Pupil w szpitalu nigdy nie jest towarzyszem (stan: companion.pet_id wskazuje kogoś spoza szpitala albo
+ *    null) — tu tylko obrona: null / pupil z `hospital` = towarzysz ukryty.
  */
 (function () {
     'use strict';
@@ -36,6 +41,7 @@
     var BUBBLE_CARE_MS = 8000, BUBBLE_SLEEP_MS = 4000, BUBBLE_CELEBRATE_MS = 6000;
     var BUBBLE_REPEAT_MS = 10 * 60 * 1000;
     var LIFT_GAP = 8;
+    var POS_TTL_MS = 30 * 60 * 1000;   // spec v3 §8: zapis pozycji ważny 30 min
 
     // Stałe elementy przy dolnej krawędzi, których towarzysz nie może zasłaniać (podnosi się nad nie)
     // (.cart-footer: stopka przyklejonego koszyka oferty na desktopie — przy długim koszyku schodzi w róg)
@@ -51,6 +57,7 @@
     var homeUrl = el.getAttribute('data-home-url') || '/client/pupile';
     var celebratePending = el.getAttribute('data-celebrate') === '1';
     var bubbleKey = 'pets_bubble_shown_' + userId;
+    var posKey = 'pets_companion_pos_' + userId;
 
     var rig = null;
     var pet = null;                    // pet_dict towarzysza (ostatni znany)
@@ -93,7 +100,8 @@
         if (!comp.enabled || comp.pet_id == null) return null;
         var list = (state && state.pets) || [];
         for (var i = 0; i < list.length; i++) {
-            if (list[i].id === comp.pet_id) return list[i];
+            // Pupil w szpitalu nie towarzyszy (stan już to zapewnia — to tylko obrona przed starym cache)
+            if (list[i].id === comp.pet_id) return list[i].hospital ? null : list[i];
         }
         return null;
     }
@@ -251,7 +259,7 @@
             var a = document.createElement('a');
             a.className = 'pet-companion__bubble-link';
             a.href = homeUrl;
-            a.textContent = 'Do domku';
+            a.textContent = 'Do świata';   // homeUrl = mapa świata (spec v3 §3)
             bubble.appendChild(a);
         }
         sideBubble();
@@ -316,6 +324,39 @@
         x = px;
     }
 
+    // --- pamięć pozycji między stronami (spec v3 §8) ----------------------------------------------
+
+    /** Bieżące left w px — w trakcie marszu z położenia na ekranie (przejście CSS jest w połowie). */
+    function currentLeft() {
+        if (walking) return Math.round(el.getBoundingClientRect().left);
+        return x;
+    }
+
+    function savePos() {
+        if (mode !== 'walk' || el.hidden || el.classList.contains('pet-companion--corner')) return;
+        var px = currentLeft();
+        if (px == null || isNaN(px)) return;
+        var b = bounds();
+        var span = b.max - b.min;
+        var ratio = span > 0 ? (px - b.min) / span : 0;
+        var rec = {
+            x_ratio: Math.round(Math.min(1, Math.max(0, ratio)) * 10000) / 10000,
+            facing: el.classList.contains('pet-companion--flipped') ? 'left' : 'right',
+            t: Date.now()
+        };
+        try { sessionStorage.setItem(posKey, JSON.stringify(rec)); } catch (e) { /* prywatne okno / pełny storage */ }
+    }
+
+    /** Zapis < 30 min albo null. Tylko odczyt — tryb sit i ruch ograniczony go nie kasują. */
+    function loadPos() {
+        var rec = null;
+        try { rec = JSON.parse(sessionStorage.getItem(posKey) || 'null'); } catch (e) { return null; }
+        if (!rec || typeof rec !== 'object') return null;
+        var ratio = Number(rec.x_ratio), t = Number(rec.t), age = Date.now() - t;
+        if (!isFinite(ratio) || !isFinite(t) || age < -60000 || age >= POS_TTL_MS) return null;
+        return { ratio: Math.min(1, Math.max(0, ratio)), left: rec.facing === 'left' };
+    }
+
     function placeInitial() {
         if (mode !== 'walk') return;
         if (reducedMotion()) {
@@ -325,7 +366,19 @@
         }
         el.classList.remove('pet-companion--corner');
         var b = bounds();
-        setLeft(Math.round(b.min + Math.random() * (b.max - b.min)), false);
+        var saved = loadPos();
+        if (!saved) {
+            setLeft(Math.round(b.min + Math.random() * (b.max - b.min)), false);
+            return;
+        }
+        // Staje dokładnie tam, gdzie był na poprzedniej stronie — pierwsza klatka bez żadnego przejścia
+        // (ani left, ani opacity), żeby nie było „wjazdu”; potem spacer rusza normalnie (updateWalk)
+        el.classList.add('pet-companion--restored');
+        el.classList.toggle('pet-companion--flipped', saved.left);
+        setLeft(Math.round(b.min + saved.ratio * (b.max - b.min)), false);
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { el.classList.remove('pet-companion--restored'); });
+        });
     }
 
     function updateWalk() {
@@ -346,12 +399,15 @@
         if (!walkAllowed()) return;
         var b = bounds();
         if (x == null) x = b.min;
+        savePos();                          // krok spaceru: punkt startu (pagehide dopisze miejsce w pół drogi)
         var target = Math.round(b.min + Math.random() * (b.max - b.min));
         if (Math.abs(target - x) < 40) {   // za blisko — postój i kolejna próba
             scheduleWalk(PAUSE_MIN + Math.random() * (PAUSE_MAX - PAUSE_MIN));
             return;
         }
         var secs = Math.abs(target - x) / WALK_SPEED;
+        // rAF w ukrytej karcie nie rusza — klasa odtworzenia nie może zablokować przejścia marszu
+        el.classList.remove('pet-companion--restored');
         el.classList.toggle('pet-companion--flipped', target < x);
         el.style.setProperty('--pet-companion-walk', secs.toFixed(2) + 's');
         el.classList.add('pet-companion--walking');
@@ -365,6 +421,7 @@
         timers.arrive = 0;
         walking = false;
         el.classList.remove('pet-companion--walking');
+        savePos();
         if (!walkAllowed()) return;
         if (rig && Math.random() < GESTURE_CHANCE) {
             var list = (pet.gestures || ['jump', 'sway']).filter(function (n) { return n !== 'blink'; });
@@ -531,7 +588,7 @@
 
     function boot() {
         if (!userId || !window.PetsState || !window.PetsApi || !window.PetRig || !hit || !scene || !bubble) return;
-        // Na stronie domku wszystkie pupile są na wierzchu — towarzysz z linkiem „Do domku" byłby dublem
+        // Na stronie domku wszystkie pupile są na wierzchu — towarzysz z linkiem „Do świata" byłby dublem
         if (document.getElementById('petsApp')) return;
         window.PetsState.onChange(function (state) {
             if (started) apply(state);
@@ -562,13 +619,17 @@
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'hidden') {
                 flushPatOnExit();
+                savePos();
                 stopWalk();
             } else if (started) {
                 fetchState();    // długo otwarta karta: cache wygasł → świeży stan (sen, dymek)
                 updateWalk();
             }
         });
-        window.addEventListener('pagehide', flushPatOnExit);
+        window.addEventListener('pagehide', function () {
+            savePos();               // przed flushem — miejsce w pół drogi, zanim cokolwiek zatrzyma spacer
+            flushPatOnExit();
+        });
 
         // Zmiana ustawienia ruchu w trakcie (system / DevTools)
         if (window.matchMedia) {

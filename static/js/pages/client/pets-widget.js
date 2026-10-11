@@ -1,27 +1,24 @@
 /**
- * Widget pupila na dashboardzie klienta (spec §4.3, plan etapu 5 — Task 3).
+ * Widget pupili na dashboardzie klienta (spec v3 §7, plan „Świat” — Task 8).
  *
  * Szkielet SSR: templates/client/pets/_widget.html — #petsWidget[data-state][data-api][data-user-id]
- * [data-home-url] z pustym .pets-widget__body; treść rysuje ten plik.
+ * [data-home-url][data-house-url][data-hospital-url] z pustym .pets-widget__body; treść rysuje ten plik.
  *
- * Wymaga (kolejność w dashboard.html): species.js, pet-rig.js, haptics.js, pets-core.js
- * (include towarzysza w base_client), pet-card.js, potem ten plik.
+ * Wymaga (kolejność w dashboard.html): species.js, pet-rig.js, haptics.js, pets-core.js (include towarzysza
+ * w base_client), js/pet/world/room.js (window.PetRoom), potem ten plik.
  *
  * Treść — pierwsza pasująca gałąź:
- *   1. żywy pupil (most_in_need_pet_id) → mini-karta PetCard: szybkie akcje, nastrój, „Obudź", pat pat;
- *   2. brak żywych, jajko gotowe        → jajko + „Wykluj w domku";
- *   3. jajko w inkubacji                 → jajko z postępem, „Wykluje się za ~N h" (+ „ogrzane ×N"
- *                                          z state.config.boost_factor);
- *   4. jajko do odebrania                → zachęta („Odbierz swoje pierwsze jajko" dla startowego);
- *   5. nic z powyższego                  → „Następne jajko: za N dni".
+ *   1. żywi pupile poza szpitalem → mini-pokój PetRoom (compact, bez interakcji): towarzysz duży na środku
+ *      z dymkiem potrzeby, do 4 pozostałych w tle + „+N”; klik w pupila → domek z otwartym panelem;
+ *   2. ktoś w szpitalu            → łóżko (PetRig pose 'bed') + „Wraca do zdrowia — jeszcze ~N h”
+ *                                    albo „Gotowy do odbioru”; klik → szpital (?pupil=ID);
+ *   3. jajka w inkubacji          → inkubator z jajkami w skórkach + „Wykluje się za ~N h” (mnożnik
+ *                                    ogrzania z state.config.boost_factor); klik → szpital;
+ *   4. jajko do odebrania         → jajko z kokardką + „Odbierz w szpitalu”; klik → szpital;
+ *   5. nic z powyższego           → „Następne jajko: za N dni”.
+ * Bez pasków, przycisków akcji i pat pat — opieka jest w świecie pupili.
  *
- * Podział pracy z PetCard (kontrakt etapu 4): karta sama ekstrapoluje paski co 1 s, zbiera
- * klepnięcia w paczki (debounce 2 s, max 50) z wibracją i woła onAction(pet, 'pat', n) — widget
- * tylko wysyła żądanie, wpina odpowiedź w PetsState i obsługuje błędy. Gdy karta nie ma własnych
- * przycisków akcji, widget dokłada swoje (ta sama ścieżka onAction).
- *
- * Bezpieczeństwo: imiona i komunikaty wyłącznie przez textContent; showToast wstawia HTML,
- * więc komunikat z serwera (zawiera imię pupila) jest escapowany przed przekazaniem.
+ * Bezpieczeństwo: imiona i teksty wyłącznie przez textContent / setAttribute; zero inline handlerów.
  */
 (function () {
     'use strict';
@@ -35,41 +32,27 @@
     var Api = window.PetsApi;
     var Store = window.PetsState;
     var homeUrl = root.getAttribute('data-home-url') || '/client/pupile';
-    var nestUrl = homeUrl + '#petsNest';
+    var houseUrl = root.getAttribute('data-house-url') || homeUrl + '/domek';
+    var hospitalUrl = root.getAttribute('data-hospital-url') || homeUrl + '/szpital';
 
     var REFRESH_MS = 5 * 60 * 1000;
-    var EGG_TICK_MS = 30 * 1000;
-    var STICKY_MS = 60 * 1000;          // tyle po interakcji karta trzyma tego samego pupila
+    var TICK_MS = 30 * 1000;
+    var EARLY_REFRESH_MS = 60 * 1000;   // „na zegarze” już gotowe — dopytaj serwer, ale nie częściej niż co minutę
     var DEFAULT_BOOST = 2;              // spec §2.2: ogrzanie = tempo ×2 — tylko gdy stan nie niesie config
-    var GENERIC_ERROR = 'Coś poszło nie tak, spróbuj za chwilę';
-    var OWN_MESSAGE_ERRORS = { session_expired: 1, network: 1, rate_limited: 1 };
+    var MAX_BEDS = 3;
+    var MAX_EGGS = 4;
 
-    var MOOD_TEXT = {
-        szczesliwy: 'Szczęśliwy', glodny: 'Głodny', znudzony: 'Znudzony', brudny: 'Brudny',
-        smutny: 'Smutny', chory: 'Chory', krytyczny: 'W stanie krytycznym'
-    };
-    var ACTION_TEXT = { feed: 'Nakarm', play: 'Pobaw się', wash: 'Umyj', wake: 'Obudź' };
-    var CLAIM_TEXT = {
-        monthly: 'Comiesięczne jajko już na Ciebie czeka.',
-        granted: 'Masz jajko w prezencie — czeka w gniazdku.'
-    };
-
-    // aria-live na całym body ogłaszałby co sekundę ekstrapolowane paski karty — czytnik
-    // dostaje tylko krótkie komunikaty o zmianie treści widgetu (osobny, niewidoczny region).
-    body.removeAttribute('aria-live');
+    // Komunikaty o zmianie treści dla czytnika ekranu (osobny, niewidoczny region)
     var live = el('p', 'pets-widget__sr');
     live.setAttribute('aria-live', 'polite');
     root.appendChild(live);
 
-    var view = { key: null, kind: null, petId: null, card: null, egg: null, refs: null };
+    var view = { key: null, kind: null, room: null, rigs: [], refs: null };
     var rendered = null;            // ostatnio narysowany stan
     var receivedAt = Date.now();    // kiedy przyszedł `rendered` (zegar przeglądarki)
-    var lastInteraction = 0;
     var lastRefresh = Date.now();
     var refreshing = null;
-    var seq = 0;
-    var appliedSeq = 0;
-    var eggTimer = 0;
+    var tickTimer = 0;
     var trustNext = false;          // następny set() pochodzi z naszego żądania do serwera
 
     // ------------------------------------------------------------------------------------
@@ -83,17 +66,7 @@
         return node;
     }
 
-    function escapeForToast(text) {
-        return String(text).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
-
-    function toast(message, type) {
-        if (typeof window.showToast === 'function') window.showToast(escapeForToast(message), type || 'info');
-    }
-
-    /** Czas „ścienny" z API (naiwny, czas polski) → ms; obie strony porównań parsujemy tak samo. */
+    /** Czas „ścienny” z API (naiwny, czas polski) → ms; obie strony porównań parsujemy tak samo. */
     function parseLocal(iso) {
         if (!iso) return NaN;
         var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(iso);
@@ -101,13 +74,28 @@
         return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
     }
 
+    /** Sekundy od odebrania stanu (zegar przeglądarki). */
+    function elapsedSec() {
+        return Math.max(0, (Date.now() - receivedAt) / 1000);
+    }
+
+    function plural(n, one, few, many) {
+        if (n === 1) return one;
+        var d = n % 10, t = n % 100;
+        return d >= 2 && d <= 4 && (t < 12 || t > 14) ? few : many;
+    }
+
     function daysWord(n) {
         return n === 1 ? 'dzień' : 'dni';
     }
 
-    function cardCtx(state) {
-        var night = state.night && state.night.start !== state.night.end ? state.night : null;
-        return { now: state.now, night: night, config: state.config || null };
+    /** „~N h” / „~N dni” / „niecałą godzinę” — do tekstów odliczania. */
+    function durationText(sec) {
+        var h = sec / 3600;
+        if (h < 1) return 'niecałą godzinę';
+        if (h < 48) return '~' + Math.ceil(h) + ' h';
+        var d = Math.round(h / 24);
+        return '~' + d + ' ' + daysWord(d);
     }
 
     /** Mnożnik ogrzania z config stanu (ten sam, którym liczy serwer). */
@@ -116,57 +104,58 @@
         return f > 0 ? f : DEFAULT_BOOST;
     }
 
-    function fasterText(f) {
-        if (f === 2) return 'dwa razy szybciej';
-        if (f === 3) return 'trzy razy szybciej';
-        return String(f).replace('.', ',') + '× szybciej';
-    }
-
     function announce(text) {
         live.textContent = '';
         if (text) setTimeout(function () { live.textContent = text; }, 50);
+    }
+
+    function needOf(pet) {
+        return window.PetRig && typeof window.PetRig.needOf === 'function' ? window.PetRig.needOf(pet) : 'happy';
+    }
+
+    function earlyRefresh() {
+        if (Date.now() - lastRefresh >= EARLY_REFRESH_MS) refresh();
     }
 
     // ------------------------------------------------------------------------------------
     // Wybór gałęzi
     // ------------------------------------------------------------------------------------
 
-    function findPet(state, id) {
-        var pets = state.pets || [];
-        for (var i = 0; i < pets.length; i++) if (pets[i].id === id) return pets[i];
-        return null;
-    }
-
-    function pickPet(state) {
-        var pets = state.pets || [];
-        if (!pets.length) return null;
-        // Po kliknięciu nie przeskakujemy na innego pupila w połowie opieki (nakarmiony A
-        // przestaje być „najbardziej potrzebujący", ale użytkownik właśnie się nim zajmuje).
-        if (view.kind === 'pet' && Date.now() - lastInteraction < STICKY_MS) {
-            var same = findPet(state, view.petId);
-            if (same) return same;
-        }
-        return findPet(state, state.most_in_need_pet_id) || pets[0];
-    }
-
     function pickView(state) {
-        var pet = pickPet(state);
-        if (pet) return { kind: 'pet', key: 'pet:' + pet.id, pet: pet };
-        var eggs = state.eggs || [];
-        var ready = null, best = null;
-        for (var i = 0; i < eggs.length; i++) {
-            if (eggs[i].ready) { ready = ready || eggs[i]; continue; }
-            if (!best || eggs[i].progress_pct > best.progress_pct) best = eggs[i];
+        var alive = state.pets || [];
+        var home = alive.filter(function (p) { return p && !p.hospital; });
+        if (home.length && window.PetRoom) return { kind: 'room', key: 'room', pets: home };
+
+        var sick = alive.filter(function (p) { return p && p.hospital; });
+        if (sick.length) {
+            // Gotowi do odbioru pierwsi, potem ten, kto wyzdrowieje najwcześniej
+            sick = sick.slice().sort(function (a, b) {
+                if (!!a.hospital.ready !== !!b.hospital.ready) return a.hospital.ready ? -1 : 1;
+                return (parseLocal(a.hospital.healed_at) || 0) - (parseLocal(b.hospital.healed_at) || 0);
+            });
+            return {
+                kind: 'hospital',
+                key: 'hospital:' + sick.slice(0, MAX_BEDS).map(function (p) { return p.id; }).join(','),
+                pets: sick
+            };
         }
-        if (ready) return { kind: 'egg-ready', key: 'egg-ready', egg: ready, more: eggs.length - 1 };
-        if (best) return { kind: 'egg', key: 'egg', egg: best, more: eggs.length - 1 };
+
+        var eggs = state.eggs || [];
+        if (eggs.length) {
+            return {
+                kind: 'incubator',
+                key: 'incubator:' + eggs.slice(0, MAX_EGGS).map(function (e) { return e.id + '/' + (e.skin || 0); }).join(','),
+                eggs: eggs
+            };
+        }
+
         var avail = state.eggs_available || [];
         if (avail.length) {
             // Startowe pierwsze (zachęta), potem ratunkowe (ma imię pupila), potem reszta wg kolejności z API
             var bySource = {};
             for (var j = 0; j < avail.length; j++) bySource[avail[j].source] = bySource[avail[j].source] || avail[j];
             var claim = bySource.start || bySource.rescue || avail[0];
-            return { kind: 'claim', key: 'claim:' + claim.source, claim: claim, count: avail.length };
+            return { kind: 'claim', key: 'claim:' + claim.source + ':' + avail.length, claim: claim, count: avail.length };
         }
         return { kind: 'next', key: 'next' };
     }
@@ -176,139 +165,155 @@
     // ------------------------------------------------------------------------------------
 
     function clearView() {
-        if (view.card) view.card.destroy();
-        if (view.egg) view.egg.destroy();
-        clearInterval(eggTimer);
-        eggTimer = 0;
-        view = { key: null, kind: null, petId: null, card: null, egg: null, refs: null };
+        if (view.room) view.room.destroy();
+        view.rigs.forEach(function (r) { if (r && r.destroy) r.destroy(); });
+        clearInterval(tickTimer);
+        tickTimer = 0;
+        view = { key: null, kind: null, room: null, rigs: [], refs: null };
         body.innerHTML = '';
         root.classList.remove('pets-widget--attention');
     }
 
-    function tile(modifier) {
-        var box = el('div', 'pets-widget__tile pets-widget__tile--' + modifier);
-        var scene = el('div', 'pets-widget__scene');
-        var content = el('div', 'pets-widget__content');
-        box.appendChild(scene);
-        box.appendChild(content);
+    function startTick(fn) {
+        clearInterval(tickTimer);
+        tickTimer = setInterval(fn, TICK_MS);
+    }
+
+    /**
+     * Scena stanu bez pokoju: cała jest linkiem (cel dotyku = cały kafelek) albo zwykłym blokiem.
+     * Ilustracja po lewej (na telefonie nad tekstem), podpis po prawej.
+     */
+    function stage(modifier, href, label) {
+        var box = el(href ? 'a' : 'div', 'pets-widget__stage pets-widget__stage--' + modifier);
+        if (href) {
+            box.href = href;
+            if (label) box.setAttribute('aria-label', label);
+        }
+        var art = el('div', 'pets-widget__art');
+        art.setAttribute('aria-hidden', 'true');
+        var caption = el('div', 'pets-widget__caption');
+        box.appendChild(art);
+        box.appendChild(caption);
         body.appendChild(box);
-        return { box: box, scene: scene, content: content };
+        return { box: box, art: art, caption: caption };
     }
 
-    function cta(text, href) {
-        var a = el('a', 'pets-widget__cta', text);
-        a.href = href;
-        return a;
+    // --- gałąź 1: mini-pokój ---------------------------------------------------------------
+
+    function mainPetId(state) {
+        var comp = state.companion || {};
+        return comp.pet_id != null ? comp.pet_id : (state.most_in_need_pet_id != null ? state.most_in_need_pet_id : null);
     }
 
-    // --- gałąź 1: pupil -----------------------------------------------------------------
-
-    function cardHasActions(card) {
-        return !!(card && card.el && card.el.querySelector('[data-action], [data-card-action]'));
+    function isNight(state) {
+        return !!(state.night && state.night.is_night);
     }
 
-    function cardHasMood(card) {
-        return !!(card && card.el && card.el.querySelector('.pet-card__mood'));
-    }
-
-    function renderPet(v, state) {
-        var pet = v.pet;
-        var ctx = cardCtx(state);
-        if (view.key === v.key) {
-            if (view.card) view.card.update(pet, ctx);
-            else if (view.refs && view.refs.rig) view.refs.rig.update({ species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: pet.asleep });
-            syncFallback(pet);
+    function renderRoom(v, state) {
+        var opts = { night: isNight(state), mainPetId: mainPetId(state) };
+        if (view.key === v.key && view.room) {
+            view.room.update(v.pets, opts);
             return;
         }
         clearView();
         view.key = v.key;
-        view.kind = 'pet';
-        view.petId = pet.id;
-        view.refs = {};
-        var wrap = el('div', 'pets-widget__pet');
-        body.appendChild(wrap);
-        if (window.PetCard && typeof window.PetCard.render === 'function') {
-            view.card = window.PetCard.render(wrap, pet, {
-                mini: true, species: window.PetSpecies || {}, onAction: onCardAction,
-                now: ctx.now, night: ctx.night, config: ctx.config
-            });
-        } else {
-            // Bez karty (nie powinno się zdarzyć) — rig + imię + przyciski widgetu
-            var t = el('div', 'pets-widget__tile pets-widget__tile--pet');
-            var scene = el('div', 'pets-widget__scene');
-            var content = el('div', 'pets-widget__content');
-            t.appendChild(scene);
-            t.appendChild(content);
-            wrap.appendChild(t);
-            view.refs.name = el('p', 'pets-widget__title');
-            content.appendChild(view.refs.name);
-            view.refs.content = content;
-            if (window.PetRig) {
-                view.refs.rig = window.PetRig.mount(scene, {
-                    species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood,
-                    asleep: pet.asleep, size: 'mini', idle: true
-                });
+        view.kind = 'room';
+        var host = el('div', 'pets-widget__room');
+        body.appendChild(host);
+        view.room = window.PetRoom.mount(host, {
+            pets: v.pets,
+            night: opts.night,
+            mainPetId: opts.mainPetId,
+            compact: true,
+            interactive: false,
+            onPetClick: function (id) {
+                if (id == null || isNaN(id)) return;
+                location.href = houseUrl + '?pupil=' + encodeURIComponent(id);
             }
-        }
-        view.refs.wrap = wrap;
-        buildFallback(pet);
+        });
     }
 
-    /** Nastrój słownie i przyciski — tylko tego, czego karta sama nie narysowała. */
-    function buildFallback(pet) {
-        var refs = view.refs;
-        var host = refs.content || refs.wrap;
-        if (!cardHasMood(view.card)) {
-            refs.mood = el('p', 'pets-widget__mood');
-            host.appendChild(refs.mood);
-        }
-        if (!cardHasActions(view.card)) {
-            refs.actions = el('div', 'pets-widget__actions');
-            refs.actions.addEventListener('click', function (e) {
-                var btn = e.target.closest('[data-widget-action]');
-                if (!btn || btn.disabled || !refs.actions.contains(btn)) return;
-                var current = rendered && findPet(rendered, view.petId);
-                if (current) runFallbackAction(current, btn.getAttribute('data-widget-action'));
+    // --- gałąź 2: szpital ------------------------------------------------------------------
+
+    function hospitalLeftSec(pet, state) {
+        var h = pet.hospital;
+        if (h.ready) return 0;
+        var healed = parseLocal(h.healed_at), now = parseLocal(state.now);
+        if (isNaN(healed) || isNaN(now)) return NaN;
+        return Math.max(0, (healed - now) / 1000 - elapsedSec());
+    }
+
+    function petLabel(pet) {
+        return 'Pupil ' + (pet.name || '');
+    }
+
+    function renderHospital(v, state) {
+        var main = v.pets[0];
+        if (view.key !== v.key) {
+            clearView();
+            view.key = v.key;
+            view.kind = 'hospital';
+            var s = stage('hospital', hospitalUrl + '?pupil=' + encodeURIComponent(main.id));
+            var refs = view.refs = { stage: s, beds: {} };
+            var beds = el('div', 'pets-widget__beds');
+            s.art.appendChild(beds);
+            v.pets.slice(0, MAX_BEDS).forEach(function (pet) {
+                var bed = el('span', 'pets-widget__bed');
+                beds.appendChild(bed);
+                if (window.PetRig) {
+                    var rig = window.PetRig.mount(bed, {
+                        species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: false,
+                        size: 'mini', need: needOf(pet), pose: 'bed'
+                    });
+                    view.rigs.push(rig);
+                    refs.beds[pet.id] = rig;
+                }
             });
-            host.appendChild(refs.actions);
+            refs.title = el('p', 'pets-widget__title');
+            refs.text = el('p', 'pets-widget__text');
+            refs.note = el('p', 'pets-widget__note');
+            refs.pill = el('span', 'pets-widget__pill', 'Zajrzyj do szpitala');
+            [refs.title, refs.text, refs.note, refs.pill].forEach(function (n) { s.caption.appendChild(n); });
+            startTick(tickHospital);
+            announce(main.hospital.ready ? petLabel(main) + ' jest gotowy do odbioru ze szpitala.' : petLabel(main) + ' jest w szpitalu.');
         }
-        syncFallback(pet);
-    }
-
-    function syncFallback(pet) {
-        var refs = view.refs || {};
-        if (refs.name) refs.name.textContent = pet.name || '';
-        if (refs.mood) refs.mood.textContent = (MOOD_TEXT[pet.mood] || '') + (pet.asleep ? ' · śpi' : '');
-        if (!refs.actions || refs.busy) return;
-        var list = pet.asleep ? ['wake'] : ['feed', 'play', 'wash'];
-        refs.actions.innerHTML = '';
-        list.forEach(function (action) {
-            var btn = el('button', 'pets-widget__action' + (action === 'wake' ? ' pets-widget__action--primary' : ''), ACTION_TEXT[action]);
-            btn.type = 'button';
-            btn.setAttribute('data-widget-action', action);
-            btn.disabled = !(pet.can && pet.can[action]);
-            if (btn.disabled && pet.reasons && pet.reasons[action]) btn.setAttribute('aria-description', pet.reasons[action]);
-            refs.actions.appendChild(btn);
+        view.refs.pets = v.pets;
+        view.refs.state = state;
+        view.refs.stage.box.href = hospitalUrl + '?pupil=' + encodeURIComponent(main.id);
+        v.pets.slice(0, MAX_BEDS).forEach(function (pet) {
+            var rig = view.refs.beds[pet.id];
+            if (!rig) return;
+            rig.update({ species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: false });
+            if (typeof rig.setNeed === 'function') rig.setNeed(needOf(pet));
         });
+        tickHospital();
     }
 
-    function runFallbackAction(pet, action) {
+    function tickHospital() {
         var refs = view.refs;
-        refs.busy = true;
-        Array.prototype.forEach.call(refs.actions.querySelectorAll('button'), function (b) { b.disabled = true; });
-        Promise.resolve(onCardAction(pet, action, 1)).then(function (resp) {
-            if (resp && resp.ok && refs.rig) refs.rig.playAction(action);
-        }, function () { /* obsłużone w onCardAction */ }).then(function () {
-            refs.busy = false;
-            var current = rendered && findPet(rendered, view.petId);
-            if (current && view.refs === refs) syncFallback(current);
-        });
+        if (view.kind !== 'hospital' || !refs || !refs.pets) return;
+        var main = refs.pets[0];
+        var left = hospitalLeftSec(main, refs.state);
+        var ready = !!main.hospital.ready || left === 0;
+        if (ready && !main.hospital.ready) earlyRefresh();      // wyzdrowiał „na zegarze” — serwer potwierdzi
+        refs.title.textContent = petLabel(main);
+        refs.text.textContent = ready
+            ? 'Gotowy do odbioru'
+            : 'Wraca do zdrowia — jeszcze ' + (isNaN(left) ? 'chwilę' : durationText(left));
+        refs.pill.textContent = ready ? 'Odbierz w szpitalu' : 'Zajrzyj do szpitala';
+        refs.stage.box.classList.toggle('is-ready', ready);
+        var others = refs.pets.length - 1;
+        refs.note.textContent = others > 0
+            ? 'W szpitalu jest jeszcze ' + others + ' ' + plural(others, 'pupil', 'pupile', 'pupili') + '.'
+            : '';
+        refs.note.hidden = others <= 0;
+        refs.stage.box.setAttribute('aria-label', refs.title.textContent + ': ' + refs.text.textContent + '. Przejdź do szpitala');
     }
 
-    // --- gałęzie 2–3: jajko ---------------------------------------------------------------
+    // --- gałąź 3: inkubator ----------------------------------------------------------------
 
-    /** Postęp i czas do wyklucia w chwili `elapsedSec` od odebrania stanu (spec §2.2, ogrzanie ×2). */
-    function eggForecast(egg, state, elapsedSec) {
+    /** Postęp i czas do wyklucia w chwili `elapsed` od odebrania stanu (spec §2.2, ogrzanie ×F). */
+    function eggForecast(egg, state, elapsed) {
         var boost = boostFactor(state);
         var total = Math.max(1, (Number(egg.egg_hours) || 0) * 3600);
         var remaining = total * (1 - Math.min(100, Math.max(0, Number(egg.progress_pct) || 0)) / 100);
@@ -321,141 +326,141 @@
         var wall = remaining <= boost * boostLeft
             ? remaining / boost
             : boostLeft + (remaining - boost * boostLeft);
-        var e = Math.max(0, elapsedSec);
+        var e = Math.max(0, elapsed);
         var gained = e <= boostLeft ? e * boost : boostLeft * boost + (e - boostLeft);
         return {
-            pct: Math.min(100, (total - remaining + gained) / total * 100),
-            leftSec: Math.max(0, wall - e),
-            boosted: boostLeft - e > 0
+            pct: egg.ready ? 100 : Math.min(100, (total - remaining + gained) / total * 100),
+            leftSec: egg.ready ? 0 : Math.max(0, wall - e),
+            boosted: !egg.ready && boostLeft - e > 0
         };
     }
 
-    function hatchText(leftSec) {
-        var h = leftSec / 3600;
-        if (h < 1) return 'Wykluje się za mniej niż godzinę';
-        if (h < 48) return 'Wykluje się za ~' + Math.ceil(h) + ' h';
-        var d = Math.round(h / 24);
-        return 'Wykluje się za ~' + d + ' ' + daysWord(d);
-    }
-
-    function moreEggsText(n) {
-        if (n <= 0) return '';
-        return 'W gniazdku ' + (n === 1 ? 'czeka jeszcze jedno jajko.' : 'czekają jeszcze ' + n + ' jajka.');
-    }
-
-    function renderEggReady(v) {
-        if (view.key === v.key) return;
-        clearView();
-        view.key = v.key;
-        view.kind = v.kind;
-        var t = tile('egg');
-        if (window.PetRig) view.egg = window.PetRig.mountEgg(t.scene, { pct: 100, ready: true, size: 'mini' });
-        t.content.appendChild(el('p', 'pets-widget__title', 'Jajko jest gotowe!'));
-        t.content.appendChild(el('p', 'pets-widget__text', 'Kliknij „Wykluj" w domku i poznaj swojego pupila.'));
-        var more = moreEggsText(v.more);
-        if (more) t.content.appendChild(el('p', 'pets-widget__note', more));
-        t.content.appendChild(cta('Wykluj w domku', nestUrl));
-        announce('Jajko jest gotowe do wyklucia.');
-    }
-
-    function renderEgg(v, state) {
-        var egg = v.egg;
-        if (view.key !== v.key || !view.refs || view.refs.eggId !== egg.id) {
+    function renderIncubator(v, state) {
+        if (view.key !== v.key) {
             clearView();
             view.key = v.key;
-            view.kind = v.kind;
-            var t = tile('egg');
-            var refs = view.refs = { eggId: egg.id };
-            if (window.PetRig) view.egg = window.PetRig.mountEgg(t.scene, { pct: egg.progress_pct, boosted: false, size: 'mini' });
-            refs.title = el('p', 'pets-widget__title', 'Jajko się wykluwa');
-            refs.badge = el('span', 'pets-widget__badge');   // tekst z config w tickEgg
+            view.kind = 'incubator';
+            var s = stage('incubator', hospitalUrl);
+            var refs = view.refs = { stage: s, eggs: {} };
+            var lamp = el('span', 'pets-widget__lamp');
+            var nest = el('div', 'pets-widget__nest');
+            s.art.appendChild(lamp);
+            s.art.appendChild(nest);
+            v.eggs.slice(0, MAX_EGGS).forEach(function (egg) {
+                var slot = el('span', 'pets-widget__egg');
+                nest.appendChild(slot);
+                if (window.PetRig) {
+                    var rig = window.PetRig.mountEgg(slot, {
+                        pct: egg.progress_pct, boosted: !!egg.boost_until, ready: !!egg.ready, size: 'mini', skin: egg.skin || 0
+                    });
+                    view.rigs.push(rig);
+                    refs.eggs[egg.id] = rig;
+                }
+            });
+            refs.title = el('p', 'pets-widget__title');
+            refs.badge = el('span', 'pets-widget__badge');
+            refs.text = el('p', 'pets-widget__text');
+            refs.note = el('p', 'pets-widget__note');
+            refs.pill = el('span', 'pets-widget__pill');
+            [refs.title, refs.text, refs.note, refs.pill].forEach(function (n) { s.caption.appendChild(n); });
+            startTick(tickIncubator);
+            announce(v.eggs.length === 1 ? 'Jajko jest w inkubatorze.' : 'Jajka są w inkubatorze.');
+        }
+        view.refs.eggList = v.eggs;
+        view.refs.state = state;
+        tickIncubator();
+    }
+
+    function tickIncubator() {
+        var refs = view.refs;
+        if (view.kind !== 'incubator' || !refs || !refs.eggList) return;
+        var state = refs.state;
+        var e = elapsedSec();
+        var soonest = null, anyReady = false, anyBoosted = false, clockReady = false;
+        refs.eggList.forEach(function (egg) {
+            var f = eggForecast(egg, state, e);
+            var rig = refs.eggs[egg.id];
+            if (rig) rig.update({ pct: f.pct, boosted: f.boosted, ready: !!egg.ready });
+            if (egg.ready) { anyReady = true; return; }
+            if (f.pct >= 100) clockReady = true;
+            if (f.boosted) anyBoosted = true;
+            if (!soonest || f.leftSec < soonest.leftSec) soonest = { egg: egg, leftSec: f.leftSec, boosted: f.boosted };
+        });
+        if (clockReady) earlyRefresh();       // wykluło się „na zegarze” — serwer potwierdzi gotowość
+        var n = refs.eggList.length;
+        var title;
+        if (anyReady) title = n === 1 ? 'Jajko jest gotowe!' : 'Jajko jest gotowe do wyklucia!';
+        else title = n === 1 ? 'Jajko w inkubatorze' : n + ' ' + plural(n, 'jajko', 'jajka', 'jajek') + ' w inkubatorze';
+        refs.title.textContent = title;
+        var factor = boostFactor(state);
+        refs.badge.textContent = 'ogrzane ×' + String(factor).replace('.', ',');
+        if (anyBoosted && !anyReady) {
             refs.title.appendChild(document.createTextNode(' '));
             refs.title.appendChild(refs.badge);
-            refs.when = el('p', 'pets-widget__text');
-            refs.track = el('div', 'pets-widget__progress');
-            refs.track.setAttribute('role', 'progressbar');
-            refs.track.setAttribute('aria-label', 'Postęp wykluwania');
-            refs.track.setAttribute('aria-valuemin', '0');
-            refs.track.setAttribute('aria-valuemax', '100');
-            refs.fill = el('div', 'pets-widget__progress-fill');
-            refs.track.appendChild(refs.fill);
-            refs.hint = el('p', 'pets-widget__note');
-            refs.more = el('p', 'pets-widget__note');
-            refs.cta = cta('Ogrzej w domku', nestUrl);
-            [refs.title, refs.when, refs.track, refs.hint, refs.more, refs.cta].forEach(function (n) { t.content.appendChild(n); });
-            eggTimer = setInterval(tickEgg, EGG_TICK_MS);
         }
-        view.refs.egg = egg;
-        view.refs.state = state;
-        view.refs.moreCount = v.more;
-        tickEgg();
+        if (anyReady) {
+            refs.text.textContent = 'Wykluj je w szpitalu i poznaj swojego pupila.';
+        } else if (soonest) {
+            refs.text.textContent = soonest.leftSec <= 0 ? 'Za chwilę będzie gotowe…' : 'Wykluje się za ' + durationText(soonest.leftSec);
+        } else {
+            refs.text.textContent = '';
+        }
+        var hint = '';
+        if (!anyReady && soonest && !soonest.boosted && soonest.egg.can_warm !== false) hint = 'Ogrzej je w szpitalu, żeby wykluło się szybciej.';
+        refs.note.textContent = hint;
+        refs.note.hidden = !hint;
+        refs.pill.textContent = anyReady ? 'Wykluj w szpitalu' : 'Zajrzyj do inkubatora';
+        refs.stage.box.classList.toggle('is-ready', anyReady);
+        refs.stage.box.setAttribute('aria-label', refs.title.textContent + '. ' + refs.text.textContent + ' Przejdź do szpitala');
     }
 
-    function tickEgg() {
-        var refs = view.refs;
-        if (!refs || !refs.egg || view.kind !== 'egg') return;
-        var f = eggForecast(refs.egg, refs.state, (Date.now() - receivedAt) / 1000);
-        if (f.pct >= 100) {
-            // Wykluło się „na zegarze" — serwer potwierdzi gotowość
-            refs.when.textContent = 'Za chwilę będzie gotowe…';
-            refresh();
-            return;
-        }
-        var pct = Math.floor(f.pct);
-        refs.when.textContent = hatchText(f.leftSec);
-        refs.fill.style.width = f.pct.toFixed(1) + '%';
-        refs.track.setAttribute('aria-valuenow', String(pct));
-        refs.track.setAttribute('aria-valuetext', pct + '%');
-        var factor = boostFactor(refs.state);
-        refs.badge.textContent = 'ogrzane ×' + String(factor).replace('.', ',');
-        refs.badge.hidden = !f.boosted;
-        var canWarm = !f.boosted && refs.egg.can_warm !== false;
-        refs.cta.hidden = !canWarm;
-        refs.hint.textContent = f.boosted
-            ? 'Ogrzane jajko wykluwa się ' + fasterText(factor) + '.'
-            : 'Ogrzej je w domku, żeby przyspieszyć wyklucie.';
-        var more = moreEggsText(refs.moreCount);
-        refs.more.textContent = more;
-        refs.more.hidden = !more;
-        if (view.egg) view.egg.update({ pct: f.pct, boosted: f.boosted });
-    }
+    // --- gałąź 4: jajko do odebrania -------------------------------------------------------
 
-    // --- gałąź 4: jajko do odebrania ------------------------------------------------------
+    var BOW_SVG =
+        '<svg class="pets-widget__bow" viewBox="0 0 48 28" focusable="false">' +
+        '<path d="M24 14 C16 2 4 2 4 10 C4 18 16 18 24 14 Z" fill="#f5576c"/>' +
+        '<path d="M24 14 C32 2 44 2 44 10 C44 18 32 18 24 14 Z" fill="#f5576c"/>' +
+        '<path d="M24 14 L16 27 L20 27 L24 19 L28 27 L32 27 Z" fill="#e0445a"/>' +
+        '<circle cx="24" cy="14" r="4.5" fill="#ff8fa3"/></svg>';
 
-    function claimText(claim) {
+    function claimTitle(claim) {
+        if (claim.source === 'start') return 'Twoje pierwsze jajko czeka!';
         if (claim.source === 'rescue') {
-            return claim.pet_name
-                ? 'Jajko ratunkowe po ' + claim.pet_name + ' już czeka w gniazdku.'
-                : 'Jajko ratunkowe już czeka w gniazdku.';
+            return claim.pet_name ? 'Jajko po pupilu ' + claim.pet_name + ' czeka' : 'Jajko ratunkowe czeka';
         }
-        return CLAIM_TEXT[claim.source] || 'Odbierz je w domku — wtedy zacznie się wykluwać.';
+        if (claim.source === 'monthly') return 'Comiesięczne jajko czeka!';
+        if (claim.source === 'granted') return 'Masz jajko w prezencie!';
+        return 'Czeka na Ciebie jajko';
     }
 
     function renderClaim(v) {
-        if (view.key === v.key && view.refs && view.refs.count === v.count) return;
+        if (view.key === v.key) return;
         clearView();
         view.key = v.key;
-        view.kind = v.kind;
-        view.refs = { count: v.count };
+        view.kind = 'claim';
         var start = v.claim.source === 'start';
-        var t = tile('claim');
-        if (window.PetRig) view.egg = window.PetRig.mountEgg(t.scene, { pct: 0, size: 'mini' });
-        t.content.appendChild(el('p', 'pets-widget__title', start ? 'Odbierz swoje pierwsze jajko' : 'Czeka na Ciebie jajko'));
-        t.content.appendChild(el('p', 'pets-widget__text', start
-            ? 'Wykluje się z niego pupil, którym zaopiekujesz się na dashboardzie i w domku.'
-            : claimText(v.claim)));
-        if (v.count > 1) t.content.appendChild(el('p', 'pets-widget__note', 'Jajek do odebrania: ' + v.count + '.'));
-        t.content.appendChild(cta(start ? 'Odbierz jajko' : 'Odbierz w domku', nestUrl));
+        var s = stage('claim', hospitalUrl);
+        var slot = el('span', 'pets-widget__egg pets-widget__egg--gift');
+        s.art.appendChild(slot);
+        if (window.PetRig) view.rigs.push(window.PetRig.mountEgg(slot, { pct: 0, size: 'mini' }));
+        slot.insertAdjacentHTML('beforeend', BOW_SVG);
+        s.caption.appendChild(el('p', 'pets-widget__title', claimTitle(v.claim)));
+        s.caption.appendChild(el('p', 'pets-widget__text', start
+            ? 'Wykluje się z niego Twój pierwszy pupil.'
+            : 'Odbierz je, a zacznie się wykluwać.'));
+        if (v.count > 1) s.caption.appendChild(el('p', 'pets-widget__note', 'Jajek do odebrania: ' + v.count + '.'));
+        s.caption.appendChild(el('span', 'pets-widget__pill', 'Odbierz w szpitalu'));
+        s.box.setAttribute('aria-label', claimTitle(v.claim) + ' Odbierz w szpitalu');
         if (start) waitForPopupsThenAttract();
         announce(start ? 'Możesz odebrać swoje pierwsze jajko.' : 'Czeka na Ciebie jajko do odebrania.');
     }
 
     // Spec §4.2: na dashboardzie zachęta do startowego jajka dopiero po popupach ogłoszeń.
-    // Treść jest od razu (widget nie może być pusty), ale pulsowanie CTA rusza po popups-all-closed.
+    // Treść jest od razu (widget nie może być pusty), ale pulsowanie rusza po popups-all-closed.
     var popupsDone = false;
     document.addEventListener('popups-all-closed', function () {
         popupsDone = true;
-        if (view.key === 'claim:start') root.classList.add('pets-widget--attention');
+        if (view.kind === 'claim' && view.key.indexOf('claim:start') === 0) root.classList.add('pets-widget--attention');
     });
     function waitForPopupsThenAttract() {
         if (popupsDone) root.classList.add('pets-widget--attention');
@@ -463,13 +468,13 @@
         setTimeout(function () {
             popupsDone = true;
             // Overlay popupu jest usuwany z DOM przy zamknięciu — jego obecność = popup nadal otwarty
-            if (view.key === 'claim:start' && !document.getElementById('popupAnnouncementOverlay')) {
+            if (view.kind === 'claim' && view.key.indexOf('claim:start') === 0 && !document.getElementById('popupAnnouncementOverlay')) {
                 root.classList.add('pets-widget--attention');
             }
         }, 6000);
     }
 
-    // --- gałąź 5: następne jajko ----------------------------------------------------------
+    // --- gałąź 5: następne jajko -----------------------------------------------------------
 
     function renderNext(v, state) {
         var title, text;
@@ -479,30 +484,28 @@
             var hours = Math.max(1, Math.ceil((next - now) / 3600000));
             var days = Math.floor(hours / 24);
             title = 'Następne jajko: za ' + (days >= 1 ? days + ' ' + daysWord(days) : '~' + hours + ' h');
-            text = 'Zajrzyj wtedy do gniazdka w domku — jajko trzeba odebrać, żeby zaczęło się wykluwać.';
+            text = 'Pojawi się do odebrania w szpitalu w świecie pupili.';
         } else {
             title = 'Na razie nie ma jajka do odebrania';
-            text = 'Zajrzyj do domku, żeby zobaczyć album pupili.';
+            text = 'Zajrzyj do świata pupili — w ogrodzie czeka album.';
         }
         var key = 'next|' + title;
         if (view.key === key) return;
         clearView();
         view.key = key;
         view.kind = 'next';
-        var t = tile('next');
+        var s = stage('next', null);
         // Łapka jako maska CSS (paw.svg rysuje currentColor — jako <img> byłaby czarna w dark mode)
-        var icon = el('span', 'pets-widget__paw');
-        icon.setAttribute('aria-hidden', 'true');
-        t.scene.appendChild(icon);
-        t.content.appendChild(el('p', 'pets-widget__title', title));
-        t.content.appendChild(el('p', 'pets-widget__text', text));
+        s.art.appendChild(el('span', 'pets-widget__paw'));
+        s.caption.appendChild(el('p', 'pets-widget__title', title));
+        s.caption.appendChild(el('p', 'pets-widget__text', text));
     }
 
     function render(state) {
         var v = pickView(state);
-        if (v.kind === 'pet') renderPet(v, state);
-        else if (v.kind === 'egg-ready') renderEggReady(v);
-        else if (v.kind === 'egg') renderEgg(v, state);
+        if (v.kind === 'room') renderRoom(v, state);
+        else if (v.kind === 'hospital') renderHospital(v, state);
+        else if (v.kind === 'incubator') renderIncubator(v, state);
         else if (v.kind === 'claim') renderClaim(v);
         else renderNext(v, state);
         root.setAttribute('data-view', v.kind);
@@ -512,7 +515,7 @@
     // Stan
     // ------------------------------------------------------------------------------------
 
-    /** Każda zmiana stanu (nasza akcja, odświeżenie, towarzysz na tej samej stronie). */
+    /** Każda zmiana stanu (odświeżenie, towarzysz na tej samej stronie). */
     function onState(state) {
         if (!state || typeof state !== 'object' || state === rendered) return;
         // Starszy stan z zewnątrz (np. lite z cache towarzysza sprzed kilku minut) nie cofa
@@ -551,65 +554,6 @@
         return refreshing;
     }
 
-    function showAchievements() {
-        try { sessionStorage.removeItem('achievements_last_check'); } catch (e) { /* tryb prywatny */ }
-        fetch('/achievements/api/unseen', { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                try { sessionStorage.setItem('achievements_last_check', String(Date.now())); } catch (e) { /* jw. */ }
-                if (data && data.success && data.achievements && data.achievements.length && window.AchievementUnlock) {
-                    window.AchievementUnlock.show(data.achievements);
-                }
-            })
-            .catch(function () { /* odznaki pokaże checker przy następnym wejściu */ });
-    }
-
-    function handleError(err) {
-        var status = err && err.status;
-        if (status === 409) {
-            // not_available / asleep / wrong_status — nasz obraz był nieaktualny; bez toastu
-            if (Store) Store.invalidate();
-            refresh();
-            return;
-        }
-        if (status === 410) {
-            if (Store) Store.invalidate();
-            toast((err && err.message) || GENERIC_ERROR, 'info');
-            refresh();
-            return;
-        }
-        if (status === 403 || status === 404) {
-            // pupil nie nasz / już go nie ma (np. zmiana na innym urządzeniu) — jak w domku: świeży stan, bez toastu
-            if (Store) Store.invalidate();
-            refresh();
-            return;
-        }
-        var own = err && OWN_MESSAGE_ERRORS[err.error] && err.message;
-        toast(own || GENERIC_ERROR, 'error');
-    }
-
-    /** onAction karty (i przycisków zapasowych): Promise z odpowiedzią {ok, state} albo odrzucenie. */
-    function onCardAction(pet, action, count) {
-        lastInteraction = Date.now();
-        if (!Api) return Promise.reject({ error: 'no_api', message: GENERIC_ERROR, status: 0 });
-        var payload = { action: action };
-        if (action === 'pat') payload.count = Math.max(1, Math.min(50, parseInt(count, 10) || 1));
-        var mySeq = ++seq;
-        // Paczka pat pat może lecieć przy wyjściu ze strony (pagehide w pet-card.js) — keepalive ją dowiezie
-        return Api.post('/' + pet.id + '/akcja', payload, action === 'pat' ? { keepalive: true } : null).then(function (resp) {
-            lastInteraction = Date.now();
-            if (mySeq >= appliedSeq && resp && resp.state) {
-                appliedSeq = mySeq;
-                publish(resp.state);
-            }
-            if (resp && resp.new_achievements && resp.new_achievements.length) showAchievements();
-            return resp;
-        }, function (err) {
-            handleError(err);
-            throw err;
-        });
-    }
-
     // ------------------------------------------------------------------------------------
     // Start
     // ------------------------------------------------------------------------------------
@@ -621,10 +565,7 @@
         initial = null;
     }
 
-    if (Store) {
-        Store.onChange(onState);
-        document.addEventListener('pets:state', function (e) { onState(e && e.detail); });
-    }
+    if (Store) Store.onChange(onState);
 
     if (initial && typeof initial === 'object') {
         publish(initial);

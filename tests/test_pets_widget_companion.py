@@ -42,8 +42,21 @@ def test_dashboard_widget_tylko_z_flaga(client, login, make_user, db):
     assert r.status_code == 200 and 'id="petsWidget"' in html and 'id="petCompanion"' in html
     stan = _stan_widgetu(html)
     assert stan['eggs_available'] == [{'source': 'start'}] and stan['pets'] == [] and stan['most_in_need_pet_id'] is None
-    assert 'js/pet/pets-core.js' in html and 'js/components/pet-card.js' in html and 'js/pages/client/pets-widget.js' in html
+    assert 'js/pet/pets-core.js' in html and 'js/pages/client/pets-widget.js' in html
     assert 'data-mode="walk"' in html and 'data-user-id="%d"' % user.id in html
+
+
+def test_dashboard_widget_to_mini_pokoj(client, login, make_user, db):
+    """Spec v3 §7: widget rysuje mini-pokój z room.js (tryb compact); karta pupila (pet-card.js,
+    bez wariantu `mini`) nie jest już ładowana na dashboardzie."""
+    user = make_user(profile_completed=True)
+    login(user)
+    _wlacz(db)
+    html = client.get('/client/dashboard').data.decode()
+    assert 'js/pet/world/room.js' in html and 'css/components/pet-room.css' in html
+    assert 'js/components/pet-card.js' not in html and 'css/components/pet-card.css' not in html
+    # room.js przed skryptem widgetu (widget woła PetRoom.mount przy starcie)
+    assert html.index('js/pet/world/room.js') < html.index('js/pages/client/pets-widget.js')
 
 
 def test_dashboard_widget_z_pupilem(client, login, make_user, db):
