@@ -180,6 +180,14 @@
                     <span class="sidebar-text">Konkursy</span>
                 </a>
             </li>
+            <li class="sidebar-item">
+                <a href="{{ url_for('pets_admin.index') }}"
+                   class="sidebar-link {% if request.endpoint and request.endpoint.startswith('pets_admin.') %}active{% endif %}"
+                   data-tooltip="Pupile">
+                    <img src="{{ url_for('static', filename='img/icons/paw.svg') }}" alt="Pupile" class="sidebar-icon">
+                    <span class="sidebar-text">Pupile</span>
+                </a>
+            </li>
             {% endif %}
 
             <li class="sidebar-item">

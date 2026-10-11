@@ -1,0 +1,115 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Pupile - Admin{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/pets.css') }}">
+{% endblock %}
+
+{% set float_fields = ['pets_night_factor', 'pets_boost_factor', 'pets_actions_pat_gain'] %}
+{% set enabled_on = form.get('pets_enabled') in ('on', 'true', '1') %}
+
+{% block content %}
+<div class="pa-page" id="petsAdmin" data-search-url="{{ url_for('pets_admin.search_users') }}" data-grant-url="{{ url_for('pets_admin.grant_egg') }}">
+    <div class="pa-page-header">
+        <h1>🐾 Pupile</h1>
+        <a href="{{ url_for('pets.home') }}" class="pa-link">Zobacz stronę klienta &rarr;</a>
+    </div>
+
+    {# --- Statystyki (z danych, nie ze statusów w cache) --- #}
+    <section class="pa-card" aria-labelledby="paStatsTitle">
+        <h2 id="paStatsTitle" class="pa-card__title">Statystyki</h2>
+        <div class="pa-stats">
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.profiles }}</span><span class="pa-stat__label">Profile</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.alive_total }}</span><span class="pa-stat__label">Żywe pupile</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.eggs_incubating }}</span><span class="pa-stat__label">Jajka w inkubacji</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.eggs_claimable }}</span><span class="pa-stat__label">Jajka do odebrania</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.deaths_7d }} / {{ stats.deaths_30d }}</span><span class="pa-stat__label">Odejścia 7 / 30 dni</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.active_today }} / {{ stats.active_7d }}</span><span class="pa-stat__label">Aktywni opiekunowie dziś / 7 dni</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.complete_albums }}</span><span class="pa-stat__label">Komplety (8 gatunków)</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.push_pct.with_push }} / {{ stats.push_pct.owners }}</span><span class="pa-stat__label">Właściciele z pushem</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.retention_d7.active }} / {{ stats.retention_d7.cohort }}</span><span class="pa-stat__label">Retencja D7 (7 dni)</span></div>
+            <div class="pa-stat"><span class="pa-stat__value">{{ stats.rescue_7d.claimed }} / {{ stats.rescue_7d.deaths }}</span><span class="pa-stat__label">Ratunkowe odebrane w 7 dni</span></div>
+        </div>
+        <div class="pa-stats-lists">
+            <div>
+                <h3 class="pa-subtitle">Żywe per gatunek</h3>
+                <ul class="pa-list">{% for nazwa, n in stats.alive_per_species %}<li><span>{{ nazwa }}</span><strong>{{ n }}</strong></li>{% endfor %}</ul>
+            </div>
+            <div>
+                <h3 class="pa-subtitle">Stadia</h3>
+                <ul class="pa-list">{% for nazwa, n in stats.stages %}<li><span>{{ nazwa }}</span><strong>{{ n }}</strong></li>{% endfor %}</ul>
+            </div>
+        </div>
+        <p class="pa-hint">Pełne metryki: <code>flask pets report --days 7</code> na serwerze.</p>
+    </section>
+
+    {# --- Ustawienia --- #}
+    <form method="post" action="{{ url_for('pets_admin.save_settings') }}" class="pa-form" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if errors %}
+        <div class="pa-alert pa-alert--error" role="alert">Popraw zaznaczone pola — nic nie zostało zapisane.</div>
+        {% endif %}
+
+        <section class="pa-card pa-card--switch" aria-labelledby="paSwitchTitle">
+            <h2 id="paSwitchTitle" class="pa-card__title">Włącznik i rollout</h2>
+            <div class="pa-switch-row">
+                <label class="pa-toggle">
+                    <input type="checkbox" name="pets_enabled" id="petsEnabled" {% if enabled_on %}checked{% endif %}>
+                    <span class="pa-toggle__slider"></span>
+                    <span class="pa-toggle__text">Funkcja włączona</span>
+                </label>
+                <div class="pa-field {% if errors.get('pets_rollout_pct') %}pa-field--error{% endif %}">
+                    <label for="petsRolloutPct">Rollout (% użytkowników po user_id; admin/mod widzą zawsze)</label>
+                    <input type="number" id="petsRolloutPct" name="pets_rollout_pct" min="0" max="100" step="1" inputmode="numeric"
+                           value="{{ form.get('pets_rollout_pct', '') }}">
+                    {% if errors.get('pets_rollout_pct') %}<span class="pa-field__error">{{ errors['pets_rollout_pct'] }}</span>{% endif %}
+                </div>
+            </div>
+            <p class="pa-hint">Wyłączenie = strona i API 404, cron milczy, dane zostają. Zalecany rollout: 10 → 50 → 100 % w ok. 2 tygodnie.</p>
+        </section>
+
+        <section class="pa-card" aria-labelledby="paNumbersTitle">
+            <h2 id="paNumbersTitle" class="pa-card__title">Liczby gry</h2>
+            <p class="pa-hint">Zmiany działają od następnego przeliczenia stanu (najpóźniej 5 min u aktywnych użytkowników). Liczby dodatnie; wyjątki: ratunkowe (0 = od razu), gwarancja, gwiazdki.</p>
+            <div class="pa-fields">
+            {% for klucz, typ, pola, etykieta in sections %}
+                {% if typ != 'boolean' and klucz != 'pets_rollout_pct' %}
+                <div class="pa-field-group">
+                    <div class="pa-field-group__label">{{ etykieta }}</div>
+                    <div class="pa-field-group__inputs">
+                    {% for nazwa in ([klucz] if not pola else pola | map('string') | list) %}
+                        {% set pole = (klucz ~ '_' ~ nazwa) if pola else klucz %}
+                        <div class="pa-field {% if errors.get(pole) %}pa-field--error{% endif %}">
+                            <label for="f_{{ pole }}">{{ nazwa if pola else 'wartość' }}</label>
+                            <input type="number" id="f_{{ pole }}" name="{{ pole }}" value="{{ form.get(pole, '') }}"
+                                   step="{{ 'any' if pole in float_fields else '1' }}" inputmode="{{ 'decimal' if pole in float_fields else 'numeric' }}">
+                            {% if errors.get(pole) %}<span class="pa-field__error">{{ errors[pole] }}</span>{% endif %}
+                        </div>
+                    {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+            </div>
+            <div class="pa-actions">
+                <button type="submit" class="pa-btn-primary">Zapisz ustawienia</button>
+            </div>
+        </section>
+    </form>
+
+    {# --- Użytkownik: szukaj i przyznaj jajko --- #}
+    <section class="pa-card" aria-labelledby="paUsersTitle">
+        <h2 id="paUsersTitle" class="pa-card__title">Użytkownik</h2>
+        <div class="pa-search">
+            <label for="paSearchInput" class="pa-visually-hidden">Szukaj użytkownika</label>
+            <input type="search" id="paSearchInput" class="pa-search__input" placeholder="E-mail, imię lub nazwisko (min. 2 znaki)…" autocomplete="off">
+        </div>
+        <div id="paSearchResults" class="pa-results" aria-live="polite"></div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/pets.js') }}"></script>
+{% endblock %}

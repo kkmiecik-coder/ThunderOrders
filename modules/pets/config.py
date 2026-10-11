@@ -164,3 +164,134 @@ def pets_feature_for(user):
     if getattr(user, 'role', None) in ('admin', 'mod'):
         return True
     return (user.id % 100) < pct
+
+
+# ---------------------------------------------------------------------------
+# Formularz panelu admina (etap 6, spec §5): pola płaskie 1:1, pola json rozbite na `pets_<klucz>_<pole>`
+# ---------------------------------------------------------------------------
+
+# (klucz Settings, typ Settings, pola json | None, etykieta)
+ADMIN_FIELDS = (
+    ('pets_enabled', 'boolean', None, 'Funkcja włączona'),
+    ('pets_rollout_pct', 'integer', None, 'Rollout (% użytkowników po user_id)'),
+    ('pets_decay_hours', 'json', ('hunger', 'fun', 'clean'), 'Pasek 100→0 w godzinach (sytość / radość / czystość)'),
+    ('pets_night', 'json', ('start', 'end', 'factor'), 'Noc (od godz. / do godz. / mnożnik spadków)'),
+    ('pets_health_drop_hours', 'integer', None, 'Zdrowie 100→0 przy pasku na zerze (h)'),
+    ('pets_health_regen_hours', 'integer', None, 'Regeneracja zdrowia 0→100 (h)'),
+    ('pets_egg_hours', 'integer', None, 'Inkubacja jajka (h)'),
+    ('pets_start_egg_hours', 'integer', None, 'Inkubacja jajka startowego (h)'),
+    ('pets_boost', 'json', ('hours', 'factor'), 'Ogrzewanie (godzin / mnożnik)'),
+    ('pets_monthly_days', 'integer', None, 'Jajko miesięczne co (dni)'),
+    ('pets_rescue_hours', 'integer', None, 'Ratunkowe po odejściu (h, 0 = od razu)'),
+    ('pets_rescue_reminder_days', 'integer', None, 'Mail o nieodebranym ratunkowym po (dniach)'),
+    ('pets_pity_after', 'integer', None, 'Gwarancja nowego gatunku po N duplikatach'),
+    ('pets_max_stars', 'integer', None, 'Maks. gwiazdek'),
+    ('pets_stage_days', 'json', ('child', 'adult'), 'Stadia: dziecko od / dorosły od (dni)'),
+    ('pets_actions', 'json', ('feed', 'play', 'heal', 'heal_cooldown_h', 'allow_below', 'pat_gain',
+                              'pat_per_hour', 'wake_penalty', 'awake_minutes'),
+     'Akcje: karmienie / zabawa / leczenie / odstęp leczenia (h) / próg akcji / pat pat (+) / pat na godzinę / kara za obudzenie / okno po obudzeniu (min)'),
+)
+
+# Pola, które mogą być ułamkiem (reszta to liczby całkowite)
+_FLOAT_FIELDS = frozenset({'pets_night_factor', 'pets_boost_factor', 'pets_actions_pat_gain'})
+
+
+def admin_form_fields():
+    """Lista nazw pól formularza w kolejności ADMIN_FIELDS (do szablonu i testów)."""
+    nazwy = []
+    for klucz, typ, pola, _ in ADMIN_FIELDS:
+        if pola is None:
+            nazwy.append(klucz)
+        else:
+            nazwy.extend(f'{klucz}_{pole}' for pole in pola)
+    return nazwy
+
+
+def admin_form_values(cfg):
+    """Aktualna konfiguracja → słownik {pole formularza: wartość jako string}."""
+    wartosci = {}
+    for klucz, typ, pola, _ in ADMIN_FIELDS:
+        atrybut = klucz[len(SETTINGS_PREFIX):]
+        biezaca = getattr(cfg, atrybut)
+        if pola is None:
+            wartosci[klucz] = 'on' if (typ == 'boolean' and biezaca) else ('' if typ == 'boolean' else str(biezaca))
+        else:
+            for pole in pola:
+                v = biezaca.get(pole)
+                wartosci[f'{klucz}_{pole}'] = '' if v is None else (str(int(v)) if float(v).is_integer() else str(v))
+    return wartosci
+
+
+def _liczba(pole, surowe, errors):
+    tekst = (surowe or '').strip().replace(',', '.')
+    if tekst == '':
+        errors[pole] = 'Pole wymagane.'
+        return None
+    try:
+        if pole in _FLOAT_FIELDS:
+            v = float(tekst)
+            if not math.isfinite(v):
+                raise ValueError
+            return v
+        if '.' in tekst:
+            raise ValueError
+        return int(tekst)
+    except ValueError:
+        errors[pole] = 'Podaj liczbę' + (' (może być ułamek).' if pole in _FLOAT_FIELDS else ' całkowitą.')
+        return None
+
+
+def validate_settings(form):
+    """Formularz admina → ({klucz Settings: (wartość-string, typ)}, {pole formularza: komunikat}).
+
+    Zakresy jak w `_przetworz` (liczby dodatnie poza _ZERO_OK, 0 ≤ pct ≤ 100) plus reguły specu §3.4:
+    noc `0 ≤ start,end ≤ 23`, `0 < factor ≤ 1`; ogrzewanie `factor ≥ 1`; pat_gain > 0.
+    Przy JAKIMKOLWIEK błędzie nic nie jest zapisywane — wołający sprawdza `errors`.
+    """
+    values, errors = {}, {}
+    domyslne = PetConfig()
+    for klucz, typ, pola, _ in ADMIN_FIELDS:
+        atrybut = klucz[len(SETTINGS_PREFIX):]
+        if typ == 'boolean':
+            values[klucz] = ('true' if form.get(klucz) in ('on', 'true', '1') else 'false', typ)
+            continue
+        if pola is None:
+            v = _liczba(klucz, form.get(klucz), errors)
+            if v is None:
+                continue
+            if klucz == 'pets_rollout_pct' and not 0 <= v <= 100:
+                errors[klucz] = 'Zakres 0–100.'
+            elif v < 0 or (v == 0 and atrybut not in PetConfig._ZERO_OK):
+                errors[klucz] = 'Liczba musi być dodatnia.'
+            else:
+                values[klucz] = (str(v), typ)
+            continue
+        slownik, blad_w_grupie = {}, False
+        for pole in pola:
+            nazwa = f'{klucz}_{pole}'
+            v = _liczba(nazwa, form.get(nazwa), errors)
+            if v is None:
+                blad_w_grupie = True
+                continue
+            if klucz == 'pets_night' and pole in ('start', 'end') and not 0 <= v <= 23:
+                errors[nazwa] = 'Godzina 0–23.'
+            elif klucz == 'pets_night' and pole == 'factor' and not 0 < v <= 1:
+                errors[nazwa] = 'Mnożnik w przedziale (0, 1].'
+            elif klucz == 'pets_boost' and pole == 'factor' and v < 1:
+                errors[nazwa] = 'Mnożnik ≥ 1.'
+            elif v <= 0:
+                errors[nazwa] = 'Liczba musi być dodatnia.'
+            else:
+                slownik[pole] = v
+            if nazwa in errors:
+                blad_w_grupie = True
+        if blad_w_grupie:
+            continue
+        surowe = json.dumps(slownik)
+        try:
+            _przetworz(atrybut, surowe, getattr(domyslne, atrybut), PetConfig._ZERO_OK)
+        except (ValueError, TypeError) as exc:
+            errors[f'{klucz}_{pola[0]}'] = f'Nieprawidłowa wartość: {exc}'
+            continue
+        values[klucz] = (surowe, typ)
+    return values, errors
