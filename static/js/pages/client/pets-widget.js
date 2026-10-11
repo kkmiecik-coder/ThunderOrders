@@ -69,6 +69,7 @@
     var seq = 0;
     var appliedSeq = 0;
     var eggTimer = 0;
+    var trustNext = false;          // następny set() pochodzi z naszego żądania do serwera
 
     // ------------------------------------------------------------------------------------
     // Narzędzia
@@ -498,8 +499,12 @@
     /** Każda zmiana stanu (nasza akcja, odświeżenie, towarzysz na tej samej stronie). */
     function onState(state) {
         if (!state || typeof state !== 'object' || state === rendered) return;
-        // Starszy stan (np. lite z cache towarzysza sprzed kilku minut) nie cofa świeższego
-        if (rendered && parseLocal(state.now) < parseLocal(rendered.now)) return;
+        // Starszy stan z zewnątrz (np. lite z cache towarzysza sprzed kilku minut) nie cofa
+        // świeższego. Własne odpowiedzi serwera przechodzą zawsze — `now` to naiwny czas polski,
+        // który przy zmianie czasu na zimowy cofa się o godzinę.
+        var own = trustNext;
+        trustNext = false;
+        if (!own && rendered && parseLocal(state.now) < parseLocal(rendered.now)) return;
         rendered = state;
         receivedAt = Date.now();
         try {
@@ -509,13 +514,20 @@
         }
     }
 
+    /** Stan prosto z naszej odpowiedzi serwera → wspólny PetsState (cache, kropki, towarzysz). */
+    function publish(state) {
+        trustNext = true;
+        if (Store) Store.set(state);
+        else onState(state);
+        trustNext = false;
+    }
+
     function refresh() {
         if (refreshing || !Api) return refreshing || Promise.resolve();
         lastRefresh = Date.now();
         refreshing = Api.get('/stan').then(function (state) {
             refreshing = null;
-            if (Store) Store.set(state);
-            else onState(state);
+            publish(state);
             return state;
         }, function () {
             refreshing = null;   // kolejna próba przy następnym cyklu; bez toastu w tle
@@ -565,8 +577,7 @@
             lastInteraction = Date.now();
             if (mySeq >= appliedSeq && resp && resp.state) {
                 appliedSeq = mySeq;
-                if (Store) Store.set(resp.state);
-                else onState(resp.state);
+                publish(resp.state);
             }
             if (resp && resp.new_achievements && resp.new_achievements.length) showAchievements();
             return resp;
@@ -593,8 +604,7 @@
     }
 
     if (initial && typeof initial === 'object') {
-        if (Store) Store.set(initial);
-        else onState(initial);
+        publish(initial);
     } else {
         refresh();
     }
