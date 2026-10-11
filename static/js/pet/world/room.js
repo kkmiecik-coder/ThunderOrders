@@ -34,8 +34,8 @@
     var MAX_PETS = 8;
     var COMPACT_BACK = 4;
     var WALK_SPEED = 46;                 // px/s — spacer
-    var RUN_SPEED = 1000;                // px/s — wybrany pupil biegnie na środek…
-    var RUN_MIN = 0.5, RUN_MAX = 0.75;   // …w 0,5–0,75 s niezależnie od odległości
+    var RUN_SPEED = 300;                 // px/s — wybrany pupil podbiega na środek…
+    var RUN_MIN = 1.8, RUN_MAX = 2.2;    // …w ok. 2 s (decyzja Konrada: 0,5 s było za szybko)
     var HOP = 0.4;                       // s — wskok na kanapę / zeskok
     var PAUSE_MIN = 4000, PAUSE_MAX = 9000;
     var NUDGE_MIN = 5000, NUDGE_MAX = 11000;
