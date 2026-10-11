@@ -108,3 +108,121 @@ def rates_per_hour(state, dt, cfg):
     else:
         tempo['health'] = 0.0
     return tempo
+
+
+# ---------------------------------------------------------------------------
+# Symulacja krokami co 5 minut
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class SimResult:
+    state: PetState
+    died_at: datetime | None
+
+
+def _advance(state, tempo, godziny):
+    """Liniowy ruch wszystkich wartości o `godziny` przy zadanym tempie, z klamrą 0–100."""
+    return replace(
+        state,
+        hunger=_clamp(state.hunger + tempo['hunger'] * godziny),
+        fun=_clamp(state.fun + tempo['fun'] * godziny),
+        clean=_clamp(state.clean + tempo['clean'] * godziny),
+        health=_clamp(state.health + tempo['health'] * godziny),
+    )
+
+
+def simulate(state, cfg, from_dt, to_dt):
+    """Stan w chwili to_dt, licząc od stanu zapisanego w from_dt.
+
+    Kroki co STEP_SECONDS od from_dt (siatka startuje w from_dt → odczyty bez akcji są
+    spójne), ostatni krok ułamkowy. elapsed klamrowane do ≥ 0 (zmiana czasu 25.10 cofa
+    zegar). Odejście: zdrowie dobija do 0 → died_at interpolowane liniowo wewnątrz kroku,
+    stan zamrożony ze zdrowiem 0. Pupil już martwy na wejściu nie ożywa (died_at=None —
+    tę datę zna baza).
+    """
+    state = clamp_state(state)
+    elapsed = max(0.0, (to_dt - from_dt).total_seconds())
+    if elapsed == 0.0 or state.health <= 0.0:
+        return SimResult(state, None)
+
+    dt = from_dt
+    pozostalo = elapsed
+    while pozostalo > 1e-9:
+        krok = min(float(STEP_SECONDS), pozostalo)
+        tempo = rates_per_hour(state, dt, cfg)
+        godziny = krok / 3600.0
+        nowy = _advance(state, tempo, godziny)
+        if nowy.health <= 0.0:
+            spadek_na_h = -tempo['health']          # > 0, bo zdrowie spadło
+            died_at = dt + timedelta(hours=state.health / spadek_na_h)
+            return SimResult(replace(nowy, health=0.0), died_at)
+        state = nowy
+        dt = dt + timedelta(seconds=krok)
+        pozostalo -= krok
+    return SimResult(state, None)
+
+
+# ---------------------------------------------------------------------------
+# Nastrój i stadium
+# ---------------------------------------------------------------------------
+
+_NASTROJ_PASKA = {'hunger': 'glodny', 'fun': 'znudzony', 'clean': 'brudny'}
+
+
+def mood(state):
+    """Jedna etykieta, pierwsza pasująca od góry (spec §2.6)."""
+    if state.health < CRITICAL_BELOW:
+        return 'krytyczny'
+    if state.health < SICK_BELOW:
+        return 'chory'
+    if any(getattr(state, bar) <= 0 for bar in BARS):
+        return 'smutny'
+    najnizszy = min(BARS, key=lambda bar: getattr(state, bar))
+    if getattr(state, najnizszy) < HAPPY_FROM:
+        return _NASTROJ_PASKA[najnizszy]
+    return 'szczesliwy'
+
+
+STAGES = ('maluch', 'dziecko', 'dorosly')
+
+
+def age_days(hatched_at, now):
+    return int(max(0.0, (now - hatched_at).total_seconds()) // 86400)
+
+
+def stage(hatched_at, now, cfg):
+    """Stadium z czasu kalendarzowego od wyklucia: 0–24 maluch, 24–80 dziecko, 80+ dorosły."""
+    dni = max(0.0, (now - hatched_at).total_seconds()) / 86400.0
+    if dni >= float(cfg.stage_days['adult']):
+        return 'dorosly'
+    if dni >= float(cfg.stage_days['child']):
+        return 'dziecko'
+    return 'maluch'
+
+
+# ---------------------------------------------------------------------------
+# Jajko (analitycznie, bez kroków)
+# ---------------------------------------------------------------------------
+
+def egg_progress_seconds(progress_sec, progress_at, boost_until, now, cfg):
+    """Postęp inkubacji: zapisany + czas od zapisu, przy czym odcinek do boost_until liczy ×factor.
+
+    boost_until sprzed progress_at (stary boost) daje 0 s przyspieszenia; czas wstecz daje 0.
+    """
+    elapsed = max(0.0, (now - progress_at).total_seconds())
+    boosted = 0.0
+    if boost_until is not None:
+        boosted = min(elapsed, max(0.0, (boost_until - progress_at).total_seconds()))
+    factor = float(cfg.boost['factor'])
+    return float(progress_sec) + (elapsed - boosted) + boosted * factor
+
+
+def egg_is_ready(progress_seconds, egg_hours):
+    return progress_seconds >= float(egg_hours) * 3600.0
+
+
+def egg_progress_pct(progress_seconds, egg_hours):
+    calosc = float(egg_hours) * 3600.0
+    if calosc <= 0:
+        return 100.0
+    return round(min(100.0, 100.0 * float(progress_seconds) / calosc), 1)
