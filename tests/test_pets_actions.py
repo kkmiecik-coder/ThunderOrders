@@ -346,3 +346,27 @@ def test_admin_grant_egg(db, make_user):
     admin_grant_egg(user, now=T0)
     assert profil.granted_eggs_pending == 2
     assert PetEvent.query.filter_by(user_id=user.id, type='grant', pet_id=None).count() == 2
+
+
+# --- recenzja ---
+
+@pytest.mark.parametrize('count,oczekiwane', [
+    (float('inf'), 1), (float('-inf'), 1), (float('nan'), 1), (1e309, 1), (2.0 ** 70, 50),
+])
+def test_pat_count_nieskonczony_lub_ogromny_float(db, make_user, count, oczekiwane):
+    """Review Focus 1 uzupełniony po recenzji: json.loads('Infinity'/'1e309') daje inf → nie 500."""
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user, fun=10.0)
+    assert _akcja(user, pet, 'pat', count=count)['accepted'] == oczekiwane
+
+
+def test_limit_pat_liczony_blokujacym_odczytem(db, make_user):
+    """Recenzja (Important 2): SUM zdarzeń pat po blokadzie profilu musi omijać snapshot RR."""
+    from sqlalchemy.dialects import mysql
+    from modules.pets.actions import pats_last_hour_query
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user)
+    sql = str(pats_last_hour_query(pet, T0).statement.compile(dialect=mysql.dialect()))
+    assert 'FOR UPDATE' in sql and 'sum(' in sql.lower(), sql

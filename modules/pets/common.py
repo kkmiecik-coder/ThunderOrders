@@ -4,6 +4,10 @@
   monkeypatchują get_local_now;
 - `lock_profile()` = mutex użytkownika (FOR UPDATE na pet_profiles): każda operacja zapisu
   zaczyna się od niego, zanim przeczyta żywe gatunki / dostępne jajka (spec §6);
+- MariaDB (REPEATABLE READ) robi snapshot przy pierwszym SELECT w żądaniu — Flask-Login
+  wczytuje usera PRZED naszą blokadą. Dlatego odczyty PO blokadzie (profil, pupil, żywe
+  gatunki, suma pat pat) też są blokujące (FOR UPDATE) i nadpisują identity map
+  (populate_existing). Kolejność blokad zawsze profil → pupil (persist_death też);
 - odczyt nie zapisuje; jedyny wyjątek to `persist_death()` warunkowym UPDATE (spec §3.1);
 - serializacja do słowników API wg spec §3.5 — etap 4 tylko je zwraca.
 """
@@ -53,16 +57,29 @@ def get_profile(user):
     return PetProfile.query.filter_by(user_id=user.id).one_or_none()
 
 
+def profile_lock_query(user_id):
+    """SELECT … FOR UPDATE + populate_existing: świeży wiersz mimo snapshotu REPEATABLE READ."""
+    return PetProfile.query.filter_by(user_id=user_id).populate_existing().with_for_update()
+
+
+def pet_lock_query(pet_id):
+    return Pet.query.filter_by(id=pet_id).populate_existing().with_for_update()
+
+
+def alive_pets_lock_query(user_id):
+    return Pet.query.filter_by(user_id=user_id, status='alive').populate_existing().with_for_update()
+
+
 def lock_profile(user, required=True):
     """Blokada wiersza profilu na czas transakcji (na SQLite no-op)."""
-    profil = PetProfile.query.filter_by(user_id=user.id).with_for_update().one_or_none()
+    profil = profile_lock_query(user.id).one_or_none()
     if profil is None and required:
         raise PetError('no_profile', 'Najpierw odbierz jajko startowe.', 409)
     return profil
 
 
 def own_pet(user, pet_id, statuses):
-    pet = db.session.get(Pet, pet_id) if pet_id is not None else None
+    pet = pet_lock_query(pet_id).one_or_none() if pet_id is not None else None
     if pet is None:
         raise PetError('not_found', 'Nie ma takiego pupila.', 404)
     if pet.user_id != user.id:
@@ -98,6 +115,9 @@ def persist_death(pet, sim, now):
     """
     stan = sim.state
     przyczyna = next((DEATH_CAUSE[bar] for bar in rules.BARS if getattr(stan, bar) <= 0), 0)
+    # Kolejność blokad profil → pupil, jak w perform_action — inaczej odczyt wykrywający
+    # odejście i równoległa akcja mogą się zakleszczyć (MariaDB 1213).
+    profile_lock_query(pet.user_id).one_or_none()
     wynik = db.session.execute(
         update(Pet)
         .where(Pet.id == pet.id, Pet.status == 'alive')
@@ -128,7 +148,7 @@ def add_event(user_id, type, now, pet_id=None, value=1):
 
 def add_milestone(pet, code, now):
     """Trwałe zdarzenie `milestone` (raz na kod na pupila)."""
-    istnieje = PetEvent.query.filter_by(pet_id=pet.id, type='milestone', value=code).first()
+    istnieje = PetEvent.query.filter_by(pet_id=pet.id, type='milestone', value=code).with_for_update().first()
     if istnieje is None:
         add_event(pet.user_id, 'milestone', now, pet_id=pet.id, value=code)
 

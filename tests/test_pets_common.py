@@ -111,3 +111,43 @@ def test_egg_dict_i_pet_dict(db, make_user):
     assert m == {'species': 'mis', 'status': 'memorial', 'pet_id': zmarly.id, 'name': 'Puszek',
                  'hatched_at': '2026-08-13', 'died_at': '2026-10-12', 'age_days': 60,
                  'care_days': 41, 'lights_count': 3, 'can_light': True}
+
+
+def test_blokujace_odczyty_pod_mutexem_kompiluja_sie_z_for_update(db, make_user):
+    """Recenzja (Important 2): MariaDB REPEATABLE READ robi snapshot przy pierwszym SELECT
+    w żądaniu (Flask-Login wczytuje usera), więc odczyty PO blokadzie profilu muszą same być
+    blokujące (FOR UPDATE) i nadpisywać identity map (populate_existing)."""
+    from sqlalchemy.dialects import mysql
+    from modules.pets.common import profile_lock_query, pet_lock_query, alive_pets_lock_query
+    user = make_user()
+    for q in (profile_lock_query(user.id), pet_lock_query(1), alive_pets_lock_query(user.id)):
+        sql = str(q.statement.compile(dialect=mysql.dialect()))
+        assert 'FOR UPDATE' in sql, sql
+        assert q.load_options._populate_existing is True   # SA 2.0: flaga w load_options
+
+
+def test_persist_death_najpierw_blokuje_profil(db, make_user):
+    """Recenzja (deadlock): kolejność blokad profil → pupil wszędzie; persist_death z odczytu
+    (bez mutexu) nie może brać pupila przed profilem."""
+    from sqlalchemy import event
+    from modules.pets.common import persist_death, simulate_pet
+    from modules.pets.config import PetConfig
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user, hunger=0.0)
+    sim = simulate_pet(pet, T0 + timedelta(hours=80), PetConfig())
+    zapytania = []
+
+    def zbieraj(conn, cursor, statement, parameters, context, executemany):
+        zapytania.append(statement)
+
+    event.listen(db.engine, 'before_cursor_execute', zbieraj)
+    try:
+        persist_death(pet, sim, T0 + timedelta(hours=80))
+        db.session.commit()
+    finally:
+        event.remove(db.engine, 'before_cursor_execute', zbieraj)
+    norm = [s.lstrip().upper() for s in zapytania]
+    i_profil = next(i for i, s in enumerate(norm) if s.startswith('SELECT') and 'PET_PROFILES' in s)
+    i_update = next(i for i, s in enumerate(norm) if s.startswith('UPDATE PETS'))
+    assert i_profil < i_update, zapytania

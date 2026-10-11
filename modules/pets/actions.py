@@ -21,19 +21,23 @@ from modules.pets.errors import PetError
 from modules.pets.models import Pet, PetEvent, PetProfile
 
 
+def pats_last_hour_query(pet, since):
+    """SUM zaliczonych klepnięć od `since` — FOR UPDATE, bo liczymy pod mutexem profilu,
+    a zwykły SELECT na MariaDB czytałby snapshot sprzed blokady."""
+    return (db.session.query(func.coalesce(func.sum(PetEvent.value), 0))
+            .filter(PetEvent.pet_id == pet.id, PetEvent.type == 'pat', PetEvent.created_at > since)
+            .with_for_update())
+
+
 def _pats_last_hour(pet, now):
-    od = now - timedelta(hours=1)
-    suma = (db.session.query(func.coalesce(func.sum(PetEvent.value), 0))
-            .filter(PetEvent.pet_id == pet.id, PetEvent.type == 'pat', PetEvent.created_at > od)
-            .scalar())
-    return int(suma or 0)
+    return int(pats_last_hour_query(pet, now - timedelta(hours=1)).scalar() or 0)
 
 
 def _clamp_count(count):
     """Review Focus 1: cokolwiek przyjdzie z requestu, wychodzi 1..PAT_MAX_PER_REQUEST."""
     try:
         liczba = int(count)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):   # None / 'abc' / NaN / inf (json.loads('Infinity'))
         liczba = 1
     return max(1, min(liczba, PAT_MAX_PER_REQUEST))
 
