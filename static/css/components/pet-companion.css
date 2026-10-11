@@ -9,3 +9,221 @@
 [data-theme="dark"] .sidebar-dot { box-shadow: 0 0 0 2px rgba(21, 18, 28, 0.9); }
 .pets-sheet-dot { background: #f5576c; color: #fff; }
 [data-theme="dark"] .pets-sheet-dot { background: #f5576c; color: #ffffff; box-shadow: 0 0 0 1px rgba(240, 147, 251, 0.3); }
+
+/* ================================================
+   Towarzysz (spec §4.4) — static/js/components/pet-companion.js
+   ================================================ */
+.pet-companion {
+    position: fixed;
+    left: 16px;
+    bottom: calc(16px + var(--pet-companion-offset, 0px) + var(--pet-companion-lift, 0px));
+    /* Kolejność nakładek: POD wszystkimi nakładkami panelu (pasek PWA 1000 i jego arkusz 1001–1002,
+       mobilny sidebar 1000, szuflada koszyka 1090–1100, pełnoekranowe powiadomienia/wyszukiwarka 1200,
+       banery PWA/push, modale, toasty), NAD treścią i paskami stron ofert (≤ 100). Pasku PWA nie
+       zasłania, bo stoi nad nim (--pet-companion-offset). */
+    z-index: 999;
+    width: 72px;
+    height: 72px;
+    pointer-events: none;
+    /* bez przejścia na bottom: JS mierzy położenie (getBoundingClientRect) do omijania pasków CTA */
+    transition: left var(--pet-companion-walk, 0s) linear, opacity 0.2s ease, visibility 0.2s;
+}
+
+.pet-companion[hidden] { display: none; }
+
+.pet-companion > * { pointer-events: auto; }
+
+.pet-companion--sit,
+.pet-companion--corner {
+    left: auto;
+    right: 16px;
+}
+
+/* Chowa się pod otwartym mobilnym panelem koszyka oferty */
+.pet-companion--tucked {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.pet-companion--tucked > * { pointer-events: none; }
+
+.pet-companion__scene {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.pet-companion > .pet-companion__scene { pointer-events: none; }
+
+.pet-companion__scene .pet-rig { width: 100%; }
+
+/* Kierunek spaceru: osobne właściwości scale/translate, żeby odwrócenie i kołysanie się nie nadpisywały */
+.pet-companion--flipped .pet-companion__scene { scale: -1 1; }
+
+.pet-companion--walking .pet-companion__scene { animation: pet-companion-bob 0.5s ease-in-out infinite alternate; }
+
+@keyframes pet-companion-bob {
+    from { translate: 0 0; }
+    to { translate: 0 -3px; }
+}
+
+/* Cel dotykowy: cała scena, min. 44 × 44 px */
+.pet-companion__hit {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    min-width: 44px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pet-companion__hit:focus { outline: none; }
+
+.pet-companion__hit:focus-visible { box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.45); }
+
+[data-theme="dark"] .pet-companion__hit:focus-visible { box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.55); }
+
+.pet-companion--asleep .pet-companion__hit { cursor: default; }
+
+/* Dymek */
+.pet-companion__bubble {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    z-index: 3;
+    width: max-content;
+    max-width: 220px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    color: #333333;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    opacity: 0;
+    translate: 0 4px;
+    transition: opacity 0.2s ease, translate 0.2s ease;
+    cursor: pointer;
+}
+
+.pet-companion__bubble[hidden] { display: none; }
+
+.pet-companion__bubble.is-visible {
+    opacity: 1;
+    translate: 0 0;
+}
+
+.pet-companion--bubble-left .pet-companion__bubble {
+    left: auto;
+    right: 0;
+}
+
+/* Ogonek */
+.pet-companion__bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 26px;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    background: #ffffff;
+    border-right: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    transform: rotate(45deg);
+}
+
+.pet-companion--bubble-left .pet-companion__bubble::after {
+    left: auto;
+    right: 26px;
+}
+
+.pet-companion__bubble-text { display: block; }
+
+.pet-companion__bubble-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-top: 6px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.pet-companion__bubble-link:hover,
+.pet-companion__bubble-link:focus-visible {
+    color: #ffffff;
+    filter: brightness(1.05);
+    text-decoration: none;
+}
+
+[data-theme="dark"] .pet-companion__bubble {
+    background: rgba(30, 27, 38, 0.95);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #ffffff;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .pet-companion__bubble::after {
+    background: rgb(30, 27, 38);
+    border-right-color: rgba(240, 147, 251, 0.3);
+    border-bottom-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pet-companion__bubble-link,
+[data-theme="dark"] .pet-companion__bubble-link:hover,
+[data-theme="dark"] .pet-companion__bubble-link:focus-visible {
+    color: #ffffff;
+}
+
+/* Telefon: mniejszy (rig sam ma 56 px przy ≤ 480 px) */
+@media (max-width: 480px) {
+    .pet-companion {
+        width: 56px;
+        height: 56px;
+    }
+
+    .pet-companion--sit,
+    .pet-companion--corner { right: 12px; }
+
+    .pet-companion__bubble { max-width: 200px; }
+}
+
+/* Nad dolnym paskiem PWA — ten sam warunek, w którym bottom-bar.css go pokazuje (tylko panel klienta;
+   strony ofert paska nie mają) */
+@media (display-mode: standalone) {
+    .pet-companion--walk { --pet-companion-offset: calc(60px + env(safe-area-inset-bottom, 0px)); }
+
+    @media (orientation: landscape) {
+        .pet-companion--walk { --pet-companion-offset: calc(48px + env(safe-area-inset-bottom, 0px)); }
+    }
+}
+
+/* Ograniczony ruch: bez przejść i kołysania (spacer wyłącza JS) */
+@media (prefers-reduced-motion: reduce) {
+    .pet-companion,
+    .pet-companion__bubble { transition: none; }
+
+    .pet-companion--walking .pet-companion__scene { animation: none; }
+}
+
+.pet-rig-rm .pet-companion,
+.pet-rig-rm .pet-companion__bubble { transition: none; }
+
+.pet-rig-rm .pet-companion--walking .pet-companion__scene { animation: none; }
