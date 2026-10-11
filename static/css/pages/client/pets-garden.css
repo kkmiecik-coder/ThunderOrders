@@ -1275,11 +1275,13 @@
     .pets-grave__name { font-size: 14px; }
 }
 
-/* Szeroka scena z niskim niebem (np. 1366×600): księżyc nie mieści się pod pigułką — świeci w pierwszym
-   rzędzie, w przerwie między pigułką (z lewej) a tabliczką albumu (nocą zsuniętą niżej) */
+/* Szeroka scena z niskim niebem (np. 1366×600): księżyc (wieczór, noc) nie mieści się pod pigułką — świeci
+   w pierwszym rzędzie, w przerwie między pigułką (z lewej) a tabliczką albumu. Przy otwartej karcie okna
+   tabliczka przesuwa się w lewo, więc wtedy księżyc wraca pod pigułkę (mniejszy albo wcale). */
 @container pets-garden (min-width: 900px) {
     @container pg-sky (max-height: 279.98px) {
-        .pets-page--night .pg-moon {
+        [data-theme="dark"] .pets-scene--ogrod:not(.has-window) .pg-moon,
+        .pets-page--night .pets-scene--ogrod:not(.has-window) .pg-moon {
             --moon: clamp(0px, calc(100cqh - 24px - var(--pg-hills-h)), 46px);
             top: 14px;
             left: calc(var(--pg-cx) + min(16cqw, 190px));
