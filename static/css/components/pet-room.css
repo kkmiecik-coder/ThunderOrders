@@ -145,6 +145,23 @@
     transition: left var(--walk) linear, bottom var(--walk) linear, transform 0.35s ease, opacity 0.3s ease, filter 0.3s ease;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    /* Pudełko pupila jest kwadratem z przezroczystymi rogami — klika się tylko .pet-room__hit */
+    pointer-events: none;
+}
+
+/* Obszar kliknięcia: ~55% szerokości × 80% wysokości przy stopach; ≥ 44 × 44 px także po zmniejszeniu
+   przez głębię (--depth to skala pupila z room.js) */
+.pet-room__hit {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 55%;
+    height: 80%;
+    min-width: calc(44px / var(--depth, 1));
+    min-height: calc(44px / var(--depth, 1));
+    border-radius: 40% 40% 18px 18px;
+    transform: translateX(-50%);
+    pointer-events: auto;
 }
 
 .pet-room__pet:focus { outline: none; }

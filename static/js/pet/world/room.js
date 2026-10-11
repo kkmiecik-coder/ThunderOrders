@@ -52,7 +52,19 @@
         corner: [[0.07, 0.22], [0.15, 0.25], [0.24, 0.27], [0.1, 0.16]],
         rug: [[0.44, 0.09], [0.56, 0.05], [0.5, 0.17], [0.38, 0.15]]
     };
+    // Sloty zajęte → rozsuwanie po podłodze w obszarze miejsca, a gdy i tam ciasno — po całej podłodze
+    var AREAS = {
+        bowl: { x0: 0.08, x1: 0.46, y0: 0.03, y1: 0.24 },
+        basket: { x0: 0.42, x1: 0.92, y0: 0.03, y1: 0.28 },   // koszyk + poduszka; w nocy śpią tu wszyscy
+        corner: { x0: 0.06, x1: 0.36, y0: 0.12, y1: 0.3 },
+        rug: { x0: 0.3, x1: 0.7, y0: 0.03, y1: 0.22 }
+    };
+    var FLOOR = { x0: 0.08, x1: 0.92, y0: 0.02, y1: 0.3 };
     var WANDER = { x0: 0.3, x1: 0.7, y0: 0.03, y1: 0.2 };
+    var WANDER_WIDE = { x0: 0.12, x1: 0.88, y0: 0.03, y1: 0.24 };   // > 3 pupili: spacer po szerszej podłodze
+    var WANDER_TRIES = 24;
+    var SEP_X = 0.9, SEP_Y = 0.5;        // próg kolizji: ułamek szerokości / wysokości pupila
+    var SEP_PATH = 0.7;                  // po drodze wolno minąć innego bliżej, ale nie przejść przez niego
     var FOCUS_SPOT = [0.5, 0.04];
     var COMPACT_MAIN = [0.5, 0.05];
     var COMPACT_SLOTS = [[0.15, 0.17], [0.85, 0.17], [0.3, 0.27], [0.7, 0.27]];
@@ -63,6 +75,16 @@
     }
 
     function rand(a, b) { return a + Math.random() * (b - a); }
+
+    function grid(box, cols, rows) {
+        var out = [];
+        for (var r = 0; r < rows; r++) {
+            for (var c = 0; c < cols; c++) {
+                out.push([box.x0 + (box.x1 - box.x0) * c / (cols - 1), box.y0 + (box.y1 - box.y0) * r / (rows - 1)]);
+            }
+        }
+        return out;
+    }
 
     function needOf(pet) {
         var R = window.PetRig;
@@ -171,10 +193,8 @@
             if (n === narrow) return;
             narrow = n;
             el.classList.toggle('is-narrow', n);
-            order.forEach(function (id) {
-                var e = entries[id];
-                if (e && e.x != null) place(e, e.x, e.y, true);
-            });
+            // Inna wysokość podłogi i większi pupile — rozstaw od nowa (bez marszu), kolizje z nowymi progami
+            if (order.length) layout(true);
         }
 
         function place(entry, x, y, instant) {
@@ -184,6 +204,8 @@
             // Wartości dynamiczne (pozycja, czas marszu, głębia) — reszta wyglądu w pet-room.css
             entry.el.style.setProperty('--walk', moving ? Math.max(0.5, dist / WALK_SPEED).toFixed(2) + 's' : '0s');
             entry.el.style.setProperty('--depth', (1 - y * 0.7).toFixed(3));
+            // Trasa marszu — inni nie wybierają celu ani drogi w poprzek niej, póki pupil idzie
+            entry.walk = moving ? { x0: entry.x, y0: entry.y, until: Date.now() + dist / WALK_SPEED * 1000 } : null;
             entry.x = x;
             entry.y = y;
             entry.el.style.left = (x * 100).toFixed(2) + '%';
@@ -198,21 +220,110 @@
             }
         }
 
-        function tooClose(entry, x, y) {
-            return order.some(function (id) {
-                var o = entries[id];
-                return o && o !== entry && o.x != null && Math.abs(o.x - x) < 0.1 && Math.abs(o.y - y) < 0.08;
-            });
+        // --- bez nakładania się ------------------------------------------------------------
+        // Odległość liczona w „rozmiarach pupila”: sep ≥ 1 = nie zachodzą na siebie. Progi z realnego
+        // rozmiaru pupila względem pokoju (szerokość pudełka, głębia, powiększenie fokusu): poziomo
+        // SEP_X szerokości, pionowo SEP_Y wysokości (stopy tylnego o pół pupila wyżej = jego głowa nad przednim).
+        function petBox() {
+            var sample = entries[order[0]];
+            var w = (sample && sample.el.offsetWidth) || 96;
+            var h = (sample && sample.el.offsetHeight) || w;
+            return { x: w / width(), y: h / (height() * yScale()) };
         }
 
-        function freeWanderSpot(entry) {
-            var best = null;
-            for (var i = 0; i < 10; i++) {
-                var x = rand(WANDER.x0, WANDER.x1), y = rand(WANDER.y0, WANDER.y1);
-                best = [x, y];
-                if (!tooClose(entry, x, y)) break;
+        function scaleAt(y, id) {
+            return (1 - y * 0.7) * (id === focusedId ? 1.3 : 1);
+        }
+
+        /** Przeszkody: pozycje (cele) innych pupili + punkty trasy tych, którzy właśnie idą. */
+        function obstacles(entry, only) {
+            var now = Date.now();
+            var out = [];
+            order.forEach(function (id) {
+                var o = entries[id];
+                if (!o || o === entry || o.x == null || (only && !only[id])) return;
+                out.push({ x: o.x, y: o.y, id: id });
+                if (o.walk && o.walk.until > now && o.walk.x0 != null) {
+                    for (var k = 1; k < 6; k++) {
+                        var t = k / 6;
+                        out.push({ x: o.walk.x0 + (o.x - o.walk.x0) * t, y: o.walk.y0 + (o.y - o.walk.y0) * t, id: id });
+                    }
+                }
+            });
+            return out;
+        }
+
+        function sepAt(entry, x, y, obs, box) {
+            var min = Infinity;
+            var sa = scaleAt(y, entry.pet.id);
+            for (var i = 0; i < obs.length; i++) {
+                var o = obs[i];
+                var sb = scaleAt(o.y, o.id);
+                var tx = SEP_X * box.x * (sa + sb) / 2;
+                var ty = SEP_Y * box.y * (sa + sb) / 2;
+                var s = Math.max(Math.abs(o.x - x) / tx, Math.abs(o.y - y) / ty);
+                if (s < min) min = s;
             }
+            return min;
+        }
+
+        function pathSep(entry, x, y, obs, box) {
+            if (entry.x == null) return Infinity;
+            var min = Infinity;
+            for (var k = 1; k < 8; k++) {
+                var t = k / 8;
+                min = Math.min(min, sepAt(entry, entry.x + (x - entry.x) * t, entry.y + (y - entry.y) * t, obs, box));
+            }
+            return min;
+        }
+
+        function wanderBox() {
+            return order.length > 3 ? WANDER_WIDE : WANDER;
+        }
+
+        /**
+         * Cel spaceru: losowy punkt wolny od innych (sep ≥ 1) i z drogą, która nie przechodzi przez nikogo;
+         * gdy takiego nie ma — punkt z największym minimalnym dystansem, a gdy i on nie jest lepszy niż
+         * obecne miejsce — null (zostaje, spróbuje przy następnym kroku).
+         */
+        function freeWanderSpot(entry, only) {
+            var box = petBox();
+            var obs = obstacles(entry, only);
+            var area = wanderBox();
+            var ok = [];
+            var best = null, bestScore = -1;
+            for (var i = 0; i < WANDER_TRIES; i++) {
+                var x = rand(area.x0, area.x1), y = rand(area.y0, area.y1);
+                var dest = sepAt(entry, x, y, obs, box);
+                var path = only ? Infinity : pathSep(entry, x, y, obs, box);   // układ (layout) bez drogi — to zmiana miejsca
+                if (dest >= 1 && path >= SEP_PATH) ok.push([x, y]);
+                var score = Math.min(dest, path / SEP_PATH);
+                if (score > bestScore) { bestScore = score; best = [x, y]; }
+            }
+            if (ok.length) return ok[Math.floor(Math.random() * ok.length)];
+            if (entry.x != null && sepAt(entry, entry.x, entry.y, obs, box) >= bestScore) return null;
             return best;
+        }
+
+        /**
+         * Miejsce potrzeby (miska, koszyk, kąt, dywan): najpierw sloty SPOTS, potem siatka obszaru miejsca
+         * (najbliżej pierwszego slotu), potem cała podłoga; bez wolnego — punkt z największym dystansem.
+         */
+        function freePlaceSpot(entry, placeName, only) {
+            var box = petBox();
+            var obs = obstacles(entry, only);
+            var anchor = SPOTS[placeName][0];
+            var area = grid(AREAS[placeName], 11, 7).sort(function (a, b) {
+                return Math.hypot(a[0] - anchor[0], a[1] - anchor[1]) - Math.hypot(b[0] - anchor[0], b[1] - anchor[1]);
+            });
+            var cands = SPOTS[placeName].concat(area, grid(FLOOR, 11, 5));
+            var best = cands[0], bestSep = -1;
+            for (var i = 0; i < cands.length; i++) {
+                var s = sepAt(entry, cands[i][0], cands[i][1], obs, box);
+                if (s >= 1) return cands[i].slice();
+                if (s > bestSep) { bestSep = s; best = cands[i]; }
+            }
+            return best.slice();
         }
 
         function scheduleWander(entry) {
@@ -232,8 +343,8 @@
             entry.timer = setTimeout(function () {
                 if (destroyed) return;
                 if (!entry.acting && focusedId !== entry.pet.id && entry.place === 'wander') {
-                    var spot = freeWanderSpot(entry);
-                    place(entry, spot[0], spot[1]);
+                    var spot = freeWanderSpot(entry, null);
+                    if (spot) place(entry, spot[0], spot[1]);
                 }
                 scheduleWander(entry);
             }, rand(PAUSE_MIN, PAUSE_MAX));
@@ -241,7 +352,6 @@
 
         /** Rozmieszcza pupili wg potrzeb (albo wg układu widgetu). */
         function layout(instant) {
-            var used = { bowl: 0, basket: 0, corner: 0, rug: 0 };
             if (compact) {
                 var slot = 0;
                 order.forEach(function (id) {
@@ -257,21 +367,29 @@
                 placeBubble();
                 return;
             }
-            order.forEach(function (id) {
+            // Kolejność rozstawiania: wybrany (fokus) → pupile przy miejscach potrzeb → spacerowicze (najbardziej
+            // elastyczni). Kolizje liczone tylko z już rozstawionymi w tym przebiegu (`done`).
+            var rank = function (id) { return id === focusedId ? 0 : (entries[id].place === 'wander' ? 2 : 1); };
+            var seq = order.slice().sort(function (a, b) { return rank(a) - rank(b) || order.indexOf(a) - order.indexOf(b); });
+            var done = {};
+            var box = petBox();
+            seq.forEach(function (id) {
                 var e = entries[id];
                 var target;
+                // Zostaje na miejscu, jeśli to wciąż to samo zajęcie i nikt z rozstawionych na nim nie stoi
+                var keep = e.x != null && e.spotFor === e.place && id !== focusedId &&
+                    sepAt(e, e.x, e.y, obstacles(e, done), box) >= 1;
                 if (id === focusedId) {
                     target = FOCUS_SPOT;
+                } else if (keep) {
+                    target = [e.x, e.y];
                 } else if (e.place === 'wander') {
-                    target = (e.x != null && e.wanderOk && !tooClose(e, e.x, e.y)) ? [e.x, e.y] : freeWanderSpot(e);
-                    e.wanderOk = true;
+                    target = freeWanderSpot(e, done) || [e.x, e.y];
                 } else {
-                    var list = SPOTS[e.place];
-                    var n = used[e.place]++;
-                    target = list[n % list.length].slice();
-                    if (n >= list.length) target[0] = Math.min(0.94, target[0] + 0.05 * Math.floor(n / list.length));
-                    e.wanderOk = false;
+                    target = freePlaceSpot(e, e.place, done);
                 }
+                e.spotFor = id === focusedId ? null : e.place;
+                done[id] = true;
                 place(e, target[0], target[1], instant || e.x == null);
                 scheduleWander(e);
             });
@@ -321,6 +439,12 @@
             var flip = document.createElement('span');
             flip.className = 'pet-room__body';
             btn.appendChild(flip);
+            // Klikalny jest tylko obszar przy stopach (~55% × 80%), nie całe kwadratowe pudełko — inaczej
+            // przezroczysty róg pupila z przodu zabiera kliknięcia temu za nim (pet-room.css)
+            var hitArea = document.createElement('span');
+            hitArea.className = 'pet-room__hit';
+            hitArea.setAttribute('aria-hidden', 'true');
+            btn.appendChild(hitArea);
             var name = null;
             if (!compact) {
                 name = document.createElement('span');
