@@ -32,6 +32,11 @@
 
 .pet-companion[hidden] { display: none; }
 
+/* Odtworzenie pozycji z poprzedniej strony (spec v3 §8): pierwsza klatka bez przejść — bez „wjazdu”.
+   Bez kolorów, więc wspólne dla light i dark mode. */
+.pet-companion--restored,
+.pet-companion--restored .pet-companion__scene { transition: none !important; }
+
 .pet-companion > * { pointer-events: auto; }
 
 .pet-companion--sit,
