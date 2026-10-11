@@ -584,10 +584,13 @@ def test_tekst_chory_i_sciezki_pushu(db, make_user):
     user = make_user()
     p = zaloz_pupila(user, name='Burek')
     assert 'Pupil Burek jest chory — zabierz go do szpitala.' in build_push_text(_koszyk(user, alerts=[(p, LEVEL_SICK)]))[1]
-    assert push_path(_koszyk(user, alerts=[(p, LEVEL_CRITICAL)], deaths=[p])) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, alerts=[(p, LEVEL_CRITICAL)], deaths=[p])) == '/client/pupile/szpital/izba-przyjec'
     assert push_path(_koszyk(user, deaths=[p])) == '/client/pupile/ogrod'
-    assert push_path(_koszyk(user, healed=[p])) == '/client/pupile/szpital'
-    assert push_path(_koszyk(user, eggs_ready=[p])) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, healed=[p])) == '/client/pupile/szpital/izba-przyjec'
+    assert push_path(_koszyk(user, eggs_ready=[p])) == '/client/pupile/szpital/inkubatorium'
+    assert push_path(_koszyk(user, monthly=True)) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, healed=[p], eggs_ready=[p], monthly=True)) == '/client/pupile/szpital/izba-przyjec'
+    assert push_path(_koszyk(user, eggs_ready=[p], monthly=True)) == '/client/pupile/szpital/inkubatorium'
     assert push_path(_koszyk(user, alerts=[(p, LEVEL_SAD)])) == '/client/pupile/domek'
 
 
@@ -597,6 +600,6 @@ def test_push_przypomnienie_o_ratunkowym_nie_kieruje_do_ogrodu(db, make_user):
     from modules.pets.notifications import push_path
     user = make_user()
     p = zaloz_pupila(user, name='Burek')
-    assert push_path(_koszyk(user, rescue_reminders=[p], eggs_ready=[p])) == '/client/pupile/szpital'
+    assert push_path(_koszyk(user, rescue_reminders=[p], eggs_ready=[p])) == '/client/pupile/szpital/inkubatorium'
     assert push_path(_koszyk(user, rescue_reminders=[p])) == '/client/pupile/domek'
     assert push_path(_koszyk(user, deaths=[p])) == '/client/pupile/ogrod'

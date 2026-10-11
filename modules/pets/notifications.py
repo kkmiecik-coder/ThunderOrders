@@ -90,12 +90,16 @@ def build_push_text(basket):
 
 
 def push_path(basket):
-    """Gdzie prowadzi zbiorczy push (spec v3 §6.4): najpierw to, co wymaga działania w szpitalu."""
+    """Gdzie prowadzi zbiorczy push (spec v3.1 §5): prosto do sali, w której da się pomóc."""
     if any(poziom >= LEVEL_SICK for _, poziom in basket['alerts']):
-        return PETS_URL_PATH + '/szpital'
+        return PETS_URL_PATH + '/szpital/izba-przyjec'
     if basket['deaths']:                      # przypomnienie o ratunkowym idzie mailem — nie steruje pushem
         return PETS_URL_PATH + '/ogrod'
-    if basket['healed'] or basket['eggs_ready'] or basket['monthly']:
+    if basket['healed']:
+        return PETS_URL_PATH + '/szpital/izba-przyjec'
+    if basket['eggs_ready']:
+        return PETS_URL_PATH + '/szpital/inkubatorium'
+    if basket['monthly']:
         return PETS_URL_PATH + '/szpital'
     return PETS_URL_PATH + '/domek'
 
