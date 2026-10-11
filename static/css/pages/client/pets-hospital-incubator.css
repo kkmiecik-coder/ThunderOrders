@@ -1,17 +1,24 @@
 /* Świat pupili — szpital, Inkubatorium (spec v3.1 §4). Logika: static/js/pet/world/hospital-incubator.js.
-   Wspólne style szpitala: pets-hospital.css (ładowany wcześniej). */
+   Wspólne style szpitala: pets-hospital.css (ładowany wcześniej).
+   Warstwy sali (od tyłu): tapeta sceny · ciepłe światło · girlanda pod sufitem · podłoga z lamperią · dywan ·
+   roślina i kosz po bokach rzędu · przewijane wnętrze (tabliczka, ściana z wystrojem, rząd inkubatorów).
+   Dark mode = nocny pokój: przygaszone ściany, świecące żarówki i lampy, księżyc w oknie. */
 
 /* =====================================================================
    Inkubatorium (spec v3.1 §4.3)
    ===================================================================== */
 
-/* Ciepła ściana w pasy do krawędzi sceny */
+/* Ciepła tapeta do krawędzi sceny: pasy + motyw jajek, serduszek i kropek */
 .pets-scene--inkubatorium {
-    background: repeating-linear-gradient(90deg, #fff4e3 0 40px, #ffeed8 40px 80px);
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cpath fill='%23ffdcbf' d='M20 10c4.4 0 7.6 6.8 7.6 11.2a7.6 7.6 0 0 1-15.2 0C12.4 16.8 15.6 10 20 10z'/%3E%3Cpath fill='%23ffd0dc' d='M60 70s-6.2-3.7-6.2-7.8a3.4 3.4 0 0 1 6.2-1.9 3.4 3.4 0 0 1 6.2 1.9c0 4.1-6.2 7.8-6.2 7.8z'/%3E%3Ccircle fill='%23ffe3ad' cx='60' cy='22' r='2.2'/%3E%3Ccircle fill='%23ffe3ad' cx='20' cy='62' r='2.2'/%3E%3C/svg%3E") 0 0 / 80px 80px,
+        repeating-linear-gradient(90deg, #fff4e3 0 40px, #ffeed8 40px 80px);
 }
 
 [data-theme="dark"] .pets-scene--inkubatorium {
-    background: repeating-linear-gradient(90deg, #2a211c 0 40px, #30251f 40px 80px);
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cpath fill='%233a2b23' d='M20 10c4.4 0 7.6 6.8 7.6 11.2a7.6 7.6 0 0 1-15.2 0C12.4 16.8 15.6 10 20 10z'/%3E%3Cpath fill='%23432c35' d='M60 70s-6.2-3.7-6.2-7.8a3.4 3.4 0 0 1 6.2-1.9 3.4 3.4 0 0 1 6.2 1.9c0 4.1-6.2 7.8-6.2 7.8z'/%3E%3Ccircle fill='%23463526' cx='60' cy='22' r='2.2'/%3E%3Ccircle fill='%23463526' cx='20' cy='62' r='2.2'/%3E%3C/svg%3E") 0 0 / 80px 80px,
+        repeating-linear-gradient(90deg, #2a211c 0 40px, #30251f 40px 80px);
 }
 
 /* Siatka inkubatorów (spec v3.1 §4.3): wąsko po 2, średnio po 3, szeroko do 5 w rzędzie.
@@ -42,7 +49,103 @@
     .pets-page--night .pets-inc { --pad-top: 124px; }
 }
 
-/* Podłoga z desek do krawędzi sceny */
+/* Dekoracje sali nie łapią kliknięć (klik w nie = klik w tło sceny, zamyka okno) */
+.pets-inc__light,
+.pets-inc__garland,
+.pets-inc__floor,
+.pets-inc__rug,
+.pets-inc__side,
+.pets-inc__wall { pointer-events: none; }
+
+/* --- Ciepłe światło: poświata lamp nad rzędem; nocą (dark) także cień pod sufitem --- */
+.pets-inc__light {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -100vw;
+    right: -100vw;
+}
+
+.pets-inc__light::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 100vw;
+    right: 100vw;
+    background: radial-gradient(ellipse 58% 46% at 50% 82%, rgba(255, 196, 120, 0.2) 0%, rgba(255, 196, 120, 0) 72%);
+}
+
+[data-theme="dark"] .pets-inc__light {
+    background: linear-gradient(180deg, rgba(12, 6, 3, 0.38) 0%, rgba(12, 6, 3, 0) 38%);
+}
+
+[data-theme="dark"] .pets-inc__light::after {
+    background: radial-gradient(ellipse 60% 50% at 50% 80%, rgba(255, 166, 84, 0.2) 0%, rgba(255, 166, 84, 0) 72%);
+}
+
+/* --- Girlanda światełek pod sufitem: odcinki z żarówkami, liczba wg szerokości sceny --- */
+.pets-inc__garland {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+}
+
+.pets-inc__bulb {
+    --bulb: #ff9fc0;
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    height: auto;
+    aspect-ratio: 100 / 32;
+    overflow: visible;
+}
+
+.pets-inc__bulb:nth-child(5n+2) { --bulb: #ffd36b; }
+.pets-inc__bulb:nth-child(5n+3) { --bulb: #8fdfc2; }
+.pets-inc__bulb:nth-child(5n+4) { --bulb: #c4a6ff; }
+.pets-inc__bulb:nth-child(5n+5) { --bulb: #ffb48a; }
+
+.pets-inc__bulb:nth-child(n+6) { display: none; }
+
+@container (min-width: 480px) {
+    .pets-inc__bulb:nth-child(-n+7) { display: block; }
+}
+
+@container (min-width: 780px) {
+    .pets-inc__bulb:nth-child(-n+9) { display: block; }
+}
+
+@container (min-width: 1000px) {
+    .pets-inc__bulb { display: block; }
+}
+
+.pets-inc .gl-wire { fill: none; stroke: #b98a6a; stroke-width: 1.4; }
+.pets-inc .gl-cap { fill: #dcbd9e; }
+.pets-inc .gl-glass { fill: var(--bulb); }
+.pets-inc .gl-halo { fill: var(--bulb); opacity: 0.22; }
+.pets-inc .gl-shine { fill: #ffffff; opacity: 0.75; }
+
+.pets-inc .gl-bulb { animation: pets-inc-bulb 3.2s ease-in-out infinite; }
+.pets-inc__bulb:nth-child(2n) .gl-bulb { animation-delay: -1.6s; }
+.pets-inc__bulb:nth-child(3n) .gl-bulb { animation-duration: 4.2s; }
+
+/* Noc (także w jasnym motywie): żarówki świecą mocniej */
+.pets-page--night .pets-inc .gl-halo { opacity: 0.4; }
+
+[data-theme="dark"] .pets-inc__bulb { --bulb: #ff8fb4; }
+[data-theme="dark"] .pets-inc__bulb:nth-child(5n+2) { --bulb: #ffd46e; }
+[data-theme="dark"] .pets-inc__bulb:nth-child(5n+3) { --bulb: #86e6c4; }
+[data-theme="dark"] .pets-inc__bulb:nth-child(5n+4) { --bulb: #c9adff; }
+[data-theme="dark"] .pets-inc__bulb:nth-child(5n+5) { --bulb: #ffb07d; }
+[data-theme="dark"] .pets-inc .gl-wire { stroke: #6e5646; }
+[data-theme="dark"] .pets-inc .gl-cap { fill: #8c7462; }
+[data-theme="dark"] .pets-inc .gl-halo { opacity: 0.5; }
+[data-theme="dark"] .pets-inc .gl-shine { opacity: 0.9; }
+
+/* --- Podłoga z desek i lamperia nad nią — do krawędzi sceny --- */
 .pets-inc__floor {
     position: absolute;
     left: -100vw;
@@ -55,6 +158,17 @@
     box-shadow: inset 0 10px 0 #e2c39d;
 }
 
+.pets-inc__floor::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 32%;
+    background: repeating-linear-gradient(90deg, #ffe7d2 0 22px, #fbdcc3 22px 24px);
+    border-top: 6px solid #f4c8a2;
+}
+
 [data-theme="dark"] .pets-inc__floor {
     background:
         repeating-linear-gradient(90deg, transparent 0 118px, rgba(0, 0, 0, 0.22) 118px 120px),
@@ -62,31 +176,110 @@
     box-shadow: inset 0 10px 0 #4a3a2c;
 }
 
-/* Obrazek na ścianie — tylko gdy jest miejsce nad inkubatorami */
-.pets-inc__poster {
+[data-theme="dark"] .pets-inc__floor::before {
+    background: repeating-linear-gradient(90deg, #32261f 0 22px, #2b211b 22px 24px);
+    border-top-color: #4b382b;
+}
+
+/* --- Miękki dywan pod rzędem (podstawy inkubatorów na jego środku: --inc-base z JS) --- */
+.pets-inc__rug {
     position: absolute;
-    top: max(80px, 10%);
     left: 50%;
-    width: 64px;
-    transform: translateX(-50%) rotate(-3deg);
+    bottom: calc(var(--inc-base, 40px) - clamp(13px, 4cqh, 38px));
+    width: min(88%, 1000px);
+    height: clamp(30px, 9cqh, 84px);
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, #ffe8f0 0 62%, #ffffff 63% 66%, #ffd4e2 67% 86%, #f7bbce 87% 100%);
+    box-shadow: 0 3px 0 rgba(214, 120, 150, 0.18);
 }
 
-.pets-inc__poster svg { display: block; width: 100%; height: auto; }
-.pets-inc__poster .poster-frame { fill: #e2b07e; }
-.pets-inc__poster .poster-paper { fill: #fffaf0; }
-.pets-inc__poster .poster-egg { fill: #ffe7a6; stroke: #e2be7a; stroke-width: 2; }
-.pets-inc__poster .poster-heart { fill: #ff8fab; }
-
-[data-theme="dark"] .pets-inc__poster .poster-frame { fill: #7a5636; }
-[data-theme="dark"] .pets-inc__poster .poster-paper { fill: #3d3128; }
-[data-theme="dark"] .pets-inc__poster .poster-egg { fill: #d9b867; stroke: #a8874a; }
-[data-theme="dark"] .pets-inc__poster .poster-heart { fill: #e47d99; }
-
-@container (max-height: 760px) {
-    .pets-inc__poster { display: none; }
+.pets-inc__rug::after {
+    content: "";
+    position: absolute;
+    inset: 16% 7%;
+    border: 2px dashed rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
 }
 
-/* Przewijane wnętrze: inkubatory stoją na podłodze (rząd dociśnięty do dołu), nadmiar przewija się */
+[data-theme="dark"] .pets-inc__rug {
+    background: radial-gradient(closest-side, #3d2a3b 0 62%, #4b3348 63% 66%, #45303f 67% 86%, #563a51 87% 100%);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .pets-inc__rug::after { border-color: rgba(240, 147, 251, 0.25); }
+
+/* --- Roślina (lewa) i kosz z pluszakami (prawa): stoją przy rzędzie tylko, gdy jest wolny pas (JS) --- */
+.pets-inc__side {
+    position: absolute;
+    bottom: var(--inc-base, calc(24px + 2cqw));
+    visibility: hidden;
+}
+
+.pets-inc__side.is-shown { visibility: visible; }
+
+.pets-inc__side svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.pets-inc__side--l {
+    left: var(--side-x, 12px);
+    width: min(clamp(40px, 18cqh, 122px), var(--side-max, 122px));
+    aspect-ratio: 110 / 180;
+}
+
+.pets-inc__side--r {
+    right: var(--side-x, 12px);
+    width: min(clamp(60px, 24cqh, 160px), var(--side-max, 160px));
+    aspect-ratio: 150 / 120;
+}
+
+.pets-inc .pl-leaf { fill: #7fcf9f; }
+.pets-inc .pl-leaf--b { fill: #6cbf8e; }
+.pets-inc .pl-leaf--c { fill: #93dcae; }
+.pets-inc .pl-vein { fill: none; stroke: #5aa97b; stroke-width: 1.6; stroke-linecap: round; }
+.pets-inc .pl-pot { fill: #ffb9a0; }
+.pets-inc .pl-rim { fill: #f79f84; }
+.pets-inc .pl-stripe { fill: none; stroke: #ffffff; stroke-width: 4; stroke-linecap: round; opacity: 0.7; }
+.pets-inc .pl-heart { fill: #ffffff; opacity: 0.85; }
+
+.pets-inc .pl-leaves {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: pets-inc-leaves 5.5s ease-in-out infinite alternate;
+}
+
+.pets-inc .bk-body { fill: #e9c28f; }
+.pets-inc .bk-rim { fill: #d9a86c; }
+.pets-inc .bk-weave { fill: none; stroke: #cf9b5f; stroke-width: 2; stroke-linecap: round; }
+.pets-inc .bk-blanket { fill: #c9b3fb; }
+.pets-inc .bk-blanket-dots { fill: none; stroke: #ffffff; stroke-width: 4; stroke-linecap: round; }
+.pets-inc .bk-teddy { fill: #d9a578; }
+.pets-inc .bk-teddy-in { fill: #f3d3b0; }
+.pets-inc .bk-eyes { fill: #4a3020; }
+
+[data-theme="dark"] .pets-inc .pl-leaf { fill: #4f8f69; }
+[data-theme="dark"] .pets-inc .pl-leaf--b { fill: #437d5b; }
+[data-theme="dark"] .pets-inc .pl-leaf--c { fill: #5c9e76; }
+[data-theme="dark"] .pets-inc .pl-vein { stroke: #3a6e50; }
+[data-theme="dark"] .pets-inc .pl-pot { fill: #a8705d; }
+[data-theme="dark"] .pets-inc .pl-rim { fill: #92604f; }
+[data-theme="dark"] .pets-inc .pl-stripe { stroke: #d6a593; opacity: 0.5; }
+[data-theme="dark"] .pets-inc .pl-heart { fill: #f3c3b3; opacity: 0.6; }
+[data-theme="dark"] .pets-inc .bk-body { fill: #8f6e4b; }
+[data-theme="dark"] .pets-inc .bk-rim { fill: #7d5d3c; }
+[data-theme="dark"] .pets-inc .bk-weave { stroke: #6f5134; }
+[data-theme="dark"] .pets-inc .bk-blanket { fill: #6d5aa8; }
+[data-theme="dark"] .pets-inc .bk-blanket-dots { stroke: #b8a6ee; }
+[data-theme="dark"] .pets-inc .bk-teddy { fill: #9b7354; }
+[data-theme="dark"] .pets-inc .bk-teddy-in { fill: #c79f7d; }
+[data-theme="dark"] .pets-inc .bk-eyes { fill: #1f140c; }
+
+/* Przewijane wnętrze: ściana z wystrojem zajmuje wolne miejsce nad rzędem, inkubatory stoją na podłodze
+   (rząd dociśnięty do dołu); gdy rząd nie mieści się w pionie, ściany nie ma, a nadmiar przewija się */
 .pets-inc__scroll {
     display: flex;
     flex-direction: column;
@@ -101,6 +294,507 @@
     margin-top: auto;
     padding-bottom: 2%;
 }
+
+/* --- Ściana nad inkubatorami: pas w przepływie (tylko wolne miejsce nad rzędem), kontener zapytań inc-wall.
+   Co się mieści, decyduje jego wysokość: ≥ 56 px szyld · ≥ 150 px (i ≥ 600 px szerokości) okno z termometrem
+   po lewej i półki po prawej · ≥ 210 px karuzela · ≥ 440 px tablica i obrazek. Nic nie wychodzi pod rząd. --- */
+.pets-inc__wall {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    container: inc-wall / size;
+}
+
+.pets-inc__group {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px, 5cqh, 32px);
+}
+
+.pets-inc__group--c {
+    display: flex;
+    left: 50%;
+    width: min(92cqw, 340px);
+    transform: translateX(-50%);
+    justify-content: flex-start;
+    gap: 0;
+}
+
+.pets-inc__group--l { left: 3cqw; width: min(23cqw, 240px); }
+.pets-inc__group--r { right: 3cqw; width: min(23cqw, 240px); }
+
+@container inc-wall (min-width: 600px) and (min-height: 150px) {
+    .pets-inc__group--l,
+    .pets-inc__group--r { display: flex; }
+    .pets-inc__group--c { width: min(46cqw, 340px); }
+}
+
+/* Boczne kolumny (niski, szeroki widok): ściana nad rzędem za niska, a obok rzędu są szerokie pasy — okno
+   i półki (te same grupy, przeniesione przez JS) stoją w pasie obok rzędu, nad rośliną / koszem. Położenie
+   i rozmiar z pomiaru (JS); próg = ASIDE_MIN_W / ASIDE_MIN_H w hospital-incubator.js. */
+.pets-inc__aside {
+    position: absolute;
+    top: var(--aside-top, 76px);
+    display: none;
+    width: var(--aside-w, 0px);
+    height: var(--aside-h, 0px);
+    container: inc-aside / size;
+    pointer-events: none;
+}
+
+.pets-inc__aside.is-shown { display: block; }
+.pets-inc__aside--l { left: var(--aside-x, 12px); }
+.pets-inc__aside--r { right: var(--aside-x, 12px); }
+
+.pets-inc__aside > .pets-inc__group {
+    left: 0;
+    right: 0;
+    width: auto;
+}
+
+@container inc-aside (min-width: 110px) and (min-height: 130px) {
+    .pets-inc__group--l,
+    .pets-inc__group--r { display: flex; }
+}
+
+/* Szyld „Inkubatorium” zawieszony na gwoździku (sznurek w kształcie ^) */
+.pets-inc__sign {
+    position: relative;
+    display: none;
+    flex: 0 0 auto;
+    align-items: center;
+    margin-top: clamp(19px, 4cqh, 28px);
+    padding: 0.3em 0.85em;
+    border: 3px solid #ffffff;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffe6d3 0%, #ffd3bf 100%);
+    box-shadow: 0 0 0 3px #f2b48f, 0 7px 0 -1px rgba(200, 120, 80, 0.22);
+    color: #8a4526;
+    font-size: clamp(15px, calc(4cqh + 8px), 22px);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.pets-inc__sign::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 3px);
+    left: 22%;
+    right: 22%;
+    height: 14px;
+    background:
+        linear-gradient(to bottom right, transparent calc(50% - 1px), #c9a184 calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)) left / 50% 100% no-repeat,
+        linear-gradient(to top right, transparent calc(50% - 1px), #c9a184 calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)) right / 50% 100% no-repeat;
+}
+
+.pets-inc__sign::after {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 13px);
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    margin-left: -3.5px;
+    border-radius: 50%;
+    background: #c98b5c;
+}
+
+.pets-inc__sign-text::before,
+.pets-inc__sign-text::after {
+    content: "";
+    display: inline-block;
+    width: 0.62em;
+    height: 0.62em;
+    margin: 0 0.4em;
+    vertical-align: 0.05em;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%23f5768f' d='M6 11S0 7.4 0 3.6A3 3 0 0 1 6 2a3 3 0 0 1 6 1.6C12 7.4 6 11 6 11z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+@container inc-wall (min-height: 56px) and (min-width: 220px) {
+    .pets-inc__sign { display: inline-flex; }
+}
+
+[data-theme="dark"] .pets-inc__sign {
+    border-color: rgba(255, 220, 190, 0.35);
+    background: linear-gradient(180deg, #4d3427 0%, #432c21 100%);
+    box-shadow: 0 0 0 3px #6e4a35, 0 0 22px rgba(255, 170, 90, 0.18), 0 7px 0 -1px rgba(0, 0, 0, 0.35);
+    color: #ffdcb8;
+}
+
+[data-theme="dark"] .pets-inc__sign::before {
+    background:
+        linear-gradient(to bottom right, transparent calc(50% - 1px), #7a604d calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)) left / 50% 100% no-repeat,
+        linear-gradient(to top right, transparent calc(50% - 1px), #7a604d calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)) right / 50% 100% no-repeat;
+}
+
+[data-theme="dark"] .pets-inc__sign::after { background: #8a6247; }
+
+[data-theme="dark"] .pets-inc__sign-text::before,
+[data-theme="dark"] .pets-inc__sign-text::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%23f093b0' d='M6 11S0 7.4 0 3.6A3 3 0 0 1 6 2a3 3 0 0 1 6 1.6C12 7.4 6 11 6 11z'/%3E%3C/svg%3E");
+}
+
+/* Karuzela-pozytywka: na sznurku spod szyldu, wyśrodkowana w wolnym miejscu nad rzędem; kołysze się */
+.pets-inc__mobile {
+    display: none;
+    flex: 1 1 0;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pets-inc__mobile::before,
+.pets-inc__mobile::after {
+    content: "";
+    flex: 1 1 0;
+    width: 2px;
+}
+
+.pets-inc__mobile::before { background: #c9a184; }
+
+.pets-inc__mobile svg {
+    display: block;
+    flex: 0 0 auto;
+    width: min(100%, 260px, calc((100cqh - 100px) * 1.05));
+    height: auto;
+    aspect-ratio: 200 / 190;
+    overflow: visible;
+}
+
+@container inc-wall (min-height: 210px) {
+    .pets-inc__mobile { display: flex; }
+}
+
+.pets-inc .mob-string { fill: none; stroke: #c9a184; stroke-width: 1.6; }
+.pets-inc .mob-ring { fill: none; stroke: #f2b48f; stroke-width: 5; }
+.pets-inc .mob-knob { fill: #f5a5bf; }
+.pets-inc .mob-star path { fill: #ffd36b; stroke: #efb63c; stroke-width: 1.5; stroke-linejoin: round; }
+.pets-inc .mob-moon { fill: #cbb6fb; stroke: #ad93ef; stroke-width: 1.5; }
+.pets-inc .mob-egg { fill: #fff3dc; stroke: #efcd98; stroke-width: 1.5; }
+.pets-inc .mob-egg-spot { fill: #ffb3c7; }
+.pets-inc .mob-heart { fill: #ff9fbf; stroke: #f07ea5; stroke-width: 1.5; }
+.pets-inc .mob-cloud { fill: #e3f5ff; stroke: #a9d8ee; stroke-width: 1.5; }
+.pets-inc .mob-note { fill: none; stroke: #c4a6ff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.pets-inc .mob-note-head { fill: #c4a6ff; }
+
+.pets-inc .mob-swing {
+    transform-box: view-box;
+    transform-origin: 100px 0;
+    animation: pets-inc-swing 7s ease-in-out infinite alternate;
+}
+
+.pets-inc .mob-item {
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+    animation: pets-inc-dangle 3.6s ease-in-out infinite alternate;
+}
+
+.pets-inc .mob-item--2 { animation-duration: 4.3s; animation-delay: -1.1s; }
+.pets-inc .mob-item--3 { animation-duration: 5s; animation-delay: -2.4s; }
+.pets-inc .mob-item--4 { animation-duration: 3.9s; animation-delay: -0.6s; }
+.pets-inc .mob-item--5 { animation-duration: 4.6s; animation-delay: -3s; }
+
+.pets-inc .mob-notes { animation: pets-inc-notes 5.2s ease-in-out infinite; }
+
+[data-theme="dark"] .pets-inc__mobile::before { background: #7a604d; }
+[data-theme="dark"] .pets-inc .mob-string { stroke: #7a604d; }
+[data-theme="dark"] .pets-inc .mob-ring { stroke: #8d5f45; }
+[data-theme="dark"] .pets-inc .mob-knob { fill: #c06d8a; }
+[data-theme="dark"] .pets-inc .mob-star path { fill: #ffd86e; stroke: #d9a332; }
+[data-theme="dark"] .pets-inc .mob-moon { fill: #9d88d6; stroke: #7d68b8; }
+[data-theme="dark"] .pets-inc .mob-egg { fill: #d9c6a4; stroke: #a88c62; }
+[data-theme="dark"] .pets-inc .mob-egg-spot { fill: #c77c92; }
+[data-theme="dark"] .pets-inc .mob-heart { fill: #d97495; stroke: #b65777; }
+[data-theme="dark"] .pets-inc .mob-cloud { fill: #8fa6b8; stroke: #6f879a; }
+[data-theme="dark"] .pets-inc .mob-note { stroke: #a78bfa; }
+[data-theme="dark"] .pets-inc .mob-note-head { fill: #a78bfa; }
+
+/* Okno z firankami (dzień: słońce i chmurki; noc i dark: księżyc i gwiazdki) i termometr obok */
+.pets-inc__window {
+    position: relative;
+    flex: 0 0 auto;
+    width: min(calc(100% - 40px), 200px, calc((100cqh - 40px) * 0.8));
+    aspect-ratio: 160 / 196;
+    margin-right: 40px;
+}
+
+.pets-inc__window-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.pets-inc .win-frame { fill: #ffffff; stroke: #f0cfb4; stroke-width: 3; }
+.pets-inc .win-sky { fill: #c6e8ff; }
+.pets-inc .win-sun { fill: #ffe08a; stroke: #ffc94d; stroke-width: 2; }
+.pets-inc .win-cloud { fill: #ffffff; }
+.pets-inc .win-moon { fill: #fff3c4; }
+.pets-inc .win-stars path { fill: #fff3c4; }
+.pets-inc .win-bars { fill: none; stroke: #ffffff; stroke-width: 5; stroke-linecap: round; }
+.pets-inc .win-curtain { fill: #ffc7d6; stroke: #f5a7bd; stroke-width: 1.5; }
+.pets-inc .win-tie { fill: #f58aa8; }
+.pets-inc .win-valance { fill: #ffb3c8; stroke: #f39bb5; stroke-width: 1.5; }
+.pets-inc .win-rod { fill: #d9a57b; }
+.pets-inc .win-sill { fill: #f2c9a2; stroke: #e2b285; stroke-width: 1.5; }
+.pets-inc .win-pot { fill: #ffb9a0; }
+.pets-inc .win-leaf { fill: #7fcf9f; }
+.pets-inc .win-flower { fill: #ff9fbf; stroke: #ffd36b; stroke-width: 2; }
+
+.pets-inc .win-night { display: none; }
+.pets-page--night .pets-inc .win-night,
+[data-theme="dark"] .pets-inc .win-night { display: inline; }
+.pets-page--night .pets-inc .win-day,
+[data-theme="dark"] .pets-inc .win-day { display: none; }
+.pets-page--night .pets-inc .win-sky { fill: #2c3570; }
+
+.pets-inc .win-cloud {
+    animation: pets-inc-cloud 16s ease-in-out infinite alternate;
+}
+
+.pets-inc .win-cloud--2 { animation-duration: 21s; animation-delay: -7s; }
+
+.pets-inc .win-stars path {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pets-inc-twinkle 2.6s ease-in-out infinite;
+}
+
+.pets-inc .win-stars path:nth-child(2n) { animation-delay: -1.3s; }
+.pets-inc .win-stars path:nth-child(3n) { animation-duration: 3.4s; }
+
+[data-theme="dark"] .pets-inc .win-frame { fill: #4a3a31; stroke: #5e4a3e; }
+[data-theme="dark"] .pets-inc .win-sky { fill: #1c2350; }
+[data-theme="dark"] .pets-inc .win-moon,
+[data-theme="dark"] .pets-inc .win-stars path { fill: #ffefb0; }
+[data-theme="dark"] .pets-inc .win-bars { stroke: #4a3a31; }
+[data-theme="dark"] .pets-inc .win-curtain { fill: #7a4c5e; stroke: #8e5a6f; }
+[data-theme="dark"] .pets-inc .win-tie { fill: #b5627f; }
+[data-theme="dark"] .pets-inc .win-valance { fill: #874f66; stroke: #9a5d76; }
+[data-theme="dark"] .pets-inc .win-rod { fill: #7a5a42; }
+[data-theme="dark"] .pets-inc .win-sill { fill: #5a4536; stroke: #6c5341; }
+[data-theme="dark"] .pets-inc .win-pot { fill: #a8705d; }
+[data-theme="dark"] .pets-inc .win-leaf { fill: #4f8f69; }
+[data-theme="dark"] .pets-inc .win-flower { fill: #d97495; stroke: #d9a332; }
+
+.pets-inc__thermo {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 24%;
+    width: 15%;
+    aspect-ratio: 32 / 120;
+}
+
+.pets-inc__thermo svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.pets-inc .th-board { fill: #ffffff; stroke: #f0cfb4; stroke-width: 2; }
+.pets-inc .th-heart { fill: #ff9fbf; }
+.pets-inc .th-tube { fill: #fff3ea; stroke: #e8c3a8; stroke-width: 1.5; }
+.pets-inc .th-bulb,
+.pets-inc .th-merc { fill: #f5677f; }
+.pets-inc .th-ticks { fill: none; stroke: #d6a98a; stroke-width: 1.6; stroke-linecap: round; }
+
+/* Rtęć: zwykle do połowy, gdy jakieś jajko jest ogrzane — wysoko */
+.pets-inc .th-merc {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    transform: scaleY(0.5);
+    transition: transform 1.2s ease;
+}
+
+.pets-inc.has-warm .th-merc { transform: scaleY(0.9); }
+
+[data-theme="dark"] .pets-inc .th-board { fill: #3d3029; stroke: #5e4a3e; }
+[data-theme="dark"] .pets-inc .th-heart { fill: #d97495; }
+[data-theme="dark"] .pets-inc .th-tube { fill: #2b221d; stroke: #5e4a3e; }
+[data-theme="dark"] .pets-inc .th-bulb,
+[data-theme="dark"] .pets-inc .th-merc { fill: #ef6b82; }
+[data-theme="dark"] .pets-inc .th-ticks { stroke: #8c7462; }
+
+/* Tablica „Wykluło się w tym miesiącu” (zwykły tekst — czytniki go czytają) */
+.pets-inc__board {
+    position: relative;
+    display: none;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    box-sizing: border-box;
+    width: min(100%, 180px);
+    padding: 16px 10px 10px;
+    border: 5px solid #e8bf93;
+    border-radius: 12px;
+    background: #fffaf2;
+    box-shadow: 0 4px 0 rgba(170, 110, 60, 0.18);
+    color: #6b4128;
+    text-align: center;
+    transform: rotate(1.5deg);
+}
+
+@container inc-wall (min-height: 440px) {
+    .pets-inc__board { display: flex; }
+}
+
+.pets-inc__board-pin {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffb3c1 0 25%, #f5576c 30%);
+}
+
+.pets-inc__board-title {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.pets-inc__board-count {
+    color: #d6457a;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.pets-inc__board-shells {
+    display: flex;
+    gap: 4px;
+}
+
+.pets-inc__board-shells:empty { display: none; }
+
+.pets-inc__board-shells svg {
+    display: block;
+    width: 20px;
+    height: 17px;
+}
+
+.pets-inc__board-shells path { fill: #fff1d6; stroke: #e2b97e; stroke-width: 1.5; stroke-linejoin: round; }
+
+.pets-inc__board-empty {
+    display: none;
+    color: #9a6b4a;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.pets-inc__board.is-empty .pets-inc__board-empty { display: block; }
+
+[data-theme="dark"] .pets-inc__board {
+    border-color: #6b4a2e;
+    background: #3a2c22;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+    color: #ffe9cf;
+}
+
+[data-theme="dark"] .pets-inc__board-pin { background: radial-gradient(circle at 35% 35%, #ffc7d1 0 25%, #e04f67 30%); }
+[data-theme="dark"] .pets-inc__board-count { color: #f093b0; }
+[data-theme="dark"] .pets-inc__board-shells path { fill: #5a4636; stroke: #a8875f; }
+[data-theme="dark"] .pets-inc__board-empty { color: rgba(255, 233, 207, 0.75); }
+
+/* Półki z kocykami, butelkami i pluszakami; pod nimi obrazek (wysoka ściana) */
+.pets-inc__shelves {
+    display: block;
+    flex: 0 0 auto;
+    width: min(100%, 220px, calc((100cqh - 40px) * 0.89));
+    aspect-ratio: 210 / 236;
+}
+
+.pets-inc__shelves svg,
+.pets-inc__frame svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.pets-inc .sh-plank { fill: #e2b48a; stroke: #cf9c6f; stroke-width: 1.5; }
+.pets-inc .sh-bracket { fill: #cf9c6f; }
+.pets-inc .sh-blanket--1 { fill: #ffc7d6; }
+.pets-inc .sh-blanket--2 { fill: #b9ecd7; }
+.pets-inc .sh-blanket--3 { fill: #d9c9ff; }
+.pets-inc .sh-fold { fill: none; stroke: #ffffff; stroke-width: 1.8; stroke-dasharray: 4 3; opacity: 0.85; }
+.pets-inc .sh-bottle { fill: #fdfbff; stroke: #d7cbe9; stroke-width: 1.5; }
+.pets-inc .sh-milk { fill: #fff3dd; }
+.pets-inc .sh-cap { fill: #c9b3fb; }
+.pets-inc .sh-cap--2 { fill: #8fdfc2; }
+.pets-inc .sh-nipple { fill: #ffd9a8; }
+.pets-inc .sh-ticks { fill: none; stroke: #c9b3fb; stroke-width: 1.4; stroke-linecap: round; }
+.pets-inc .sh-jar { fill: #e9f6ff; stroke: #b6d8f3; stroke-width: 1.5; }
+.pets-inc .sh-jar-lid { fill: #ffb48a; }
+.pets-inc .sh-jar-heart { fill: #ff9fbf; }
+.pets-inc .sh-teddy { fill: #d9a578; }
+.pets-inc .sh-teddy-in { fill: #f3d3b0; }
+.pets-inc .sh-eyes { fill: #4a3020; }
+.pets-inc .sh-bow { fill: #8fb8f5; }
+.pets-inc .sh-bow-knot { fill: #6f9be6; }
+.pets-inc .sh-bunny { fill: #ffffff; stroke: #eadff0; stroke-width: 1.5; }
+.pets-inc .sh-bunny-in { fill: #ffc7d6; }
+.pets-inc .sh-cheek { fill: #ffc7d6; }
+.pets-inc .sh-mouth { fill: none; stroke: #4a3020; stroke-width: 1.4; stroke-linecap: round; }
+.pets-inc .sh-roll { fill: #ffe08a; }
+.pets-inc .sh-roll-end { fill: none; stroke: #f5c451; stroke-width: 2; }
+
+.pets-inc__frame {
+    display: none;
+    flex: 0 0 auto;
+    width: min(60%, 84px);
+    aspect-ratio: 80 / 96;
+    transform: rotate(-3deg);
+}
+
+@container inc-wall (min-height: 440px) {
+    .pets-inc__frame { display: block; }
+}
+
+.pets-inc__frame .poster-frame { fill: #e2b07e; }
+.pets-inc__frame .poster-paper { fill: #fffaf0; }
+.pets-inc__frame .poster-egg { fill: #ffe7a6; stroke: #e2be7a; stroke-width: 2; }
+.pets-inc__frame .poster-heart { fill: #ff8fab; }
+
+[data-theme="dark"] .pets-inc .sh-plank { fill: #6b4f3b; stroke: #5a4232; }
+[data-theme="dark"] .pets-inc .sh-bracket { fill: #5a4232; }
+[data-theme="dark"] .pets-inc .sh-blanket--1 { fill: #9a5f74; }
+[data-theme="dark"] .pets-inc .sh-blanket--2 { fill: #4f7f6d; }
+[data-theme="dark"] .pets-inc .sh-blanket--3 { fill: #6d5aa8; }
+[data-theme="dark"] .pets-inc .sh-fold { stroke: rgba(255, 255, 255, 0.45); }
+[data-theme="dark"] .pets-inc .sh-bottle { fill: #4a4352; stroke: #6c6280; }
+[data-theme="dark"] .pets-inc .sh-milk { fill: #b8ab94; }
+[data-theme="dark"] .pets-inc .sh-cap { fill: #7d68b8; }
+[data-theme="dark"] .pets-inc .sh-cap--2 { fill: #4f8f7a; }
+[data-theme="dark"] .pets-inc .sh-nipple { fill: #b8936a; }
+[data-theme="dark"] .pets-inc .sh-ticks { stroke: #8f7bd0; }
+[data-theme="dark"] .pets-inc .sh-jar { fill: #34404e; stroke: #56708a; }
+[data-theme="dark"] .pets-inc .sh-jar-lid { fill: #b8754f; }
+[data-theme="dark"] .pets-inc .sh-jar-heart { fill: #d97495; }
+[data-theme="dark"] .pets-inc .sh-teddy { fill: #9b7354; }
+[data-theme="dark"] .pets-inc .sh-teddy-in { fill: #c79f7d; }
+[data-theme="dark"] .pets-inc .sh-eyes { fill: #1f140c; }
+[data-theme="dark"] .pets-inc .sh-bow { fill: #5f7fb8; }
+[data-theme="dark"] .pets-inc .sh-bow-knot { fill: #4c6aa0; }
+[data-theme="dark"] .pets-inc .sh-bunny { fill: #cfc6d6; stroke: #a99fb3; }
+[data-theme="dark"] .pets-inc .sh-bunny-in,
+[data-theme="dark"] .pets-inc .sh-cheek { fill: #c27f95; }
+[data-theme="dark"] .pets-inc .sh-mouth { stroke: #1f140c; }
+[data-theme="dark"] .pets-inc .sh-roll { fill: #b8954a; }
+[data-theme="dark"] .pets-inc .sh-roll-end { stroke: #8f7236; }
+[data-theme="dark"] .pets-inc__frame .poster-frame { fill: #7a5636; }
+[data-theme="dark"] .pets-inc__frame .poster-paper { fill: #3d3128; }
+[data-theme="dark"] .pets-inc__frame .poster-egg { fill: #d9b867; stroke: #a8874a; }
+[data-theme="dark"] .pets-inc__frame .poster-heart { fill: #e47d99; }
 
 /* Arkusz (< 1024 px): inkubatory jadą nad arkusz (a przy nadmiarze da się do nich przewinąć). W niskim widoku
    (telefon poziomo) są na ten czas mniejsze — wybrany mieści się nad arkuszem (lampa może wejść pod pigułkę). */
@@ -355,6 +1049,37 @@
     100% { transform: scale(1); filter: brightness(1); }
 }
 
+@keyframes pets-inc-bulb {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+@keyframes pets-inc-swing {
+    from { transform: rotate(-3deg); }
+    to { transform: rotate(3deg); }
+}
+
+@keyframes pets-inc-dangle {
+    from { transform: rotate(5deg); }
+    to { transform: rotate(-5deg); }
+}
+
+@keyframes pets-inc-notes {
+    0% { opacity: 0; transform: translateY(6px); }
+    30%, 65% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes pets-inc-cloud {
+    from { transform: translateX(-6px); }
+    to { transform: translateX(8px); }
+}
+
+@keyframes pets-inc-leaves {
+    from { transform: rotate(-1.5deg); }
+    to { transform: rotate(1.5deg); }
+}
+
 /* Mały inkubator (telefon, niski widok): drobniejsza tabliczka */
 @container (max-height: 440px) {
     .pets-incubator__plate { font-size: 11px; }
@@ -364,17 +1089,37 @@
     .pets-incubator__plate { font-size: 11px; }
 }
 
+/* Ograniczony ruch: bez migotania, kołysania i dryfu; nutki karuzeli stoją (półprzezroczyste) */
 @media (prefers-reduced-motion: reduce) {
     .pets-incubator,
-    .pets-inc__note { transition: none; }
+    .pets-inc__note,
+    .pets-inc .th-merc { transition: none; }
     .pets-incubator.is-boosted .pets-incubator__glow,
     .pets-incubator.is-ready .pets-incubator__sparks path,
-    .pets-incubator.is-warming .pets-incubator__glow { animation: none; }
+    .pets-incubator.is-warming .pets-incubator__glow,
+    .pets-inc .gl-bulb,
+    .pets-inc .mob-swing,
+    .pets-inc .mob-item,
+    .pets-inc .mob-notes,
+    .pets-inc .win-cloud,
+    .pets-inc .win-stars path,
+    .pets-inc .pl-leaves { animation: none; }
+    .pets-inc .mob-notes { opacity: 0.7; }
 }
 
 html.pet-rig-rm .pets-incubator,
-html.pet-rig-rm .pets-inc__note { transition: none; }
+html.pet-rig-rm .pets-inc__note,
+html.pet-rig-rm .pets-inc .th-merc { transition: none; }
 
 html.pet-rig-rm .pets-incubator.is-boosted .pets-incubator__glow,
 html.pet-rig-rm .pets-incubator.is-ready .pets-incubator__sparks path,
-html.pet-rig-rm .pets-incubator.is-warming .pets-incubator__glow { animation: none; }
+html.pet-rig-rm .pets-incubator.is-warming .pets-incubator__glow,
+html.pet-rig-rm .pets-inc .gl-bulb,
+html.pet-rig-rm .pets-inc .mob-swing,
+html.pet-rig-rm .pets-inc .mob-item,
+html.pet-rig-rm .pets-inc .mob-notes,
+html.pet-rig-rm .pets-inc .win-cloud,
+html.pet-rig-rm .pets-inc .win-stars path,
+html.pet-rig-rm .pets-inc .pl-leaves { animation: none; }
+
+html.pet-rig-rm .pets-inc .mob-notes { opacity: 0.7; }
