@@ -301,3 +301,16 @@ def test_egg_is_ready_i_pct():
     assert rules.egg_progress_pct(84 * 3600, 168) == 50.0
     assert rules.egg_progress_pct(200 * 3600, 168) == 100.0
     assert rules.egg_progress_pct(0, 168) == 0.0
+
+
+def test_prawdziwy_PetConfig_jest_zgodny_z_regulami():
+    """Atrapa _cfg() i PetConfig muszą mieć te same pola i liczby (integracja Task 4 + 6)."""
+    from modules.pets.config import PetConfig
+    cfg = PetConfig()
+    for pole in ('decay_hours', 'night', 'health_drop_hours', 'health_regen_hours',
+                 'egg_hours', 'start_egg_hours', 'boost', 'max_stars', 'stage_days'):
+        assert getattr(cfg, pole) == getattr(CFG, pole), pole
+    wynik = rules.simulate(PELNY, cfg, PON_08, PON_08 + timedelta(hours=12))
+    assert blisko(wynik.state.hunger, 50)
+    assert rules.stage(PON_08, PON_08 + timedelta(days=30), cfg) == 'dziecko'
+    assert rules.egg_progress_seconds(0, PON_08, None, PON_08 + timedelta(hours=1), cfg) == 3600
