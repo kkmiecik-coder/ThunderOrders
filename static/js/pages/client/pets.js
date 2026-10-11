@@ -501,6 +501,77 @@
     var hatchEgg = null;   // modal wyklucia (niżej)
 
     // ------------------------------------------------------------------------------------
+    // Domek: siatka kart żywych pupili
+    // ------------------------------------------------------------------------------------
+
+    var homeGrid = root.querySelector('#petsHome .pets-grid');
+    var cards = {};
+    var homeIntro = null;
+
+    function onCardAction(pet, action, count) {
+        var body = { action: action };
+        if (action === 'pat') body.count = count;
+        // Paczka pat pat może lecieć przy zamykaniu karty — keepalive dowiezie ją mimo to
+        return send('/' + pet.id + '/akcja', body, action === 'pat' ? { keepalive: true } : null);
+    }
+
+    function onCardRename(pet, name) {
+        return send('/' + pet.id + '/imie', { name: name }, { quiet: ['bad_name'] });
+    }
+
+    function introBlock(state) {
+        var box = el('div', 'pets-intro');
+        var hasEgg = (state.eggs || []).length > 0;
+        box.appendChild(el('h3', 'pets-intro__title', hasEgg ? 'Domek czeka na pierwszego lokatora' : 'Jak to działa?'));
+        if (hasEgg) box.appendChild(el('p', 'pets-intro__text', 'Jajko jest już w gniazdku — ogrzewaj je, a gdy będzie gotowe, kliknij „Wykluj".'));
+        var list = el('ul', 'pets-intro__list');
+        var night = state.night || {};
+        [
+            'Odbierz jajko w gniazdku i ogrzewaj je przy każdej wizycie — tak wykluje się szybciej.',
+            'Każde jajko to losowy z ośmiu gatunków. Zbierz wszystkie w albumie!',
+            'Karm, baw się i myj pupila. Jedna wizyta dziennie wystarczy, żeby był zdrowy, dwie–trzy — żeby był szczęśliwy.',
+            'W nocy (' + (night.start != null && night.start !== night.end ? night.start + ':00–' + night.end + ':00' : '23:00–7:00') +
+                ') pupil śpi. Zaniedbany przez kilka dni choruje, a w końcu może odejść do gwiazd.'
+        ].forEach(function (text) { list.appendChild(el('li', null, text)); });
+        box.appendChild(list);
+        return box;
+    }
+
+    function renderHome(state) {
+        if (!homeGrid) return;
+        var pets = state.pets || [];
+        var cardCtx = { now: state.now, night: state.night && state.night.start !== state.night.end ? state.night : null };
+        var seen = {};
+        pets.forEach(function (pet, i) {
+            seen[pet.id] = true;
+            var card = cards[pet.id];
+            if (card) card.update(pet, cardCtx);
+            else {
+                card = cards[pet.id] = window.PetCard.render(homeGrid, pet, {
+                    mini: false, species: speciesInfo, onAction: onCardAction, onRename: onCardRename,
+                    now: cardCtx.now, night: cardCtx.night
+                });
+            }
+            // Przestawiamy tylko, gdy kolejność się zmieniła (przeniesienie węzła restartuje animacje)
+            if (homeGrid.children[i] !== card.el) homeGrid.insertBefore(card.el, homeGrid.children[i] || null);
+        });
+        Object.keys(cards).forEach(function (id) {
+            if (seen[id]) return;
+            cards[id].destroy();
+            delete cards[id];
+        });
+        if (homeIntro) {
+            homeIntro.parentNode.removeChild(homeIntro);
+            homeIntro = null;
+        }
+        if (!pets.length) {
+            homeIntro = introBlock(state);
+            homeGrid.parentNode.insertBefore(homeIntro, homeGrid);
+        }
+        homeGrid.hidden = !pets.length;
+    }
+
+    // ------------------------------------------------------------------------------------
     // Render, zegar, odświeżanie
     // ------------------------------------------------------------------------------------
 
@@ -509,6 +580,7 @@
         if (!isNaN(t)) clockOffset = t - Date.now();
         renderNight(state);
         renderNest(state);
+        renderHome(state);
         scheduleEventRefresh(state);
     }
 
