@@ -85,3 +85,20 @@ def test_szablon_swiata_linkuje_sceny(client, login, make_user, db):
     assert 'petHatchModal' not in html          # stary modal wyklucia zastąpiony nakładką PetHatch
     for scena in ('mapa', 'domek', 'szpital', 'warsztat', 'ogrod'):
         assert f'data-scene-view="{scena}"' in html, scena
+
+
+def test_sale_szpitala_maja_adresy(client, login, make_user, db):
+    """Spec v3.1 §4.1: hol ma dwie sale pod własnymi adresami; klucz sceny to nie adres."""
+    login(make_user(profile_completed=True))
+    _wlacz(db)
+    for sciezka, scena in (('/szpital/inkubatorium', 'inkubatorium'), ('/szpital/izba-przyjec', 'izba')):
+        r = client.get('/client/pupile' + sciezka)
+        assert r.status_code == 200 and _scena(r.data.decode()) == scena, sciezka
+    assert client.get('/client/pupile/szpital/kostnica').status_code == 404
+    assert client.get('/client/pupile/szpital/izba').status_code == 404
+
+
+def test_sale_szpitala_za_flaga(client, login, make_user):
+    login(make_user(profile_completed=True))
+    assert client.get('/client/pupile/szpital/inkubatorium').status_code == 404
+    assert client.get('/client/pupile/szpital/izba-przyjec').status_code == 404

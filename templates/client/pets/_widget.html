@@ -6,7 +6,9 @@
      data-user-id="{{ current_user.id }}"
      data-home-url="{{ url_for('pets.home') }}"
      data-house-url="{{ url_for('pets.scene', scene='domek') }}"
-     data-hospital-url="{{ url_for('pets.scene', scene='szpital') }}">
+     data-hospital-url="{{ url_for('pets.scene', scene='szpital') }}"
+     data-ward-url="{{ url_for('pets.hospital_room', sala='izba-przyjec') }}"
+     data-incubator-url="{{ url_for('pets.hospital_room', sala='inkubatorium') }}">
     <div class="widget">
         <div class="widget-header">
             <h2 class="widget-title">🐾 Moje pupile</h2>

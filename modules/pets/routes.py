@@ -109,6 +109,7 @@ def _species_json():
 # ---------------------------------------------------------------------------
 
 SCENES = ('domek', 'szpital', 'warsztat', 'ogrod')   # spec v3 §3.1; '' = mapa
+HOSPITAL_ROOMS = {'inkubatorium': 'inkubatorium', 'izba-przyjec': 'izba'}   # spec v3.1 §4.1: adres → klucz sceny
 
 
 def _render_scene(scene):
@@ -135,6 +136,15 @@ def scene(scene):
     if scene not in SCENES:
         abort(404)
     return _render_scene(scene)
+
+
+@pets_bp.route('/szpital/<sala>')
+@feature_required
+def hospital_room(sala):
+    scena = HOSPITAL_ROOMS.get(sala)
+    if scena is None:
+        abort(404)
+    return _render_scene(scena)
 
 
 # ---------------------------------------------------------------------------

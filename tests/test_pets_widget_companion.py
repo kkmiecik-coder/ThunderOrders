@@ -136,4 +136,22 @@ def test_towarzysz_podaje_adresy_domku_i_szpitala_dla_dymka(client, login, make_
     tag = m.group(0)
     assert 'data-house-url="/client/pupile/domek"' in tag
     assert 'data-hospital-url="/client/pupile/szpital"' in tag
+    assert 'data-ward-url="/client/pupile/szpital/izba-przyjec"' in tag
     assert 'data-home-url="/client/pupile"' in tag
+
+
+def test_widget_podaje_adresy_sal_szpitala(client, login, make_user, db):
+    """Spec v3.1 §5: widget prowadzi prosto do sali (pupil w szpitalu → izba, jajka → inkubatorium)."""
+    import re
+    user = make_user(profile_completed=True)
+    login(user)
+    _wlacz(db)
+    zaloz_profil(user)
+    zaloz_pupila(user)
+    html = client.get('/client/dashboard').data.decode()
+    m = re.search(r'<div class="dashboard-section pets-widget" id="petsWidget"[^>]*>', html, re.S)
+    assert m, 'brak #petsWidget'
+    tag = m.group(0)
+    assert 'data-hospital-url="/client/pupile/szpital"' in tag
+    assert 'data-ward-url="/client/pupile/szpital/izba-przyjec"' in tag
+    assert 'data-incubator-url="/client/pupile/szpital/inkubatorium"' in tag
