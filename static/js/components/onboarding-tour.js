@@ -215,13 +215,6 @@
 
             // --- SECTION: Dashboard ---
             {
-                id: 'pets',
-                attachTo: { element: '#petsWidget', on: 'bottom' },
-                title: 'Twój pupil',
-                text: 'Tu mieszka Twój pupil 🐾 Karm go, baw się z nim i myj — jedna wizyta dziennie wystarczy, żeby był zdrowy. W nocy śpi. Pełny domek znajdziesz w „Moje pupile”.',
-                skipWhen: function() { return !document.querySelector('#petsWidget'); }
-            },
-            {
                 id: 'metrics',
                 attachTo: { element: '.dashboard-metrics', on: 'bottom' },
                 title: 'Twoje zamówienia w pigułce',
@@ -253,6 +246,14 @@
                 attachTo: { element: '#recentOrdersWidget', on: 'top' },
                 title: 'Ostatnie zamówienia',
                 text: 'Twoje ostatnie zamówienia ze statusami. Kliknij w dowolne, żeby zobaczyć szczegóły 👀'
+            },
+            {
+                // Widget pupili stoi na dole, w rzędzie z odznakami — krok w kolejności strony (bez skoku w górę)
+                id: 'pets',
+                attachTo: { element: '#petsWidget', on: 'bottom' },
+                title: 'Twój pupil',
+                text: 'Tu mieszka Twój pupil 🐾 Karm go, baw się z nim i myj — jedna wizyta dziennie wystarczy, żeby był zdrowy. W nocy śpi. Pełny domek znajdziesz w „Moje pupile”.',
+                skipWhen: function() { return !document.querySelector('#petsWidget'); }
             },
             {
                 id: 'badges',
