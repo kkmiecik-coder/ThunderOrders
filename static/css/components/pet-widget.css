@@ -1,0 +1,349 @@
+/* ================================================
+   Pet widget — pupil na dashboardzie klienta (spec §4.3, etap 5)
+   Kontener dziedziczy .dashboard-section (tło/obramowanie light+dark z dashboard.css).
+   Gałąź „pupil" rysuje PetCard (pet-card.css, wariant --mini); tu: kafelki jajka /
+   zachęty / odliczania, przyciski zapasowe i drobne dopasowania karty do widgetu.
+   ================================================ */
+
+.pets-widget {
+    margin: 0 0 24px;
+}
+
+.pets-widget .widget-header {
+    margin-bottom: var(--space-3, 0.75rem);
+}
+
+/* Link „Do domku" w nagłówku: wygląd jak w innych widgetach, ale strefa dotyku ≥ 44 px */
+.pets-widget .widget-link {
+    position: relative;
+}
+
+.pets-widget .widget-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+}
+
+.pets-widget__body.widget-body {
+    padding: 0 var(--space-6, 1.5rem) var(--space-6, 1.5rem);
+}
+
+/* Region dla czytnika ekranu (komunikaty o zmianie treści widgetu) */
+.pets-widget__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* === Kafelek (jajko / zachęta / odliczanie / zapasowa karta) === */
+.pets-widget__tile {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #FAF5FF;
+    border: 1px solid #F3E8FF;
+}
+
+[data-theme="dark"] .pets-widget__tile {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+.pets-widget__scene {
+    flex: 0 0 96px;
+    width: 96px;
+    min-height: 96px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pets-widget__content {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.pets-widget__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #2D1B3D;
+    overflow-wrap: anywhere;
+}
+
+[data-theme="dark"] .pets-widget__title {
+    color: #ffffff;
+}
+
+.pets-widget__text {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.45;
+    color: #5B4A66;
+    overflow-wrap: anywhere;
+}
+
+[data-theme="dark"] .pets-widget__text {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.pets-widget__note {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: #7C6C88;
+}
+
+[data-theme="dark"] .pets-widget__note {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.pets-widget__mood {
+    margin: 6px 0 0;
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 600;
+    color: #7E22CE;
+}
+
+[data-theme="dark"] .pets-widget__mood {
+    color: #f093fb;
+}
+
+/* „ogrzane ×2" */
+.pets-widget__badge {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    vertical-align: middle;
+    color: #ffffff;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .pets-widget__badge {
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.85) 0%, rgba(245, 87, 108, 0.85) 100%);
+}
+
+/* Postęp wykluwania */
+.pets-widget__progress {
+    width: 100%;
+    max-width: 320px;
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #EDE4F5;
+}
+
+[data-theme="dark"] .pets-widget__progress {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.pets-widget__progress-fill {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+    transition: width 0.6s ease;
+}
+
+[data-theme="dark"] .pets-widget__progress-fill {
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 0 10px rgba(240, 147, 251, 0.35);
+}
+
+/* CTA (link do domku) */
+.pets-widget__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin-top: 4px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    color: #ffffff;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 4px 14px rgba(245, 87, 108, 0.25);
+    transition: box-shadow 0.15s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.pets-widget__cta:hover {
+    color: #ffffff;
+    text-decoration: none;
+    box-shadow: 0 6px 18px rgba(245, 87, 108, 0.35);
+}
+
+.pets-widget__cta:active {
+    transform: scale(0.97);
+}
+
+.pets-widget__cta:focus-visible {
+    outline: 2px solid #f093fb;
+    outline-offset: 2px;
+}
+
+[data-theme="dark"] .pets-widget__cta,
+[data-theme="dark"] .pets-widget__cta:hover {
+    color: #ffffff;
+    box-shadow: 0 4px 18px rgba(240, 147, 251, 0.25);
+}
+
+.pets-widget__cta[hidden],
+.pets-widget__badge[hidden],
+.pets-widget__note[hidden] {
+    display: none;
+}
+
+/* Zachęta do startowego jajka — delikatne pulsowanie dopiero po popupach ogłoszeń (spec §4.2) */
+.pets-widget--attention .pets-widget__cta {
+    animation: pets-widget-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pets-widget-pulse {
+    0%, 100% { box-shadow: 0 4px 14px rgba(245, 87, 108, 0.25); }
+    50% { box-shadow: 0 0 0 6px rgba(240, 147, 251, 0.25), 0 4px 18px rgba(245, 87, 108, 0.35); }
+}
+
+/* Łapka (gałąź „następne jajko") — maska, żeby kolor szedł za motywem */
+.pets-widget__paw {
+    display: block;
+    width: 56px;
+    height: 56px;
+    background-color: #C084FC;
+    -webkit-mask: url("../../img/icons/paw.svg") center / contain no-repeat;
+    mask: url("../../img/icons/paw.svg") center / contain no-repeat;
+}
+
+[data-theme="dark"] .pets-widget__paw {
+    background-color: #f093fb;
+}
+
+/* === Przyciski zapasowe (gdy karta mini nie ma własnych) === */
+.pets-widget__actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.pets-widget__action {
+    min-height: 44px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid #E9D5FF;
+    background: #FAF5FF;
+    color: #5A189A;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.pets-widget__action:hover:not(:disabled) {
+    background: #F3E8FF;
+}
+
+.pets-widget__action:focus-visible {
+    outline: 2px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pets-widget__action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pets-widget__action--primary {
+    grid-column: 1 / -1;
+    border-color: transparent;
+    color: #ffffff;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .pets-widget__action {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-widget__action:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pets-widget__action--primary {
+    border-color: transparent;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* === Telefon: scena nad treścią === */
+@media (max-width: 480px) {
+    .pets-widget__body.widget-body {
+        padding: 0 var(--space-4, 1rem) var(--space-4, 1rem);
+    }
+
+    .pets-widget__tile {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+
+    .pets-widget__scene {
+        flex-basis: auto;
+    }
+
+    .pets-widget__content {
+        align-items: center;
+        width: 100%;
+    }
+
+    .pets-widget__progress {
+        max-width: none;
+    }
+
+    .pets-widget__cta {
+        align-self: stretch;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-widget--attention .pets-widget__cta {
+        animation: none;
+    }
+
+    .pets-widget__progress-fill,
+    .pets-widget__cta {
+        transition: none;
+    }
+
+    .pets-widget__cta:active {
+        transform: none;
+    }
+}
