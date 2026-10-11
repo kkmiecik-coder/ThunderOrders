@@ -67,3 +67,21 @@ def test_api_akcja_z_wariantem(client, login, make_user, db):
     assert r.status_code == 400 and r.get_json()['error'] == 'bad_variant'
     r = client.post(f'/client/pupile/api/{pet.id}/akcja', json={'action': 'heal'})
     assert r.status_code == 400 and r.get_json()['error'] == 'bad_action'
+
+
+def test_szablon_swiata_linkuje_sceny(client, login, make_user, db):
+    """Task 7: jeden szablon ładuje wszystkie sceny świata, pokój, nakładkę wyklucia i router (na końcu)."""
+    login(make_user(profile_completed=True))
+    _wlacz(db)
+    html = client.get('/client/pupile/domek').data.decode()
+    pliki = ['js/pet/world/map.js', 'js/pet/world/room.js', 'js/pet/world/house.js', 'js/pet/world/hospital.js',
+             'js/pet/world/workshop.js', 'js/pet/world/garden.js', 'js/components/pet-hatch.js']
+    for plik in pliki:
+        assert plik in html, plik
+        assert html.index(plik) < html.index('js/pages/client/pets.js'), plik   # sceny rejestrują się przed routerem
+    for css in ('css/components/pet-room.css', 'css/pages/client/pets-map.css', 'css/pages/client/pets-house.css',
+                'css/pages/client/pets-hospital.css', 'css/pages/client/pets-workshop.css', 'css/pages/client/pets-garden.css'):
+        assert css in html, css
+    assert 'petHatchModal' not in html          # stary modal wyklucia zastąpiony nakładką PetHatch
+    for scena in ('mapa', 'domek', 'szpital', 'warsztat', 'ogrod'):
+        assert f'data-scene-view="{scena}"' in html, scena
