@@ -25,7 +25,8 @@
     width: 72px;
     height: 72px;
     pointer-events: none;
-    transition: left var(--pet-companion-walk, 0s) linear, bottom 0.25s ease, opacity 0.2s ease, visibility 0.2s;
+    /* bez przejścia na bottom: JS mierzy położenie (getBoundingClientRect) do omijania pasków CTA */
+    transition: left var(--pet-companion-walk, 0s) linear, opacity 0.2s ease, visibility 0.2s;
 }
 
 .pet-companion[hidden] { display: none; }

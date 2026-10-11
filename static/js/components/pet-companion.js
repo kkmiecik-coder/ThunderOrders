@@ -38,7 +38,8 @@
     var LIFT_GAP = 8;
 
     // Stałe elementy przy dolnej krawędzi, których towarzysz nie może zasłaniać (podnosi się nad nie)
-    var OBSTACLES = '.checkout-bottom-bar, .product-sticky-bar, .mute-btn, .floating-actions';
+    // (.cart-footer: stopka przyklejonego koszyka oferty na desktopie — przy długim koszyku schodzi w róg)
+    var OBSTACLES = '.checkout-bottom-bar, .product-sticky-bar, .mute-btn, .floating-actions, .cart-sidebar .cart-footer';
     // Otwarte panele, przy których towarzysz się chowa (leżą pod nim w kolejności nakładek)
     var TUCK_WHEN = '.cart-sidebar.mobile-open, .cart-mobile-overlay.active';
 
@@ -173,8 +174,8 @@
         }
         el.classList.toggle('pet-companion--asleep', !!p.asleep);
         if (el.hidden) {
+            el.hidden = false;     // najpierw widoczny — pomiary szerokości i położenia wymagają layoutu
             placeInitial();
-            el.hidden = false;
         }
         updateLift();
         updateWalk();
@@ -433,11 +434,14 @@
     }
 
     function watchObstacles() {
-        if (!window.MutationObserver) return;
-        var mo = new MutationObserver(scheduleLift);
         var nodes = document.querySelectorAll(OBSTACLES + ', ' + TUCK_WHEN + ', .cart-sidebar, .cart-mobile-overlay');
+        if (!nodes.length) return;
+        // klasy/style: pokazanie paska, otwarcie koszyka; rozmiar: koszyk rośnie po dodaniu produktów
+        var mo = window.MutationObserver ? new MutationObserver(scheduleLift) : null;
+        var ro = window.ResizeObserver ? new ResizeObserver(scheduleLift) : null;
         for (var i = 0; i < nodes.length; i++) {
-            mo.observe(nodes[i], { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+            if (mo) mo.observe(nodes[i], { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+            if (ro) ro.observe(nodes[i]);
         }
     }
 
