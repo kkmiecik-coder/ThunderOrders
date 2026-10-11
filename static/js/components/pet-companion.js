@@ -100,6 +100,7 @@
     var sitting = false;               // walk: odpoczywa na siedząco
     var curPose = 'stand';
     var held = false;                  // trzymany (przeciąganie)
+    var scrollCheckTimer = 0;          // po przewinięciu: czy pupil nie stoi na kontrolce
     var drag = null;                   // gest wskaźnika na pupilu (patrz „chwytanie")
     var clickGuardUntil = 0;
     var timers = { walk: 0, arrive: 0, pat: 0, bubble: 0, bubbleFade: 0 };
@@ -467,9 +468,31 @@
 
     function rand(min, max) { return min + Math.random() * (max - min); }
 
-    /** Losowy cel w obszarze, w zasięgu STEP_MIN..STEP_MAX od `cur` (null = brak miejsca). */
+    // Kontrolki strony — pupil nie staje na nich, bo klik w przycisk/pole trafiałby w pupila (pat zamiast akcji)
+    var CONTROLS = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="link"], ' +
+        '[role="checkbox"], [role="tab"], [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
+
+    /** Czy pupil stojący lewym-górnym rogiem w (x, y) zasłoniłby kontrolkę strony (próbka 5 punktów). */
+    function coversControl(x, y) {
+        if (!document.elementsFromPoint) return false;
+        var w = el.offsetWidth || 72, h = el.offsetHeight || 72;
+        var pts = [[0.5, 0.5], [0.2, 0.25], [0.8, 0.25], [0.2, 0.8], [0.8, 0.8]];
+        for (var i = 0; i < pts.length; i++) {
+            var px = x + w * pts[i][0], py = y + h * pts[i][1];
+            if (px < 0 || py < 0 || px >= window.innerWidth || py >= window.innerHeight) continue;
+            var list = document.elementsFromPoint(px, py);
+            for (var j = 0; j < list.length; j++) {
+                if (el.contains(list[j])) continue;            // sam pupil (i jego dymek)
+                if (list[j].closest && list[j].closest(CONTROLS)) return true;
+                break;                                         // pierwszy element pod pupilem nie jest kontrolką
+            }
+        }
+        return false;
+    }
+
+    /** Losowy cel w obszarze, w zasięgu STEP_MIN..STEP_MAX od `cur`, nie na kontrolce (null = brak miejsca). */
     function pickTarget(a, cur) {
-        for (var i = 0; i < 6; i++) {
+        for (var i = 0; i < 12; i++) {
             var tx = rand(a.minX, a.maxX);
             var ty = rand(a.minY, maxYAt(a, Math.round(tx)));
             var dx = tx - cur.x, dy = ty - cur.y, d = Math.sqrt(dx * dx + dy * dy);
@@ -479,9 +502,21 @@
                 tx = cur.x + dx * k;
                 ty = cur.y + dy * k;
             }
-            return clampTo(a, { x: tx, y: ty });
+            var t = clampTo(a, { x: tx, y: ty });
+            if (coversControl(t.x, t.y)) continue;
+            return t;
         }
         return null;
+    }
+
+    /** Po przewinięciu/starcie: stojący pupil nie może zostać na kontrolce — idzie dalej (śpiący przeskakuje). */
+    function checkStandingSpot() {
+        scrollCheckTimer = 0;
+        if (mode !== 'walk' || el.hidden || held || walking || !pos || !pet) return;
+        if (!coversControl(pos.x, pos.y)) return;
+        if (walkAllowed()) { scheduleWalk(300); return; }
+        var t = pickTarget(area(), pos);
+        if (t) { setPos(t.x, t.y, false); savePos(); }
     }
 
     function walkStep() {
@@ -944,7 +979,12 @@
             });
         });
         window.addEventListener('scroll', scheduleLift, { passive: true });
+        window.addEventListener('scroll', function () {
+            clearTimeout(scrollCheckTimer);
+            scrollCheckTimer = setTimeout(checkStandingSpot, 250);
+        }, { passive: true });
         watchObstacles();
+        setTimeout(checkStandingSpot, 1500);   // pozycja odtworzona z poprzedniej strony mogła wypaść na przycisku
 
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'hidden') {
