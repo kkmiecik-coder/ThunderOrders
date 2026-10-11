@@ -214,6 +214,29 @@
                     </div>
                 </div>
 
+                <!-- Pupile — przełącznik poza kartą Push, bo steruje też mailami -->
+                {% if pets_available %}
+                <div class="profile-card" id="petUpdatesCard">
+                    <div class="profile-card-header">
+                        <h2>Pupile</h2>
+                    </div>
+                    <div class="privacy-item">
+                        <div class="privacy-info">
+                            <h3>Powiadomienia o pupilach</h3>
+                            <p class="privacy-description">
+                                Push i e-mail, gdy pupil jest smutny, chory albo w stanie krytycznym,
+                                gdy odejdzie do gwiazd i gdy jajko jest gotowe. Działa także bez
+                                powiadomień push (wtedy tylko e-mail w sytuacjach krytycznych).
+                            </p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="petUpdatesToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Powiadomienia Push -->
                 {% if config.VAPID_PUBLIC_KEY %}
                 <div class="profile-card" id="pushNotificationsCard">
@@ -453,6 +476,7 @@
 <script src="{{ url_for('static', filename='js/pages/profile/profile.js') }}"></script>
 {% if config.VAPID_PUBLIC_KEY %}
 <script src="{{ url_for('static', filename='js/pages/profile/push-settings.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/profile/pet-updates-toggle.js') }}"></script>
 {% endif %}
 <script>
 // Analytics Consent Toggle (RODO)

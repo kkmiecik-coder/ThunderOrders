@@ -109,7 +109,7 @@ def get_preferences():
     """Get notification preferences for the current user."""
     pref = NotificationPreference.query.filter_by(user_id=current_user.id).first()
     if not pref:
-        # Return defaults (all True)
+        # Domyślne (wszystko włączone) — ta sama lista co NotificationPreference.to_dict()
         return jsonify({
             'order_status_changes': True,
             'payment_updates': True,
@@ -117,6 +117,9 @@ def get_preferences():
             'new_exclusive_pages': True,
             'cost_added': True,
             'admin_alerts': True,
+            'sale_date_changes': True,
+            'order_supplier_ordered': True,
+            'pet_updates': True,
         })
     return jsonify(pref.to_dict())
 
@@ -137,7 +140,7 @@ def update_preferences():
     allowed_fields = [
         'order_status_changes', 'payment_updates', 'shipping_updates',
         'new_exclusive_pages', 'cost_added', 'sale_date_changes', 'admin_alerts',
-        'order_supplier_ordered'
+        'order_supplier_ordered', 'pet_updates',
     ]
     for field in allowed_fields:
         if field in data:

@@ -21,9 +21,11 @@ def index():
     Strona profilu użytkownika
     GET /profile
     """
+    from modules.pets.config import pets_feature_for
     return render_template(
         'profile/index.html',
-        title='Mój Profil'
+        title='Mój Profil',
+        pets_available=pets_feature_for(current_user),
     )
 
 
