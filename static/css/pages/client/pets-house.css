@@ -1,0 +1,87 @@
+/* ================================================
+   Świat pupili — domek (spec v3 §6.1): pokój + panel pupila
+   Pokój: components/pet-room.css · panel (arkusz/bok): components/modals.css „Pet panel sheet”
+   ================================================ */
+
+.pets-house {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.pets-house__stage {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.pets-house__tip {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-secondary, #616161);
+    text-align: center;
+}
+
+.pets-house__tip[hidden],
+.pets-house__away[hidden],
+.pets-house__intro[hidden] { display: none; }
+
+.pets-house__away {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #EFF6FF;
+    border: 1px solid #DBEAFE;
+    color: #1E3A8A;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.45;
+}
+
+.pets-house__rules {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.45;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-house__go {
+    align-self: flex-start;
+    text-decoration: none;
+}
+
+[data-theme="dark"] .pets-house__tip { color: rgba(255, 255, 255, 0.65); }
+
+[data-theme="dark"] .pets-house__away {
+    background: rgba(96, 165, 250, 0.1);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .pets-house__rules { color: rgba(255, 255, 255, 0.75); }
+
+/* Telefon/tablet: miejsce pod arkuszem, żeby pokój dało się przewinąć nad niego */
+@media (max-width: 1023.98px) {
+    .pets-house.has-panel { padding-bottom: 58vh; }
+}
+
+/* Desktop: panel z boku pokoju */
+@media (min-width: 1024px) {
+    .pets-house.has-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 380px;
+        grid-template-areas: "stage panel" "away panel" "intro panel";
+        align-items: start;
+        column-gap: 20px;
+    }
+
+    .pets-house.has-panel .pets-house__stage { grid-area: stage; }
+    .pets-house.has-panel .pet-sheet { grid-area: panel; }
+    .pets-house.has-panel .pets-house__away { grid-area: away; }
+    .pets-house.has-panel .pets-house__intro { grid-area: intro; }
+}

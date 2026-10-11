@@ -1,6 +1,6 @@
 /* ================================================
-   Pet card — karta pupila (pełna na /client/pupile, mini w widgecie dashboardu — etap 5)
-   + przyciski pupili (.pet-btn), wspólne dla karty, gniazdka i albumu.
+   Pet card — treść panelu pupila w domku (spec v3 §6.2; wariant mini usunięty)
+   + przyciski pupili (.pet-btn), wspólne dla panelu i scen świata (szpital, warsztat, ogród).
    Własne klasy zamiast .btn: .btn:disabled ma pointer-events:none i obcy wariant ciemny.
    ================================================ */
 
@@ -117,117 +117,28 @@
     color: #ffffff;
 }
 
-/* === Karta === */
+/* === Panel pupila (treść; obudowa arkusza/panelu: components/modals.css „Pet panel sheet”) === */
 .pet-card {
     display: flex;
     flex-direction: column;
+    gap: 14px;
     min-width: 0;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--card-border, #E0E4EB);
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(90, 24, 154, 0.06);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 16px;
 }
 
-.pet-card.is-critical {
-    border-color: #FCA5A5;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+.pet-card:focus { outline: none; }
+.pet-card:focus-visible {
+    outline: 2px solid #9D4EDD;
+    outline-offset: 4px;
 }
+
+[data-theme="dark"] .pet-card:focus-visible { outline-color: #f093fb; }
 
 .pet-card.is-starred { animation: pet-card-starred 1.4s ease-out; }
 
 @keyframes pet-card-starred {
     0% { box-shadow: 0 0 0 0 rgba(245, 183, 0, 0.55); }
     100% { box-shadow: 0 0 0 18px rgba(245, 183, 0, 0); }
-}
-
-[data-theme="dark"] .pet-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-    box-shadow: none;
-}
-
-/* Fokus wraca na kartę (tabindex=-1), gdy przycisk akcji zniknął po akcji (np. „Obudź") */
-.pet-card:focus { outline: none; }
-.pet-card:focus-visible {
-    outline: 2px solid #9D4EDD;
-    outline-offset: 2px;
-}
-
-[data-theme="dark"] .pet-card:focus-visible {
-    outline-color: #f093fb;
-}
-
-[data-theme="dark"] .pet-card.is-critical {
-    border-color: rgba(248, 113, 113, 0.5);
-    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
-}
-
-/* Scena z rigiem — klik = pat pat */
-.pet-card__scene {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    min-height: 196px;
-    padding: 18px 12px 8px;
-    background: radial-gradient(120% 90% at 50% 100%, #FFE9F4 0%, #F4EEFF 55%, #EEF4FF 100%);
-    cursor: pointer;
-    outline: none;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-}
-
-.pet-card__scene:focus-visible { box-shadow: inset 0 0 0 3px rgba(240, 147, 251, 0.65); }
-.pet-card__scene[aria-disabled="true"] { cursor: default; }
-
-.pet-card.is-asleep .pet-card__scene {
-    background: radial-gradient(120% 90% at 50% 100%, #E7E5FB 0%, #DCDFF8 60%, #CDD5F3 100%);
-}
-
-.pet-card__rig { line-height: 0; max-width: 100%; }
-
-.pet-card__pat-hint {
-    position: absolute;
-    top: 10px;
-    left: 12px;
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.75);
-    color: #6B21A8;
-    font-size: 11px;
-    font-weight: 600;
-    pointer-events: none;
-    transition: opacity 0.4s ease;
-}
-
-.pet-card__pat-hint.is-used,
-.pet-card.is-asleep .pet-card__pat-hint { opacity: 0; }
-
-[data-theme="dark"] .pet-card__scene {
-    background: radial-gradient(120% 90% at 50% 100%, rgba(240, 147, 251, 0.14) 0%, rgba(255, 255, 255, 0.05) 70%);
-    border-bottom: 1px solid rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .pet-card.is-asleep .pet-card__scene {
-    background: radial-gradient(120% 90% at 50% 100%, rgba(130, 140, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 70%);
-}
-
-[data-theme="dark"] .pet-card__pat-hint {
-    background: rgba(15, 12, 41, 0.6);
-    color: rgba(255, 255, 255, 0.8);
-}
-
-/* Treść */
-.pet-card__body {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 16px 16px;
-    min-width: 0;
 }
 
 .pet-card__head {
@@ -448,9 +359,11 @@
 /* Akcje + powód pod przyciskiem */
 .pet-card__actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
 }
+
+.pet-action--admit { grid-column: 1 / -1; }
 
 .pet-card__actions.is-single { grid-template-columns: minmax(0, 1fr); }
 
@@ -499,51 +412,93 @@
     color: rgba(255, 255, 255, 0.75);
 }
 
-/* === Wariant mini (widget dashboardu, etap 5) === */
-.pet-card--mini {
-    flex-direction: row;
-    align-items: stretch;
-}
 
-.pet-card--mini .pet-card__scene {
-    flex: 0 0 120px;
-    min-height: 0;
-    align-items: center;
-    padding: 10px;
-}
-
-.pet-card--mini .pet-card__body {
-    flex: 1 1 auto;
+/* Kafelki wariantów (Nakarm / Pobaw się / Umyj → 3 do wyboru, spec v3 §5) */
+.pet-card__variants {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
-    padding: 12px;
+    margin-top: -4px;
+    padding: 10px;
+    border-radius: 14px;
+    background: #FDF4FF;
+    border: 1px dashed #F0ABFC;
 }
 
-.pet-card--mini .pet-card__title { font-size: 1rem; }
-.pet-card--mini .pet-card__actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.pet-card--mini .pet-card__actions.is-single { grid-template-columns: minmax(0, 1fr); }
-.pet-card--mini .pet-action__btn { gap: 6px; font-size: 12.5px; }
+.pet-card__variants[hidden] { display: none; }
 
-[data-theme="dark"] .pet-card--mini .pet-card__scene {
-    border-bottom: none;
-    border-right: 1px solid rgba(240, 147, 251, 0.15);
+.pet-variant {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 68px;
+    padding: 8px 4px;
+    border: 1px solid #E9D5FF;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #5A189A;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
-@media (max-width: 480px) {
-    .pet-card--mini { flex-direction: column; }
-    .pet-card--mini .pet-card__scene { flex-basis: auto; }
+.pet-variant:hover {
+    background: #F3E8FF;
+    border-color: #D8B4FE;
+}
 
-    [data-theme="dark"] .pet-card--mini .pet-card__scene {
-        border-right: none;
-        border-bottom: 1px solid rgba(240, 147, 251, 0.15);
-    }
+.pet-variant:active { transform: scale(0.97); }
+
+.pet-variant:focus-visible {
+    outline: 2px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pet-variant[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.pet-variant__icon {
+    width: 26px;
+    height: 26px;
+}
+
+[data-theme="dark"] .pet-card__variants {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pet-variant {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(240, 147, 251, 0.25);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pet-variant:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+@media (max-width: 360px) {
+    .pet-card__actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .pet-btn { transition: none; }
-    .pet-btn:active { transform: none; }
+    .pet-btn,
+    .pet-variant,
+    .pet-bar__fill { transition: none; }
+    .pet-btn:active,
+    .pet-variant:active { transform: none; }
     .pet-btn.is-busy .pet-btn__icon { animation: none; }
-    .pet-card,
-    .pet-bar__fill,
-    .pet-card__pat-hint { transition: none; }
     .pet-card.is-starred { animation: none; }
 }
