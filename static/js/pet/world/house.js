@@ -60,6 +60,13 @@
             return !!(window.matchMedia && window.matchMedia(DESKTOP).matches);
         }
 
+        // Dół elementu w dokumencie bez transformów (offsetTop ich nie widzi, getBoundingClientRect tak)
+        function layoutBottom(node) {
+            var top = 0;
+            for (var n = node; n; n = n.offsetParent) top += n.offsetTop + (n !== node ? n.clientTop : 0);
+            return top + node.offsetHeight;
+        }
+
         function homePets(state) {
             return ((state && state.pets) || []).filter(function (p) { return !p.hospital; });
         }
@@ -149,9 +156,10 @@
             ctx.setQuery({ pupil: id });
             if (!isDesktop() && room) {
                 // Arkusz zasłania dół ekranu — dół pokoju (tam stoi wybrany pupil) ma wypaść tuż nad nim.
-                // offsetHeight, nie getBoundingClientRect: arkusz właśnie wjeżdża (transform)
+                // Wymiary z offset*, nie z getBoundingClientRect: arkusz właśnie wjeżdża (transform), a pokój
+                // przy wejściu w scenę jest w trakcie zoomu (scale 0,97 — dół pokoju wyszedłby za wysoko)
                 var sheetTop = window.innerHeight - sheet.offsetHeight;
-                var target = window.pageYOffset + room.el.getBoundingClientRect().bottom - sheetTop + 8;
+                var target = layoutBottom(room.el) - sheetTop + 8;
                 if (Math.abs(window.pageYOffset - target) > 4) {
                     window.scrollTo({ top: Math.max(0, target), behavior: u.reducedMotion() ? 'auto' : 'smooth' });
                 }

@@ -2,7 +2,8 @@
  * Towarzysz — pupil na stronach panelu klienta i ofert (spec §4.4, plan etapu 5 Task 4).
  *
  * Szkielet: templates/components/pet_companion.html
- *   #petCompanion[hidden][data-user-id][data-api][data-home-url][data-mode="walk|sit"][data-celebrate="0|1"]
+ *   #petCompanion[hidden][data-user-id][data-api][data-home-url][data-house-url][data-hospital-url]
+ *                [data-mode="walk|sit"][data-celebrate="0|1"]
  *   #petCompanionHit (przycisk ≥ 44 px nad sceną) · #petCompanionScene (rig) · #petCompanionBubble (dymek)
  *
  * Wymaga: window.PetRig (pet-rig.js), window.PetsState/PetsApi (pets-core.js). window.Haptics opcjonalnie.
@@ -55,6 +56,8 @@
     var userId = el.getAttribute('data-user-id');
     var mode = el.getAttribute('data-mode') === 'sit' ? 'sit' : 'walk';
     var homeUrl = el.getAttribute('data-home-url') || '/client/pupile';
+    var houseUrl = el.getAttribute('data-house-url') || homeUrl + '/domek';
+    var hospitalUrl = el.getAttribute('data-hospital-url') || homeUrl + '/szpital';
     var celebratePending = el.getAttribute('data-celebrate') === '1';
     var bubbleKey = 'pets_bubble_shown_' + userId;
     var posKey = 'pets_companion_pos_' + userId;
@@ -226,25 +229,29 @@
         try { sessionStorage.setItem(bubbleKey, String(Date.now())); } catch (e) { /* prywatne okno */ }
     }
 
-    function careText(state) {
+    // Dymek opieki: tekst + cel linku wg potrzeby (spec v3 §3.1: dymek towarzysza → miejsce właściwe dla
+    // potrzeby): głód / smutek / brud / nuda → domek z panelem pupila; choroba i jajka → szpital
+    function careBubble(state) {
         var m = pet && pet.mood;
-        if (m === 'krytyczny' || m === 'chory') return 'Źle się czuję…';
-        if (m === 'glodny') return 'Jestem głodny!';
-        if (m === 'smutny' || m === 'znudzony') return 'Pobaw się ze mną!';
-        if (m === 'brudny') return 'Umyj mnie!';
+        var house = { href: houseUrl + '?pupil=' + encodeURIComponent(pet.id), label: 'Do domku' };
+        var hospital = { href: hospitalUrl, label: 'Do szpitala' };
+        if (m === 'krytyczny' || m === 'chory') return { text: 'Źle się czuję…', link: hospital };
+        if (m === 'glodny') return { text: 'Jestem głodny!', link: house };
+        if (m === 'smutny' || m === 'znudzony') return { text: 'Pobaw się ze mną!', link: house };
+        if (m === 'brudny') return { text: 'Umyj mnie!', link: house };
         var eggs = state.eggs || [];
-        for (var i = 0; i < eggs.length; i++) if (eggs[i].ready) return 'Jajko gotowe!';
-        if (state.eggs_available && state.eggs_available.length) return 'Czeka na Ciebie jajko!';
+        for (var i = 0; i < eggs.length; i++) if (eggs[i].ready) return { text: 'Jajko gotowe!', link: hospital };
+        if (state.eggs_available && state.eggs_available.length) return { text: 'Czeka na Ciebie jajko!', link: hospital };
         return null;   // opieki potrzebuje inny pupil — kropka w nawigacji to pokazuje, towarzysz nie mówi za niego
     }
 
     function maybeCareBubble(state) {
         if (!pet || pet.asleep || !state || !state.needs_care) return;
         if (!bubble.hidden) return;
-        var text = careText(state);
-        if (!text || !bubbleAllowed()) return;
+        var care = careBubble(state);
+        if (!care || !bubbleAllowed()) return;
         markBubble();
-        showBubble(text, { ms: BUBBLE_CARE_MS, link: true });
+        showBubble(care.text, { ms: BUBBLE_CARE_MS, link: care.link });
     }
 
     function showBubble(text, opts) {
@@ -256,10 +263,12 @@
         span.textContent = text;
         bubble.appendChild(span);
         if (opts.link) {
+            // {href, label} z careBubble; true = mapa świata (cel bez konkretnej potrzeby)
+            var target = opts.link === true ? { href: homeUrl, label: 'Do świata' } : opts.link;
             var a = document.createElement('a');
             a.className = 'pet-companion__bubble-link';
-            a.href = homeUrl;
-            a.textContent = 'Do świata';   // homeUrl = mapa świata (spec v3 §3)
+            a.href = target.href;
+            a.textContent = target.label;
             bubble.appendChild(a);
         }
         sideBubble();
@@ -561,7 +570,8 @@
             return;
         }
         haptic();
-        rig.playAction('pat').then(noop, noop);
+        // spec v3 §5: pat pat z dłonią (rig.pat); starszy rig — dawna animacja
+        (typeof rig.pat === 'function' ? rig.pat() : rig.playAction('pat')).then(noop, noop);
         if (walking) {
             stopWalk();
             scheduleWalk(PAUSE_MIN + Math.random() * (PAUSE_MAX - PAUSE_MIN));

@@ -7,7 +7,8 @@
  *                     TTL 5 min liczony od odpowiedzi SERWERA: set() zapisuje, ale odczyt z cache
  *                     idzie przez set(s, {persist: false}) i nie przesuwa znacznika czasu; każda
  *                     niepewność invalidate()), kropki „pupil potrzebuje opieki" w nawigacji,
- *                     zdarzenie document:'pets:state'.
+ *                     zdarzenie document:'pets:state'; PetsState.eggForecast(egg, state, elapsedSec) —
+ *                     prognoza wyklucia (widget + inkubatornia).
  *
  * Plik ładuje się na kilku stronach (także dwa razy na dashboardzie: include towarzysza + skrypty
  * widgetu) — stąd guard idempotencji na początku.
@@ -148,6 +149,50 @@
         document.dispatchEvent(ev);
     }
 
+    // --- prognoza jajka (widget na dashboardzie + inkubatornia w szpitalu) ---
+
+    var DEFAULT_BOOST = 2;   // spec §2.2: ogrzanie = tempo ×2 — tylko gdy stan nie niesie config
+
+    /** Naiwny czas lokalny z API ("2026-10-11T21:15:00") → ms. */
+    function parseLocal(iso) {
+        if (!iso) return NaN;
+        var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(iso);
+        if (!m) return NaN;
+        return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
+    }
+
+    /** Mnożnik ogrzania z config stanu (ten sam, którym liczy serwer). */
+    function boostFactor(state) {
+        var f = state && state.config && Number(state.config.boost_factor);
+        return f > 0 ? f : DEFAULT_BOOST;
+    }
+
+    /**
+     * Postęp i czas do wyklucia w chwili `elapsedSec` od odebrania stanu (spec §2.2: ogrzanie przyspiesza
+     * tempo ×config.boost_factor do `boost_until`) → {pct, leftSec, boosted}.
+     */
+    function eggForecast(egg, state, elapsedSec) {
+        var boost = boostFactor(state);
+        var total = Math.max(1, (Number(egg.egg_hours) || 0) * 3600);
+        var remaining = total * (1 - Math.min(100, Math.max(0, Number(egg.progress_pct) || 0)) / 100);
+        var boostLeft = 0;
+        if (egg.boost_until) {
+            var b = (parseLocal(egg.boost_until) - parseLocal(state && state.now)) / 1000;
+            if (b > 0) boostLeft = b;
+        }
+        // Czas ścienny do wyklucia od chwili odebrania stanu
+        var wall = remaining <= boost * boostLeft
+            ? remaining / boost
+            : boostLeft + (remaining - boost * boostLeft);
+        var e = Math.max(0, Number(elapsedSec) || 0);
+        var gained = e <= boostLeft ? e * boost : boostLeft * boost + (e - boostLeft);
+        return {
+            pct: egg.ready ? 100 : Math.min(100, (total - remaining + gained) / total * 100),
+            leftSec: egg.ready ? 0 : Math.max(0, wall - e),
+            boosted: !egg.ready && boostLeft - e > 0
+        };
+    }
+
     var PetsState = {
         current: null,
         receivedAt: 0,
@@ -178,6 +223,10 @@
             };
         },
         needsCare: function () { return !!(PetsState.current && PetsState.current.needs_care); },
+        /** Sekundy od odebrania bieżącego stanu (zegar przeglądarki). */
+        elapsedSec: function () { return Math.max(0, (Date.now() - PetsState.receivedAt) / 1000); },
+        eggForecast: eggForecast,
+        boostFactor: boostFactor,
         load: load,
         save: save,
         invalidate: invalidate,

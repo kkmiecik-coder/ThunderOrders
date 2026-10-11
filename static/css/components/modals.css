@@ -5723,7 +5723,7 @@ html.pet-hatch-open body { overflow: hidden; }
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 30px;
+    height: 44px;                /* cel dotyku ≥ 44 px (kreska uchwytu zostaje mała) */
     margin: 0 -18px;
     background: inherit;
     cursor: grab;
@@ -5786,14 +5786,15 @@ html.pet-hatch-open body { overflow: hidden; }
 }
 
 @media (min-width: 1024px) {
+    /* sticky pod stałym topbarem (position: fixed, --topbar-height) — inaczej imię i × chowają się pod nim */
     .pet-sheet {
         position: sticky;
-        top: 16px;
+        top: calc(var(--topbar-height, 64px) + 16px);
         left: auto;
         right: auto;
         bottom: auto;
         z-index: 1;
-        max-height: calc(100vh - 32px);
+        max-height: calc(100vh - var(--topbar-height, 64px) - 32px);
         padding: 18px;
         border: 1px solid #F0E4F7;
         border-radius: 20px;
