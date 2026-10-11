@@ -588,3 +588,552 @@
 @keyframes rig-egg-top { 0% { transform: translate(0, 0) rotate(0); opacity: 1; } 100% { transform: translate(34px, -70px) rotate(38deg); opacity: 0; } }
 @keyframes rig-egg-fade { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.92); } }
 @keyframes rig-flame { 0%, 100% { transform: scale(1, 1) rotate(-2deg); } 50% { transform: scale(.9, 1.1) rotate(3deg); } }
+
+/* ==========================================================================
+   v3 (świat): POTRZEBY, POZY, DŁOŃ, WARIANTY AKCJI, ŁÓŻECZKO, SKÓRKI JAJEK
+   Pozy i drobne ruchy używają osobnych właściwości translate/scale/rotate,
+   żeby składać się z transformacjami stadiów i animacjami (bez nadpisywania).
+   ========================================================================== */
+
+/* Czubek głowy (dla dłoni) i przesunięcie pozy — w jednostkach sceny 200×200 */
+.pet-rig { --rig-head-top: 52px; --rig-pose-dy: 0px; --rig-bed-dy: 18px; }
+.pet-rig--dziecko { --rig-head-top: 59px; --rig-bed-dy: 9px; }
+.pet-rig--maluch { --rig-head-top: 70px; --rig-bed-dy: 2px; }
+
+.rig-nm,
+.rig-feet { transform-origin: 100px 182px; }
+.rig-fig,
+.rig-body,
+.rig-head,
+.rig-feet,
+.rig-tail,
+.rig-arm-l,
+.rig-arm-r,
+.rig-ears,
+.rig-shadow ellipse {
+    transition: translate .45s ease, scale .45s ease, rotate .45s ease;
+}
+
+/* Domyślnie ukryte nowe warstwy */
+.pet-rig .rig-nh > g,
+.pet-rig .rig-hold > g,
+.pet-rig .ap1,
+.pet-rig .ap2,
+.pet-rig .ap3,
+.pet-rig .ck1,
+.pet-rig .ck2 { opacity: 0; }
+.pet-rig .rig-bed-back,
+.pet-rig .rig-bed-front,
+.pet-rig .fx-hand { display: none; }
+
+/* --- Pozy --------------------------------------------------------------- */
+/* sit: niżej, szerzej, łapki do przodu */
+.pet-rig.pose-sit { --rig-pose-dy: 12px; }
+.pet-rig.pose-sit:not(.pose-off) .rig-body { scale: 1.14 .78; }
+.pet-rig.pose-sit:not(.pose-off) .rig-head { translate: 0 13px; }
+.pet-rig.pose-sit:not(.pose-off) .rig-feet { scale: 1.32 1.05; }
+.pet-rig.pose-sit:not(.pose-off) .rig-arm-l { translate: 3px 9px; rotate: -12deg; }
+.pet-rig.pose-sit:not(.pose-off) .rig-arm-r { translate: -3px 9px; rotate: 12deg; }
+.pet-rig.pose-sit:not(.pose-off) .rig-tail { translate: 2px 10px; }
+.pet-rig.pose-sit:not(.pose-off) .rig-shadow ellipse { scale: 1.15 1; }
+
+/* lie: „bochenek" z przodu — płaskie ciało, głowa nisko na łapkach */
+.pet-rig.pose-lie { --rig-pose-dy: 30px; }
+.pet-rig.pose-lie:not(.pose-off) .rig-body { scale: 1.36 .5; }
+.pet-rig.pose-lie:not(.pose-off) .rig-head { translate: 0 31px; rotate: -7deg; }
+.pet-rig.pose-lie:not(.pose-off) .rig-feet { scale: 1.3 .5; }
+.pet-rig.pose-lie:not(.pose-off) .rig-arm-l { translate: 2px 24px; rotate: -76deg; }
+.pet-rig.pose-lie:not(.pose-off) .rig-arm-r { translate: -2px 24px; rotate: 76deg; }
+.pet-rig.pose-lie:not(.pose-off) .rig-tail { translate: 2px 13px; scale: 1 .62; }
+.pet-rig.pose-lie:not(.pose-off) .rig-shadow ellipse { scale: 1.45 1.1; }
+.pet-rig.pose-lie.is-sick .rig-fm,
+.pet-rig.pose-lie.is-critical .rig-fm { animation: none; }
+
+/* bed: łóżeczko szpitalne, pupil z głową na poduszce pod kołderką */
+.pet-rig.pose-bed { --rig-pose-dy: var(--rig-bed-dy); }
+.pet-rig.pose-bed .rig-bed-back,
+.pet-rig.pose-bed .rig-bed-front { display: inline; }
+.pet-rig.pose-bed .rig-fig { translate: 0 var(--rig-bed-dy); }
+.pet-rig.pose-bed .rig-head { rotate: -5deg; }
+.pet-rig.pose-bed .rig-shadow,
+.pet-rig.pose-bed .rig-tail,
+.pet-rig.pose-bed .rig-body,
+.pet-rig.pose-bed .rig-paws { opacity: 0; }
+.pet-rig.pose-bed .rig-fm { animation: none !important; }
+.pet-rig.pose-bed .rig-stars { translate: 0 6px; }
+
+.pet-rig .bed-post { fill: #CFDCEC; stroke: #9FB6D2; stroke-width: 2; }
+.pet-rig .bed-board { fill: #EAF3FC; stroke: #A9C3DE; stroke-width: 3; }
+.pet-rig .bed-cross { fill: #FF8FA3; }
+.pet-rig .bed-pillow { fill: #FFFFFF; stroke: #D5DEEA; stroke-width: 2; }
+.pet-rig .bed-mattress { fill: #FFFFFF; stroke: #D5DEEA; stroke-width: 2; }
+.pet-rig .bed-quilt { fill: #BFE0FF; stroke: #7FB2E5; stroke-width: 2.4; stroke-linejoin: round; }
+.pet-rig .bed-fold { fill: none; stroke: #E6F3FF; stroke-width: 3.2; stroke-linecap: round; }
+.pet-rig .bed-dots path { fill: #FF9EBF; }
+.pet-rig .bed-wheel { fill: #8C96AB; }
+
+[data-theme="dark"] .pet-rig .bed-post { fill: #6F7AA6; stroke: #9AA5D1; }
+[data-theme="dark"] .pet-rig .bed-board { fill: #3E4470; stroke: #7C84C0; }
+[data-theme="dark"] .pet-rig .bed-pillow,
+[data-theme="dark"] .pet-rig .bed-mattress { fill: #E4E1F2; stroke: #A9A5C8; }
+[data-theme="dark"] .pet-rig .bed-quilt { fill: #8FB8E8; stroke: #B9D8FA; }
+[data-theme="dark"] .pet-rig .bed-fold { stroke: #B9D8FA; }
+[data-theme="dark"] .pet-rig .bed-wheel { fill: #B4BCD6; }
+
+/* --- Potrzeby (need-*) — tylko w spokoju (is-idle/is-sad/… zdejmowane na czas akcji) --- */
+
+/* happy: podskok co kilka sekund */
+.pet-rig.need-happy.is-idle .rig-nm { animation: rig-need-hop 4.6s ease-in-out infinite; }
+
+/* hungry: dymek z miseczką (data-mood) + burczenie brzuszka */
+.pet-rig.need-hungry.is-idle .rig-body { animation: rig-need-rumble 3.6s linear infinite; }
+.pet-rig.need-hungry.is-idle .nd-rumble { opacity: 1; animation: rig-need-rumble-lines 3.6s linear infinite; }
+.nd-rumble path { fill: none; stroke: #E9A23B; stroke-width: 2; stroke-linecap: round; }
+[data-theme="dark"] .nd-rumble path { stroke: #FFC46B; }
+
+/* dirty: plamki + zapach (data-mood) + muszka + drapanie co kilka sekund */
+.pet-rig .nd-fly { transform: translate(150px, 50px); }
+.pet-rig.need-dirty.is-idle .nd-fly { opacity: 1; animation: rig-need-fly 4.2s linear infinite; }
+.nd-wing { fill: rgba(225, 236, 248, .92); stroke: #9FB0C4; stroke-width: .6; transform-box: fill-box; transform-origin: center bottom; }
+.pet-rig.need-dirty.is-idle .nd-wing { animation: rig-need-wing .12s linear infinite alternate; }
+.nd-fly-body { fill: #3B3B48; }
+.pet-rig.need-dirty.is-idle .rig-arm-r { animation: rig-need-scratch 5.2s ease-in-out infinite; }
+.pet-rig.need-dirty.is-idle .rig-hm { animation: rig-need-scratch-head 5.2s ease-in-out infinite; }
+[data-theme="dark"] .nd-fly-body { fill: #1E1E26; stroke: rgba(255, 255, 255, .55); stroke-width: .8; }
+
+/* sad: opuszczone uszy + chmurka z deszczykiem */
+.pet-rig.need-sad.is-sad .rig-ears { scale: 1.05 .78; translate: 0 5px; }
+.pet-rig.need-sad.is-sad .st-cloud { opacity: 1; animation: rig-cloud 3.2s ease-in-out infinite; }
+.pet-rig.need-sad.is-sad .st-rain path { animation: rig-rain 1s linear infinite; }
+
+/* bored: dymek „…" (data-mood) + ziewanie */
+.pet-rig.need-bored.is-idle .m-open { animation: rig-need-yawn 6s ease-in-out infinite; }
+.pet-rig.need-bored.is-idle .m-smile { animation: rig-need-yawn-hide 6s ease-in-out infinite; }
+.pet-rig.need-bored.is-idle .e-open { animation: rig-need-yawn-hide 6s steps(1) infinite; }
+.pet-rig.need-bored.is-idle .e-closed { animation: rig-need-yawn 6s steps(1) infinite; }
+
+/* sick / critical: termometr w buzi, pot, wolniejszy oddech; bez chmurki (ta jest dla smutku) */
+.pet-rig.need-sick.is-sick .nd-thermo,
+.pet-rig.need-critical.is-critical .nd-thermo { opacity: 1; }
+.pet-rig.need-sick.is-sick .st-cloud,
+.pet-rig.need-critical.is-critical .st-cloud { opacity: 0; animation: none; }
+.pet-rig.need-sick.is-sick .rig-bm { animation: rig-breath 5.6s ease-in-out infinite; }
+.pet-rig.need-sick.is-sick .rig-pale { opacity: .62; }
+.pet-rig .nd-sweat path { fill: #9ED8F5; stroke: #5BB4E0; stroke-width: .8; transform-box: fill-box; transform-origin: center top; }
+.pet-rig.need-sick.is-sick .nd-sweat { opacity: 1; }
+.pet-rig.need-sick.is-sick .nd-sweat path { animation: rig-tear 3.4s ease-in infinite; }
+.pet-rig.need-critical.is-critical > svg { filter: saturate(.18) brightness(.97); }
+[data-theme="dark"] .pet-rig--czarny-kotek.need-critical.is-critical > svg {
+    filter: saturate(.18) drop-shadow(0 0 1.6px rgba(255, 255, 255, .45));
+}
+.pet-rig.need-critical.is-critical .rig-bm { animation: rig-breath 5.6s ease-in-out infinite; }
+
+/* --- Dłoń (rig.pat) ----------------------------------------------------- */
+.pet-rig .fx-hand { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 2px)); }
+.pet-rig.is-handpat .rig-fx .fx-hand { display: inline; opacity: 1; animation: rig-hand 1.25s ease-in-out both; }
+.pet-rig .hd-sleeve { fill: #F7A8C9; stroke: #D97AA3; stroke-width: 1.6; stroke-linejoin: round; }
+.pet-rig .hd-cuff { fill: #FFFFFF; stroke: #D97AA3; stroke-width: 1.4; stroke-linejoin: round; }
+.pet-rig .hd-skin { fill: #FFD9C2; stroke: #E0A98A; stroke-width: 1.4; stroke-linejoin: round; }
+.pet-rig .hd-line { fill: none; stroke: #E0A98A; stroke-width: 1.1; stroke-linecap: round; }
+[data-theme="dark"] .pet-rig .fx-hand { filter: drop-shadow(0 0 2px rgba(255, 255, 255, .35)); }
+
+.pet-rig.is-handpat .rig-hm { animation: rig-hand-head 1.25s ease-in-out both; }
+.pet-rig.is-handpat .e-open { opacity: 0; }
+.pet-rig.is-handpat .e-happy { opacity: 1; }
+.pet-rig.is-handpat .ck { opacity: 1; transform: scale(1.18); }
+.pet-rig.is-handpat .rig-tail-in { animation: rig-wag .3s ease-in-out infinite; }
+.pet-rig.is-handpat.hp-heart .st-hearts { opacity: 1; }
+.pet-rig.is-handpat.hp-heart .st-hearts path { animation: rig-heart .9s ease-out .5s both; }
+.pet-rig.is-handpat.hp-heart .st-hearts path:nth-child(2) { animation-delay: .62s; }
+.pet-rig.is-handpat.hp-heart .st-hearts path:nth-child(3) { animation-delay: .74s; }
+
+/* --- Warianty akcji (is-v-<wariant>, 3,4–3,8 s) -------------------------- */
+.pet-rig .fxv-miska,
+.pet-rig .fxv-tub,
+.pet-rig .fxv-tub-front,
+.pet-rig .fxv-shower,
+.pet-rig .fxv-apple,
+.pet-rig .fxv-cookie-in,
+.pet-rig .fxv-foam-head,
+.pet-rig .bb,
+.pet-rig .duck,
+.pet-rig .yarn-in,
+.pet-rig .splash path,
+.pet-rig .fxv-shake path { transform-box: fill-box; transform-origin: center; }
+.pet-rig .fxv-miska,
+.pet-rig .fxv-tub-front,
+.pet-rig .duck { transform-origin: center bottom; }
+
+/* wspólne: karmienie — merdanie; zabawa — radość; mycie — radość + znikający brud + iskierki */
+.pet-rig.is-v-feed .rig-tail-in { animation: rig-wag .5s ease-in-out infinite; }
+.pet-rig.is-v-feed .st-hearts { opacity: 1; }
+.pet-rig.is-v-feed .st-hearts path { animation: rig-heart .9s ease-out 2.5s both; }
+.pet-rig.is-v-feed .st-hearts path:nth-child(2) { animation-delay: 2.62s; }
+.pet-rig.is-v-feed .st-hearts path:nth-child(3) { animation-delay: 2.74s; }
+.pet-rig.is-v-play .e-open,
+.pet-rig.is-v-wash .e-open { opacity: 0; }
+.pet-rig.is-v-play .e-happy,
+.pet-rig.is-v-wash .e-happy { opacity: 1; }
+.pet-rig.is-v-play .m-smile { opacity: 0; }
+.pet-rig.is-v-play .m-open { opacity: 1; }
+.pet-rig.is-v-play .rig-tail-in { animation: rig-wag .35s ease-in-out infinite; }
+.pet-rig.is-v-wash .rig-dirt { animation: rig-v-dirt-off 2.6s ease-in both; }
+.pet-rig.is-v-wash .fx-spark { opacity: 1; }
+.pet-rig.is-v-wash .fx-spark path { animation: rig-spark 1.2s ease-in-out 2.4s both; }
+.pet-rig.is-v-wash .fx-spark path:nth-child(2n) { animation-delay: 2.6s; }
+
+/* 1. miska — chrupanie z miseczki, karma znika po kawałku, na koniec zadowolenie */
+.pet-rig.is-v-miska .fxv-miska { opacity: 1; animation: rig-v-prop 3.4s ease-out both; }
+.pet-rig.is-v-miska .fxv-kib circle { animation: rig-v-off 1ms linear .9s forwards; }
+.pet-rig.is-v-miska .fxv-kib circle:nth-child(2) { animation-delay: 1.35s; }
+.pet-rig.is-v-miska .fxv-kib circle:nth-child(3) { animation-delay: 1.8s; }
+.pet-rig.is-v-miska .fxv-kib circle:nth-child(4) { animation-delay: 2.25s; }
+.pet-rig.is-v-miska .fxv-kib circle:nth-child(5) { animation-delay: 2.65s; }
+.pet-rig.is-v-miska .fxv-crumbs circle { animation: rig-crumb .45s ease-out .7s 5 both; }
+.pet-rig.is-v-miska .rig-hm { animation: rig-chomp .45s ease-in-out .5s 5; }
+.pet-rig.is-v-miska .m-open { animation: rig-show-mid .45s steps(1) .5s 5; }
+.pet-rig.is-v-miska .m-smile { animation: rig-hide-mid .45s steps(1) .5s 5; }
+.pet-rig.is-v-miska .e-open { animation: rig-v-off 1ms linear 2.8s forwards; }
+.pet-rig.is-v-miska .e-happy { animation: rig-v-on 1ms linear 2.8s forwards; }
+
+/* 2. jabłko — trzymane w łapkach, trzy gryzy aż do ogryzka */
+.pet-rig.is-v-jablko .rig-hold .fxv-apple { opacity: 1; animation: rig-v-prop 3.6s ease-out both; }
+.pet-rig.is-v-jablko .rig-arm-l,
+.pet-rig.is-v-ciastko .rig-arm-l { rotate: -48deg; }
+.pet-rig.is-v-jablko .rig-arm-r,
+.pet-rig.is-v-ciastko .rig-arm-r { rotate: 48deg; }
+.pet-rig.is-v-jablko .ap0 { animation: rig-v-off 1ms linear 1s forwards; }
+.pet-rig.is-v-jablko .ap1 { animation: rig-v-on 1ms linear 1s forwards, rig-v-off 1ms linear 1.7s forwards; }
+.pet-rig.is-v-jablko .ap2 { animation: rig-v-on 1ms linear 1.7s forwards, rig-v-off 1ms linear 2.4s forwards; }
+.pet-rig.is-v-jablko .ap3 { animation: rig-v-on 1ms linear 2.4s forwards; }
+.pet-rig.is-v-jablko .rig-hm,
+.pet-rig.is-v-ciastko .rig-hm { animation: rig-v-bite .7s ease-in-out .4s 3; }
+.pet-rig.is-v-jablko .m-open,
+.pet-rig.is-v-ciastko .m-open { animation: rig-show-mid .7s steps(1) .4s 3; }
+.pet-rig.is-v-jablko .m-smile,
+.pet-rig.is-v-ciastko .m-smile { animation: rig-hide-mid .7s steps(1) .4s 3; }
+.pet-rig.is-v-jablko .fxv-crumbs2,
+.pet-rig.is-v-ciastko .fxv-crumbs2 { opacity: 1; }
+.pet-rig.is-v-jablko .fxv-crumbs2 circle,
+.pet-rig.is-v-ciastko .fxv-crumbs2 circle { animation: rig-crumb .7s ease-out .9s 3 both; }
+.pet-rig.is-v-jablko .fxv-crumbs2 circle { fill: #FFF1C9; stroke: #E2C27A; stroke-width: .6; }
+.pet-rig.is-v-jablko .e-open,
+.pet-rig.is-v-ciastko .e-open { animation: rig-v-off 1ms linear 2.9s forwards; }
+.pet-rig.is-v-jablko .e-happy,
+.pet-rig.is-v-ciastko .e-happy { animation: rig-v-on 1ms linear 2.9s forwards; }
+.pet-rig .ap-red { fill: #E8505B; stroke: #B83240; stroke-width: 1.6; stroke-linejoin: round; }
+.pet-rig .ap-flesh { fill: none; stroke: #FFF1C9; stroke-width: 2.6; stroke-linecap: round; }
+.pet-rig .ap-shine { fill: #FFFFFF; opacity: .6; }
+.pet-rig .ap-stem { fill: none; stroke: #7A4A2A; stroke-width: 2; stroke-linecap: round; }
+.pet-rig .ap-leaf { fill: #7CC47F; stroke: #4E9A55; stroke-width: 1; }
+
+/* 3. ciastko — wpada z góry, złapane, trzy gryzy, okruszki */
+.pet-rig.is-v-ciastko .rig-hold .fxv-cookie { opacity: 1; animation: rig-v-fade-end 3.4s linear both; }
+.pet-rig.is-v-ciastko .fxv-cookie-in { animation: rig-v-cookie-fly .6s cubic-bezier(.3, .7, .4, 1) both; }
+.pet-rig.is-v-ciastko .rig-eyes { animation: rig-v-look-up .8s ease-out both; }
+.pet-rig.is-v-ciastko .ck0 { animation: rig-v-off 1ms linear 1.1s forwards; }
+.pet-rig.is-v-ciastko .ck1 { animation: rig-v-on 1ms linear 1.1s forwards, rig-v-off 1ms linear 1.8s forwards; }
+.pet-rig.is-v-ciastko .ck2 { animation: rig-v-on 1ms linear 1.8s forwards, rig-v-off 1ms linear 2.5s forwards; }
+.pet-rig.is-v-ciastko .ck-c2 { animation: rig-v-off 1ms linear 1.1s forwards; }
+.pet-rig.is-v-ciastko .ck-c1 { animation: rig-v-off 1ms linear 1.8s forwards; }
+.pet-rig.is-v-ciastko .ck-c3,
+.pet-rig.is-v-ciastko .ck-c4,
+.pet-rig.is-v-ciastko .ck-c5 { animation: rig-v-off 1ms linear 2.5s forwards; }
+.pet-rig.is-v-ciastko .fxv-crumbs2 circle { fill: #C98A58; }
+.pet-rig.is-v-ciastko .rig-fm { animation: rig-hop .5s ease-in-out 2.75s 1; }
+.pet-rig .ck-dough { fill: #E3A867; stroke: #B97C3F; stroke-width: 1.6; stroke-linejoin: round; }
+.pet-rig .ck-chips circle { fill: #6B3F22; }
+
+/* 4. piłka — trzy przeloty (rAF w JS), oczy śledzą piłkę, podskoki */
+.pet-rig.is-v-pilka .fx-ball { opacity: 1; }
+.pet-rig.is-v-pilka .rig-fm { animation: rig-hop .6s ease-in-out 6; }
+.pet-rig.is-v-pilka .rig-arm-l { animation: rig-arm-up-l .6s ease-in-out 6; }
+.pet-rig.is-v-pilka .rig-arm-r { animation: rig-arm-up-r .6s ease-in-out 6; }
+
+/* 5. włóczka — kłębek wtacza się, pac łapką, rozwija nitkę, skok, nitka na głowie */
+.pet-rig.is-v-wloczka .fxv-yarn { opacity: 1; }
+.pet-rig .fxv-yarn .yarn { transform: translate(156px, 170px); }
+.pet-rig.is-v-wloczka .fxv-yarn .yarn { animation: rig-v-yarn 3.6s ease-in-out both; }
+.pet-rig.is-v-wloczka .yarn-in { animation: rig-v-yarn-roll 3.6s ease-in-out both; }
+.pet-rig .yarn-thread { fill: none; stroke: #FF8FB8; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 0; }
+.pet-rig.is-v-wloczka .yarn-thread { animation: rig-v-thread 3.6s ease-in-out both; }
+.pet-rig.is-v-wloczka .rig-eyes { animation: rig-v-yarn-eyes 3.6s ease-in-out both; }
+.pet-rig.is-v-wloczka .rig-arm-l { animation: rig-v-bat-l 3.6s ease-in-out both; }
+.pet-rig.is-v-wloczka .rig-arm-r { animation: rig-v-grab-r 3.6s ease-in-out both; }
+.pet-rig.is-v-wloczka .rig-fm { animation: rig-v-pounce 3.6s ease-in-out both; }
+.pet-rig.is-v-wloczka .fxv-tangle { animation: rig-v-on 1ms linear 2.6s forwards; }
+.pet-rig .fxv-tangle path { fill: none; stroke: #FF8FB8; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 6. bańki — bańki wznoszą się i pękają, pupil sięga łapkami i podskakuje */
+.pet-rig.is-v-banki .fxv-bubbles { opacity: 1; }
+.pet-rig.is-v-banki .bb { --bx: 4px; animation: rig-v-bubble 2.2s ease-out both; }
+.pet-rig.is-v-banki .bb:nth-child(2) { --bx: -5px; animation-delay: .25s; }
+.pet-rig.is-v-banki .bb:nth-child(3) { --bx: 6px; animation-delay: .5s; }
+.pet-rig.is-v-banki .bb:nth-child(4) { --bx: -4px; animation-delay: .75s; }
+.pet-rig.is-v-banki .bb:nth-child(5) { --bx: 5px; animation-delay: 1s; }
+.pet-rig.is-v-banki .bb:nth-child(6) { --bx: -6px; animation-delay: 1.2s; }
+.pet-rig.is-v-banki .bb:nth-child(7) { --bx: 3px; animation-delay: 1.35s; }
+.pet-rig.is-v-banki .rig-eyes { translate: 0 -2.5px; }
+.pet-rig.is-v-banki .rig-arm-l { animation: rig-arm-up-l .55s ease-in-out 6; }
+.pet-rig.is-v-banki .rig-arm-r { animation: rig-arm-up-r .55s ease-in-out .27s 6; }
+.pet-rig.is-v-banki .rig-fm { animation: rig-g-jump .7s ease-out 1s 2; }
+.pet-rig .bb-ball { fill: rgba(200, 230, 255, .45); stroke: #7FC4F0; stroke-width: 2; }
+.pet-rig .bb:nth-child(3n+2) .bb-ball { stroke: #F7A8D8; }
+.pet-rig .bb:nth-child(3n) .bb-ball { stroke: #C9B8F5; }
+.pet-rig .bb-hi { fill: none; stroke: #FFFFFF; stroke-width: 1.6; stroke-linecap: round; }
+[data-theme="dark"] .pet-rig .bb-ball { fill: rgba(200, 230, 255, .16); stroke: #B5E0FA; }
+
+/* 7. kąpiel — miednica z pianą i kaczuszką, chlapanie, na koniec otrząsanie */
+.pet-rig.is-v-kapiel .fxv-tub,
+.pet-rig.is-v-kapiel .fxv-tub-front { opacity: 1; animation: rig-v-tub 3.8s ease-out both; }
+.pet-rig.is-v-kapiel .rig-fm { animation: rig-v-bathe 3.8s ease-in-out both; }
+.pet-rig.is-v-kapiel .duck { animation: rig-v-duck 1.2s ease-in-out infinite; }
+.pet-rig.is-v-kapiel .splash path { animation: rig-v-splash .9s ease-out .9s 2 both; }
+.pet-rig.is-v-kapiel .fxv-shake { opacity: 1; }
+.pet-rig.is-v-kapiel .fxv-shake path { --fx: -14px; --fy: -6px; animation: rig-v-fling .55s ease-out 3.25s both; }
+.pet-rig.is-v-kapiel .fxv-shake path:nth-child(2n) { --fx: 14px; }
+.pet-rig.is-v-kapiel .fxv-shake path:nth-child(n+5) { --fy: -14px; }
+.pet-rig .tub-back { fill: #5BA8E0; }
+.pet-rig .tub-water { fill: #9BD3F7; }
+.pet-rig .tub-body { fill: #8EC9F5; stroke: #5BA8E0; stroke-width: 2.4; stroke-linejoin: round; }
+.pet-rig .tub-stripe { fill: none; stroke: #FFFFFF; stroke-width: 3; stroke-linecap: round; opacity: .6; }
+.pet-rig .tub-foam circle,
+.pet-rig .fxv-foam-head circle,
+.pet-rig .fxv-sponge-foam circle { fill: #FFFFFF; stroke: #CFE6F7; stroke-width: 1.2; }
+.pet-rig .splash path,
+.pet-rig .fxv-shake path { fill: #8CCBF2; stroke: #5BA8E0; stroke-width: .8; }
+[data-theme="dark"] .pet-rig .tub-body { stroke: #A8DBFA; }
+
+/* 8. prysznic — słuchawka z góry, strumienie, piana na głowie, spłukanie, otrzepanie */
+.pet-rig.is-v-prysznic .fxv-shower { opacity: 1; animation: rig-v-shower 3.6s ease-out both; }
+.pet-rig.is-v-prysznic .sh-water { animation: rig-v-water 3.6s linear both; }
+.pet-rig.is-v-prysznic .sh-water path { animation: rig-v-rain .45s linear infinite; }
+.pet-rig.is-v-prysznic .fxv-foam-head { animation: rig-v-foam 3.6s ease-out both; }
+.pet-rig.is-v-prysznic .rig-fm { animation: rig-g-sway 1.2s ease-in-out 0s 2.5, rig-wiggle .2s ease-in-out 3s 3; }
+.pet-rig.is-v-prysznic .sh-splash path { animation: rig-v-flicker .3s steps(2) infinite; }
+.pet-rig .sh-pipe { fill: none; stroke: #A9B4C6; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.pet-rig .sh-head { fill: #C9D3E2; stroke: #8C96AB; stroke-width: 1.6; stroke-linejoin: round; }
+.pet-rig .sh-holes { fill: none; stroke: #5F6B80; stroke-width: 2.2; stroke-linecap: round; }
+.pet-rig .sh-water path { fill: none; stroke: #8CCBF2; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 7 9; }
+.pet-rig .sh-splash path { fill: none; stroke: #8CCBF2; stroke-width: 1.8; stroke-linecap: round; }
+[data-theme="dark"] .pet-rig .sh-water path,
+[data-theme="dark"] .pet-rig .sh-splash path { stroke: #A8DBFA; }
+
+/* 9. gąbka — szorowanie po brzuszku i głowie, pianka, brud znika, iskierki */
+.pet-rig.is-v-gabka .fxv-sponge,
+.pet-rig.is-v-gabka .fxv-sponge-foam { opacity: 1; }
+.pet-rig .fxv-sponge .sponge { transform-origin: 0 0; transform: translate(128px, 148px); }
+.pet-rig.is-v-gabka .fxv-sponge .sponge { animation: rig-v-scrub 3.6s ease-in-out both; }
+.pet-rig .fxv-sponge-foam circle { opacity: 0; }
+.pet-rig.is-v-gabka .fxv-sponge-foam circle { animation: rig-v-on 1ms linear .6s forwards, rig-v-off 1ms linear 2.75s forwards; }
+.pet-rig.is-v-gabka .fxv-sponge-foam circle:nth-child(2) { animation-delay: .9s, 2.75s; }
+.pet-rig.is-v-gabka .fxv-sponge-foam circle:nth-child(3) { animation-delay: 1.15s, 2.75s; }
+.pet-rig.is-v-gabka .fxv-sponge-foam circle:nth-child(4) { animation-delay: 1.4s, 2.75s; }
+.pet-rig.is-v-gabka .fxv-sponge-foam circle:nth-child(5) { animation-delay: 1.75s, 2.75s; }
+.pet-rig.is-v-gabka .fxv-sponge-foam circle:nth-child(6) { animation-delay: 2.05s, 2.75s; }
+.pet-rig.is-v-gabka .fxv-sponge-foam circle:nth-child(7) { animation-delay: 2.3s, 2.75s; }
+.pet-rig.is-v-gabka .rig-fm { animation: rig-wiggle .5s ease-in-out 6; }
+.pet-rig.is-v-gabka .m-smile { opacity: 0; }
+.pet-rig.is-v-gabka .m-open { opacity: 1; }
+
+/* --- Skórki jajek (mountEgg {skin}) -------------------------------------- */
+.pet-rig--egg { --egg-crack: #B0906A; }
+.pet-rig--egg .egg-rim { fill: none; stroke: #E5CFAE; stroke-width: 2.6; }
+.pet-rig--egg .egg-hi { opacity: .7; }
+.pet-rig--egg .egg-cracks path { stroke: var(--egg-crack); }
+.pet-rig--egg.egg--skin-niebo { --egg-crack: #F1E8FF; }
+.pet-rig--egg.egg--skin-niebo .egg-shell { fill: #3B3D8F; }
+.pet-rig--egg.egg--skin-niebo .egg-rim { stroke: #2A2C6E; }
+.pet-rig--egg.egg--skin-niebo .egg-hi { opacity: .28; }
+.pet-rig--egg.egg--skin-laczka .egg-shell { fill: #E9F8E3; }
+.pet-rig--egg.egg--skin-laczka .egg-rim { stroke: #A9D79A; }
+.pet-rig--egg.egg--skin-laczka { --egg-crack: #7FA36F; }
+.pet-rig--egg.egg--skin-paski .egg-shell { fill: #FFE1EC; }
+.pet-rig--egg.egg--skin-paski .egg-rim { stroke: #F0A9C2; }
+.pet-rig--egg.egg--skin-paski { --egg-crack: #B5708A; }
+.pet-rig--egg.egg--skin-laty .egg-shell { fill: #FFFAF2; }
+.pet-rig--egg.egg--skin-laty .egg-rim { stroke: #E2D3BE; }
+
+[data-theme="dark"] .pet-rig--egg .egg-rim { stroke: #F3DDBA; }
+[data-theme="dark"] .pet-rig--egg.egg--skin-niebo .egg-rim { stroke: #8B7FE8; }
+[data-theme="dark"] .pet-rig--egg.egg--skin-niebo .egg-rock { filter: drop-shadow(0 0 6px rgba(167, 139, 250, .55)); }
+[data-theme="dark"] .pet-rig--egg.egg--skin-laczka .egg-rim { stroke: #CFEFC4; }
+[data-theme="dark"] .pet-rig--egg.egg--skin-paski .egg-rim { stroke: #FFC8DA; }
+[data-theme="dark"] .pet-rig--egg.egg--skin-laty .egg-rim { stroke: #F0E2CC; }
+
+/* --- Ograniczony ruch: statyczne rekwizyty, bez lotów, kropel i okruszków --- */
+@media (prefers-reduced-motion: reduce) {
+    .pet-rig .fxv-shake,
+    .pet-rig .splash,
+    .pet-rig .fxv-crumbs,
+    .pet-rig .fxv-crumbs2,
+    .pet-rig .nd-fly,
+    .pet-rig .sh-splash { display: none; }
+}
+.pet-rig-rm .pet-rig .fxv-shake,
+.pet-rig-rm .pet-rig .splash,
+.pet-rig-rm .pet-rig .fxv-crumbs,
+.pet-rig-rm .pet-rig .fxv-crumbs2,
+.pet-rig-rm .pet-rig .nd-fly,
+.pet-rig-rm .pet-rig .sh-splash { display: none; }
+
+/* --- Keyframes v3 -------------------------------------------------------- */
+@keyframes rig-v-on { to { opacity: 1; } }
+@keyframes rig-v-off { to { opacity: 0; } }
+@keyframes rig-need-hop {
+    0%, 70%, 100% { transform: translateY(0) scale(1, 1); }
+    74% { transform: translateY(0) scale(1.06, .94); }
+    80% { transform: translateY(-14px) scale(.97, 1.04); }
+    86% { transform: translateY(0) scale(1.05, .95); }
+    90% { transform: translateY(-5px) scale(1, 1); }
+    94% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes rig-need-rumble {
+    0%, 62%, 82%, 100% { translate: 0 0; }
+    65% { translate: -1.4px 0; } 68% { translate: 1.4px 0; } 71% { translate: -1.2px 0; }
+    74% { translate: 1.2px 0; } 77% { translate: -.8px 0; } 80% { translate: .6px 0; }
+}
+@keyframes rig-need-rumble-lines { 0%, 62%, 82%, 100% { opacity: 0; } 65%, 78% { opacity: 1; } }
+@keyframes rig-need-fly {
+    0%, 100% { transform: translate(166px, 70px); }
+    12.5% { transform: translate(150px, 96px); }
+    25% { transform: translate(112px, 108px); }
+    37.5% { transform: translate(56px, 96px); }
+    50% { transform: translate(36px, 68px); }
+    62.5% { transform: translate(54px, 40px); }
+    75% { transform: translate(100px, 28px); }
+    87.5% { transform: translate(148px, 42px); }
+}
+@keyframes rig-need-wing { from { transform: scaleY(1); } to { transform: scaleY(.45); } }
+@keyframes rig-need-scratch {
+    0%, 58%, 100% { transform: rotate(0); }
+    64% { transform: rotate(-150deg); } 68% { transform: rotate(-132deg); } 72% { transform: rotate(-150deg); }
+    76% { transform: rotate(-132deg); } 80% { transform: rotate(-150deg); } 86% { transform: rotate(0); }
+}
+@keyframes rig-need-scratch-head { 0%, 58%, 88%, 100% { transform: rotate(0); } 64%, 82% { transform: rotate(5deg); } }
+@keyframes rig-need-yawn { 0%, 70%, 92%, 100% { opacity: 0; } 74%, 88% { opacity: 1; } }
+@keyframes rig-need-yawn-hide { 0%, 70%, 92%, 100% { opacity: 1; } 74%, 88% { opacity: 0; } }
+@keyframes rig-hand {
+    0% { transform: translate(100px, -40px); opacity: 0; }
+    10% { opacity: 1; }
+    22% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 7px)); }
+    30% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 2px)); }
+    38% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 7px)); }
+    46% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 2px)); }
+    54% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 7px)); }
+    62% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) + 2px)); }
+    74% { transform: translate(100px, calc(var(--rig-head-top) + var(--rig-pose-dy) - 6px)); opacity: 1; }
+    100% { transform: translate(100px, -40px); opacity: 0; }
+}
+@keyframes rig-hand-head {
+    0%, 24%, 38%, 54%, 70%, 100% { transform: translateY(0) scale(1, 1); }
+    30%, 46%, 62% { transform: translateY(3px) scale(1.05, .93); }
+}
+@keyframes rig-v-prop {
+    0% { transform: scale(.2); opacity: 0; }
+    8% { transform: scale(1.06); opacity: 1; }
+    12%, 90% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(.9); opacity: 0; }
+}
+@keyframes rig-v-fade-end { 0%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes rig-v-dirt-off { 0%, 40% { opacity: .55; } 100% { opacity: 0; } }
+@keyframes rig-v-bite {
+    0%, 100% { transform: translateY(0) rotate(0) scale(1, 1); }
+    70% { transform: translateY(5px) rotate(2deg) scale(1.02, .97); }
+}
+@keyframes rig-v-cookie-fly {
+    0% { transform: translate(70px, -120px) rotate(-220deg); }
+    100% { transform: translate(0, 0) rotate(0); }
+}
+@keyframes rig-v-look-up { 0% { transform: translate(3px, -3px); } 60% { transform: translate(1px, -1px); } 100% { transform: translate(0, 0); } }
+@keyframes rig-v-yarn {
+    0% { transform: translate(-24px, 170px); }
+    26%, 30% { transform: translate(58px, 170px); }
+    52%, 58% { transform: translate(146px, 170px); }
+    70%, 100% { transform: translate(156px, 170px); }
+}
+@keyframes rig-v-yarn-roll {
+    0% { transform: rotate(0); }
+    26%, 30% { transform: rotate(427deg); }
+    52%, 58% { transform: rotate(885deg); }
+    70%, 100% { transform: rotate(937deg); }
+}
+@keyframes rig-v-thread { 0%, 29% { stroke-dashoffset: 100; opacity: 0; } 31% { opacity: 1; } 52% { stroke-dashoffset: 30; } 70%, 100% { stroke-dashoffset: 0; opacity: 1; } }
+@keyframes rig-v-yarn-eyes {
+    0% { transform: translate(-3px, 1px); }
+    26% { transform: translate(-2.6px, 1.6px); }
+    40% { transform: translate(0, 1.6px); }
+    52%, 100% { transform: translate(3px, 1.6px); }
+}
+@keyframes rig-v-bat-l { 0%, 22%, 36%, 100% { transform: rotate(0); } 28% { transform: rotate(46deg); } 31% { transform: rotate(30deg); } }
+@keyframes rig-v-grab-r { 0%, 58%, 92%, 100% { transform: rotate(0); } 66%, 86% { transform: rotate(-48deg); } }
+@keyframes rig-v-pounce {
+    0%, 56% { transform: translate(0, 0) rotate(0) scale(1, 1); }
+    60% { transform: translate(0, 0) scale(1.06, .92); }
+    65% { transform: translate(6px, -14px) rotate(6deg) scale(.97, 1.04); }
+    70% { transform: translate(10px, 0) scale(1.06, .94); }
+    76%, 90% { transform: translate(8px, 0) scale(1, 1); }
+    100% { transform: translate(0, 0) scale(1, 1); }
+}
+@keyframes rig-v-bubble {
+    0% { transform: translate(0, 60px) scale(.3); opacity: 0; }
+    15% { opacity: 1; }
+    75% { transform: translate(var(--bx), 0) scale(1); opacity: 1; }
+    82% { transform: translate(var(--bx), -4px) scale(1.4); opacity: 0; }
+    100% { transform: translate(var(--bx), -4px) scale(1.4); opacity: 0; }
+}
+@keyframes rig-v-tub {
+    0% { transform: translateY(40px); opacity: 0; }
+    10%, 76% { transform: translateY(0); opacity: 1; }
+    84%, 100% { transform: translateY(30px); opacity: 0; }
+}
+@keyframes rig-v-bathe {
+    0% { transform: translateY(0) rotate(0); }
+    12% { transform: translateY(16px) rotate(0); }
+    22% { transform: translateY(13px) rotate(-3deg); }
+    32% { transform: translateY(17px) rotate(3deg); }
+    42% { transform: translateY(13px) rotate(-3deg); }
+    52% { transform: translateY(17px) rotate(3deg); }
+    62% { transform: translateY(13px) rotate(-2deg); }
+    76% { transform: translateY(16px) rotate(0); }
+    84% { transform: translateY(0) rotate(0); }
+    87% { transform: rotate(-7deg); } 90% { transform: rotate(7deg); } 93% { transform: rotate(-6deg); }
+    96% { transform: rotate(5deg); } 100% { transform: rotate(0); }
+}
+@keyframes rig-v-duck { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-2.5px) rotate(5deg); } }
+@keyframes rig-v-splash {
+    0% { transform: translateY(8px) scale(.4); opacity: 0; }
+    30% { opacity: 1; }
+    100% { transform: translateY(-16px) scale(1); opacity: 0; }
+}
+@keyframes rig-v-fling {
+    0% { transform: translate(0, 0) scale(.3); opacity: 0; }
+    30% { opacity: 1; }
+    100% { transform: translate(var(--fx), var(--fy)) scale(1); opacity: 0; }
+}
+@keyframes rig-v-shower {
+    0% { transform: translateY(-40px); opacity: 0; }
+    10%, 86% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-30px); opacity: 0; }
+}
+@keyframes rig-v-water { 0%, 8% { opacity: 0; } 12%, 78% { opacity: 1; } 84%, 100% { opacity: 0; } }
+@keyframes rig-v-rain { to { stroke-dashoffset: -16; } }
+@keyframes rig-v-foam {
+    0%, 18% { transform: scale(.4); opacity: 0; }
+    28%, 60% { transform: scale(1); opacity: 1; }
+    74%, 100% { transform: scale(.6); opacity: 0; }
+}
+@keyframes rig-v-flicker { 0% { opacity: 1; } 100% { opacity: .2; } }
+@keyframes rig-v-scrub {
+    0% { transform: translate(176px, 190px) rotate(20deg); opacity: 0; }
+    8% { transform: translate(124px, 156px) rotate(-10deg); opacity: 1; }
+    16% { transform: translate(84px, 160px) rotate(10deg); }
+    24% { transform: translate(118px, 138px) rotate(-10deg); }
+    32% { transform: translate(84px, 132px) rotate(10deg); }
+    44% { transform: translate(114px, 84px) rotate(-12deg); }
+    52% { transform: translate(86px, 76px) rotate(10deg); }
+    60% { transform: translate(112px, 62px) rotate(-8deg); }
+    68% { transform: translate(92px, 66px) rotate(8deg); }
+    78% { transform: translate(150px, 110px) rotate(-6deg); opacity: 1; }
+    88%, 100% { transform: translate(180px, 150px) rotate(0); opacity: 0; }
+}
