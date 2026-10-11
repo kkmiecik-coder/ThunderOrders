@@ -35,7 +35,7 @@ def test_pelny_stan_z_jajkiem_pupilem_i_pamiecia(db, make_user):
     profil.companion_pet_id = pet.id
     db.session.commit()
     s = state_for_user(user, now=T0, cfg=_cfg())
-    assert s['next_monthly_at'] == '2026-10-22T08:00:00'
+    assert s['next_monthly_at'] == '2026-11-01T08:00:00'   # profil z 2.10 + 30 dni
     assert [d['source'] for d in s['eggs_available']] == ['rescue']
     assert s['eggs'][0]['id'] == jajko.id and s['eggs'][0]['progress_pct'] == round(100 * 18 / 168, 1)
     p = s['pets'][0]
