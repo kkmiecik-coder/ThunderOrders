@@ -168,19 +168,36 @@
             tickEgg(view);
         }
 
+        /** Postęp i czas do wyklucia (spec v3 §6.3) — prognoza z ogrzaniem ×boost_factor (pets-core.js). */
         function tickEgg(view) {
             var egg = view.egg;
-            var pct = Math.round(Math.max(0, Math.min(100, Number(egg.progress_pct) || 0)));
+            var state = ctx.state() || {};
+            var Store = window.PetsState;
+            var f = Store && typeof Store.eggForecast === 'function'
+                ? Store.eggForecast(egg, state, Store.elapsedSec())
+                : { pct: Number(egg.progress_pct) || 0, leftSec: NaN, boosted: !!egg.boost_until };
+            var pct = Math.round(Math.max(0, Math.min(100, f.pct)));
+            if (!egg.ready) {
+                var w = pct + '%';
+                if (view.fill.style.width !== w) view.fill.style.width = w;
+                view.track.setAttribute('aria-valuenow', String(pct));
+            }
             var text;
             if (egg.ready) {
                 text = 'Gotowe do wyklucia!';
-            } else if (egg.boost_until) {
-                var left = u.secondsUntil(egg.boost_until);
-                var state = ctx.state() || {};
-                var factor = (state.config && state.config.boost_factor) || 2;
-                text = pct + '% · ogrzane, ciepło (tempo ×' + factor + ') jeszcze ' + u.formatDuration(left > 0 ? left : 0);
             } else {
-                text = pct + '% · ogrzej, żeby przyspieszyć wyklucie';
+                // jak w widgecie: do 48 h w godzinach, dalej w dniach
+                var eta = !(f.leftSec >= 0) ? ''
+                    : f.leftSec < 60 ? 'wykluje się za chwilę'
+                    : 'wykluje się za ' + (f.leftSec >= 48 * 3600 ? '~' + u.daysText(Math.round(f.leftSec / 86400)) : u.roughDuration(f.leftSec));
+                text = pct + '%' + (eta ? ' · ' + eta : '');
+                if (f.boosted) {
+                    var left = u.secondsUntil(egg.boost_until);
+                    var factor = Store && Store.boostFactor ? Store.boostFactor(state) : 2;
+                    text += ' · ciepło (tempo ×' + String(factor).replace('.', ',') + ') jeszcze ' + u.formatDuration(left > 0 ? left : 0);
+                } else if (egg.can_warm !== false) {
+                    text += ' · ogrzej, żeby przyspieszyć';
+                }
             }
             if (view.status.textContent !== text) view.status.textContent = text;
         }

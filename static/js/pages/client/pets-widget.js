@@ -38,7 +38,6 @@
     var REFRESH_MS = 5 * 60 * 1000;
     var TICK_MS = 30 * 1000;
     var EARLY_REFRESH_MS = 60 * 1000;   // „na zegarze” już gotowe — dopytaj serwer, ale nie częściej niż co minutę
-    var DEFAULT_BOOST = 2;              // spec §2.2: ogrzanie = tempo ×2 — tylko gdy stan nie niesie config
     var MAX_BEDS = 3;
     var MAX_EGGS = 4;
 
@@ -98,10 +97,9 @@
         return '~' + d + ' ' + daysWord(d);
     }
 
-    /** Mnożnik ogrzania z config stanu (ten sam, którym liczy serwer). */
+    /** Mnożnik ogrzania z config stanu (ten sam, którym liczy serwer) — pets-core.js. */
     function boostFactor(state) {
-        var f = state && state.config && Number(state.config.boost_factor);
-        return f > 0 ? f : DEFAULT_BOOST;
+        return Store.boostFactor(state);
     }
 
     function announce(text) {
@@ -312,27 +310,9 @@
 
     // --- gałąź 3: inkubator ----------------------------------------------------------------
 
-    /** Postęp i czas do wyklucia w chwili `elapsed` od odebrania stanu (spec §2.2, ogrzanie ×F). */
+    /** Postęp i czas do wyklucia w chwili `elapsed` od odebrania stanu — wspólna logika w pets-core.js. */
     function eggForecast(egg, state, elapsed) {
-        var boost = boostFactor(state);
-        var total = Math.max(1, (Number(egg.egg_hours) || 0) * 3600);
-        var remaining = total * (1 - Math.min(100, Math.max(0, Number(egg.progress_pct) || 0)) / 100);
-        var boostLeft = 0;
-        if (egg.boost_until) {
-            var b = (parseLocal(egg.boost_until) - parseLocal(state.now)) / 1000;
-            if (b > 0) boostLeft = b;
-        }
-        // Czas ścienny do wyklucia od chwili odebrania stanu
-        var wall = remaining <= boost * boostLeft
-            ? remaining / boost
-            : boostLeft + (remaining - boost * boostLeft);
-        var e = Math.max(0, elapsed);
-        var gained = e <= boostLeft ? e * boost : boostLeft * boost + (e - boostLeft);
-        return {
-            pct: egg.ready ? 100 : Math.min(100, (total - remaining + gained) / total * 100),
-            leftSec: egg.ready ? 0 : Math.max(0, wall - e),
-            boosted: !egg.ready && boostLeft - e > 0
-        };
+        return Store.eggForecast(egg, state, elapsed);
     }
 
     function renderIncubator(v, state) {
