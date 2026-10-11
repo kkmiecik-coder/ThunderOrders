@@ -10,7 +10,8 @@
  * Treść — pierwsza pasująca gałąź:
  *   1. żywy pupil (most_in_need_pet_id) → mini-karta PetCard: szybkie akcje, nastrój, „Obudź", pat pat;
  *   2. brak żywych, jajko gotowe        → jajko + „Wykluj w domku";
- *   3. jajko w inkubacji                 → jajko z postępem, „Wykluje się za ~N h" (+ „ogrzane ×2");
+ *   3. jajko w inkubacji                 → jajko z postępem, „Wykluje się za ~N h" (+ „ogrzane ×N"
+ *                                          z state.config.boost_factor);
  *   4. jajko do odebrania                → zachęta („Odbierz swoje pierwsze jajko" dla startowego);
  *   5. nic z powyższego                  → „Następne jajko: za N dni".
  *
@@ -39,7 +40,7 @@
     var REFRESH_MS = 5 * 60 * 1000;
     var EGG_TICK_MS = 30 * 1000;
     var STICKY_MS = 60 * 1000;          // tyle po interakcji karta trzyma tego samego pupila
-    var BOOST_FACTOR = 2;               // spec §2.2: ogrzanie = tempo ×2 (nadpisywane z state.config.boost_factor)
+    var DEFAULT_BOOST = 2;              // spec §2.2: ogrzanie = tempo ×2 — tylko gdy stan nie niesie config
     var GENERIC_ERROR = 'Coś poszło nie tak, spróbuj za chwilę';
     var OWN_MESSAGE_ERRORS = { session_expired: 1, network: 1, rate_limited: 1 };
 
@@ -106,7 +107,19 @@
 
     function cardCtx(state) {
         var night = state.night && state.night.start !== state.night.end ? state.night : null;
-        return { now: state.now, night: night };
+        return { now: state.now, night: night, config: state.config || null };
+    }
+
+    /** Mnożnik ogrzania z config stanu (ten sam, którym liczy serwer). */
+    function boostFactor(state) {
+        var f = state && state.config && Number(state.config.boost_factor);
+        return f > 0 ? f : DEFAULT_BOOST;
+    }
+
+    function fasterText(f) {
+        if (f === 2) return 'dwa razy szybciej';
+        if (f === 3) return 'trzy razy szybciej';
+        return String(f).replace('.', ',') + '× szybciej';
     }
 
     function announce(text) {
@@ -217,7 +230,7 @@
         if (window.PetCard && typeof window.PetCard.render === 'function') {
             view.card = window.PetCard.render(wrap, pet, {
                 mini: true, species: window.PetSpecies || {}, onAction: onCardAction,
-                now: ctx.now, night: ctx.night
+                now: ctx.now, night: ctx.night, config: ctx.config
             });
         } else {
             // Bez karty (nie powinno się zdarzyć) — rig + imię + przyciski widgetu
@@ -296,7 +309,7 @@
 
     /** Postęp i czas do wyklucia w chwili `elapsedSec` od odebrania stanu (spec §2.2, ogrzanie ×2). */
     function eggForecast(egg, state, elapsedSec) {
-        if (state && state.config && state.config.boost_factor > 0) BOOST_FACTOR = Number(state.config.boost_factor);
+        var boost = boostFactor(state);
         var total = Math.max(1, (Number(egg.egg_hours) || 0) * 3600);
         var remaining = total * (1 - Math.min(100, Math.max(0, Number(egg.progress_pct) || 0)) / 100);
         var boostLeft = 0;
@@ -305,11 +318,11 @@
             if (b > 0) boostLeft = b;
         }
         // Czas ścienny do wyklucia od chwili odebrania stanu
-        var wall = remaining <= BOOST_FACTOR * boostLeft
-            ? remaining / BOOST_FACTOR
-            : boostLeft + (remaining - BOOST_FACTOR * boostLeft);
+        var wall = remaining <= boost * boostLeft
+            ? remaining / boost
+            : boostLeft + (remaining - boost * boostLeft);
         var e = Math.max(0, elapsedSec);
-        var gained = e <= boostLeft ? e * BOOST_FACTOR : boostLeft * BOOST_FACTOR + (e - boostLeft);
+        var gained = e <= boostLeft ? e * boost : boostLeft * boost + (e - boostLeft);
         return {
             pct: Math.min(100, (total - remaining + gained) / total * 100),
             leftSec: Math.max(0, wall - e),
@@ -355,7 +368,7 @@
             var refs = view.refs = { eggId: egg.id };
             if (window.PetRig) view.egg = window.PetRig.mountEgg(t.scene, { pct: egg.progress_pct, boosted: false, size: 'mini' });
             refs.title = el('p', 'pets-widget__title', 'Jajko się wykluwa');
-            refs.badge = el('span', 'pets-widget__badge', 'ogrzane ×' + BOOST_FACTOR);
+            refs.badge = el('span', 'pets-widget__badge');   // tekst z config w tickEgg
             refs.title.appendChild(document.createTextNode(' '));
             refs.title.appendChild(refs.badge);
             refs.when = el('p', 'pets-widget__text');
@@ -393,11 +406,13 @@
         refs.fill.style.width = f.pct.toFixed(1) + '%';
         refs.track.setAttribute('aria-valuenow', String(pct));
         refs.track.setAttribute('aria-valuetext', pct + '%');
+        var factor = boostFactor(refs.state);
+        refs.badge.textContent = 'ogrzane ×' + String(factor).replace('.', ',');
         refs.badge.hidden = !f.boosted;
         var canWarm = !f.boosted && refs.egg.can_warm !== false;
         refs.cta.hidden = !canWarm;
         refs.hint.textContent = f.boosted
-            ? 'Ogrzane jajko wykluwa się dwa razy szybciej.'
+            ? 'Ogrzane jajko wykluwa się ' + fasterText(factor) + '.'
             : 'Ogrzej je w domku, żeby przyspieszyć wyklucie.';
         var more = moreEggsText(refs.moreCount);
         refs.more.textContent = more;
@@ -563,6 +578,12 @@
             refresh();
             return;
         }
+        if (status === 403 || status === 404) {
+            // pupil nie nasz / już go nie ma (np. zmiana na innym urządzeniu) — jak w domku: świeży stan, bez toastu
+            if (Store) Store.invalidate();
+            refresh();
+            return;
+        }
         var own = err && OWN_MESSAGE_ERRORS[err.error] && err.message;
         toast(own || GENERIC_ERROR, 'error');
     }
@@ -574,7 +595,8 @@
         var payload = { action: action };
         if (action === 'pat') payload.count = Math.max(1, Math.min(50, parseInt(count, 10) || 1));
         var mySeq = ++seq;
-        return Api.post('/' + pet.id + '/akcja', payload).then(function (resp) {
+        // Paczka pat pat może lecieć przy wyjściu ze strony (pagehide w pet-card.js) — keepalive ją dowiezie
+        return Api.post('/' + pet.id + '/akcja', payload, action === 'pat' ? { keepalive: true } : null).then(function (resp) {
             lastInteraction = Date.now();
             if (mySeq >= appliedSeq && resp && resp.state) {
                 appliedSeq = mySeq;

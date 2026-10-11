@@ -39,7 +39,8 @@
     outline-offset: 2px;
 }
 
-.pet-btn:disabled {
+.pet-btn:disabled,
+.pet-btn[aria-disabled="true"] {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
@@ -75,7 +76,8 @@
 }
 
 .pet-btn.is-busy { cursor: progress; }
-.pet-btn.is-busy:disabled { opacity: 0.8; }
+.pet-btn.is-busy:disabled,
+.pet-btn.is-busy[aria-disabled="true"] { opacity: 0.8; cursor: progress; }
 .pet-btn.is-busy .pet-btn__icon { animation: pet-btn-spin 0.9s linear infinite; }
 
 @keyframes pet-btn-spin {
@@ -144,6 +146,17 @@
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(240, 147, 251, 0.15);
     box-shadow: none;
+}
+
+/* Fokus wraca na kartę (tabindex=-1), gdy przycisk akcji zniknął po akcji (np. „Obudź") */
+.pet-card:focus { outline: none; }
+.pet-card:focus-visible {
+    outline: 2px solid #9D4EDD;
+    outline-offset: 2px;
+}
+
+[data-theme="dark"] .pet-card:focus-visible {
+    outline-color: #f093fb;
 }
 
 [data-theme="dark"] .pet-card.is-critical {
