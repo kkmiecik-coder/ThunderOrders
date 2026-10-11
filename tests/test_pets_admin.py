@@ -11,10 +11,11 @@ PELNY_FORMULARZ = {
     'pets_monthly_days': '30', 'pets_rescue_hours': '0', 'pets_rescue_reminder_days': '7',
     'pets_pity_after': '2', 'pets_max_stars': '5',
     'pets_stage_days_child': '24', 'pets_stage_days_adult': '80',
-    'pets_actions_feed': '50', 'pets_actions_play': '50', 'pets_actions_heal': '40',
-    'pets_actions_heal_cooldown_h': '12', 'pets_actions_allow_below': '80',
+    'pets_actions_feed': '50', 'pets_actions_play': '50',
+    'pets_actions_allow_below': '80',
     'pets_actions_pat_gain': '0.25', 'pets_actions_pat_per_hour': '60',
     'pets_actions_wake_penalty': '10', 'pets_actions_awake_minutes': '20',
+    'pets_hospital_hours': '8', 'pets_hospital_floor': '60', 'pets_hospital_wait_hours': '24',
 }
 
 

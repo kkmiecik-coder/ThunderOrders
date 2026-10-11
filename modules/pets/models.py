@@ -11,10 +11,11 @@ from modules.auth.models import get_local_now
 
 PET_STATUSES = ('egg', 'alive', 'dead', 'merged')
 EGG_SOURCES = ('start', 'monthly', 'rescue', 'granted')
+EGG_SKINS = ('kropki', 'niebo', 'laczka', 'paski', 'laty')   # indeks = Pet.egg_skin (spec v3 §2)
 EVENT_TYPES = (
     'claim', 'grant', 'warm', 'hatch_new', 'hatch_dupe', 'merge',
     'feed', 'play', 'wash', 'heal', 'pat', 'wake', 'light',
-    'die', 'rename', 'milestone', 'alert',
+    'die', 'rename', 'milestone', 'alert', 'admit', 'discharge',
 )
 # Zdarzenia akcji — cron kasuje je po 90 dniach. Reszta jest trwała (historia pupila, raport).
 PRUNABLE_EVENT_TYPES = ('feed', 'play', 'wash', 'heal', 'pat', 'wake', 'warm', 'light', 'alert')
@@ -68,6 +69,7 @@ class Pet(db.Model):
     egg_progress_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
     boost_until = db.Column(db.DateTime, nullable=True)
     egg_ready_notified_at = db.Column(db.DateTime, nullable=True)
+    egg_skin = db.Column(db.SmallInteger, nullable=False, default=0, server_default=db.text('0'))  # EGG_SKINS
     hatched_at = db.Column(db.DateTime, nullable=True)
     merged_into_pet_id = db.Column(db.Integer, db.ForeignKey('pets.id', ondelete='SET NULL'),
                                    nullable=True)
@@ -86,6 +88,11 @@ class Pet(db.Model):
     last_heal_at = db.Column(db.DateTime, nullable=True)
     # 0 brak, 1 smutny, 2 chory, 3 krytyczny, 4 odszedł — raz na epizod
     notify_level = db.Column(db.SmallInteger, nullable=False, default=0, server_default=db.text('0'))
+
+    # --- szpital (spec v3 §4): NULL = nie w szpitalu; healed_at ustalone przy przyjęciu ---
+    hospital_since = db.Column(db.DateTime, nullable=True)
+    hospital_healed_at = db.Column(db.DateTime, nullable=True)
+    hospital_ready_notified_at = db.Column(db.DateTime, nullable=True)
 
     # --- odejście ---
     died_at = db.Column(db.DateTime, nullable=True)

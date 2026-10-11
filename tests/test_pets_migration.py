@@ -14,6 +14,15 @@ from alembic.operations import Operations
 
 REWIZJA = 'f3e9a1c7b2d4'
 PLIK = pathlib.Path('migrations/versions') / f'{REWIZJA}_pupile_fundament.py'
+REWIZJA_SZPITAL = 'b5d8e2f4a917'
+PLIK_SZPITAL = pathlib.Path('migrations/versions') / f'{REWIZJA_SZPITAL}_pupile_szpital_skorki.py'
+
+
+def _zaladuj(plik, nazwa):
+    spec = importlib.util.spec_from_file_location(nazwa, plik)
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    return modul
 
 
 def _zaladuj_migracje():
@@ -60,7 +69,8 @@ def test_migracja_jest_jedyna_glowa():
     cfg = Config('migrations/alembic.ini')
     cfg.set_main_option('script_location', 'migrations')
     sd = ScriptDirectory.from_config(cfg)
-    assert sd.get_heads() == [REWIZJA]
+    assert sd.get_heads() == [REWIZJA_SZPITAL]
+    assert sd.get_revision(REWIZJA_SZPITAL).down_revision == REWIZJA
     assert sd.get_revision(REWIZJA).down_revision == 'dde1a45a7d87'
 
 
@@ -72,6 +82,7 @@ def test_upgrade_tworzy_tabele_zgodne_z_modelami(silnik):
         ctx = MigrationContext.configure(conn)
         with Operations.context(ctx):
             migracja.upgrade()
+            _zaladuj(PLIK_SZPITAL, 'migracja_szpital').upgrade()
         insp = sa.inspect(conn)
         tabele = set(insp.get_table_names())
         assert {'pets', 'pet_profiles', 'pet_events'} <= tabele
@@ -100,3 +111,15 @@ def test_downgrade_odwraca_upgrade(silnik):
         tabele = set(insp.get_table_names())
         assert not ({'pets', 'pet_profiles', 'pet_events'} & tabele)
         assert 'pet_updates' not in _kolumny(insp, 'notification_preferences')
+
+
+def test_szpital_downgrade_usuwa_kolumny(silnik):
+    with silnik.begin() as conn:
+        ctx = MigrationContext.configure(conn)
+        with Operations.context(ctx):
+            _zaladuj_migracje().upgrade()
+            nowa = _zaladuj(PLIK_SZPITAL, 'migracja_szpital')
+            nowa.upgrade()
+            assert {'hospital_since', 'hospital_healed_at', 'hospital_ready_notified_at', 'egg_skin'} <= set(_kolumny(sa.inspect(conn), 'pets'))
+            nowa.downgrade()
+        assert not ({'hospital_since', 'egg_skin'} & set(_kolumny(sa.inspect(conn), 'pets')))

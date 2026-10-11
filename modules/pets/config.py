@@ -28,6 +28,7 @@ _DICT_DEFAULTS = {
         'feed': 50, 'play': 50, 'heal': 40, 'heal_cooldown_h': 12, 'allow_below': 80,
         'pat_gain': 0.25, 'pat_per_hour': 60, 'wake_penalty': 10, 'awake_minutes': 20,
     },
+    'hospital': {'hours': 8, 'floor': 60, 'wait_hours': 24},   # spec v3 §4.2
 }
 
 
@@ -53,6 +54,7 @@ class PetConfig:
     max_stars: int = 5
     stage_days: dict = _slownik('stage_days')
     actions: dict = _slownik('actions')
+    hospital: dict = _slownik('hospital')
 
     # Pola, które mogą być zerem (reszta liczb musi być dodatnia)
     _ZERO_OK: ClassVar[frozenset] = frozenset({'rollout_pct', 'rescue_hours', 'pity_after', 'max_stars'})
@@ -91,7 +93,8 @@ class PetConfig:
 MAX_INT = {'rollout_pct': 100, 'health_drop_hours': 8760, 'health_regen_hours': 8760, 'egg_hours': 8760,
            'start_egg_hours': 8760, 'monthly_days': 3650, 'rescue_hours': 8760, 'rescue_reminder_days': 3650,
            'pity_after': 100, 'max_stars': 9}
-MAX_DICT = {'decay_hours': {'*': 8760}, 'night': {'start': 23, 'end': 23, 'factor': 1},
+MAX_DICT = {'hospital': {'hours': 168, 'floor': 100, 'wait_hours': 168},
+            'decay_hours': {'*': 8760}, 'night': {'start': 23, 'end': 23, 'factor': 1},
             'boost': {'hours': 8760, 'factor': 100}, 'stage_days': {'*': 3650},
             'actions': {'feed': 100, 'play': 100, 'heal': 100, 'heal_cooldown_h': 8760, 'allow_below': 100,
                         'pat_gain': 100, 'pat_per_hour': 100000, 'wake_penalty': 100, 'awake_minutes': 1440}}
@@ -138,7 +141,7 @@ def _przetworz(nazwa, surowe, domyslna, zero_ok):
             elif klucz in ('start', 'end') and nazwa == 'night':
                 if not 0 <= wartosc <= 23:
                     raise ValueError('godzina nocy poza 0–23')
-            elif wartosc <= 0:
+            elif wartosc <= 0 and not (nazwa == 'hospital' and klucz == 'wait_hours' and wartosc == 0):
                 raise ValueError(f'{klucz}: musi być dodatnia')
             elif klucz == 'factor' and nazwa == 'boost' and wartosc < 1:
                 raise ValueError('boost.factor < 1')
@@ -215,9 +218,11 @@ ADMIN_FIELDS = (
     ('pets_pity_after', 'integer', None, 'Gwarancja nowego gatunku po N duplikatach'),
     ('pets_max_stars', 'integer', None, 'Maks. gwiazdek'),
     ('pets_stage_days', 'json', ('child', 'adult'), 'Stadia: dziecko od / dorosły od (dni)'),
-    ('pets_actions', 'json', ('feed', 'play', 'heal', 'heal_cooldown_h', 'allow_below', 'pat_gain',
+    ('pets_actions', 'json', ('feed', 'play', 'allow_below', 'pat_gain',
                               'pat_per_hour', 'wake_penalty', 'awake_minutes'),
-     'Akcje: karmienie / zabawa / leczenie / odstęp leczenia (h) / próg akcji / pat pat (+) / pat na godzinę / kara za obudzenie / okno po obudzeniu (min)'),
+     'Akcje: karmienie / zabawa / próg akcji / pat pat (+) / pat na godzinę / kara za obudzenie / okno po obudzeniu (min)'),
+    ('pets_hospital', 'json', ('hours', 'floor', 'wait_hours'),
+     'Szpital: leczenie od zera do pełna (h) / próg pasków przy przyjęciu / czekanie na odbiór (h)'),
 )
 
 # Pola, które mogą być ułamkiem: współczynniki i wszystkie liczby w słownikach poza godzinami nocy
@@ -226,7 +231,8 @@ _FLOAT_FIELDS = frozenset({'pets_night_factor', 'pets_boost_factor', 'pets_actio
                            'pets_decay_hours_hunger', 'pets_decay_hours_fun', 'pets_decay_hours_clean',
                            'pets_stage_days_child', 'pets_stage_days_adult', 'pets_actions_feed', 'pets_actions_play',
                            'pets_actions_heal', 'pets_actions_heal_cooldown_h', 'pets_actions_allow_below',
-                           'pets_actions_pat_per_hour', 'pets_actions_wake_penalty', 'pets_actions_awake_minutes'})
+                           'pets_actions_pat_per_hour', 'pets_actions_wake_penalty', 'pets_actions_awake_minutes',
+                           'pets_hospital_hours', 'pets_hospital_wait_hours'})
 SWITCH_KEYS = frozenset({'pets_enabled', 'pets_rollout_pct'})   # osobny formularz „Włącznik i rollout”
 
 
@@ -321,7 +327,7 @@ def validate_settings(form, only=None):
                 errors[nazwa] = 'Mnożnik w przedziale (0, 1].'
             elif klucz == 'pets_boost' and pole == 'factor' and v < 1:
                 errors[nazwa] = 'Mnożnik ≥ 1.'
-            elif v <= 0:
+            elif v <= 0 and not (klucz == 'pets_hospital' and pole == 'wait_hours' and v == 0):
                 errors[nazwa] = 'Liczba musi być dodatnia.'
             elif maks is not None and v > maks:
                 errors[nazwa] = f'Maksymalnie {maks}.'
