@@ -83,6 +83,7 @@ def test_strona_szkielet_z_data_state(client, gracz):
     assert 'data-api="/client/pupile/api"' in html
     assert 'css/pages/client/pets.css' in html and 'js/pages/client/pets.js' in html
     assert 'js/pet/species.js' in html and 'js/components/pet-rig.js' in html and 'js/components/pet-card.js' in html
+    assert html.index('js/pet/pets-core.js') < html.index('js/components/pet-card.js')   # core przed kartą (etap 5)
     assert 'css/layouts/client-layout.css' in html     # {{ super() }} w extra_css
 
 

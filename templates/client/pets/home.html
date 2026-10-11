@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block content %}
-<div id="petsApp" class="pets-page"
+<div id="petsApp" class="pets-page" data-user-id="{{ current_user.id }}"
      data-state='{{ state_json | e }}'
      data-species='{{ species_json | e }}'
      data-api="{{ api_base }}">
@@ -68,6 +68,7 @@
 <script src="{{ url_for('static', filename='js/utils/haptics.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pet/species.js') }}"></script>
 <script src="{{ url_for('static', filename='js/components/pet-rig.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pet/pets-core.js') }}"></script>
 <script src="{{ url_for('static', filename='js/components/pet-card.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/client/pets.js') }}"></script>
 {% endblock %}

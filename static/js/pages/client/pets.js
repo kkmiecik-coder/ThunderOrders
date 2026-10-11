@@ -115,100 +115,14 @@
         return meta ? meta.getAttribute('content') : '';
     }
 
-    function handleResponse(r) {
-        // login_required robi 302 na /auth/login — fetch idzie za przekierowaniem i dostaje HTML
-        if (r.redirected || /\/auth\/login/.test(r.url || '')) {
-            throw fail('session_expired', 'Sesja wygasła — zaloguj się ponownie.', r.status);
-        }
-        var type = r.headers.get('Content-Type') || '';
-        if (type.indexOf('application/json') === -1) {
-            if (r.status === 429) throw fail('rate_limited', 'Za dużo żądań — odczekaj chwilę.', 429);
-            throw fail('bad_response', GENERIC_ERROR, r.status);
-        }
-        return r.json().then(function (data) {
-            if (!r.ok || !data || data.ok === false) {
-                throw fail((data && data.error) || ('http_' + r.status), data && data.message, r.status);
-            }
-            return data;
-        }, function () {
-            throw fail('bad_response', GENERIC_ERROR, r.status);
-        });
+    // PetsApi i PetsState żyją w static/js/pet/pets-core.js (wspólne z widgetem dashboardu i towarzyszem;
+    // etap 5) — home.html ładuje core przed tym plikiem.
+    var PetsApi = window.PetsApi;
+    var PetsState = window.PetsState;
+    if (!PetsApi || !PetsState) {
+        if (window.console) console.error('pets.js: brak pets-core.js (PetsApi/PetsState)');
+        return;
     }
-
-    function request(url, init) {
-        return fetch(url, init).then(handleResponse, function () {
-            throw fail('network', 'Brak połączenia — spróbuj za chwilę.', 0);
-        });
-    }
-
-    var PetsApi = {
-        base: function () {
-            var root = document.getElementById('petsApp');
-            return (root && root.dataset.api) || '/client/pupile/api';
-        },
-        get: function (path) {
-            return request(PetsApi.base() + path, {
-                credentials: 'same-origin',
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-            });
-        },
-        post: function (path, body, opts) {
-            return request(PetsApi.base() + path, {
-                method: 'POST',
-                credentials: 'same-origin',
-                keepalive: !!(opts && opts.keepalive),
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken()
-                },
-                body: JSON.stringify(body || {})
-            });
-        }
-    };
-
-    // ------------------------------------------------------------------------------------
-    // PetsState — bieżący stan + subskrypcje + kropki w nawigacji
-    // ------------------------------------------------------------------------------------
-
-    function updateNavDots(on) {
-        var dot = document.getElementById('petsNavDot');
-        if (dot) dot.hidden = !on;
-        var tpl = document.getElementById('pwaSheetClientMore');
-        var inTpl = tpl && tpl.content ? tpl.content.querySelector('#pwaSheetPetsDot') : null;
-        if (inTpl) inTpl.style.display = on ? '' : 'none';
-        var live = document.getElementById('pwaSheetPetsDot');   // arkusz właśnie otwarty
-        if (live) live.style.display = on ? '' : 'none';
-    }
-
-    var listeners = [];
-    var PetsState = {
-        current: null,
-        receivedAt: 0,
-        set: function (state) {
-            if (!state || typeof state !== 'object') return;
-            PetsState.current = state;
-            PetsState.receivedAt = Date.now();
-            updateNavDots(!!state.needs_care);
-            listeners.slice().forEach(function (cb) {
-                try { cb(state); } catch (e) { if (window.console) console.error('PetsState listener', e); }
-            });
-            var evt;
-            try { evt = new CustomEvent('pets:state', { detail: state }); } catch (e) { evt = null; }
-            if (evt) document.dispatchEvent(evt);
-        },
-        onChange: function (cb) {
-            listeners.push(cb);
-            return function () { listeners = listeners.filter(function (x) { return x !== cb; }); };
-        },
-        needsCare: function () {
-            return !!(PetsState.current && PetsState.current.needs_care);
-        }
-    };
-
-    window.PetsApi = PetsApi;
-    window.PetsState = PetsState;
 
     // ------------------------------------------------------------------------------------
     // Strona
@@ -497,6 +411,11 @@
             if (btn.dataset.petId) body.pet_id = parseInt(btn.dataset.petId, 10);
             setBusy(btn, true);
             send('/jajka/odbierz', body).then(function () {
+                if (body.source === 'start') {
+                    // Pierwsze jajko = najlepszy moment na prośbę o pushe (push-banner.js:144 sam sprawdza
+                    // subskrypcję i cooldown)
+                    try { window.dispatchEvent(new Event('push-force-banner')); } catch (e) { /* stare przeglądarki */ }
+                }
                 toast('Jajko odebrane! Ogrzewaj je przy każdej wizycie, a szybciej się wykluje.', 'success');
             }, function () { setBusy(btn, false); });
         } else if (action === 'warm') {

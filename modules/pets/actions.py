@@ -53,7 +53,7 @@ def perform_action(user, pet_id, action, count=1, now=None, cfg=None):
     if sim.died_at is not None:
         persist_death(pet, sim, now)
         db.session.commit()
-        raise PetError('pet_gone', f'{pet.name} odszedł do gwiazd.', 410)
+        raise PetError('pet_gone', f'Pupil {pet.name} odszedł do gwiazd.', 410)   # „Pupil {imię}” — rodzaj gramatyczny niezależny od imienia
 
     stan = sim.state
     can, reasons = rules.action_availability(stan, now, cfg, pet.last_heal_at)

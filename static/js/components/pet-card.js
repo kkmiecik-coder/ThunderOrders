@@ -24,6 +24,7 @@
 (function () {
     'use strict';
 
+    if (window.PetCard) return;   // plik ładuje się na kilku stronach (dashboard + domek)
     var PAT_DEBOUNCE_MS = 2000;
     var PAT_MAX = 50;
     var NAME_MAX = 20;

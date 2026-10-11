@@ -32,44 +32,50 @@
         return { error: error, message: message, status: status };
     }
 
-    function parse(response) {
-        if (response.redirected || response.status === 401) {
-            return Promise.reject(blad('session_expired', 'Sesja wygasła — zaloguj się ponownie', response.status));
+    var GENERIC_ERROR = 'Coś poszło nie tak, spróbuj za chwilę.';
+
+    function parse(r) {
+        // login_required robi 302 na /auth/login — fetch idzie za przekierowaniem i dostaje HTML
+        if (r.redirected || r.status === 401 || /\/auth\/login/.test(r.url || '')) {
+            throw blad('session_expired', 'Sesja wygasła — zaloguj się ponownie.', r.status);
         }
-        return response.text().then(function (txt) {
-            var data = null;
-            try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = null; }
-            if (!response.ok) {
-                if (data && data.error) return Promise.reject(blad(data.error, data.message || 'Coś poszło nie tak, spróbuj za chwilę', response.status));
-                return Promise.reject(blad('http_' + response.status, 'Coś poszło nie tak, spróbuj za chwilę', response.status));
-            }
-            if (!data || typeof data !== 'object') {
-                return Promise.reject(blad('bad_response', 'Coś poszło nie tak, spróbuj za chwilę', response.status));
+        var type = r.headers.get('Content-Type') || '';
+        if (type.indexOf('application/json') === -1) {
+            if (r.status === 429) throw blad('rate_limited', 'Za dużo żądań — odczekaj chwilę.', 429);
+            throw blad('bad_response', GENERIC_ERROR, r.status);
+        }
+        return r.json().then(function (data) {
+            if (!r.ok || !data || data.ok === false) {
+                throw blad((data && data.error) || ('http_' + r.status), (data && data.message) || GENERIC_ERROR, r.status);
             }
             return data;
+        }, function () {
+            throw blad('bad_response', GENERIC_ERROR, r.status);
         });
     }
 
-    function request(method, path, body) {
-        var opts = {
+    function request(method, path, body, opts) {
+        var init = {
             method: method,
             credentials: 'same-origin',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         };
         if (method !== 'GET') {
-            opts.headers['Content-Type'] = 'application/json';
-            opts.headers['X-CSRFToken'] = csrfToken();
-            opts.body = JSON.stringify(body || {});
+            init.headers['Content-Type'] = 'application/json';
+            init.headers['X-CSRFToken'] = csrfToken();
+            init.body = JSON.stringify(body || {});
+            init.keepalive = !!(opts && opts.keepalive);   // paczka pat pat może lecieć przy zamykaniu karty
         }
-        return fetch(apiBase() + path, opts).then(parse, function () {
-            return Promise.reject(blad('network', 'Brak połączenia — spróbuj za chwilę', 0));
+        return fetch(apiBase() + path, init).then(parse, function () {
+            throw blad('network', 'Brak połączenia — spróbuj za chwilę.', 0);
         });
     }
 
     var PetsApi = {
         get base() { return apiBase(); },
         get: function (path) { return request('GET', path); },
-        post: function (path, body) { return request('POST', path, body); }
+        /** post(path, body[, {keepalive}]) */
+        post: function (path, body, opts) { return request('POST', path, body, opts); }
     };
 
     // --- stan ---
@@ -129,10 +135,12 @@
 
     var PetsState = {
         current: null,
+        receivedAt: 0,
         userId: detectUserId(),
         set: function (state) {
             if (!state || typeof state !== 'object') return;
             PetsState.current = state;
+            PetsState.receivedAt = Date.now();
             if (PetsState.userId == null) PetsState.userId = detectUserId();
             save(PetsState.userId, state);
             setNavDots(state);

@@ -12,6 +12,7 @@
 (function () {
     'use strict';
 
+    if (window.Haptics) return;   // plik ładuje się na kilku stronach (dashboard + domek)
     var PATTERNS = {
         tap: 10,
         pat: 10,

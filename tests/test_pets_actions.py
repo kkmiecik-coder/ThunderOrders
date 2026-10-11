@@ -226,7 +226,7 @@ def test_akcja_na_odeszlym_zapisuje_odejscie_410(db, make_user):
     db.session.commit()
     with pytest.raises(PetError) as e:
         _akcja(user, pet, 'feed', now=T0 + timedelta(hours=80))
-    assert e.value.code == 'pet_gone' and e.value.status == 410 and 'odszedł do gwiazd' in e.value.message
+    assert e.value.code == 'pet_gone' and e.value.status == 410 and e.value.message.startswith('Pupil ') and 'odszedł do gwiazd' in e.value.message
     assert pet.status == 'dead' and pet.died_at == T0 + timedelta(hours=72) and pet.notify_level == 4
     assert profil.companion_pet_id is None
     assert PetEvent.query.filter_by(pet_id=pet.id, type='die').count() == 1
