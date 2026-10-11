@@ -649,7 +649,6 @@
             }, graveView, updateGrave);
             graves.hidden = !memorials.length;
             gravesEmpty.hidden = !!memorials.length;
-            meadow.classList.toggle('is-empty', !memorials.length);
 
             var known = entries.filter(function (a) { return a.status !== 'unknown'; }).length;
             var countText = known + '/' + entries.length;
