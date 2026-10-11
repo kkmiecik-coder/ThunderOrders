@@ -143,7 +143,10 @@ Zdrowie 0–100, startuje ze 100.
 
 - Gdy **którykolwiek pasek = 0**: zdrowie spada **100 → 0 w 72 h** (bez spowolnienia nocnego —
   pasek na zerze budzi pupila, patrz 2.4).
-- Gdy **wszystkie paski > 50**: zdrowie rośnie 0 → 100 w 24 h.
+- Gdy **wszystkie paski > 50**: zdrowie rośnie 0 → 100 w 24 h — **także we śnie, w pełnym
+  tempie** („sen leczy"; mnożnik ×0,25 dotyczy wyłącznie pasków — decyzja Konrada 2026-10-11).
+  Konsekwencja: chory pupil (zdrowie < 75) nie śpi, ale gdy tylko zdrowie wróci do 75, zasypia
+  i dalej regeneruje się przez sen.
 - W pozostałych przypadkach stoi.
 
 Nastrój (jedna etykieta, pierwsza pasująca od góry):
