@@ -130,6 +130,13 @@
     .pets-page--night .pets-garden__sign { top: 120px; }
 }
 
+/* Karta okna sceny (≥ 1024 px) zabiera 376 px: gdy obok pigułki nie zmieści się tabliczka (scena < 896 px,
+   np. 1024 px z rozwiniętym menu), tabliczka schodzi pod pigułkę, a rysunki nieba niżej */
+@container pets-garden (max-width: 895.98px) {
+    .pets-scene--ogrod.has-window .pets-garden__sign { top: 68px; }
+    .pets-scene--ogrod.has-window .pets-garden__meadow { --pg-ui-top: 124px; }
+}
+
 /* Niski i szeroki widok: pigułka nocy to sam księżyc 44 px (pets.css) — tabliczka zostaje w pierwszym rzędzie */
 @media (max-height: 520px) and (min-width: 600px) {
     .pets-page--night .pets-garden__sign { top: 16px; }
@@ -191,14 +198,17 @@
     pointer-events: none;
 }
 
-.pets-garden__sky svg,
-.pets-garden__fore svg { display: block; }
+/* Rysunki w opakowaniach (chmurka, księżyc, wierzba, ścieżka, latarenka, motyl) — bez odstępu linii bazowej;
+   rysunki będące samym dzieckiem pasa (krzew, kępka, ławeczka, staw, kwiaty) dostają display z reguły wyżej,
+   więc zapytania kontenera mogą je chować */
+.pets-garden__sky span > svg,
+.pets-garden__fore span > svg { display: block; }
 
 /* =====================================================================
    Pas nieba: niebo, słońce/księżyc, chmurki, wzgórza, wierzba, mgiełka, płotek
    ===================================================================== */
 .pets-garden__sky {
-    --pg-hills-h: clamp(40px, min(30cqh, 9cqw + 22px), 140px);
+    --pg-hills-h: clamp(40px, min(46cqh, 9cqw + 22px), 140px);
     grid-row: 1;
     position: relative;
     container: pg-sky / size;
@@ -228,7 +238,8 @@
 
 /* Słońce złotej godziny nisko nad wzgórzami, z miękką poświatą */
 .pg-sun {
-    --sun: clamp(36px, 22cqh, 100px);
+    /* nisko nad wzgórzami, ale zawsze pod pigułką i tabliczką (niskie niebo = mniejsze słońce) */
+    --sun: clamp(0px, min(22cqh, calc(100cqh - var(--pg-ui-top) - var(--pg-hills-h) * 0.4 - 6px)), 100px);
     left: calc(var(--pg-cx) + min(28cqw, 330px) - var(--sun) / 2);
     bottom: calc(var(--pg-hills-h) * 0.4);
     width: var(--sun);
