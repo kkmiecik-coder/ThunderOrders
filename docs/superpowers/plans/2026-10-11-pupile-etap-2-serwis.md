@@ -383,7 +383,8 @@ def test_egg_dict_i_pet_dict(db, make_user):
     assert d['id'] == jajko.id and d['source'] == 'monthly' and d['egg_hours'] == 48
     assert d['progress_pct'] == 37.5 and d['ready'] is False and d['can_warm'] is True and d['boost_until'] is None
     pet = zaloz_pupila(user, stars=2, care_days=12)
-    p = pet_dict(pet, rules.PetState(hunger=61.26, fun=40.0, clean=88.0), T0, cfg)
+    # stan jak z state_of(pet): gwiazdki są częścią PetState, bo wpływają na tempo
+    p = pet_dict(pet, rules.PetState(hunger=61.26, fun=40.0, clean=88.0, stars=2), T0, cfg)
     assert p['species'] == 'kotek' and p['name'] == 'Mruczek' and p['stage'] == 'maluch'
     assert p['bars'] == {'hunger': 61.3, 'fun': 40.0, 'clean': 88.0, 'health': 100.0}
     assert p['rates_per_hour']['hunger'] == -3.33 and p['mood'] == 'znudzony' and p['asleep'] is False
@@ -1152,8 +1153,10 @@ def test_nigdy_dwa_zywe_tego_samego_gatunku(db, make_user):
     user = make_user()
     zaloz_profil(user)
     zaloz_pupila(user, species='kotek')
+    from modules.pets.config import PetConfig
+    bez_gwarancji = PetConfig(pity_after=99)   # izolujemy inwariant od gwarancji (ta po 2 dupach dałaby nowy gatunek)
     for _ in range(3):
-        hatch_egg(user, _gotowe_jajko(user).id, now=T0, cfg=_cfg(), rng=RngStaly('kotek'))
+        hatch_egg(user, _gotowe_jajko(user).id, now=T0, cfg=bez_gwarancji, rng=RngStaly('kotek'))
     assert Pet.query.filter_by(user_id=user.id, status='alive', species='kotek').count() == 1
     assert Pet.query.filter_by(user_id=user.id, status='merged').count() == 3
 
@@ -2005,7 +2008,7 @@ def test_pelny_stan_z_jajkiem_pupilem_i_pamiecia(db, make_user):
     profil.companion_pet_id = pet.id
     db.session.commit()
     s = state_for_user(user, now=T0, cfg=_cfg())
-    assert s['next_monthly_at'] == '2026-10-22T08:00:00'
+    assert s['next_monthly_at'] == '2026-11-01T08:00:00'   # profil z 2.10 + 30 dni
     assert [d['source'] for d in s['eggs_available']] == ['rescue']
     assert s['eggs'][0]['id'] == jajko.id and s['eggs'][0]['progress_pct'] == round(100 * 18 / 168, 1)
     p = s['pets'][0]
@@ -2300,8 +2303,9 @@ def test_scenariusz_od_jajka_do_opieki(db, make_user):
     assert wynik['result'] == 'new' and wynik['pet'].species == 'mis'
     pet = wynik['pet']
     service.rename_pet(user, pet.id, 'Puchatek', now=T0 + timedelta(hours=40))
-    service.perform_action(user, pet.id, 'pat', count=10, now=T0 + timedelta(hours=41), cfg=cfg)
-    stan = service.state_for_user(user, now=T0 + timedelta(hours=41), cfg=cfg)
+    # T0+40 h = środa 00:00 (noc, pupil śpi) — opieka dopiero rano, T0+48 h = środa 08:00
+    service.perform_action(user, pet.id, 'pat', count=10, now=T0 + timedelta(hours=48), cfg=cfg)
+    stan = service.state_for_user(user, now=T0 + timedelta(hours=48), cfg=cfg)
     assert stan['pets'][0]['name'] == 'Puchatek' and stan['pets'][0]['care_days'] == 1
     assert stan['album'][7]['status'] == 'alive'   # 'mis' jest ostatni w SPECIES_SLUGS
 ```
