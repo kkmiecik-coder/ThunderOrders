@@ -8,7 +8,7 @@
      data-mode="{{ companion_mode | default('walk') }}"
      data-celebrate="{{ '1' if pet_celebrate | default(false) else '0' }}"
      data-rig-css="{{ url_for('static', filename='css/components/pet-rig.css') }}"
-     aria-label="Twój pupil">
+     role="group" aria-label="Twój pupil">
     <button type="button" class="pet-companion__hit" id="petCompanionHit" aria-label="Pogłaszcz pupila"></button>
     <div class="pet-companion__scene" id="petCompanionScene"></div>
     <div class="pet-companion__bubble" id="petCompanionBubble" hidden></div>
