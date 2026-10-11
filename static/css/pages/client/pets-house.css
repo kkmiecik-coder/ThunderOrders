@@ -84,4 +84,11 @@
     .pets-house.has-panel .pet-sheet { grid-area: panel; }
     .pets-house.has-panel .pets-house__away { grid-area: away; }
     .pets-house.has-panel .pets-house__intro { grid-area: intro; }
+
+    /* Panel jest sticky pod topbarem (modals.css), ale .main-wrapper i .main-content mają overflow-x: hidden
+       (admin-layout.css) — to robi z nich kontenery przewijania, które same nigdy się nie przewijają, więc
+       sticky nie działał. clip przycina poziomo tak samo, a kontenera przewijania nie tworzy; tylko przy
+       otwartym panelu. Przeglądarka bez clip zostaje przy hidden (panel przewija się ze stroną jak dotąd). */
+    .main-wrapper:has(.pets-house.has-panel),
+    .main-content:has(.pets-house.has-panel) { overflow-x: clip; }
 }
