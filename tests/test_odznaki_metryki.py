@@ -183,6 +183,8 @@ def test_kazda_odznaka_z_progiem_nalezy_do_drabinki():
     BEZ_DRABINKI = {          # progi jednorazowe, świadomie poza drabinką
         'bulk-order', 'mega-order', 'repeat-week', 'photos-10', 'photos-50',
         'weekend-warrior', 'first-address',
+        # pupile (spec pupili §3.8): pojedyncze odznaki, nie drabinki
+        'pet-first-hatch', 'pet-stars-3', 'pet-adults-8',
     }
     sieroty = [
         a['slug'] for a in ACHIEVEMENTS
