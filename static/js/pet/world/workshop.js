@@ -137,8 +137,8 @@
             var items = [
                 ['Opieka', 'Karm, baw się i myj pupila. Jedna wizyta dziennie wystarczy, żeby był zdrowy, dwie–trzy — żeby był szczęśliwy.'],
                 ['Noc', nightText],
-                ['Szpital', 'Zaniedbany pupil choruje. W szpitalu wraca do zdrowia' + (hours > 0 ? ' w najwyżej ' + hours + ' h' : '') +
-                    ', a jego potrzeby nie rosną. Wyleczonego odbierz szybko — czekając, tęskni i smutnieje.'],
+                ['Szpital', 'Zaniedbany pupil choruje. W domku zdrowieje powoli, gdy wszystkie potrzeby są powyżej 50%; w szpitalu wraca do zdrowia' +
+                    (hours > 0 ? ' w najwyżej ' + hours + ' h' : '') + ', a jego potrzeby nie rosną. Wyleczonego odbierz szybko — czekając, tęskni i smutnieje.'],
                 ['Jajka', 'Co miesiąc czeka nowe jajko. Ogrzewaj je przy każdej wizycie — ciepło przyspiesza wyklucie' +
                     (cfg.boost_factor ? ' ×' + cfg.boost_factor : '') + (cfg.boost_hours ? ' na ' + cfg.boost_hours + ' h' : '') + '.'],
                 ['Gwiazdki', 'Jeśli z jajka wykluje się gatunek, który już masz, Twój pupil dostaje gwiazdkę (najwyżej 5).'],

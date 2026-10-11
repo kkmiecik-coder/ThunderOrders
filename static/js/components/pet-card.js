@@ -393,8 +393,8 @@
                         : 'Obudzenie obniża radość i czystość') +
                     (awake > 0 ? ', a pupil czuwa potem ' + awake + ' min.' : '.');
             } else if (isSick()) {
-                text = 'Pupil ' + (pet.name || '') + ' jest chory — opieka w domku go nie wyleczy. W szpitalu wyzdrowieje' +
-                    (hours > 0 ? ' w najwyżej ' + hours + ' h' : '') + ', a jego potrzeby nie będą tam rosły.';
+                text = 'Pupil ' + (pet.name || '') + ' jest chory. W domku wyzdrowieje powoli, gdy wszystkie potrzeby będą powyżej 50%. ' +
+                    'W szpitalu wyzdrowieje' + (hours > 0 ? ' w najwyżej ' + hours + ' h' : '') + ', a jego potrzeby nie będą tam rosły.';
             } else if (pet.awake_until) {
                 text = 'Obudzony do ' + hhmm(pet.awake_until) + ' — każda opieka przedłuża czuwanie' +
                     (awake > 0 ? ' o ' + awake + ' min' : '') + '.';
