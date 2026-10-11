@@ -1,8 +1,8 @@
 /* ================================================
-   Pet widget — pupil na dashboardzie klienta (spec §4.3, etap 5)
+   Pet widget — pupile na dashboardzie klienta (spec v3 §7)
    Kontener dziedziczy .dashboard-section (tło/obramowanie light+dark z dashboard.css).
-   Gałąź „pupil" rysuje PetCard (pet-card.css, wariant --mini); tu: kafelki jajka /
-   zachęty / odliczania, przyciski zapasowe i drobne dopasowania karty do widgetu.
+   Gałąź „pokój” rysuje PetRoom (pet-room.css, .pet-room--compact); tu: nagłówek, sceny stanów
+   bez pokoju (szpital / inkubator / jajko do odebrania / następne jajko) i podpisy.
    ================================================ */
 
 .pets-widget {
@@ -13,7 +13,7 @@
     margin-bottom: var(--space-3, 0.75rem);
 }
 
-/* Link „Do domku" w nagłówku: wygląd jak w innych widgetach, ale strefa dotyku ≥ 44 px */
+/* Link „Do świata” w nagłówku: wygląd jak w innych widgetach, ale strefa dotyku ≥ 44 px */
 .pets-widget .widget-link {
     position: relative;
 }
@@ -45,32 +45,117 @@
     border: 0;
 }
 
-/* === Kafelek (jajko / zachęta / odliczanie / zapasowa karta) === */
-.pets-widget__tile {
+/* === Mini-pokój === */
+.pets-widget__room {
+    position: relative;
+}
+
+/* === Scena stanu bez pokoju (cała jest linkiem do świata) === */
+.pets-widget__stage {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 14px 16px;
+    gap: 20px;
+    min-height: 176px;
+    padding: 16px 24px;
     border-radius: 14px;
-    background: #FAF5FF;
     border: 1px solid #F3E8FF;
+    background: #FAF5FF;
+    color: inherit;
+    text-decoration: none;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
-[data-theme="dark"] .pets-widget__tile {
-    background: rgba(255, 255, 255, 0.05);
+a.pets-widget__stage:hover {
+    color: inherit;
+    text-decoration: none;
+    box-shadow: 0 6px 20px rgba(126, 34, 206, 0.12);
+}
+
+a.pets-widget__stage:active {
+    transform: scale(0.99);
+}
+
+.pets-widget__stage:focus {
+    outline: none;
+}
+
+.pets-widget__stage:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pets-widget__stage.is-ready {
+    border-color: #f5a3c7;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.18);
+}
+
+/* Szpital: miętowa ściana i jaśniejsza podłoga */
+.pets-widget__stage--hospital {
+    border-color: #CDEBE3;
+    background: linear-gradient(180deg, #EAF8F4 0 64%, #D5EEE7 64% 100%);
+}
+
+/* Inkubator: ciepłe światło lampy */
+.pets-widget__stage--incubator {
+    border-color: #F3DCBF;
+    background:
+        radial-gradient(circle at 18% 0%, rgba(255, 211, 107, 0.45) 0, rgba(255, 211, 107, 0) 55%),
+        #FFF5E8;
+}
+
+/* Jajko do odebrania: prezent */
+.pets-widget__stage--claim {
+    border-color: #FBD3E3;
+    background:
+        radial-gradient(circle at 15% 50%, rgba(255, 143, 171, 0.22) 0, rgba(255, 143, 171, 0) 50%),
+        #FFF1F6;
+}
+
+[data-theme="dark"] .pets-widget__stage {
     border-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.05);
 }
 
-.pets-widget__scene {
-    flex: 0 0 96px;
-    width: 96px;
-    min-height: 96px;
+[data-theme="dark"] a.pets-widget__stage:hover {
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .pets-widget__stage.is-ready {
+    border-color: rgba(240, 147, 251, 0.45);
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-widget__stage--hospital {
+    background: linear-gradient(180deg, rgba(127, 211, 196, 0.1) 0 64%, rgba(127, 211, 196, 0.16) 64% 100%);
+}
+
+[data-theme="dark"] .pets-widget__stage--incubator {
+    background:
+        radial-gradient(circle at 18% 0%, rgba(255, 211, 107, 0.22) 0, rgba(255, 211, 107, 0) 55%),
+        rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .pets-widget__stage--claim {
+    background:
+        radial-gradient(circle at 15% 50%, rgba(240, 147, 251, 0.18) 0, rgba(240, 147, 251, 0) 50%),
+        rgba(255, 255, 255, 0.05);
+}
+
+.pets-widget__art {
+    position: relative;
+    flex: 0 0 auto;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
+    min-width: 110px;
 }
 
-.pets-widget__content {
+.pets-widget__caption {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
@@ -115,18 +200,12 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
-.pets-widget__mood {
-    margin: 6px 0 0;
-    font-size: var(--text-sm, 0.875rem);
-    font-weight: 600;
-    color: #7E22CE;
+.pets-widget__note[hidden],
+.pets-widget__badge[hidden] {
+    display: none;
 }
 
-[data-theme="dark"] .pets-widget__mood {
-    color: #f093fb;
-}
-
-/* „ogrzane ×2" */
+/* „ogrzane ×2” */
 .pets-widget__badge {
     display: inline-block;
     margin-left: 4px;
@@ -144,84 +223,33 @@
     background: linear-gradient(135deg, rgba(240, 147, 251, 0.85) 0%, rgba(245, 87, 108, 0.85) 100%);
 }
 
-/* Postęp wykluwania */
-.pets-widget__progress {
-    width: 100%;
-    max-width: 320px;
-    height: 8px;
-    border-radius: 999px;
-    overflow: hidden;
-    background: #EDE4F5;
-}
-
-[data-theme="dark"] .pets-widget__progress {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.pets-widget__progress-fill {
-    width: 0;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
-    transition: width 0.6s ease;
-}
-
-[data-theme="dark"] .pets-widget__progress-fill {
-    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
-    box-shadow: 0 0 10px rgba(240, 147, 251, 0.35);
-}
-
-/* CTA (link do domku) */
-.pets-widget__cta {
+/* Podpis-wezwanie (część linku sceny — sam nie jest osobnym celem dotyku) */
+.pets-widget__pill {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-height: 44px;
     margin-top: 4px;
-    padding: 10px 18px;
-    border-radius: 12px;
+    padding: 7px 16px;
+    border-radius: 999px;
     font-size: var(--text-sm, 0.875rem);
     font-weight: 700;
     line-height: 1.2;
-    text-decoration: none;
     color: #ffffff;
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     box-shadow: 0 4px 14px rgba(245, 87, 108, 0.25);
-    transition: box-shadow 0.15s ease, transform 0.1s ease;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
 }
 
-.pets-widget__cta:hover {
-    color: #ffffff;
-    text-decoration: none;
-    box-shadow: 0 6px 18px rgba(245, 87, 108, 0.35);
-}
-
-.pets-widget__cta:active {
-    transform: scale(0.97);
-}
-
-.pets-widget__cta:focus-visible {
-    outline: 2px solid #f093fb;
-    outline-offset: 2px;
-}
-
-[data-theme="dark"] .pets-widget__cta,
-[data-theme="dark"] .pets-widget__cta:hover {
+[data-theme="dark"] .pets-widget__pill {
     color: #ffffff;
     box-shadow: 0 4px 18px rgba(240, 147, 251, 0.25);
 }
 
-.pets-widget__cta[hidden],
-.pets-widget__badge[hidden],
-.pets-widget__note[hidden] {
-    display: none;
+/* Zachęta do startowego jajka — delikatne pulsowanie dopiero po popupach ogłoszeń (spec §4.2) */
+.pets-widget--attention .pets-widget__pill {
+    animation: pets-widget-pulse 2.4s ease-in-out infinite;
 }
 
-/* Zachęta do startowego jajka — delikatne pulsowanie dopiero po popupach ogłoszeń (spec §4.2) */
-.pets-widget--attention .pets-widget__cta {
-    animation: pets-widget-pulse 2.4s ease-in-out infinite;
+[data-theme="dark"] .pets-widget--attention .pets-widget__pill {
+    animation-name: pets-widget-pulse-dark;
 }
 
 @keyframes pets-widget-pulse {
@@ -229,7 +257,136 @@
     50% { box-shadow: 0 0 0 6px rgba(240, 147, 251, 0.25), 0 4px 18px rgba(245, 87, 108, 0.35); }
 }
 
-/* Łapka (gałąź „następne jajko") — maska, żeby kolor szedł za motywem */
+@keyframes pets-widget-pulse-dark {
+    0%, 100% { box-shadow: 0 4px 18px rgba(240, 147, 251, 0.25); }
+    50% { box-shadow: 0 0 0 6px rgba(240, 147, 251, 0.3), 0 4px 20px rgba(240, 147, 251, 0.35); }
+}
+
+/* --- Szpital: łóżeczka --- */
+.pets-widget__beds {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.pets-widget__bed {
+    display: block;
+    line-height: 0;
+}
+
+.pets-widget__bed .pet-rig {
+    width: 140px;
+}
+
+.pets-widget__beds .pets-widget__bed + .pets-widget__bed .pet-rig {
+    width: 100px;
+}
+
+/* --- Inkubator: lampa i gniazdko --- */
+.pets-widget__lamp {
+    position: absolute;
+    left: 50%;
+    top: -16px;
+    width: 52px;
+    height: 24px;
+    border-radius: 26px 26px 6px 6px;
+    background: #FFC6D9;
+    box-shadow: inset 0 -4px 0 #F3A3BE;
+    transform: translateX(-50%);
+}
+
+.pets-widget__lamp::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    width: 3px;
+    height: 40px;
+    background: #C4925F;
+    transform: translateX(-50%);
+}
+
+.pets-widget__lamp::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: 120px;
+    height: 70px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 211, 107, 0.55), rgba(255, 211, 107, 0));
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+[data-theme="dark"] .pets-widget__lamp {
+    background: #F6B6C9;
+    box-shadow: inset 0 -4px 0 #E28BAA, 0 0 18px rgba(255, 211, 107, 0.35);
+}
+
+[data-theme="dark"] .pets-widget__lamp::after {
+    background: radial-gradient(closest-side, rgba(255, 211, 107, 0.35), rgba(255, 211, 107, 0));
+}
+
+.pets-widget__nest {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 0;
+    min-width: 110px;
+    margin-top: 34px;
+    padding: 0 10px 6px;
+}
+
+/* Słomiane gniazdko pod jajkami */
+.pets-widget__nest::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 26px;
+    border-radius: 50%;
+    background:
+        repeating-linear-gradient(115deg, rgba(164, 112, 64, 0.35) 0 3px, transparent 3px 8px),
+        #D9A877;
+    box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .pets-widget__nest::before {
+    background:
+        repeating-linear-gradient(115deg, rgba(90, 61, 36, 0.45) 0 3px, transparent 3px 8px),
+        #B98957;
+    box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.12);
+}
+
+.pets-widget__egg {
+    position: relative;
+    display: block;
+    line-height: 0;
+}
+
+.pets-widget__nest .pets-widget__egg .pet-rig {
+    width: 72px;
+}
+
+/* Jajko z kokardką (do odebrania) */
+.pets-widget__egg--gift .pet-rig {
+    width: 120px;
+}
+
+.pets-widget__bow {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    width: 52px;
+    height: auto;
+    transform: translateX(-50%) rotate(-8deg);
+    pointer-events: none;
+}
+
+/* --- Następne jajko: łapka jako maska, żeby kolor szedł za motywem --- */
 .pets-widget__paw {
     display: block;
     width: 56px;
@@ -243,107 +400,61 @@
     background-color: #f093fb;
 }
 
-/* === Przyciski zapasowe (gdy karta mini nie ma własnych) === */
-.pets-widget__actions {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    width: 100%;
-    margin-top: 10px;
+.pets-widget__stage--next .pets-widget__art {
+    align-items: center;
+    min-width: 80px;
 }
 
-.pets-widget__action {
-    min-height: 44px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    border: 1px solid #E9D5FF;
-    background: #FAF5FF;
-    color: #5A189A;
-    font: inherit;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    touch-action: manipulation;
-}
-
-.pets-widget__action:hover:not(:disabled) {
-    background: #F3E8FF;
-}
-
-.pets-widget__action:focus-visible {
-    outline: 2px solid #f093fb;
-    outline-offset: 2px;
-}
-
-.pets-widget__action:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.pets-widget__action--primary {
-    grid-column: 1 / -1;
-    border-color: transparent;
-    color: #ffffff;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-[data-theme="dark"] .pets-widget__action {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-    color: #ffffff;
-}
-
-[data-theme="dark"] .pets-widget__action:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(240, 147, 251, 0.3);
-}
-
-[data-theme="dark"] .pets-widget__action--primary {
-    border-color: transparent;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-/* === Telefon: scena nad treścią === */
+/* === Telefon: ilustracja nad podpisem === */
 @media (max-width: 480px) {
     .pets-widget__body.widget-body {
         padding: 0 var(--space-4, 1rem) var(--space-4, 1rem);
     }
 
-    .pets-widget__tile {
+    .pets-widget__stage {
         flex-direction: column;
-        text-align: center;
         gap: 10px;
+        padding: 16px 14px;
+        text-align: center;
     }
 
-    .pets-widget__scene {
-        flex-basis: auto;
-    }
-
-    .pets-widget__content {
+    .pets-widget__caption {
         align-items: center;
         width: 100%;
     }
 
-    .pets-widget__progress {
-        max-width: none;
+    .pets-widget__bed .pet-rig {
+        width: 120px;
     }
 
-    .pets-widget__cta {
-        align-self: stretch;
+    .pets-widget__beds .pets-widget__bed + .pets-widget__bed .pet-rig {
+        width: 84px;
+    }
+
+    .pets-widget__nest .pets-widget__egg .pet-rig {
+        width: 60px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .pets-widget--attention .pets-widget__cta {
+    .pets-widget--attention .pets-widget__pill,
+    [data-theme="dark"] .pets-widget--attention .pets-widget__pill {
         animation: none;
     }
 
-    .pets-widget__progress-fill,
-    .pets-widget__cta {
+    .pets-widget__stage {
         transition: none;
     }
 
-    .pets-widget__cta:active {
+    a.pets-widget__stage:active {
         transform: none;
     }
+}
+
+html.pet-rig-rm .pets-widget--attention .pets-widget__pill {
+    animation: none;
+}
+
+html.pet-rig-rm .pets-widget__stage {
+    transition: none;
 }

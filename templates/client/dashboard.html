@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/contest.css') }}">
 {% if pets_widget %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-rig.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-card.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-room.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-widget.css') }}">
 {% endif %}
 {% endblock %}
@@ -328,8 +328,9 @@
 <script src="{{ url_for('static', filename='js/components/onboarding-tour.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/client/contest.js') }}"></script>
 {% if pets_widget %}
-{# species.js, pet-rig.js, haptics.js i pets-core.js ładuje już include towarzysza (base_client, body_content) #}
-<script src="{{ url_for('static', filename='js/components/pet-card.js') }}"></script>
+{# species.js, pet-rig.js, haptics.js i pets-core.js ładuje już include towarzysza (base_client, body_content);
+   room.js = mini-pokój widgetu (spec v3 §7) — towarzysz go nie ładuje, więc nie ma dublowania #}
+<script src="{{ url_for('static', filename='js/pet/world/room.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/client/pets-widget.js') }}"></script>
 {% endif %}
 {% endblock %}
