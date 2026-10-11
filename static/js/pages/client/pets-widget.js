@@ -2,7 +2,8 @@
  * Widget pupili na dashboardzie klienta (spec v3 §7, plan „Świat” — Task 8).
  *
  * Szkielet SSR: templates/client/pets/_widget.html — #petsWidget[data-state][data-api][data-user-id]
- * [data-home-url][data-house-url][data-hospital-url] z pustym .pets-widget__body; treść rysuje ten plik.
+ * [data-home-url][data-house-url][data-hospital-url][data-ward-url][data-incubator-url] z pustym
+ * .pets-widget__body; treść rysuje ten plik.
  *
  * Wymaga (kolejność w dashboard.html): species.js, pet-rig.js, haptics.js, pets-core.js (include towarzysza
  * w base_client), js/pet/world/room.js (window.PetRoom), potem ten plik.
@@ -11,10 +12,10 @@
  *   1. żywi pupile poza szpitalem → mini-pokój PetRoom (compact, bez interakcji): towarzysz duży na środku
  *      z dymkiem potrzeby, do 4 pozostałych w tle + „+N”; klik w pupila → domek z otwartym panelem;
  *   2. ktoś w szpitalu            → łóżko (PetRig pose 'bed') + „Wraca do zdrowia — jeszcze ~N h”
- *                                    albo „Gotowy do odbioru”; klik → szpital (?pupil=ID);
+ *                                    albo „Gotowy do odbioru”; klik → Izba przyjęć (?pupil=ID);
  *   3. jajka w inkubacji          → inkubator z jajkami w skórkach + „Wykluje się za ~N h” (mnożnik
- *                                    ogrzania z state.config.boost_factor); klik → szpital;
- *   4. jajko do odebrania         → jajko z kokardką + „Odbierz w szpitalu”; klik → szpital;
+ *                                    ogrzania z state.config.boost_factor); klik → Inkubatorium;
+ *   4. jajko do odebrania         → jajko z kokardką + „Odbierz w szpitalu”; klik → hol (recepcja);
  *   5. nic z powyższego           → „Następne jajko: za N dni”.
  * Bez pasków, przycisków akcji i pat pat — opieka jest w świecie pupili.
  *
@@ -34,6 +35,9 @@
     var homeUrl = root.getAttribute('data-home-url') || '/client/pupile';
     var houseUrl = root.getAttribute('data-house-url') || homeUrl + '/domek';
     var hospitalUrl = root.getAttribute('data-hospital-url') || homeUrl + '/szpital';
+    // Spec v3.1 §5: widget prowadzi prosto do sali szpitala
+    var wardUrl = root.getAttribute('data-ward-url') || hospitalUrl + '/izba-przyjec';
+    var incubatorUrl = root.getAttribute('data-incubator-url') || hospitalUrl + '/inkubatorium';
 
     var REFRESH_MS = 5 * 60 * 1000;
     var TICK_MS = 30 * 1000;
@@ -251,7 +255,7 @@
             clearView();
             view.key = v.key;
             view.kind = 'hospital';
-            var s = stage('hospital', hospitalUrl + '?pupil=' + encodeURIComponent(main.id));
+            var s = stage('hospital', wardUrl + '?pupil=' + encodeURIComponent(main.id));
             var refs = view.refs = { stage: s, beds: {} };
             var beds = el('div', 'pets-widget__beds');
             s.art.appendChild(beds);
@@ -277,7 +281,7 @@
         }
         view.refs.pets = v.pets;
         view.refs.state = state;
-        view.refs.stage.box.href = hospitalUrl + '?pupil=' + encodeURIComponent(main.id);
+        view.refs.stage.box.href = wardUrl + '?pupil=' + encodeURIComponent(main.id);
         v.pets.slice(0, MAX_BEDS).forEach(function (pet) {
             var rig = view.refs.beds[pet.id];
             if (!rig) return;
@@ -320,7 +324,7 @@
             clearView();
             view.key = v.key;
             view.kind = 'incubator';
-            var s = stage('incubator', hospitalUrl);
+            var s = stage('incubator', incubatorUrl);
             var refs = view.refs = { stage: s, eggs: {} };
             var lamp = el('span', 'pets-widget__lamp');
             var nest = el('div', 'pets-widget__nest');
