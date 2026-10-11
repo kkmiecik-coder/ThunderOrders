@@ -248,3 +248,101 @@ def test_cudzy_pupil_403_nieznana_akcja_400(db, make_user):
     with pytest.raises(PetError) as e:
         _akcja(a, pet, 'tickle')
     assert e.value.code == 'bad_action' and e.value.status == 400
+
+
+# --- światełko ---
+
+def test_swiatelko_raz_na_dobe_tylko_odeszly(db, make_user):
+    from modules.pets.actions import light_candle
+    from modules.pets.errors import PetError
+    from modules.pets.models import PetEvent
+    user = make_user()
+    zaloz_profil(user)
+    zmarly = zaloz_zmarlego(user, died_at=T0 - timedelta(days=1))
+    light_candle(user, zmarly.id, now=T0)
+    assert zmarly.lights_count == 1 and zmarly.last_light_date == date(2026, 10, 12)
+    with pytest.raises(PetError) as e:
+        light_candle(user, zmarly.id, now=T0 + timedelta(hours=5))
+    assert e.value.code == 'already_lit'
+    light_candle(user, zmarly.id, now=T0 + timedelta(days=1))
+    assert zmarly.lights_count == 2
+    assert PetEvent.query.filter_by(pet_id=zmarly.id, type='light').count() == 2
+    zywy = zaloz_pupila(user)
+    with pytest.raises(PetError) as e:
+        light_candle(user, zywy.id, now=T0)
+    assert e.value.code == 'wrong_status'
+
+
+# --- imię ---
+
+@pytest.mark.parametrize('surowe,oczekiwane', [
+    ('Mruczek', 'Mruczek'), ('  Puszek  Mały ', 'Puszek Mały'), ('🐱 Kot', '🐱 Kot'), ('a' * 20, 'a' * 20),
+    ('tab\there', 'tab here'),   # białe znaki (także tabulator) zbijane do pojedynczej spacji
+])
+def test_validate_name_ok(surowe, oczekiwane):
+    from modules.pets.actions import validate_name
+    assert validate_name(surowe) == oczekiwane
+
+
+@pytest.mark.parametrize('zle', ['', '   ', 'a' * 21, None, 'Zły\x00znak'])
+def test_validate_name_odrzuca(zle):
+    from modules.pets.actions import validate_name
+    from modules.pets.errors import PetError
+    with pytest.raises(PetError) as e:
+        validate_name(zle)
+    assert e.value.code == 'bad_name'
+
+
+def test_rename_zapisuje_i_loguje(db, make_user):
+    from modules.pets.actions import rename_pet
+    from modules.pets.models import PetEvent
+    user = make_user()
+    zaloz_profil(user)
+    pet = zaloz_pupila(user)
+    rename_pet(user, pet.id, '  Mruczuś ', now=T0)
+    assert pet.name == 'Mruczuś'
+    assert PetEvent.query.filter_by(pet_id=pet.id, type='rename').count() == 1
+
+
+# --- towarzysz ---
+
+def test_set_companion(db, make_user):
+    from modules.pets.actions import set_companion
+    from modules.pets.errors import PetError
+    user = make_user()
+    profil = zaloz_profil(user)
+    pet = zaloz_pupila(user)
+    set_companion(user, pet_id=pet.id, enabled=True)
+    assert profil.companion_pet_id == pet.id and profil.companion_enabled is True
+    set_companion(user, pet_id=None, enabled=False)
+    assert profil.companion_pet_id is None and profil.companion_enabled is False
+    zmarly = zaloz_zmarlego(user)
+    with pytest.raises(PetError) as e:
+        set_companion(user, pet_id=zmarly.id)
+    assert e.value.code == 'wrong_status'
+
+
+def test_set_companion_bez_profilu_409(db, make_user):
+    from modules.pets.actions import set_companion
+    from modules.pets.errors import PetError
+    user = make_user()
+    with pytest.raises(PetError) as e:
+        set_companion(user, pet_id=None, enabled=False)
+    assert e.value.code == 'no_profile'
+
+
+# --- przyznanie jajka ---
+
+def test_admin_grant_egg(db, make_user):
+    from modules.pets.actions import admin_grant_egg
+    from modules.pets.errors import PetError
+    from modules.pets.models import PetEvent
+    user = make_user()
+    with pytest.raises(PetError) as e:
+        admin_grant_egg(user, now=T0)
+    assert e.value.code == 'no_profile'
+    profil = zaloz_profil(user)
+    admin_grant_egg(user, now=T0)
+    admin_grant_egg(user, now=T0)
+    assert profil.granted_eggs_pending == 2
+    assert PetEvent.query.filter_by(user_id=user.id, type='grant', pet_id=None).count() == 2

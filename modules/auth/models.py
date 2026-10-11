@@ -698,6 +698,11 @@ class User(UserMixin, db.Model):
         OrderComment.query.filter_by(user_id=user_id).update({'user_id': None})
         ShippingRequest.query.filter_by(user_id=user_id).update({'user_id': None})
 
+        # 4. Pupile — żywe odchodzą do gwiazd, imiona (dane użytkownika) znikają,
+        #    zdarzenia usunięte (modules/pets/actions.py; bez commitu — commituje wołający)
+        from modules.pets.actions import anonymize_user_pets
+        anonymize_user_pets(self)
+
     # ============================================
     # Class Methods
     # ============================================

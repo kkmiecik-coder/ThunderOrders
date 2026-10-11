@@ -102,3 +102,76 @@ def perform_action(user, pet_id, action, count=1, now=None, cfg=None):
     nowe_odznaki = achievements_after_commit(user)
     return {'pet': pet, 'accepted': zaliczone, 'first_care_today': pierwsza_dzis,
             'new_achievements': nowe_odznaki}
+
+
+# ---------------------------------------------------------------------------
+# Światełko, imię, towarzysz, przyznanie jajka, anonimizacja
+# ---------------------------------------------------------------------------
+
+def light_candle(user, pet_id, now=None):
+    """Zapal światełko na karcie pamięci — raz na dobę, zero efektu w grze (spec §2.5)."""
+    now = now_or(now)
+    lock_profile(user)
+    pet = own_pet(user, pet_id, ('dead',))
+    if pet.last_light_date == now.date():
+        raise PetError('already_lit', 'Światełko już dziś zapalone.', 409)
+    pet.lights_count += 1
+    pet.last_light_date = now.date()
+    add_event(user.id, 'light', now, pet_id=pet.id)
+    db.session.commit()
+    return pet
+
+
+def validate_name(name):
+    """1–20 znaków po zbiciu białych znaków, bez znaków sterujących (kategorie Unicode C*)."""
+    if name is None:
+        raise PetError('bad_name', 'Podaj imię.')
+    czyste = ' '.join(str(name).split())
+    if not 1 <= len(czyste) <= NAME_MAX:
+        raise PetError('bad_name', f'Imię ma mieć od 1 do {NAME_MAX} znaków.')
+    if any(unicodedata.category(znak).startswith('C') for znak in czyste):
+        raise PetError('bad_name', 'Imię zawiera niedozwolone znaki.')
+    return czyste
+
+
+def rename_pet(user, pet_id, name, now=None):
+    now = now_or(now)
+    lock_profile(user)
+    pet = own_pet(user, pet_id, ('alive',))
+    pet.name = validate_name(name)
+    add_event(user.id, 'rename', now, pet_id=pet.id)
+    db.session.commit()
+    return pet
+
+
+def set_companion(user, pet_id=None, enabled=True):
+    profil = lock_profile(user)
+    if pet_id is not None:
+        own_pet(user, pet_id, ('alive',))
+    profil.companion_pet_id = pet_id
+    profil.companion_enabled = bool(enabled)
+    db.session.commit()
+    return profil
+
+
+def admin_grant_egg(user, now=None):
+    """Panel admina: +1 jajko do odebrania. `log_activity` woła trasa (etap 6)."""
+    now = now_or(now)
+    profil = lock_profile(user)   # bez profilu: użytkownik nie odebrał jeszcze startowego
+    profil.granted_eggs_pending += 1
+    add_event(user.id, 'grant', now, pet_id=None)
+    db.session.commit()
+    return profil
+
+
+def anonymize_user_pets(user, now=None):
+    """Krok User.anonymize(): żywe odchodzą (bez maila — cron i tak pomija nieaktywnych),
+    imiona (dane użytkownika) znikają, towarzysz wyłączony, zdarzenia usunięte. Bez commitu."""
+    now = now_or(now)
+    Pet.query.filter_by(user_id=user.id, status='alive').update(
+        {'status': 'dead', 'died_at': now, 'notify_level': 4, 'death_notified_at': now},
+        synchronize_session='fetch')
+    Pet.query.filter_by(user_id=user.id).update({'name': None}, synchronize_session='fetch')
+    PetProfile.query.filter_by(user_id=user.id).update(
+        {'companion_enabled': False, 'companion_pet_id': None}, synchronize_session='fetch')
+    PetEvent.query.filter_by(user_id=user.id).delete(synchronize_session='fetch')
