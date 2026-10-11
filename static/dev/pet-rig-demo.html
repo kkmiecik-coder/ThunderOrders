@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pl" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rig pupili — demo</title>
+<link rel="stylesheet" href="../css/core/variables.css">
+<link rel="stylesheet" href="../css/components/pet-rig.css">
+<link rel="stylesheet" href="pet-rig-demo.css">
+</head>
+<body>
+<header class="demo-bar">
+  <strong>Rig pupili — demo</strong>
+  <button type="button" data-demo="theme">Motyw: jasny</button>
+  <button type="button" data-demo="rm">Ruch ograniczony: nie</button>
+  <label>Rozmiar
+    <select data-demo="size"><option value="card">card</option><option value="mini">mini</option><option value="companion">companion</option></select>
+  </label>
+  <label><input type="checkbox" data-demo="idle"> losowe gesty</label>
+</header>
+
+<section class="demo-panel">
+  <div class="demo-row"><span>Nastrój:</span>
+    <button type="button" data-mood="szczesliwy">szczęśliwy</button><button type="button" data-mood="glodny">głodny</button>
+    <button type="button" data-mood="znudzony">znudzony</button><button type="button" data-mood="brudny">brudny</button>
+    <button type="button" data-mood="smutny">smutny</button><button type="button" data-mood="chory">chory</button>
+    <button type="button" data-mood="krytyczny">krytyczny</button>
+    <button type="button" data-asleep="1">śpi</button><button type="button" data-asleep="0">nie śpi</button>
+  </div>
+  <div class="demo-row"><span>Gest:</span>
+    <button type="button" data-gesture="jump">jump</button><button type="button" data-gesture="blink">blink</button>
+    <button type="button" data-gesture="sway">sway</button><button type="button" data-gesture="spin">spin</button>
+    <button type="button" data-gesture="wave">wave</button><button type="button" data-gesture="dance">dance</button>
+    <button type="button" data-gesture="flip">flip</button>
+  </div>
+  <div class="demo-row"><span>Akcja:</span>
+    <button type="button" data-action="feed">feed</button><button type="button" data-action="play">play</button>
+    <button type="button" data-action="wash">wash</button><button type="button" data-action="heal">heal</button>
+    <button type="button" data-action="pat">pat</button><button type="button" data-action="wake">wake</button>
+    <button type="button" data-action="celebrate">celebrate</button><button type="button" data-action="hatch">hatch</button>
+  </div>
+  <div class="demo-row"><span>Gwiazdki:</span>
+    <button type="button" data-stars="0">0</button><button type="button" data-stars="1">1</button>
+    <button type="button" data-stars="2">2</button><button type="button" data-stars="3">3</button>
+    <button type="button" data-stars="5">5</button>
+    <span class="demo-log" id="demoLog"></span>
+  </div>
+</section>
+
+<h2>Gatunki × stadia <small>(klik w postać = pat pat)</small></h2>
+<div class="demo-grid" id="demoGrid"></div>
+
+<h2>Jajko <small>(klik = wyklucie)</small></h2>
+<div class="demo-grid" id="demoEggs"></div>
+
+<h2>Karta pamięci <small>(klik = światełko)</small></h2>
+<div class="demo-grid" id="demoMemorial"></div>
+
+<h2>Rozmiary</h2>
+<div class="demo-sizes" id="demoSizes"></div>
+
+<script src="../js/pet/species.js"></script>
+<script src="../js/components/pet-rig.js"></script>
+<script src="pet-rig-demo.js"></script>
+</body>
+</html>

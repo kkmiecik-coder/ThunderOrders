@@ -1,0 +1,18 @@
+/* Strona demo rigu (tylko dev, poza aplikacją) */
+body { margin: 0; padding: 0 16px 40px; font: 14px/1.4 system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
+[data-theme="dark"] body { background: var(--bg-primary); color: var(--text-primary); }
+h2 { font-size: 16px; margin: 22px 0 10px; }
+h2 small { font-weight: 400; opacity: .6; }
+.demo-bar, .demo-panel { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 0; }
+.demo-bar { position: sticky; top: 0; z-index: 5; background: var(--bg-primary); border-bottom: 1px solid var(--card-border); }
+.demo-panel { flex-direction: column; align-items: stretch; }
+.demo-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.demo-row > span:first-child { width: 80px; font-weight: 600; }
+button, select { font: inherit; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text-primary); cursor: pointer; }
+[data-theme="dark"] button, [data-theme="dark"] select { background: rgba(255, 255, 255, .08); border-color: rgba(240, 147, 251, .25); color: #fff; }
+.demo-log { margin-left: 12px; opacity: .7; font-size: 12px; }
+.demo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.demo-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; background: var(--card-bg); border: 1px solid var(--card-border); cursor: pointer; }
+[data-theme="dark"] .demo-cell { background: rgba(255, 255, 255, .05); border-color: rgba(240, 147, 251, .15); }
+.demo-cell small { opacity: .65; font-size: 11px; }
+.demo-sizes { display: flex; gap: 18px; align-items: flex-end; }
