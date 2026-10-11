@@ -155,3 +155,92 @@ def test_widget_podaje_adresy_sal_szpitala(client, login, make_user, db):
     assert 'data-hospital-url="/client/pupile/szpital"' in tag
     assert 'data-ward-url="/client/pupile/szpital/izba-przyjec"' in tag
     assert 'data-incubator-url="/client/pupile/szpital/inkubatorium"' in tag
+
+
+# --- Układ dashboardu: widget pupili w rzędzie z „Moimi odznakami” (feedback Konrada 10/2026) ---------
+
+_PUSTE_TAGI = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'}
+
+
+class _Wezel:
+    def __init__(self, tag, attrs, rodzic):
+        self.tag = tag
+        self.attrs = dict(attrs)
+        self.rodzic = rodzic
+        self.dzieci = []
+
+    def klasy(self):
+        return (self.attrs.get('class') or '').split()
+
+
+def _drzewo(html):
+    """Minimalne drzewo DOM na stdlib (bez bs4): węzły z rodzicem i dziećmi, indeks po id
+    i kolejność otwarcia. Zamknięcie bez pary jest ignorowane, a zamknięcie tagu głębiej
+    w stosie domyka po drodze niedomknięte — wystarcza na nasze szablony."""
+    from html.parser import HTMLParser
+
+    class _Parser(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.korzen = _Wezel('#root', [], None)
+            self.stos = [self.korzen]
+            self.po_id = {}
+            self.porzadek = []
+
+        def handle_starttag(self, tag, attrs):
+            w = _Wezel(tag, attrs, self.stos[-1])
+            self.stos[-1].dzieci.append(w)
+            self.porzadek.append(w)
+            if w.attrs.get('id'):
+                self.po_id.setdefault(w.attrs['id'], w)
+            if tag not in _PUSTE_TAGI:
+                self.stos.append(w)
+
+        def handle_endtag(self, tag):
+            for i in range(len(self.stos) - 1, 0, -1):
+                if self.stos[i].tag == tag:
+                    del self.stos[i:]
+                    return
+
+    p = _Parser()
+    p.feed(html)
+    p.close()
+    return p
+
+
+def test_widget_pupili_na_dole_w_rzedzie_z_odznakami(client, login, make_user, db):
+    """Feedback Konrada: widget pupili jest wielkości innych widgetów i dzieli rząd na pół z „Moimi
+    odznakami” na dole dashboardu (wcześniej: cała szerokość zaraz pod banerem konkursu)."""
+    user = make_user(profile_completed=True)
+    login(user)
+    _wlacz(db)
+    zaloz_profil(user)
+    zaloz_pupila(user)
+    d = _drzewo(client.get('/client/dashboard').data.decode())
+    pupile, odznaki = d.po_id['petsWidget'], d.po_id['achievements-widget']
+    rzad = pupile.rodzic
+    assert rzad is odznaki.rodzic, 'pupile i odznaki muszą stać w jednym wspólnym rzędzie'
+    assert rzad.dzieci == [pupile, odznaki]           # pupile z lewej (na telefonie wyżej), odznaki obok
+    assert 'dashboard-pair' in rzad.klasy() and 'dashboard-pair--split' in rzad.klasy()
+    # Rząd stoi na dole strony: po siatce wykres + „Ostatnie zamówienia”, a nie pod konkursem
+    assert 'client-dashboard' in rzad.rodzic.klasy()
+    siatka = d.po_id['recentOrdersWidget']
+    while 'dashboard-grid' not in siatka.klasy():
+        siatka = siatka.rodzic
+    sekcje = rzad.rodzic.dzieci
+    assert sekcje.index(siatka) < sekcje.index(rzad)
+    assert d.porzadek.index(d.po_id['recentOrdersWidget']) < d.porzadek.index(pupile)
+
+
+def test_odznaki_bez_pupili_na_cala_szerokosc(client, login, make_user, db):
+    """Bez widgetu pupili (funkcja wyłączona / poza rolloutem) „Moje odznaki” zostają na całą szerokość."""
+    user = make_user(profile_completed=True)
+    login(user)
+    for wlaczone in (False, True):
+        if wlaczone:
+            _wlacz(db, pct=0)          # flaga włączona, ale użytkownik poza rolloutem
+        d = _drzewo(client.get('/client/dashboard').data.decode())
+        assert 'petsWidget' not in d.po_id
+        odznaki = d.po_id['achievements-widget']
+        assert odznaki.rodzic.dzieci == [odznaki]
+        assert 'dashboard-pair--split' not in odznaki.rodzic.klasy()
