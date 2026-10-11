@@ -7,12 +7,39 @@
 /* Podłoga pod pokojem (widać ją tylko za zaokrąglonymi rogami arkusza, gdy pokój jedzie w górę) */
 .pets-scene--domek { background: #dcae7f; }
 
-[data-theme="dark"] .pets-scene--domek { background: #c99d70; }
+[data-theme="dark"] .pets-scene--domek { background: #9c7350; }
+
+/* Ciemny motyw = wieczór w domku: przygaszona ściana i podłoga, zachód słońca za oknem, lekki zmierzch na
+   całym pokoju (pupile zostają jasne — są nad sceną), lampka na stoliku świeci (pet-room.css). Noc (.is-night)
+   pokazuje dalej księżyc i gwiazdy. Widget na dashboardzie zostaje dzienny. */
+[data-theme="dark"] .pets-house .pet-room__wall {
+    background: repeating-linear-gradient(90deg, #6a4f63 0 30px, #714f68 30px 60px);
+}
+
+[data-theme="dark"] .pets-house .pet-room__floor {
+    border-top-color: #7d5636;
+    background:
+        repeating-linear-gradient(180deg, transparent 0 22%, rgba(70, 42, 22, 0.4) 22% calc(22% + 2px)),
+        linear-gradient(180deg, #a97c55 0%, #9c7350 100%);
+}
+
+[data-theme="dark"] .pets-house .pet-room__rug {
+    background: radial-gradient(closest-side, #eaa9c0 0 62%, #db94ae 63% 80%, #cf809e 81%);
+}
+
+[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-sky { fill: #f6a98f; }
+[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-day circle { fill: #ffc56b; }
+[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-day ellipse { fill: #ffd9df; }
+[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-day path { fill: #7fae73; }
+
+[data-theme="dark"] .pets-house .pet-room__dark { opacity: 0.45; }
+[data-theme="dark"] .pets-house .pet-room.is-night .pet-room__dark { opacity: 1; }
 
 .pets-house {
     position: absolute;
     inset: 0;
     min-width: 0;
+    container-type: size;        /* cqw / cqh: meble i obrazki wąskiego pokoju (niżej) */
 }
 
 /* Pokój wypełnia scenę właściwą; ściana, podłoga i nocny cień sięgają krawędzi sceny (scena przycina).
@@ -43,6 +70,31 @@
 /* Niski widok (laptop 1366×600, telefon poziomo): pupil nie wyższy niż ~1/5 wysokości ekranu, żeby wybrany
    zmieścił się nad arkuszem razem z imieniem */
 .pets-house .pet-room__pet { width: min(var(--pet-w), 22vh, 170px); }
+
+/* Wąski pokój na pełnym ekranie (.is-narrow: telefon, laptop 1440×900, monitor prawie kwadratowy). Meble rosną
+   z szerokością pokoju (cqw), a ściana z wysokością (cqh) — w niskim pokoju okno, kanapa i kosz z zabawkami
+   (stoją pod oknem albo obok) nie mogą na siebie nachodzić: szerokość ograniczona wysokością pokoju. Okno ≤ 25%
+   wysokości (dół ≤ 32% od góry), kanapa i kosz kończą się ≥ 2% niżej. Obrazki wiszą tuż nad meblami (serce nad
+   regałem, łapka nad kanapą), nie wyżej niż pod sufitem. Proporcje z viewBox: okno 120×90, kanapa 200×118,
+   regał 100×132, kosz 90×72, obrazek 40×32. Bez jednostek kontenera zostaje układ z pet-room.css. */
+@supports (width: 1cqw) {
+    .pets-house .pet-room.is-narrow .pet-room__window { width: min(32%, 33cqh); }
+    .pets-house .pet-room.is-narrow .pet-room__sofa { width: min(33%, 41cqh); }
+    .pets-house .pet-room.is-narrow .pet-room__toybox { width: min(12%, 33cqh); }
+    .pets-house .pet-room.is-narrow .pet-room__shelf { width: min(17%, 26cqh); }
+
+    .pets-house .pet-room.is-narrow .pet-room__picture {
+        top: auto;
+        left: 14.5%;
+        bottom: min(calc(42.5% + min(17cqw, 26cqh) * 1.32 + 4cqw), calc(97% - 8cqw));
+    }
+
+    .pets-house .pet-room.is-narrow .pet-room__picture--paw {
+        left: 68%;
+        width: 9%;
+        bottom: min(calc(41.5% + min(33cqw, 41cqh) * 0.59 + 5cqw), calc(97% - 7.2cqw));
+    }
+}
 
 [data-theme="dark"] .pets-house .pet-room {
     border: none;

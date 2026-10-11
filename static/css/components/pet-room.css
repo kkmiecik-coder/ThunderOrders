@@ -1,11 +1,55 @@
 /* ================================================
    Pet room — pokój pupili (spec v3 §6.1, §7): domek (pełny) i widget dashboardu (.pet-room--compact)
    Markup i logika: static/js/pet/world/room.js. Pokój jest ilustracją (kolory dzienne/nocne);
-   dark mode zmienia tylko ramkę i podpisy (paleta glassmorphism z CLAUDE.md).
+   dark mode zmienia ramkę i podpisy (paleta glassmorphism z CLAUDE.md), a meble domku dostają wieczorne
+   tony (--pf-*); wieczorną ścianę i podłogę domku rysuje pets-house.css. Widget (compact) mebli nie ma.
    ================================================ */
 
 .pet-room {
     --pet-w: clamp(72px, 15%, 150px);
+    /* Kolory mebli domku (SVG z klasami .pf-*): pastel jak reszta świata */
+    --pf-shadow: rgba(0, 0, 0, 0.1);
+    --pf-sofa: #8fd5c3;
+    --pf-sofa-l: #b9eadd;
+    --pf-sofa-d: #6fc0ac;
+    --pf-sofa-hi: #e2f8f1;
+    --pf-wood: #d9a877;
+    --pf-wood-d: #b98250;
+    --pf-shelf-back: #f6dcc0;
+    --pf-leaf: #7fcf8c;
+    --pf-leaf-d: #5db673;
+    --pf-vein: #b7ebbf;
+    --pf-pot: #ffb4c4;
+    --pf-pot-rim: #ff98b0;
+    --pf-pot-mark: #ffffff;
+    --pf-shade: #ffc6d9;
+    --pf-shade-trim: #f3a3be;
+    --pf-lamp-metal: #c4925f;
+    --pf-glow: #ffd36b;
+    --pf-pillow-a: #ff9ec4;
+    --pf-pillow-b: #ffd36b;
+    --pf-pillow-mark: #ffffff;
+    --pf-book-a: #ff8fab;
+    --pf-book-b: #7fb3ea;
+    --pf-book-c: #ffd36b;
+    --pf-book-d: #b99cff;
+    --pf-book-e: #7fd3c4;
+    --pf-block-a: #ffb38a;
+    --pf-block-b: #9fd3ff;
+    --pf-block-dot: #ffffff;
+    --pf-toy-ball: #ff6b7d;
+    --pf-toy-line: #ffffff;
+    --pf-duck: #ffd23f;
+    --pf-beak: #ff8c3b;
+    --pf-eye: #3b2a3a;
+    --pf-wand: #c98b5c;
+    --pf-star: #ffd966;
+    --pf-wicker: #e8b98a;
+    --pf-wicker-d: #c98b5c;
+    --pf-weave: #c98b5c;
+    --pf-canvas: #eef6ff;
+    --pf-frame: #d9a877;
+    --pf-paw: #b99cff;
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 8;
@@ -63,18 +107,94 @@
     width: 7%;
 }
 
-.pet-room__lamp {
-    right: 5%;
-    bottom: 31%;
-    width: 5%;
-}
+/* === Meble domku (pełny pokój; widget ich nie rysuje). Stoją pod ścianą — stopy na głębokości ≈ 0,27–0,3,
+   za pupilami na podłodze (room.js: podłoga do 0,26). Kanapę room.js mierzy w DOM (miejsca do siedzenia). === */
+.pet-room__plant { left: 1.5%; bottom: 29%; width: 6.5%; }
+.pet-room__shelf { left: 9.5%; bottom: 29.5%; width: 11.5%; }
+.pet-room__toybox { left: 41%; bottom: 26.5%; width: 8.5%; }
+.pet-room__sofa { left: 60.5%; bottom: 28.5%; width: 25%; }
 
-.pet-room__lamp .pr-lamp-glow {
+/* Stolik z lampką + plama światła lampki (nad nocnym cieniem) — to samo pudełko co stolik */
+.pet-room__table,
+.pet-room__lamplight { left: 86.5%; bottom: 29%; width: 6.5%; }
+
+.pet-room__picture--paw { left: 70%; top: 15%; width: 6%; }
+
+/* Luźne zabawki przy koszu (w widgecie zostają na swoim miejscu) */
+.pet-room:not(.pet-room--compact) .pet-room__toys { left: 51%; bottom: 20%; width: 7%; }
+
+.pet-room .pf-shadow { fill: var(--pf-shadow); }
+.pet-room .pf-sofa { fill: var(--pf-sofa); }
+.pet-room .pf-sofa-l { fill: var(--pf-sofa-l); }
+.pet-room .pf-sofa-d { fill: var(--pf-sofa-d); }
+.pet-room .pf-sofa-hi { fill: none; stroke: var(--pf-sofa-hi); stroke-width: 3; stroke-linecap: round; opacity: 0.8; }
+.pet-room .pf-wood { fill: var(--pf-wood); }
+.pet-room .pf-wood-d { fill: var(--pf-wood-d); }
+.pet-room .pf-shelf-back { fill: var(--pf-shelf-back); }
+.pet-room .pf-leaf { fill: var(--pf-leaf); }
+.pet-room .pf-leaf-d { fill: var(--pf-leaf-d); }
+.pet-room .pf-vein { fill: none; stroke: var(--pf-vein); stroke-width: 1.6; stroke-linecap: round; }
+.pet-room .pf-pot { fill: var(--pf-pot); }
+.pet-room .pf-pot-rim { fill: var(--pf-pot-rim); }
+.pet-room .pf-pot-mark { fill: var(--pf-pot-mark); opacity: 0.85; }
+.pet-room .pf-shade { fill: var(--pf-shade); transition: fill 0.6s ease; }
+.pet-room .pf-shade-trim { fill: none; stroke: var(--pf-shade-trim); stroke-width: 2.4; stroke-linecap: round; }
+.pet-room .pf-lamp-metal { fill: var(--pf-lamp-metal); }
+.pet-room .pf-pillow-a { fill: var(--pf-pillow-a); }
+.pet-room .pf-pillow-b { fill: var(--pf-pillow-b); }
+.pet-room .pf-pillow-mark,
+.pet-room .pf-pillow-dot { fill: var(--pf-pillow-mark); opacity: 0.85; }
+.pet-room .pf-book-a { fill: var(--pf-book-a); }
+.pet-room .pf-book-b { fill: var(--pf-book-b); }
+.pet-room .pf-book-c { fill: var(--pf-book-c); }
+.pet-room .pf-book-d { fill: var(--pf-book-d); }
+.pet-room .pf-book-e { fill: var(--pf-book-e); }
+.pet-room .pf-block-a { fill: var(--pf-block-a); }
+.pet-room .pf-block-b { fill: var(--pf-block-b); }
+.pet-room .pf-block-dot { fill: var(--pf-block-dot); }
+.pet-room .pf-toy-ball { fill: var(--pf-toy-ball); }
+.pet-room .pf-toy-line { fill: none; stroke: var(--pf-toy-line); stroke-width: 2.2; stroke-linecap: round; }
+.pet-room .pf-duck { fill: var(--pf-duck); }
+.pet-room .pf-beak { fill: var(--pf-beak); }
+.pet-room .pf-eye { fill: var(--pf-eye); }
+.pet-room .pf-wand { fill: none; stroke: var(--pf-wand); stroke-width: 2.6; stroke-linecap: round; }
+.pet-room .pf-star { fill: var(--pf-star); }
+.pet-room .pf-wicker { fill: var(--pf-wicker); }
+.pet-room .pf-wicker-d { fill: var(--pf-wicker-d); }
+.pet-room .pf-weave { fill: none; stroke: var(--pf-weave); stroke-width: 2; opacity: 0.55; }
+.pet-room .pf-canvas { fill: var(--pf-canvas); stroke: var(--pf-frame); stroke-width: 2; }
+.pet-room .pf-paw { fill: var(--pf-paw); }
+
+/* Lampka na stoliku: w nocy (i wieczorem w ciemnym motywie) świeci — abażur jaśnieje, wokół ciepła plama światła */
+.pet-room__table { overflow: visible; }
+
+.pet-room__table .pr-lamp-glow {
+    fill: var(--pf-glow);
     opacity: 0;
     transition: opacity 0.6s ease;
 }
 
-.pet-room.is-night .pet-room__lamp .pr-lamp-glow { opacity: 0.55; }
+.pet-room__lamplight {
+    aspect-ratio: 60 / 132;          /* jak viewBox stolika — środek abażuru w tym samym miejscu */
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+
+.pet-room__lamplight::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 27%;
+    width: 560%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 216, 128, 0.5), rgba(255, 216, 128, 0.18) 55%, rgba(255, 216, 128, 0));
+    transform: translate(-50%, -50%);
+}
+
+.pet-room.is-night .pet-room__table .pr-lamp-glow { opacity: 0.55; }
+.pet-room.is-night .pet-room__lamplight { opacity: 1; }
+.pet-room.is-night .pf-shade { fill: #ffe9b0; }
 
 .pet-room__rug {
     left: 50%;
@@ -142,7 +262,8 @@
     cursor: pointer;
     transform: translateX(-50%) scale(calc(var(--depth) * var(--focus)));
     transform-origin: 50% 100%;
-    transition: left var(--walk) linear, bottom var(--walk) linear, transform 0.35s ease, opacity 0.3s ease, filter 0.3s ease;
+    --ease: linear;
+    transition: left var(--walk) var(--ease), bottom var(--walk) var(--ease), transform 0.35s ease, opacity 0.3s ease, filter 0.3s ease;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     /* Pudełko pupila jest kwadratem z przezroczystymi rogami — klika się tylko .pet-room__hit */
@@ -180,9 +301,22 @@
 
 .pet-room__pet.is-walking .pet-room__body { animation: pet-room-step 0.42s ease-in-out infinite; }
 
+/* Bieg do fokusu (klik w pupila): szybkie kroki, hamowanie przy celu */
+.pet-room__pet.is-running { --ease: cubic-bezier(0.25, 0.75, 0.35, 1); }
+.pet-room__pet.is-running .pet-room__body { animation: pet-room-step 0.18s ease-in-out infinite; }
+
+/* Wskok na kanapę / zeskok: łuk ciała ponad zmianą wysokości */
+.pet-room__pet.is-hopping { --ease: cubic-bezier(0.35, 0, 0.45, 1); }
+.pet-room__pet.is-hopping .pet-room__body { animation: pet-room-hop var(--walk) ease-out; }
+
 @keyframes pet-room-step {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-4%); }
+}
+
+@keyframes pet-room-hop {
+    0%, 100% { transform: translateY(0); }
+    45% { transform: translateY(-16%); }
 }
 
 .pet-room__name {
@@ -274,6 +408,55 @@
     color: #ffffff;
 }
 
+/* Meble wieczorem: głębsze, przygaszone pastele; lampka zapalona */
+[data-theme="dark"] .pet-room {
+    --pf-shadow: rgba(0, 0, 0, 0.24);
+    --pf-sofa: #6eb3a4;
+    --pf-sofa-l: #8ccbbd;
+    --pf-sofa-d: #518f83;
+    --pf-sofa-hi: #b6e3d8;
+    --pf-wood: #b0835a;
+    --pf-wood-d: #8c6440;
+    --pf-shelf-back: #7a5d52;
+    --pf-leaf: #63ae72;
+    --pf-leaf-d: #4a925c;
+    --pf-vein: #93d3a0;
+    --pf-pot: #e391a5;
+    --pf-pot-rim: #d27a92;
+    --pf-pot-mark: #ffe6ee;
+    --pf-shade: #ffe3a6;
+    --pf-shade-trim: #e8b56c;
+    --pf-lamp-metal: #a87a52;
+    --pf-pillow-a: #e486ab;
+    --pf-pillow-b: #e3b956;
+    --pf-pillow-mark: #ffeef5;
+    --pf-book-a: #e47d99;
+    --pf-book-b: #6a98cc;
+    --pf-book-c: #e3b956;
+    --pf-book-d: #9a82e0;
+    --pf-book-e: #62b5a7;
+    --pf-block-a: #e39b75;
+    --pf-block-b: #84b6e0;
+    --pf-block-dot: #fff4ea;
+    --pf-toy-ball: #e45d6f;
+    --pf-toy-line: #ffeef0;
+    --pf-duck: #e8bd36;
+    --pf-beak: #e07a30;
+    --pf-wand: #a87a52;
+    --pf-star: #f2c94c;
+    --pf-wicker: #c4986c;
+    --pf-wicker-d: #9e7048;
+    --pf-weave: #7d5634;
+    --pf-canvas: #d5deea;
+    --pf-frame: #b0835a;
+    --pf-paw: #9a82e0;
+}
+
+[data-theme="dark"] .pet-room__table .pr-lamp-glow { opacity: 0.4; }
+[data-theme="dark"] .pet-room__lamplight { opacity: 0.8; }
+[data-theme="dark"] .pet-room.is-night .pet-room__table .pr-lamp-glow { opacity: 0.6; }
+[data-theme="dark"] .pet-room.is-night .pet-room__lamplight { opacity: 1; }
+
 /* === Wąski pokój (≤ 640 px szerokości albo proporcje węższe niż 3:2: telefon, domek na pełnym ekranie z oknem
    sceny z boku) — klasa .is-narrow z room.js, bo o układzie decyduje pokój, nie okno przeglądarki.
    Wyższa podłoga, więksi pupile. === */
@@ -288,12 +471,18 @@
 .pet-room.is-narrow .pet-room__floor { height: 46%; }
 .pet-room.is-narrow .pet-room__window { width: 32%; top: 7%; }
 .pet-room.is-narrow .pet-room__picture { width: 10%; left: 8%; top: 12%; }
-.pet-room.is-narrow .pet-room__lamp { width: 7%; bottom: 43%; }
 .pet-room.is-narrow .pet-room__bowls { width: 22%; }
 .pet-room.is-narrow .pet-room__basket { width: 27%; }
 .pet-room.is-narrow .pet-room__cushion { width: 15%; right: 27%; }
-.pet-room.is-narrow .pet-room__toys { width: 11%; bottom: 35%; }
+.pet-room.is-narrow .pet-room__toys { left: 53%; width: 10%; bottom: 33%; }
 .pet-room.is-narrow .pet-room__rug { width: 62%; height: 24%; }
+.pet-room.is-narrow .pet-room__plant { left: 0.5%; bottom: 42%; width: 10%; }
+.pet-room.is-narrow .pet-room__shelf { left: 11%; bottom: 42.5%; width: 17%; }
+.pet-room.is-narrow .pet-room__toybox { left: 40%; bottom: 39.5%; width: 12%; }
+.pet-room.is-narrow .pet-room__sofa { left: 56%; bottom: 41.5%; width: 33%; }
+.pet-room.is-narrow .pet-room__table,
+.pet-room.is-narrow .pet-room__lamplight { left: 89.5%; bottom: 42%; width: 9.5%; }
+.pet-room.is-narrow .pet-room__picture--paw { left: 72%; top: 13%; width: 9%; }
 
 @media (max-width: 640px) {
     .pet-room--compact { aspect-ratio: 12 / 6; }
@@ -303,9 +492,15 @@
 @media (prefers-reduced-motion: reduce) {
     .pet-room__pet,
     .pet-room__dark,
-    .pet-room__lamp .pr-lamp-glow { transition: none; }
-    .pet-room__pet.is-walking .pet-room__body { animation: none; }
+    .pet-room__lamplight,
+    .pet-room .pf-shade,
+    .pet-room__table .pr-lamp-glow { transition: none; }
+    .pet-room__pet.is-walking .pet-room__body,
+    .pet-room__pet.is-running .pet-room__body,
+    .pet-room__pet.is-hopping .pet-room__body { animation: none; }
 }
 
 html.pet-rig-rm .pet-room__pet { transition: none; }
-html.pet-rig-rm .pet-room__pet.is-walking .pet-room__body { animation: none; }
+html.pet-rig-rm .pet-room__pet.is-walking .pet-room__body,
+html.pet-rig-rm .pet-room__pet.is-running .pet-room__body,
+html.pet-rig-rm .pet-room__pet.is-hopping .pet-room__body { animation: none; }
