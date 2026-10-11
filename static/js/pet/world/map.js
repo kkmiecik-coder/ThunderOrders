@@ -6,7 +6,9 @@
  * aria-label ze stanem). Znaczki nad miejscami liczone z JSON-u stanu; noc z `state.night.is_night`.
  * Pełny ekran (spec v3.1 §3.5): plansza mieści się w scenie właściwej (proporcje zachowane), a niebo,
  * horyzont i trawa wychodzą poza viewBox (overflow: visible) aż do krawędzi sceny.
- * Rejestruje się w window.PetsWorld.scenes.mapa — router (pets.js) woła create/enter/render.
+ * Pupil w oknie domku (feedback Konrada): co jakiś czas w jednym z okien wychyla się towarzysz i macha
+ * (maluch jeszcze nie umie — kołysze się); śpiący drzemie chwilę w oświetlonym oknie. Klik = domek z jego panelem.
+ * Rejestruje się w window.PetsWorld.scenes.mapa — router (pets.js) woła create/enter/leave/render.
  */
 (function () {
     'use strict';
@@ -22,6 +24,17 @@
         { scene: 'ogrod', label: 'Ogród wspomnień' }
     ];
     var NEEDY_MOODS = ['glodny', 'smutny', 'brudny', 'znudzony'];
+
+    // Pupil w oknie domku — rytm w ms (losowo z przedziałów); OUT = czas chowania z CSS (transition) z zapasem
+    var PEEK = {
+        first: [3000, 6000],        // pierwsze pojawienie po wejściu na mapę (i po powrocie do karty)
+        gap: [12000, 30000],        // kolejne
+        gapSleep: [20000, 40000],   // śpiący zagląda rzadziej
+        stay: 3600,
+        staySleep: 5200,
+        waves: [650, 2050],         // dwa machnięcia (gest trwa 1,2 s)
+        out: 1300
+    };
 
     var BADGE_ICON = {
         cross: '<path d="M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z"/>',
@@ -46,9 +59,10 @@
         '<path d="M-8 32 L35 2 L78 32 Z" fill="#ff8fab"/>' +
         '<rect x="52" y="6" width="8" height="16" fill="#c4708a"/>' +
         '<rect x="28" y="54" width="14" height="26" rx="6" fill="#c98b5c"/><circle cx="38" cy="68" r="1.3" fill="#7a4a2a"/>' +
-        '<rect x="8" y="42" width="14" height="12" rx="2" class="map-win" fill="#fff6c9" stroke="#e8c96b"/>' +
-        '<rect x="48" y="42" width="14" height="12" rx="2" class="map-win" fill="#fff6c9" stroke="#e8c96b"/>' +
-        '<g class="map-glow"><circle cx="15" cy="48" r="11" fill="#ffd36b" opacity=".35"/><circle cx="55" cy="48" r="11" fill="#ffd36b" opacity=".35"/></g>';
+        // Okna 18×15 (dawniej 14×12): wygląda z nich pupil — wnętrza muszą się zgadzać z .pets-map__peek w CSS
+        '<rect x="5" y="39" width="18" height="15" rx="2.5" class="map-win" fill="#fff6c9" stroke="#e8c96b"/>' +
+        '<rect x="47" y="39" width="18" height="15" rx="2.5" class="map-win" fill="#fff6c9" stroke="#e8c96b"/>' +
+        '<g class="map-glow"><circle cx="14" cy="46.5" r="13" fill="#ffd36b" opacity=".35"/><circle cx="56" cy="46.5" r="13" fill="#ffd36b" opacity=".35"/></g>';
     var WORKSHOP =
         '<rect x="0" y="14" width="56" height="38" rx="3" fill="#c99a6b" stroke="#a87b4f"/>' +
         '<path d="M-4 16 L28 0 L60 16 Z" fill="#8a5a3b"/>' +
@@ -160,6 +174,194 @@
         nightTint(360, 640) +
         '</svg>';
 
+    // --- pupil w oknie domku ------------------------------------------------------------------
+
+    function rand(range) {
+        return range[0] + Math.random() * (range[1] - range[0]);
+    }
+
+    /** Towarzysz (state.companion.pet_id — backend pomija szpital), a bez niego pierwszy żywy poza szpitalem. */
+    function peekPetOf(state) {
+        var pets = ((state && state.pets) || []).filter(function (p) { return !p.hospital; });
+        var id = state && state.companion && state.companion.pet_id;
+        for (var i = 0; i < pets.length; i++) if (pets[i].id === id) return pets[i];
+        return pets[0] || null;
+    }
+
+    /**
+     * Okno domku z pupilem: <a> nad wnętrzem okna (lewego albo prawego, losowo), w nim przycinające okienko
+     * i jeden rig. Rig powstaje przy pierwszym pojawieniu i ginie w leave() i przy schowaniu karty (z nim jego
+     * timery mrugania);
+     * między pojawieniami element jest ukryty (display: none — animacje rigu nie liczą się w tle).
+     * Karta przeglądarki w tle = pauza (bez timerów); powrót = pojawienie po kilku sekundach.
+     */
+    function createPeek(ctx, board) {
+        var u = ctx.u;
+        var link = u.el('a', 'pets-map__peek');
+        var win = u.el('span', 'pets-map__peek-win');
+        var holder = u.el('span', 'pets-map__peek-pet');
+        // Łapka rigu chowa się w małym oknie za głową — machająca łapka mapy leży nad pupilem (kolory z rigu)
+        var paw = u.el('span', 'pets-map__peek-paw');
+        paw.innerHTML = '<svg viewBox="0 0 40 70" aria-hidden="true" focusable="false">' +
+            '<ellipse class="paw-arm" cx="20" cy="42" rx="12.5" ry="28"/><ellipse class="paw-pad" cx="20" cy="23" rx="6.5" ry="5.5"/></svg>';
+        // Skrót myszą/dotykiem do panelu pupila — dostępna droga to link „Domek” (pupil znika po 3–5 s)
+        link.setAttribute('aria-hidden', 'true');
+        link.setAttribute('tabindex', '-1');
+        link.dataset.sceneLink = 'domek';
+        link.hidden = true;
+        win.appendChild(holder);
+        win.appendChild(paw);
+        link.appendChild(win);
+        board.appendChild(link);
+
+        var rig = null, petId = null, shown = false, hover = false, active = false, lastState = null;
+        var timers = { next: 0, hide: 0, out: 0, wave0: 0, wave1: 0, unwave: 0 };
+
+        function clear(keys) {
+            (keys || Object.keys(timers)).forEach(function (k) {
+                clearTimeout(timers[k]);
+                timers[k] = 0;
+            });
+        }
+
+        function schedule(range) {
+            clear(['next']);
+            if (!active || document.visibilityState === 'hidden') return;
+            timers.next = setTimeout(show, rand(range));
+        }
+
+        // Maluch jeszcze nie umie machać (gesty stadiów, spec §2.7) — kołysze się. Gest odmawia sam przy
+        // ograniczonym ruchu i w stanie innym niż spokojny (smutek, choroba) — wtedy łapka też się nie pokazuje.
+        function wave(stage) {
+            if (!rig || !shown) return;
+            var list = (window.PetRig.GESTURES || {})[stage] || [];
+            if (list.indexOf('wave') < 0) {
+                rig.gesture('sway');
+                return;
+            }
+            if (!rig.gesture('wave')) return;
+            link.classList.remove('is-waving');
+            void link.offsetWidth;
+            link.classList.add('is-waving');
+            clearTimeout(timers.unwave);
+            timers.unwave = setTimeout(function () {
+                timers.unwave = 0;
+                link.classList.remove('is-waving');
+            }, 1250);
+        }
+
+        function syncPaw() {
+            ['--rig-base', '--rig-light', '--rig-line'].forEach(function (v) {
+                win.style.setProperty(v, rig.el.style.getPropertyValue(v));
+            });
+        }
+
+        function show() {
+            timers.next = 0;
+            var pet = window.PetRig ? peekPetOf(lastState) : null;
+            if (!pet) {   // brak żywych pupili poza szpitalem: nic się nie pojawia, sprawdzamy dalej
+                schedule(PEEK.gap);
+                return;
+            }
+            var need = window.PetRig.needOf(pet);
+            var sleepy = need === 'sleep';
+            var opts = { species: pet.species, stage: pet.stage, stars: 0, need: need, pose: 'stand', size: 'mini', idle: false };
+            clear(['out']);
+            link.hidden = false;
+            if (rig) rig.update(opts);
+            else rig = window.PetRig.mount(holder, opts);
+            syncPaw();
+            petId = pet.id;
+            link.href = ctx.href('domek', { pupil: pet.id });
+            link.dataset.pupil = pet.id;
+            link.dataset.stage = pet.stage;
+            link.classList.toggle('pets-map__peek--r', Math.random() < 0.5);
+            link.classList.toggle('is-sleepy', sleepy);
+            void link.offsetWidth;   // start przejścia ze stanu ukrytego (świeżo odkryty element)
+            link.classList.add('is-shown');
+            shown = true;
+            if (!sleepy) {
+                timers.wave0 = setTimeout(function () { wave(pet.stage); }, PEEK.waves[0]);
+                timers.wave1 = setTimeout(function () { wave(pet.stage); }, PEEK.waves[1]);
+            }
+            timers.hide = setTimeout(hideLater, sleepy ? PEEK.staySleep : PEEK.stay);
+        }
+
+        // Kursor nad pupilem = zostaje, póki go nie zabierzesz (cel nie ucieka spod myszy)
+        function hideLater() {
+            timers.hide = 0;
+            if (hover) {
+                timers.hide = setTimeout(hideLater, 800);
+                return;
+            }
+            var sleepy = link.classList.contains('is-sleepy');
+            hide(false);
+            schedule(sleepy ? PEEK.gapSleep : PEEK.gap);
+        }
+
+        function hide(instant) {
+            clear(['hide', 'wave0', 'wave1', 'unwave', 'out']);
+            shown = false;
+            hover = false;
+            link.classList.remove('is-shown', 'is-waving');
+            if (instant) {
+                link.hidden = true;
+                return;
+            }
+            timers.out = setTimeout(function () {
+                timers.out = 0;
+                link.hidden = true;
+            }, PEEK.out);
+        }
+
+        // Rig z własnym timerem mrugania żyje tylko, gdy mapa jest widoczna (wyjście ze sceny, karta w tle)
+        function dropRig() {
+            if (rig) rig.destroy();
+            rig = null;
+            petId = null;
+        }
+
+        function onVisibility() {
+            if (document.visibilityState === 'hidden') {
+                clear();
+                hide(true);
+                dropRig();
+            } else if (active && !timers.next && !shown) {
+                schedule(PEEK.first);
+            }
+        }
+
+        link.addEventListener('mouseenter', function () { if (shown) hover = true; });
+        link.addEventListener('mouseleave', function () { hover = false; });
+
+        return {
+            enter: function () {
+                clear();
+                hide(true);
+                active = true;
+                document.addEventListener('visibilitychange', onVisibility);
+                schedule(PEEK.first);
+            },
+            leave: function () {
+                active = false;
+                document.removeEventListener('visibilitychange', onVisibility);
+                clear();
+                hide(true);
+                dropRig();
+            },
+            render: function (state) {
+                lastState = state;
+                // Pokazany pupil przestał się nadawać (szpital, zmiana towarzysza) — chowa się od razu
+                if (!shown) return;
+                var pet = peekPetOf(state);
+                if (!pet || pet.id !== petId) {
+                    hide(false);
+                    schedule(PEEK.gap);
+                }
+            }
+        };
+    }
+
     // --- scena -----------------------------------------------------------------------------
 
     function create(ctx, host) {
@@ -181,6 +383,7 @@
             board.appendChild(a);
             places[p.scene] = { a: a, badges: badges, label: p.label, sig: null };
         });
+        var peek = createPeek(ctx, board);   // po miejscach: pokazany pupil leży nad linkiem domku
         wrap.appendChild(board);
         stage.appendChild(wrap);
         host.appendChild(stage);
@@ -233,6 +436,7 @@
                 garden.push(['candle', 'możesz dziś zapalić światełko']);
             }
             setPlace('ogrod', garden);
+            peek.render(state);
         }
 
         return {
@@ -240,9 +444,11 @@
                 wrap.classList.remove('is-zooming');
                 wrap.style.removeProperty('--zoom-x');
                 wrap.style.removeProperty('--zoom-y');
+                peek.enter();
             },
             leave: function () {
                 wrap.classList.remove('is-zooming');
+                peek.leave();
             },
             render: render,
             /** Zoom w stronę miejsca przed przejściem (300–400 ms, CSS); router wstrzymuje przejście. */
