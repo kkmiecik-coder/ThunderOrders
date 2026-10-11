@@ -107,6 +107,31 @@ def apply_state(pet, state, now):
     pet.state_at = now
 
 
+def checkpoint_alive_pets(now, cfg):
+    """Domyka stan WSZYSTKICH żywych pupili do `now` bieżącą konfiguracją (recenzja końcowa, Important 5).
+
+    Symulacja liczy od `state_at` konfiguracją obowiązującą w chwili odczytu, więc obniżenie tempa w panelu
+    działałoby wstecz (pupil nieobecnego od 2 dni odchodziłby natychmiast). Wołane PRZED zapisem nowych liczb,
+    pod blokadami per użytkownik (profil → pupile), commit per użytkownik. Zwraca liczbę przeliczonych pupili.
+    """
+    from modules.auth.models import User
+    ids = [r[0] for r in db.session.query(Pet.user_id).filter(Pet.status == 'alive').distinct().all()]
+    n = 0
+    for uid in ids:
+        user = db.session.get(User, uid)
+        if user is None or lock_profile(user, required=False) is None:
+            continue
+        for pet in alive_pets_lock_query(uid).all():
+            sim = simulate_pet(pet, now, cfg)
+            if sim.died_at is not None:
+                persist_death(pet, sim, now)
+            else:
+                apply_state(pet, sim.state, now)
+            n += 1
+        db.session.commit()
+    return n
+
+
 def persist_death(pet, sim, now):
     """Zapis odejścia warunkowym UPDATE — dwa równoległe odczyty zrobią jedno zdarzenie.
 

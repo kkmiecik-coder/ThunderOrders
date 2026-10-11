@@ -86,6 +86,24 @@ class PetConfig:
         return cls(**nadpisania)
 
 
+# Górne limity (recenzja końcowa, Important 4): literówka admina (np. 9999999999 dni) dawała OverflowError
+# z timedelta na dashboardzie każdego klienta. Wiersz poza zakresem = wartość domyślna, nie awaria.
+MAX_INT = {'rollout_pct': 100, 'health_drop_hours': 8760, 'health_regen_hours': 8760, 'egg_hours': 8760,
+           'start_egg_hours': 8760, 'monthly_days': 3650, 'rescue_hours': 8760, 'rescue_reminder_days': 3650,
+           'pity_after': 100, 'max_stars': 9}
+MAX_DICT = {'decay_hours': {'*': 8760}, 'night': {'start': 23, 'end': 23, 'factor': 1},
+            'boost': {'hours': 8760, 'factor': 100}, 'stage_days': {'*': 3650},
+            'actions': {'feed': 100, 'play': 100, 'heal': 100, 'heal_cooldown_h': 8760, 'allow_below': 100,
+                        'pat_gain': 100, 'pat_per_hour': 100000, 'wake_penalty': 100, 'awake_minutes': 1440}}
+
+
+def max_for(nazwa, pole=None):
+    if pole is None:
+        return MAX_INT.get(nazwa)
+    slownik = MAX_DICT.get(nazwa, {})
+    return slownik.get(pole, slownik.get('*'))
+
+
 def _przetworz(nazwa, surowe, domyslna, zero_ok):
     """Konwersja + walidacja jednej wartości; ValueError = użyj domyślnej."""
     if isinstance(domyslna, bool):
@@ -96,6 +114,9 @@ def _przetworz(nazwa, surowe, domyslna, zero_ok):
             raise ValueError('liczba poza zakresem')
         if nazwa == 'rollout_pct' and liczba > 100:
             raise ValueError('procent > 100')
+        maks = max_for(nazwa)
+        if maks is not None and liczba > maks:
+            raise ValueError(f'{nazwa} > {maks}')
         return liczba
     if isinstance(domyslna, dict):
         try:
@@ -119,6 +140,13 @@ def _przetworz(nazwa, surowe, domyslna, zero_ok):
                     raise ValueError('godzina nocy poza 0–23')
             elif wartosc <= 0:
                 raise ValueError(f'{klucz}: musi być dodatnia')
+            elif klucz == 'factor' and nazwa == 'boost' and wartosc < 1:
+                raise ValueError('boost.factor < 1')
+            maks = max_for(nazwa, klucz)
+            if maks is not None and wartosc > maks:
+                raise ValueError(f'{klucz} > {maks}')
+        if nazwa == 'stage_days' and not scalone['child'] < scalone['adult']:
+            raise ValueError('stage_days: child musi być < adult')
         return scalone
     raise TypeError(f'nieobsługiwany typ pola {nazwa}')
 
@@ -192,8 +220,14 @@ ADMIN_FIELDS = (
      'Akcje: karmienie / zabawa / leczenie / odstęp leczenia (h) / próg akcji / pat pat (+) / pat na godzinę / kara za obudzenie / okno po obudzeniu (min)'),
 )
 
-# Pola, które mogą być ułamkiem (reszta to liczby całkowite)
-_FLOAT_FIELDS = frozenset({'pets_night_factor', 'pets_boost_factor', 'pets_actions_pat_gain'})
+# Pola, które mogą być ułamkiem: współczynniki i wszystkie liczby w słownikach poza godzinami nocy
+# (tak samo akceptuje je `_przetworz`); pola płaskie są całkowite.
+_FLOAT_FIELDS = frozenset({'pets_night_factor', 'pets_boost_factor', 'pets_actions_pat_gain', 'pets_boost_hours',
+                           'pets_decay_hours_hunger', 'pets_decay_hours_fun', 'pets_decay_hours_clean',
+                           'pets_stage_days_child', 'pets_stage_days_adult', 'pets_actions_feed', 'pets_actions_play',
+                           'pets_actions_heal', 'pets_actions_heal_cooldown_h', 'pets_actions_allow_below',
+                           'pets_actions_pat_per_hour', 'pets_actions_wake_penalty', 'pets_actions_awake_minutes'})
+SWITCH_KEYS = frozenset({'pets_enabled', 'pets_rollout_pct'})   # osobny formularz „Włącznik i rollout”
 
 
 def admin_form_fields():
@@ -241,16 +275,19 @@ def _liczba(pole, surowe, errors):
         return None
 
 
-def validate_settings(form):
+def validate_settings(form, only=None):
     """Formularz admina → ({klucz Settings: (wartość-string, typ)}, {pole formularza: komunikat}).
 
-    Zakresy jak w `_przetworz` (liczby dodatnie poza _ZERO_OK, 0 ≤ pct ≤ 100) plus reguły specu §3.4:
-    noc `0 ≤ start,end ≤ 23`, `0 < factor ≤ 1`; ogrzewanie `factor ≥ 1`; pat_gain > 0.
+    Zakresy jak w `_przetworz` (liczby dodatnie poza _ZERO_OK, 0 ≤ pct ≤ 100, górne limity MAX_*) plus reguły
+    specu §3.4: noc `0 ≤ start,end ≤ 23` (zero jest legalne), `0 < factor ≤ 1`; ogrzewanie `factor ≥ 1`;
+    `stage_days.child < adult`. `only` = zbiór kluczy Settings do walidacji (formularz włącznika).
     Przy JAKIMKOLWIEK błędzie nic nie jest zapisywane — wołający sprawdza `errors`.
     """
     values, errors = {}, {}
     domyslne = PetConfig()
     for klucz, typ, pola, _ in ADMIN_FIELDS:
+        if only is not None and klucz not in only:
+            continue
         atrybut = klucz[len(SETTINGS_PREFIX):]
         if typ == 'boolean':
             values[klucz] = ('true' if form.get(klucz) in ('on', 'true', '1') else 'false', typ)
@@ -259,10 +296,13 @@ def validate_settings(form):
             v = _liczba(klucz, form.get(klucz), errors)
             if v is None:
                 continue
+            maks = max_for(atrybut)
             if klucz == 'pets_rollout_pct' and not 0 <= v <= 100:
                 errors[klucz] = 'Zakres 0–100.'
             elif v < 0 or (v == 0 and atrybut not in PetConfig._ZERO_OK):
                 errors[klucz] = 'Liczba musi być dodatnia.'
+            elif maks is not None and v > maks:
+                errors[klucz] = f'Maksymalnie {maks}.'
             else:
                 values[klucz] = (str(v), typ)
             continue
@@ -273,19 +313,26 @@ def validate_settings(form):
             if v is None:
                 blad_w_grupie = True
                 continue
-            if klucz == 'pets_night' and pole in ('start', 'end') and not 0 <= v <= 23:
-                errors[nazwa] = 'Godzina 0–23.'
+            maks = max_for(atrybut, pole)
+            if klucz == 'pets_night' and pole in ('start', 'end'):
+                if not 0 <= v <= 23:
+                    errors[nazwa] = 'Godzina 0–23.'
             elif klucz == 'pets_night' and pole == 'factor' and not 0 < v <= 1:
                 errors[nazwa] = 'Mnożnik w przedziale (0, 1].'
             elif klucz == 'pets_boost' and pole == 'factor' and v < 1:
                 errors[nazwa] = 'Mnożnik ≥ 1.'
             elif v <= 0:
                 errors[nazwa] = 'Liczba musi być dodatnia.'
-            else:
-                slownik[pole] = v
+            elif maks is not None and v > maks:
+                errors[nazwa] = f'Maksymalnie {maks}.'
             if nazwa in errors:
                 blad_w_grupie = True
+            else:
+                slownik[pole] = v
         if blad_w_grupie:
+            continue
+        if klucz == 'pets_stage_days' and not slownik['child'] < slownik['adult']:
+            errors['pets_stage_days_child'] = 'Dziecko musi zaczynać się wcześniej niż dorosły.'
             continue
         surowe = json.dumps(slownik)
         try:

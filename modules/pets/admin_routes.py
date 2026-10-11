@@ -17,8 +17,8 @@ from sqlalchemy import func, or_
 from extensions import db
 from modules.auth.models import Settings, User, get_local_now
 from modules.pets import pets_admin_bp, rules, service
-from modules.pets.common import CARE_ACTIONS, get_profile
-from modules.pets.config import (ADMIN_FIELDS, PetConfig, admin_form_fields, admin_form_values,
+from modules.pets.common import CARE_ACTIONS, checkpoint_alive_pets, get_profile
+from modules.pets.config import (ADMIN_FIELDS, SWITCH_KEYS, PetConfig, admin_form_fields, admin_form_values,
                                  reset_feature_cache, validate_settings)
 from modules.pets.errors import PetError
 from modules.pets.models import Pet, PetEvent, PetProfile
@@ -33,6 +33,15 @@ OPISY = {klucz: etykieta for klucz, _typ, _pola, etykieta in ADMIN_FIELDS}
 @pets_admin_bp.errorhandler(PetError)
 def _pet_error(e):
     return jsonify({'ok': False, 'error': e.code, 'message': e.message}), e.status
+
+
+@pets_admin_bp.errorhandler(400)
+def _bad_request(e):
+    # fetch-e panelu (szukaj/przyznaj) czytają JSON — błąd CSRF (podklasa 400) nie może wracać jako HTML
+    if request.is_json or request.path.endswith(('/przyznaj', '/szukaj')):
+        return jsonify({'ok': False, 'error': 'bad_request',
+                        'message': 'Nieprawidłowe żądanie — odśwież stronę i spróbuj ponownie.'}), 400
+    return e
 
 
 def admin_stats(now=None, cfg=None):
@@ -101,9 +110,15 @@ def index():
 @pets_admin_bp.route('/ustawienia', methods=['POST'])
 @role_required('admin', 'mod')
 def save_settings():
-    values, errors = validate_settings(request.form)
+    tylko_wlacznik = request.form.get('scope') == 'switch'
+    values, errors = validate_settings(request.form, only=SWITCH_KEYS if tylko_wlacznik else None)
     if errors:
-        return _render_index(request.form, errors, status=400)
+        formularz = dict(admin_form_values(PetConfig.load(force=True)), **request.form.to_dict()) if tylko_wlacznik else request.form
+        return _render_index(formularz, errors, status=400)
+    przeliczone = 0
+    if not tylko_wlacznik:
+        # Liczby gry: domknij stan wszystkich żywych pupili STARĄ konfiguracją, żeby zmiana nie działała wstecz
+        przeliczone = checkpoint_alive_pets(get_local_now(), PetConfig.load(force=True))
     zmienione = {}
     for klucz, (wartosc, typ) in values.items():
         Settings.set_value(klucz, wartosc, updated_by=current_user.id, type=typ, description=OPISY.get(klucz))
@@ -111,7 +126,10 @@ def save_settings():
     reset_feature_cache()
     log_activity(user=current_user, action='pets_settings_updated', entity_type='settings',
                  entity_id=None, new_value=json.dumps(zmienione, ensure_ascii=False))
-    flash('Ustawienia pupili zapisane. Działają od następnego przeliczenia stanu.', 'success')
+    if tylko_wlacznik:
+        flash('Włącznik i rollout zapisane — działają natychmiast.', 'success')
+    else:
+        flash(f'Liczby gry zapisane. Stan {przeliczone} żywych pupili domknięty poprzednią konfiguracją; nowa liczy się od teraz.', 'success')
     return redirect(url_for('pets_admin.index'))
 
 

@@ -4,7 +4,7 @@ Endpointy panelu klienta
 """
 
 import json
-from flask import render_template, request, jsonify, url_for
+from flask import render_template, request, jsonify, url_for, current_app
 from flask_login import login_required, current_user
 from extensions import db
 from modules.orders.models import Order, OrderItem, ShippingRequestOrder
@@ -132,7 +132,13 @@ def dashboard():
     # state_for_user może zapisać wyliczone odejście (commit) — tak samo jak strona domku.
     from modules.pets import service as pets_service
     from modules.pets.config import pets_feature_for
-    pets_widget = pets_service.state_for_user(_viewer) if pets_feature_for(current_user) else None
+    pets_widget = None
+    if pets_feature_for(current_user):
+        try:
+            pets_widget = pets_service.state_for_user(_viewer)
+        except Exception:   # noqa: BLE001 — błąd pupili nie może zabrać klientowi dashboardu
+            db.session.rollback()
+            current_app.logger.exception('dashboard: widget pupila pominięty')
 
     return render_template(
         'client/dashboard.html',

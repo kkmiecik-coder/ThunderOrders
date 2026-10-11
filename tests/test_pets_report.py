@@ -41,8 +41,11 @@ def test_lejek_retencja_i_odejscia(db, make_user):
     db.session.commit()
 
     r = build_report(14, now=T0)
-    assert r['funnel'] == {'profiles': 3, 'claimed_start': 2, 'hatched_any': 2, 'alive_d7': 1}
-    assert r['retention']['d7']['cohort'] == 2 and r['retention']['d7']['active'] == 1
+    # dzień 0 = odbiór startowego (PetProfile.start_egg_claimed_at), nie dowolne zdarzenie `claim`
+    assert r['funnel'] == {'profiles': 3, 'claimed_start': 3, 'hatched_any': 2, 'alive_d7': 1}
+    assert r['retention']['d7'] == {'cohort': 3, 'active': 1, 'pct': 33.3}
+    assert r['retention']['d1'] == {'cohort': 3, 'active': 1, 'pct': 33.3}
+    assert r['retention']['d30'] == {'cohort': 0, 'active': 0, 'pct': None}
     assert r['deaths']['total'] == 1 and r['deaths']['causes']['hunger'] == 1
     assert r['deaths']['per_100_alive'] == 100.0            # 1 odejście / 1 żywy
     assert r['alert_reaction_hours'] == {'median': 6.0, 'n': 1}
@@ -51,3 +54,24 @@ def test_lejek_retencja_i_odejscia(db, make_user):
     assert any(c == 1 for _, c in r['caretakers_daily'])
     tekst = format_report(r)
     assert 'Odejścia' in tekst and '100.0' in tekst
+
+
+def test_retencja_d7_widoczna_przy_oknie_7_dni(db, make_user):
+    """Recenzja (Important 1): przy --days 7 kohorta D7 to profile z odbiorem 7–14 dni temu, a dzień 0 to
+    odbiór STARTOWEGO — weteran odbierający miesięczne nie staje się nowym użytkownikiem."""
+    from modules.pets.common import add_event
+    from modules.pets.report import build_report
+    nowy = make_user()
+    zaloz_profil(nowy, now=T0 - timedelta(days=8))
+    pet = zaloz_pupila(nowy, now=T0 - timedelta(days=8))
+    add_event(nowy.id, 'feed', T0 - timedelta(days=1, hours=-2), pet_id=pet.id)   # dzień 7 od odbioru (+2 h)
+    weteran = make_user()
+    zaloz_profil(weteran, now=T0 - timedelta(days=100))
+    pw = zaloz_pupila(weteran, species='mis', now=T0 - timedelta(days=100))
+    add_event(weteran.id, 'claim', T0 - timedelta(days=2), pet_id=pw.id)          # miesięczne — nie dzień 0
+    db.session.commit()
+    r = build_report(7, now=T0)
+    assert r['funnel']['claimed_start'] == 0                     # żaden profil nie powstał w oknie 7 dni
+    assert r['retention']['d7'] == {'cohort': 1, 'active': 1, 'pct': 100.0}
+    assert r['retention']['d1']['cohort'] == 1 and r['retention']['d1']['active'] == 0   # odbiór 8 dni temu ∈ [now-8d, now-1d]; opieka nie w dniu 1
+    assert r['funnel']['alive_d7'] == 1

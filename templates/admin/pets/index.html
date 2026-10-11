@@ -44,13 +44,14 @@
         <p class="pa-hint">Pełne metryki: <code>flask pets report --days 7</code> na serwerze.</p>
     </section>
 
-    {# --- Ustawienia --- #}
+    {% if errors %}
+    <div class="pa-alert pa-alert--error" role="alert">Popraw zaznaczone pola — nic nie zostało zapisane.</div>
+    {% endif %}
+
+    {# --- Włącznik: osobny formularz, żeby awaryjne wyłączenie nie zależało od 28 pól liczbowych --- #}
     <form method="post" action="{{ url_for('pets_admin.save_settings') }}" class="pa-form" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        {% if errors %}
-        <div class="pa-alert pa-alert--error" role="alert">Popraw zaznaczone pola — nic nie zostało zapisane.</div>
-        {% endif %}
-
+        <input type="hidden" name="scope" value="switch">
         <section class="pa-card pa-card--switch" aria-labelledby="paSwitchTitle">
             <h2 id="paSwitchTitle" class="pa-card__title">Włącznik i rollout</h2>
             <div class="pa-switch-row">
@@ -66,12 +67,19 @@
                     {% if errors.get('pets_rollout_pct') %}<span class="pa-field__error">{{ errors['pets_rollout_pct'] }}</span>{% endif %}
                 </div>
             </div>
-            <p class="pa-hint">Wyłączenie = strona i API 404, cron milczy, dane zostają. Zalecany rollout: 10 → 50 → 100 % w ok. 2 tygodnie.</p>
+            <p class="pa-hint">Wyłączenie = strona i API 404, cron milczy, dane zostają (pupile osób bez dostępu nadal się starzeją, ale nikt o nich nie przypomina). Zalecany rollout: 10 → 50 → 100 % w ok. 2 tygodnie; obniżenie procentu odbiera dostęp części użytkowników.</p>
+            <div class="pa-actions">
+                <button type="submit" class="pa-btn-primary">Zapisz włącznik</button>
+            </div>
         </section>
+    </form>
 
+    {# --- Liczby gry --- #}
+    <form method="post" action="{{ url_for('pets_admin.save_settings') }}" class="pa-form" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <section class="pa-card" aria-labelledby="paNumbersTitle">
             <h2 id="paNumbersTitle" class="pa-card__title">Liczby gry</h2>
-            <p class="pa-hint">Zmiany działają od następnego przeliczenia stanu (najpóźniej 5 min u aktywnych użytkowników). Liczby dodatnie; wyjątki: ratunkowe (0 = od razu), gwarancja, gwiazdki.</p>
+            <p class="pa-hint">Przy zapisie stan wszystkich żywych pupili jest domykany poprzednią konfiguracją, a nowa liczy się od tej chwili (zmiana nie działa wstecz). Liczby dodatnie z górnymi limitami; wyjątki od zera: ratunkowe (0 = od razu), gwarancja, gwiazdki.</p>
             <div class="pa-fields">
             {% for klucz, typ, pola, etykieta in sections %}
                 {% if typ != 'boolean' and klucz != 'pets_rollout_pct' %}

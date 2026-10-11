@@ -344,6 +344,9 @@ class AchievementService:
         all_achievements = Achievement.query.filter_by(is_active=True).order_by(
             Achievement.sort_order
         ).all()
+        # Odznaki pupili widzi tylko ten, kto widzi funkcję (flaga + rollout) — przed włączeniem nic nie wycieka
+        from modules.pets.config import pets_feature_for
+        ukryj_pupile = not pets_feature_for(user)
 
         unlocked_map = {
             ua.achievement_id: ua
@@ -360,6 +363,8 @@ class AchievementService:
             ua = unlocked_map.get(a.id)
             # Hide flagged achievements that user doesn't have
             if a.is_hidden_until_unlocked and not ua:
+                continue
+            if ukryj_pupile and a.category == 'pets':
                 continue
             stat = stats_map.get(a.id)
             config = a.trigger_config

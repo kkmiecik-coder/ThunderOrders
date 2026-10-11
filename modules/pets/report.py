@@ -4,8 +4,9 @@ push_subscriptions), nie ze statusów w cache. Czyste funkcje z `now=` do testó
 
 Konwencje:
 - „opieka" = zdarzenia CARE_ACTIONS (feed/play/wash/heal/pat);
-- dzień 0 użytkownika = jego pierwsze zdarzenie `claim` w oknie; retencja dN = dowolna opieka w dniu
-  claim+N (±12 h);
+- dzień 0 użytkownika = odbiór STARTOWEGO (`PetProfile.start_egg_claimed_at`), nie dowolne zdarzenie `claim`
+  (weteran odbierający miesięczne nie jest nowym użytkownikiem); kohorta dN = profile z odbiorem w
+  [now-days-N, now-N], aktywny = dowolna opieka w dniu odbiór+N (±12 h) — ten dzień zawsze leży w oknie;
 - `None` zamiast dzielenia przez zero (0 żywych, pusta kohorta) — format_report pokazuje „—".
 """
 from collections import defaultdict
@@ -28,25 +29,29 @@ def build_report(days, now=None):
     days = max(1, int(days))
     since = now - timedelta(days=days)
 
-    zdarzenia = (PetEvent.query.filter(PetEvent.created_at >= since, PetEvent.created_at <= now)
+    # opieka z zapasem 12 h przed oknem — dzień odbiór+N kohorty dN leży w oknie, ale jego tolerancja ±12 h nie musi
+    zdarzenia = (PetEvent.query.filter(PetEvent.created_at >= since - timedelta(hours=12), PetEvent.created_at <= now)
                  .order_by(PetEvent.created_at).all())
+    w_oknie = [e for e in zdarzenia if e.created_at >= since]
     opieka = [e for e in zdarzenia if e.type in CARE_ACTIONS]
-    claimy = [e for e in zdarzenia if e.type == 'claim']
-    pierwszy_claim = {}
-    for e in claimy:                      # posortowane rosnąco → pierwszy wygrywa
-        pierwszy_claim.setdefault(e.user_id, e.created_at)
+    opieka_w_oknie = [e for e in w_oknie if e.type in CARE_ACTIONS]
+    start_per_user = {p.user_id: p.start_egg_claimed_at for p in PetProfile.query.all()}
 
     zywe = Pet.query.filter(Pet.status == 'alive').all()
     zywi_wlasciciele = {p.user_id for p in zywe}
 
+    def kohorta_dla(n):
+        return [(uid, t) for uid, t in start_per_user.items()
+                if now - timedelta(days=days + n) <= t <= now - timedelta(days=n)]
+
     # --- lejek ---
-    hatched_users = {e.user_id for e in zdarzenia if e.type in ('hatch_new', 'hatch_dupe')}
-    alive_d7 = sum(1 for uid, t in pierwszy_claim.items() if now - t >= timedelta(days=7) and uid in zywi_wlasciciele)
+    hatched_users = {e.user_id for e in w_oknie if e.type in ('hatch_new', 'hatch_dupe')}
+    kohorta7 = kohorta_dla(7)
     funnel = {
-        'profiles': PetProfile.query.filter(PetProfile.created_at <= now).count(),
-        'claimed_start': len(pierwszy_claim),
+        'profiles': len(start_per_user),
+        'claimed_start': sum(1 for t in start_per_user.values() if since <= t <= now),
         'hatched_any': len(hatched_users),
-        'alive_d7': alive_d7,
+        'alive_d7': sum(1 for uid, _t in kohorta7 if uid in zywi_wlasciciele),
     }
 
     # --- retencja ---
@@ -55,7 +60,7 @@ def build_report(days, now=None):
         opieka_per_user[e.user_id].append(e.created_at)
     retention = {}
     for n in (1, 7, 30):
-        kohorta = [(uid, t) for uid, t in pierwszy_claim.items() if now - t >= timedelta(days=n)]
+        kohorta = kohorta7 if n == 7 else kohorta_dla(n)
         aktywni = 0
         for uid, t in kohorta:
             cel = t + timedelta(days=n)
@@ -65,7 +70,7 @@ def build_report(days, now=None):
 
     # --- aktywni opiekunowie dziennie ---
     per_dzien = defaultdict(set)
-    for e in opieka:
+    for e in opieka_w_oknie:
         per_dzien[e.created_at.date()].add(e.user_id)
     caretakers_daily = []
     for i in range(days, -1, -1):
@@ -73,7 +78,7 @@ def build_report(days, now=None):
         caretakers_daily.append((d.isoformat(), len(per_dzien.get(d, ()))))
 
     # --- odejścia ---
-    odejscia = [e for e in zdarzenia if e.type == 'die']
+    odejscia = [e for e in w_oknie if e.type == 'die']
     przyczyny = {nazwa: 0 for nazwa in DEATH_CAUSE}
     przyczyny['unknown'] = 0
     for e in odejscia:
@@ -91,7 +96,7 @@ def build_report(days, now=None):
         if e.pet_id is not None:
             opieka_per_pet[e.pet_id].append(e.created_at)
     reakcje = []
-    for e in zdarzenia:
+    for e in w_oknie:
         if e.type != 'alert' or e.pet_id is None:
             continue
         pozniejsze = [c for c in opieka_per_pet.get(e.pet_id, ()) if c > e.created_at]
