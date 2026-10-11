@@ -286,3 +286,14 @@ def login(client):
             sess['_user_id'] = str(user.id)
             sess['_fresh'] = True
     return _login
+
+
+@pytest.fixture(autouse=True)
+def _czysty_cache_flag_pupili():
+    """Bramka pupili (modules/pets/config) trzyma flagi pets_enabled/pets_rollout_pct
+    w cache procesu (TTL 10 s). Bez resetu test, który włączył funkcję, wyciekałby
+    do kolejnych testów — ten sam wzorzec co cache przełączników maili wyżej."""
+    from modules.pets.config import reset_feature_cache
+    reset_feature_cache()
+    yield
+    reset_feature_cache()

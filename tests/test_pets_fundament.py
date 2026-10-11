@@ -1,4 +1,5 @@
 """Etap 1 pupili: szkielet modułu, gatunki, modele."""
+from datetime import datetime
 
 
 def test_blueprinty_pupili_sa_zarejestrowane(app):
@@ -26,9 +27,6 @@ def test_kazdy_gatunek_ma_pelna_palete():
         for kolor in s.palette.values():
             assert kolor.startswith('#') and len(kolor) == 7, (s.slug, kolor)
         assert isinstance(s.extras, tuple)
-
-
-from datetime import datetime
 
 
 def test_profil_pupil_i_zdarzenie_z_domyslnymi(db, make_user):
