@@ -5,8 +5,8 @@
  *   PetCard.render(container, petDict, opts) -> card
  *     opts: { mini: bool, species: {slug: {name, …}}, onAction(pet, action, count) -> Promise,
  *             onRename(pet, name) -> Promise (opcjonalny; tylko pełna karta),
- *             now: 'ISO z api/stan', night: {start, end} }
- *     card.update(petDict[, {now, night}]) · card.el · card.rig · card.destroy()
+ *             now: 'ISO z api/stan', night: {start, end}, config: state.config }
+ *     card.update(petDict[, {now, night, config}]) · card.el · card.rig · card.destroy()
  *
  * Zachowanie:
  *   - akcje (feed/play/wash/heal/wake): przyciski zablokowane do rozstrzygnięcia Promise z onAction;
@@ -14,9 +14,16 @@
  *     błędy obsługuje wołający (toast/odświeżenie), karta tylko wraca do stanu z danych;
  *   - pat pat (klik / Enter / spacja na scenie): animacja i wibracja od razu, klepnięcia zbierane
  *     w paczki — debounce 2 s, max 50 w paczce → onAction(pet, 'pat', n); przyrost przychodzi
- *     z odpowiedzią (update). Niewysłana paczka leci przy schowaniu karty i przy destroy();
+ *     z odpowiedzią (update). Niewysłana paczka leci przy schowaniu karty, przy wyjściu ze strony
+ *     i przy destroy(). Wyjście: `beforeunload` (tylko gdy paczka czeka — nasłuch na stałe psułby
+ *     bfcache w Firefoksie; żądanie startuje, zanim przeglądarka zacznie ładować nową stronę)
+ *     + `pagehide` jako siatka (mobilne / bfcache; przy nawigacji w tej samej karcie Chromium nie
+ *     wysyła `visibilitychange`). Wołający wysyła paczkę z keepalive;
  *   - paski ekstrapolowane co 1 s z rates_per_hour (klamra 0–100); can/reasons stoją do update;
  *   - powód niedostępności akcji tekstem POD przyciskiem (nie `title` — dotyk go nie pokaże);
+ *     niedostępny przycisk ma aria-disabled (nie `disabled`), żeby fokus klawiatury nie uciekał na
+ *     <body>, gdy akcja się wykona i przycisk zgaśnie; przyciski aktualizowane w miejscu;
+ *   - liczby w podpowiedziach (noc, kara za obudzenie, czuwanie) z `config` stanu, nie na sztywno;
  *   - imię: klik → edycja w miejscu; błąd {error: 'bad_name', message} przy polu, edycja zostaje.
  * Bezpieczeństwo: imiona wyłącznie przez textContent / setAttribute; zero inline onclick —
  * delegacja zdarzeń z data-card-action.
@@ -108,6 +115,7 @@
 
     // Wspólny zegar dla wszystkich kart (ekstrapolacja pasków, odliczanie leku)
     var live = [];
+    var cardSeq = 0;
     var ticker = 0;
 
     function startTicker() {
@@ -124,15 +132,59 @@
         }
     }
 
+    function flushAll() {
+        var sent = false;
+        live.slice().forEach(function (card) { if (card._flushPats()) sent = true; });
+        disarmLeave();
+        return sent;
+    }
+
+    // Wyjście ze strony: odpowiedź może już nie wrócić, więc cache stanu przestaje być wiarygodny —
+    // następna strona pobierze świeży.
+    function flushOnLeave() {
+        if (flushAll() && window.PetsState && typeof window.PetsState.invalidate === 'function') window.PetsState.invalidate();
+    }
+
+    var leaveArmed = false;
+
+    function armLeave() {
+        if (leaveArmed) return;
+        leaveArmed = true;
+        window.addEventListener('beforeunload', flushOnLeave);
+    }
+
+    function disarmLeave() {
+        if (!leaveArmed) return;
+        for (var i = 0; i < live.length; i++) if (live[i]._hasPendingPats()) return;
+        leaveArmed = false;
+        window.removeEventListener('beforeunload', flushOnLeave);
+    }
+
     document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden') live.slice().forEach(function (card) { card._flushPats(); });
+        if (document.visibilityState === 'hidden') flushAll();
     });
+    window.addEventListener('pagehide', flushOnLeave);
+
+    /** „4× wolniej" z night_factor (0.25); bez configu — bez liczby; bez spowolnienia — nic. */
+    function nightSlowdown(config) {
+        var f = config && config.night_factor != null ? Number(config.night_factor) : NaN;
+        if (f === 0) return 'potrzeby teraz nie rosną';
+        if (f > 0 && f < 1) return 'potrzeby rosną teraz ' + Math.round(1 / f) + '× wolniej';
+        return f >= 1 ? '' : 'potrzeby rosną teraz wolniej';
+    }
+
+    function pointsLabel(n) {
+        var n10 = n % 10, n100 = n % 100;
+        if (n === 1) return 'punkt';
+        if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return 'punkty';
+        return 'punktów';
+    }
 
     function render(container, petDict, opts) {
         opts = opts || {};
         var mini = !!opts.mini;
         var pet = null;
-        var ctx = { now: opts.now || null, night: opts.night || null };
+        var ctx = { now: opts.now || null, night: opts.night || null, config: opts.config || null };
         var base = { at: Date.now(), bars: {}, rates: {} };
         var clockOffset = 0;
         var busy = false;
@@ -140,7 +192,9 @@
         var patTimer = 0;
         var destroyed = false;
         var editing = false;
-        var actionsSig = '';
+        var actionsKey = '';
+        var actionEls = {};          // akcja → {btn, reason}
+        var uid = ++cardSeq;
 
         var root = el('article', 'pet-card' + (mini ? ' pet-card--mini' : ''));
         var scene = el('div', 'pet-card__scene');
@@ -263,30 +317,56 @@
             return capitalize(reason);
         }
 
-        function renderActions(force) {
+        function isAvailable(action) {
+            return !busy && !!(pet.can && pet.can[action]);
+        }
+
+        function focusCard() {
+            if (!root.hasAttribute('tabindex')) root.tabIndex = -1;
+            try { root.focus({ preventScroll: true }); } catch (e) { root.focus(); }
+        }
+
+        /** Struktura przycisków tylko przy zmianie listy akcji; stan (dostępność, powód) w miejscu. */
+        function renderActions() {
             var list = visibleActions();
-            var sig = list.join(',') + '|' + JSON.stringify(pet.can || {}) + '|' + JSON.stringify(pet.reasons || {}) + '|' + busy;
-            if (!force && sig === actionsSig) {
-                tickReasons();
-                return;
+            var key = list.join(',');
+            if (key !== actionsKey) {
+                var active = document.activeElement;
+                var hadFocus = !!(active && actionsBox.contains(active));
+                var focusedAction = hadFocus ? active.getAttribute('data-card-action') : null;
+                actionsKey = key;
+                actionEls = {};
+                actionsBox.innerHTML = '';
+                actionsBox.classList.toggle('is-single', list.length === 1);
+                list.forEach(function (action) {
+                    var wrap = el('div', 'pet-action');
+                    var btn = el('button', 'pet-btn pet-action__btn' + (action === 'wake' ? ' pet-btn--primary' : ''));
+                    btn.type = 'button';
+                    btn.dataset.cardAction = action;
+                    btn.innerHTML = svg(action) + '<span class="pet-btn__label"></span>';
+                    btn.querySelector('.pet-btn__label').textContent = ACTION_LABEL[action];
+                    var reason = el('p', 'pet-action__reason');
+                    reason.dataset.reasonFor = action;
+                    reason.id = 'petCard' + uid + '-' + action + '-reason';
+                    btn.setAttribute('aria-describedby', reason.id);
+                    wrap.appendChild(btn);
+                    wrap.appendChild(reason);
+                    actionsBox.appendChild(wrap);
+                    actionEls[action] = { btn: btn, reason: reason };
+                });
+                // Fokus był na przebudowanym przycisku — wróć na tę samą akcję, a gdy jej już nie ma
+                // (np. „Obudź" po obudzeniu) — na kartę
+                if (hadFocus) {
+                    if (focusedAction && actionEls[focusedAction]) actionEls[focusedAction].btn.focus();
+                    else focusCard();
+                }
             }
-            actionsSig = sig;
-            actionsBox.innerHTML = '';
-            actionsBox.classList.toggle('is-single', list.length === 1);
             list.forEach(function (action) {
-                var wrap = el('div', 'pet-action');
-                var btn = el('button', 'pet-btn pet-action__btn' + (action === 'wake' ? ' pet-btn--primary' : ''));
-                btn.type = 'button';
-                btn.dataset.cardAction = action;
-                btn.innerHTML = svg(action) + '<span class="pet-btn__label"></span>';
-                btn.querySelector('.pet-btn__label').textContent = ACTION_LABEL[action];
-                btn.disabled = busy || !(pet.can && pet.can[action]);
-                var reason = el('p', 'pet-action__reason');
-                reason.dataset.reasonFor = action;
-                reason.textContent = reasonText(action);
-                wrap.appendChild(btn);
-                wrap.appendChild(reason);
-                actionsBox.appendChild(wrap);
+                var refs = actionEls[action];
+                if (isAvailable(action)) refs.btn.removeAttribute('aria-disabled');
+                else refs.btn.setAttribute('aria-disabled', 'true');
+                var text = reasonText(action);
+                if (refs.reason.textContent !== text) refs.reason.textContent = text;
             });
         }
 
@@ -298,11 +378,19 @@
 
         function renderHint() {
             var text = '';
+            var cfg = ctx.config || {};
+            var penalty = parseInt(cfg.wake_penalty, 10);
+            var awake = parseInt(cfg.awake_minutes, 10);
             if (pet.asleep) {
-                text = 'Śpi' + (ctx.night ? ' do ' + ctx.night.end + ':00' : '') +
-                    ' — potrzeby rosną teraz 4× wolniej. Obudzenie kosztuje 10 punktów radości i czystości.';
+                var slower = nightSlowdown(ctx.config);
+                text = 'Śpi' + (ctx.night ? ' do ' + ctx.night.end + ':00' : '') + (slower ? ' — ' + slower : '') + '. ' +
+                    (penalty > 0
+                        ? 'Obudzenie kosztuje ' + penalty + ' ' + pointsLabel(penalty) + ' radości i czystości'
+                        : 'Obudzenie obniża radość i czystość') +
+                    (awake > 0 ? ', a pupil czuwa potem ' + awake + ' min.' : '.');
             } else if (pet.awake_until) {
-                text = 'Obudzony do ' + hhmm(pet.awake_until) + ' — każda opieka przedłuża czuwanie.';
+                text = 'Obudzony do ' + hhmm(pet.awake_until) + ' — każda opieka przedłuża czuwanie' +
+                    (awake > 0 ? ' o ' + awake + ' min' : '') + '.';
             }
             hint.textContent = text;
             hint.hidden = !text;
@@ -329,6 +417,7 @@
             if (nextCtx) {
                 if (nextCtx.now != null) ctx.now = nextCtx.now;
                 if (nextCtx.night != null) ctx.night = nextCtx.night;
+                if (nextCtx.config != null) ctx.config = nextCtx.config;
             }
             var t = parseLocal(ctx.now);
             clockOffset = isNaN(t) ? 0 : t - Date.now();
@@ -376,7 +465,7 @@
         function runAction(action) {
             if (busy || destroyed || !(pet.can && pet.can[action])) return;
             busy = true;
-            renderActions(true);
+            renderActions();
             var btn = actionsBox.querySelector('[data-card-action="' + action + '"]');
             if (btn) {
                 btn.classList.add('is-busy');
@@ -393,20 +482,29 @@
                 if (resp && resp.ok && rig) rig.playAction(action);
             }, function () { /* błąd obsłużył wołający */ }).then(function () {
                 busy = false;
-                if (!destroyed) renderActions(true);
+                if (destroyed) return;
+                var b = actionEls[action] && actionEls[action].btn;
+                if (b) {
+                    b.classList.remove('is-busy');
+                    b.removeAttribute('aria-busy');
+                }
+                renderActions();
             });
         }
 
+        /** Wysyła zaległą paczkę klepnięć; true, gdy coś poszło. */
         function flushPats() {
             clearTimeout(patTimer);
             patTimer = 0;
-            if (!pendingPats || !pet) return;
+            if (!pendingPats || !pet) return false;
             var n = pendingPats;
             pendingPats = 0;
-            if (!opts.onAction) return;
+            if (!opts.onAction) return false;
             try {
                 Promise.resolve(opts.onAction(pet, 'pat', n)).catch(function () { /* jw. */ });
             } catch (e) { /* jw. */ }
+            disarmLeave();
+            return true;
         }
 
         function pat() {
@@ -415,6 +513,7 @@
             if (window.Haptics) window.Haptics.tap();
             if (patHint) patHint.classList.add('is-used');
             pendingPats += 1;
+            armLeave();
             clearTimeout(patTimer);
             if (pendingPats >= PAT_MAX) flushPats();
             else patTimer = setTimeout(flushPats, PAT_DEBOUNCE_MS);
@@ -486,7 +585,7 @@
 
         root.addEventListener('click', function (e) {
             var target = e.target.closest('[data-card-action]');
-            if (target && root.contains(target) && !target.disabled) {
+            if (target && root.contains(target) && !target.disabled && target.getAttribute('aria-disabled') !== 'true') {
                 var action = target.dataset.cardAction;
                 if (action === 'rename') openRename();
                 else if (action === 'rename-cancel') closeRename(true);
@@ -541,6 +640,7 @@
             tickReasons();
         };
         card._flushPats = flushPats;
+        card._hasPendingPats = function () { return pendingPats > 0; };
 
         apply(petDict, null);
         container.appendChild(root);

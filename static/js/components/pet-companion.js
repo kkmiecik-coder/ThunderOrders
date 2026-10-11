@@ -173,6 +173,7 @@
             rig = window.PetRig.mount(scene, rigOpts(p));
         }
         el.classList.toggle('pet-companion--asleep', !!p.asleep);
+        hit.setAttribute('aria-label', p.asleep ? 'Pupil śpi' : 'Pogłaszcz pupila');
         if (el.hidden) {
             el.hidden = false;     // najpierw widoczny — pomiary szerokości i położenia wymagają layoutu
             placeInitial();
@@ -451,6 +452,7 @@
         clearTimeout(timers.pat);
         var count = patCount, id = patPetId;
         patCount = 0;
+        disarmLeave();
         if (!count || id == null) return;
         window.PetsApi.post('/' + id + '/akcja', { action: 'pat', count: count }).then(function (res) {
             if (res && res.state) window.PetsState.set(res.state);
@@ -466,28 +468,33 @@
         });
     }
 
-    // Wyjście ze strony w trakcie paczkowania — wyślij resztę z keepalive (PetsApi go nie obsługuje)
+    // Wyjście ze strony w trakcie paczkowania — wyślij resztę z keepalive (żądanie przeżyje rozładowanie strony)
     function flushPatOnExit() {
+        disarmLeave();
         if (!patCount || patPetId == null) return;
         var count = patCount, id = patPetId;
         patCount = 0;
         clearTimeout(timers.pat);
-        var meta = document.querySelector('meta[name="csrf-token"]');
         try {
-            fetch((el.getAttribute('data-api') || '/client/pupile/api') + '/' + id + '/akcja', {
-                method: 'POST',
-                credentials: 'same-origin',
-                keepalive: true,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': meta ? meta.getAttribute('content') : ''
-                },
-                body: JSON.stringify({ action: 'pat', count: count })
-            }).then(noop, noop);
+            window.PetsApi.post('/' + id + '/akcja', { action: 'pat', count: count }, { keepalive: true }).then(noop, noop);
         } catch (e) { /* ignoruj */ }
         window.PetsState.invalidate(userId);       // odpowiedź nie wróci — następna strona pobierze świeży stan
+    }
+
+    // beforeunload tylko, gdy paczka czeka: żądanie startuje przed ładowaniem nowej strony (pagehide
+    // bywa za późno), a stały nasłuch psułby bfcache w Firefoksie
+    var leaveArmed = false;
+
+    function armLeave() {
+        if (leaveArmed) return;
+        leaveArmed = true;
+        window.addEventListener('beforeunload', flushPatOnExit);
+    }
+
+    function disarmLeave() {
+        if (!leaveArmed) return;
+        leaveArmed = false;
+        window.removeEventListener('beforeunload', flushPatOnExit);
     }
 
     hit.addEventListener('click', function () {
@@ -504,6 +511,7 @@
         }
         if (patPetId !== pet.id) { flushPat(); patPetId = pet.id; }
         patCount++;
+        armLeave();
         clearTimeout(timers.pat);
         if (patCount >= PAT_MAX) flushPat();
         else timers.pat = setTimeout(flushPat, PAT_DEBOUNCE_MS);

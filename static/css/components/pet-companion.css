@@ -17,11 +17,12 @@
     position: fixed;
     left: 16px;
     bottom: calc(16px + var(--pet-companion-offset, 0px) + var(--pet-companion-lift, 0px));
-    /* Kolejność nakładek: POD wszystkimi nakładkami panelu (pasek PWA 1000 i jego arkusz 1001–1002,
-       mobilny sidebar 1000, szuflada koszyka 1090–1100, pełnoekranowe powiadomienia/wyszukiwarka 1200,
-       banery PWA/push, modale, toasty), NAD treścią i paskami stron ofert (≤ 100). Pasku PWA nie
-       zasłania, bo stoi nad nim (--pet-companion-offset). */
-    z-index: 999;
+    /* Kolejność nakładek: POD wszystkimi nakładkami panelu (tło mobilnego sidebara 999 — remis
+       z nim sprawiał, że towarzysz przechwytywał tapnięcie zamykające sidebar; pasek PWA 1000 i jego
+       arkusz 1001–1002, mobilny sidebar 1000, szuflada koszyka 1090–1100, pełnoekranowe
+       powiadomienia/wyszukiwarka 1200, banery PWA/push, modale, toasty), NAD treścią i paskami stron
+       ofert (≤ 100). Pasku PWA nie zasłania, bo stoi nad nim (--pet-companion-offset). */
+    z-index: 998;
     width: 72px;
     height: 72px;
     pointer-events: none;

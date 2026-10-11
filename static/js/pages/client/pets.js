@@ -1,16 +1,9 @@
 /**
- * Moje pupile — strona /client/pupile (spec §4.2) + wspólne klocki dla etapu 5.
+ * Moje pupile — strona /client/pupile (spec §4.2).
  *
- * Wystawia (kontrakt dla widgetu i towarzysza z etapu 5 — nazwy 1:1 z planem etapu 4):
- *   window.PetsApi   — get(path) / post(path, body[, {keepalive}]) → Promise z odpowiedzią {ok: true, …};
- *                      odrzuca obiektem {error, message, status} — także dla odpowiedzi nie-JSON
- *                      (302 na login po wygaśnięciu sesji, 500 HTML, 429 HTML, brak sieci).
- *   window.PetsState — current, set(state), onChange(cb) → funkcja odpinająca, needsCare();
- *                      po każdej zmianie: zdarzenie `pets:state` na document (detail = stan)
- *                      i kropki „pupil potrzebuje opieki" (#petsNavDot, #pwaSheetPetsDot, także
- *                      w template#pwaSheetClientMore — arkusz PWA klonuje szablon przy otwarciu).
- * Aplikacja strony startuje tylko, gdy w DOM jest #petsApp — plik można dołączyć gdzie indziej
- * dla samego API/stanu.
+ * Korzysta z window.PetsApi i window.PetsState z static/js/pet/pets-core.js (wspólne z widgetem
+ * dashboardu i towarzyszem; home.html ładuje core przed tym plikiem) — sam niczego nie wystawia.
+ * Aplikacja strony startuje tylko, gdy w DOM jest #petsApp.
  *
  * Zasady: jedno źródło prawdy renderowania = JSON stanu (data-state, potem API); dane
  * użytkownika (imiona) wyłącznie przez textContent / escapeHtml; zero inline onclick —
@@ -252,8 +245,10 @@
         if (night.is_night) {
             var factor = state.config && state.config.night_factor;
             var slower = factor > 0 && factor < 1 ? Math.round(1 / factor) + '× wolniej' : 'wolniej';
-            nightBanner.textContent = 'Jest noc (' + night.start + ':00–' + night.end + ':00) — pupile śpią, a ich ' +
+            var text = 'Jest noc (' + night.start + ':00–' + night.end + ':00) — pupile śpią, a ich ' +
                 'potrzeby rosną ' + slower + '. Głodny albo chory pupil nie zaśnie, dopóki się nim nie zajmiesz.';
+            // role="status": każde przypisanie (co odświeżenie stanu) czytnik ogłosiłby od nowa
+            if (nightBanner.textContent !== text) nightBanner.textContent = text;
         }
     }
 
@@ -288,7 +283,7 @@
         info.appendChild(el('h3', 'pets-egg-tile__title', EGG_SOURCE[item.source] || 'Jajko'));
         var desc;
         if (item.source === 'start') desc = 'Twoje pierwsze jajko! Odbierz je i ogrzewaj przy każdej wizycie — tak wykluje się szybciej.';
-        else if (item.source === 'monthly') desc = 'Nowe jajko czeka na odbiór. Kolejne pojawi się za miesiąc od odebrania.';
+        else if (item.source === 'monthly') desc = 'Nowe jajko czeka na odbiór. Odliczanie do kolejnego ruszy po odebraniu.';
         else if (item.source === 'rescue') {
             desc = item.pet_name
                 ? 'Pupil ' + item.pet_name + ' odszedł do gwiazd. To jajko czeka na Ciebie.'
@@ -488,7 +483,11 @@
     function renderHome(state) {
         if (!homeGrid) return;
         var pets = state.pets || [];
-        var cardCtx = { now: state.now, night: state.night && state.night.start !== state.night.end ? state.night : null };
+        var cardCtx = {
+            now: state.now,
+            night: state.night && state.night.start !== state.night.end ? state.night : null,
+            config: state.config || null    // liczby w podpowiedziach karty (noc, kara za obudzenie)
+        };
         var seen = {};
         pets.forEach(function (pet, i) {
             seen[pet.id] = true;
@@ -497,7 +496,7 @@
             else {
                 card = cards[pet.id] = window.PetCard.render(homeGrid, pet, {
                     mini: false, species: speciesInfo, onAction: onCardAction, onRename: onCardRename,
-                    now: cardCtx.now, night: cardCtx.night
+                    now: cardCtx.now, night: cardCtx.night, config: cardCtx.config
                 });
             }
             // Przestawiamy tylko, gdy kolejność się zmieniła (przeniesienie węzła restartuje animacje)

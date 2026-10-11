@@ -1,6 +1,7 @@
 /**
  * Admin — Pupile: wyszukiwarka użytkowników + „Przyznaj jajko" (spec §5).
  * Wyniki budowane przez DOM API (textContent) — zero innerHTML z danymi użytkownika.
+ * window.showToast wstawia HTML — każdy komunikat (także z serwera) idzie przez escapeHtml.
  */
 (function () {
     'use strict';
@@ -16,8 +17,24 @@
     var timer = null;
     var seq = 0;
 
+    var GRANT_ERROR = 'Nie udało się przyznać jajka';
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
     function toast(msg, type) {
-        if (typeof window.showToast === 'function') window.showToast(msg, type || 'info');
+        if (typeof window.showToast === 'function') window.showToast(escapeHtml(msg), type || 'info');
+    }
+
+    /** Odpowiedź → {ok, data}; nie-JSON (302 na login, 500/429 HTML) to data = null, nie SyntaxError. */
+    function readJson(r) {
+        var type = r.headers.get('Content-Type') || '';
+        if (type.indexOf('application/json') === -1) return Promise.resolve({ ok: false, status: r.status, data: null });
+        return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; },
+            function () { return { ok: false, status: r.status, data: null }; });
     }
 
     function el(tag, cls, text) {
@@ -96,13 +113,19 @@
                        'X-CSRFToken': csrfMeta ? csrfMeta.getAttribute('content') : '' },
             body: JSON.stringify({ user_id: parseInt(btn.dataset.userId, 10) })
         })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(readJson, function () { return { ok: false, status: 0, data: null, network: true }; })
             .then(function (res) {
-                if (!res.ok || !res.data.ok) throw new Error(res.data && res.data.message || 'Nie udało się przyznać jajka');
+                if (!res.ok || !res.data || !res.data.ok) {
+                    var msg = (res.data && typeof res.data.message === 'string' && res.data.message) ||
+                        (res.network ? 'Brak połączenia — spróbuj za chwilę' :
+                            res.status === 429 ? 'Za dużo żądań — odczekaj chwilę' : GRANT_ERROR);
+                    toast(msg, 'error');
+                    return;
+                }
                 btn.textContent = 'Przyznaj jajko (' + res.data.granted_pending + ' czeka)';
                 toast('Jajko przyznane — użytkownik zobaczy je w gniazdku', 'success');
             })
-            .catch(function (e) { toast(e.message || 'Nie udało się przyznać jajka', 'error'); })
+            .catch(function () { toast(GRANT_ERROR, 'error'); })
             .then(function () { btn.disabled = false; });
     });
 })();

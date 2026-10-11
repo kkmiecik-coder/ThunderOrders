@@ -374,6 +374,14 @@
     opacity: 0.12;
 }
 
+/* …i nieruchoma (oddech, ogon, iskierki zdradzałyby nieodkrytego pupila); bez zależności od motywu,
+   więc działa tak samo w light i dark. !important — reguły rigu (.pet-rig.is-idle .rig-bm) są
+   bardziej szczegółowe. */
+.pets-album__art--silhouette .pet-rig,
+.pets-album__art--silhouette .pet-rig * {
+    animation: none !important;
+}
+
 .pets-album__info {
     display: flex;
     flex-direction: column;

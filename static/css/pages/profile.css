@@ -812,6 +812,18 @@
   color: #f5a8ff;
 }
 
+/* Ustawienie nie wczytało się z serwera (pet-updates-toggle.js) — przełącznik zablokowany */
+.toggle-switch.is-unavailable {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.toggle-switch.is-unavailable .toggle-slider { cursor: not-allowed; }
+
+[data-theme="dark"] .toggle-switch.is-unavailable {
+    opacity: 0.45;
+}
+
 [data-theme="dark"] .toggle-slider {
   background-color: rgba(255, 255, 255, 0.2);
 }
