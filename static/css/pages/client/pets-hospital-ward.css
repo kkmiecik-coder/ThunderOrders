@@ -1,0 +1,385 @@
+/* Świat pupili — szpital, Izba przyjęć (spec v3.1 §4). Logika: static/js/pet/world/hospital-ward.js.
+   Wspólne style szpitala: pets-hospital.css (ładowany wcześniej). */
+
+/* =====================================================================
+   Izba przyjęć (spec v3.1 §4.4)
+   ===================================================================== */
+
+/* Jasnoniebieska ściana do krawędzi sceny */
+.pets-scene--izba {
+    background: repeating-linear-gradient(90deg, #e9f2fb 0 44px, #e1ecf8 44px 88px);
+}
+
+[data-theme="dark"] .pets-scene--izba {
+    background: repeating-linear-gradient(90deg, #19223a 0 44px, #1c2641 44px 88px);
+}
+
+/* Siatka łóżek (spec v3.1 §4.4): wąsko po 2, średnio po 3, szeroko do 4 w rzędzie; kolumn najwyżej
+   tyle, ile łóżek (--n z JS). Szerokość z miejsca w scenie właściwej (cqw) i z jej wysokości (cqh). */
+.pets-ward {
+    --cols: 2;
+    --gap: 12px;
+    --pad-x: 24px;
+    --pad-top: 72px;
+}
+
+@media (min-width: 600px) {
+    .pets-ward { --gap: 20px; --pad-x: 40px; --pad-top: 76px; }
+}
+
+/* Kolumny wg szerokości sceny właściwej (jak w Inkubatorium) */
+@container (min-width: 480px) {
+    .pets-ward__row { --cols: 3; }
+}
+
+@container (min-width: 780px) {
+    .pets-ward__row { --cols: 4; --gap: 28px; }
+}
+
+@media (max-width: 599.98px) {
+    .pets-page--night .pets-ward { --pad-top: 124px; }
+}
+
+/* Podłoga w płytki + listwa do krawędzi sceny */
+.pets-ward__floor {
+    position: absolute;
+    left: -100vw;
+    right: -100vw;
+    bottom: 0;
+    height: 24%;
+    background:
+        repeating-linear-gradient(90deg, transparent 0 62px, rgba(120, 150, 180, 0.18) 62px 64px),
+        repeating-linear-gradient(180deg, transparent 0 30px, rgba(120, 150, 180, 0.14) 30px 32px),
+        #dfe8ef;
+    box-shadow: inset 0 9px 0 #cddbe6;
+}
+
+[data-theme="dark"] .pets-ward__floor {
+    background:
+        repeating-linear-gradient(90deg, transparent 0 62px, rgba(0, 0, 0, 0.22) 62px 64px),
+        repeating-linear-gradient(180deg, transparent 0 30px, rgba(0, 0, 0, 0.18) 30px 32px),
+        #263247;
+    box-shadow: inset 0 9px 0 #34435f;
+}
+
+/* Okno na ścianie — tylko gdy jest miejsce nad łóżkami */
+.pets-ward__window {
+    position: absolute;
+    top: max(80px, 9%);
+    left: 50%;
+    width: 120px;
+    transform: translateX(-50%);
+}
+
+.pets-ward__window svg { display: block; width: 100%; height: auto; }
+.pets-ward__window .ww-frame { fill: #ffffff; }
+.pets-ward__window .ww-sky { fill: #bfe3ff; }
+.pets-ward__window .ww-sun { fill: #ffe27a; }
+.pets-ward__window .ww-cloud { fill: #ffffff; }
+.pets-ward__window .ww-hill { fill: #a9de8f; }
+.pets-ward__window .ww-bar { fill: none; stroke: #ffffff; stroke-width: 4; }
+
+[data-theme="dark"] .pets-ward__window .ww-frame { fill: #3a4766; }
+[data-theme="dark"] .pets-ward__window .ww-sky { fill: #1d2550; }
+[data-theme="dark"] .pets-ward__window .ww-sun { fill: #fff4c2; }
+[data-theme="dark"] .pets-ward__window .ww-cloud { fill: #3b4578; }
+[data-theme="dark"] .pets-ward__window .ww-hill { fill: #3f6b4a; }
+[data-theme="dark"] .pets-ward__window .ww-bar { stroke: #3a4766; }
+
+@container (max-height: 760px) {
+    .pets-ward__window { display: none; }
+}
+
+/* Przewijane wnętrze: łóżka stoją na podłodze (rząd dociśnięty do dołu), nadmiar przewija się */
+.pets-ward__scroll {
+    display: flex;
+    flex-direction: column;
+}
+
+.pets-ward__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-end;
+    gap: var(--gap);
+    margin-top: auto;
+    padding-bottom: 2%;
+}
+
+/* Arkusz (< 1024 px): łóżka jadą nad arkusz; w niskim widoku na ten czas mniejsze (wybrane mieści się nad nim) */
+@media (max-width: 1023.98px) {
+    .pets-scene--izba.has-window .pets-ward__row { padding-bottom: calc(var(--window-h, 0px) + 16px); }
+
+    .pets-scene--izba.has-window .pets-bed {
+        width: min(calc((100cqw - var(--pad-x) - (min(var(--cols), var(--n, 4)) - 1) * var(--gap)) / min(var(--cols), var(--n, 4))), calc((100cqh - var(--pad-top) - 84px) / 0.8), calc((100cqh - var(--window-h, 0px) - 76px) / 0.8), 270px);
+    }
+}
+
+/* --- Łóżko (przycisk): scena łóżka (poświata, kroplówka, rig/puste łóżko, serduszka, „+”) + tabliczka --- */
+.pets-bed {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 180px;
+    width: min(calc((100cqw - var(--pad-x) - (min(var(--cols), var(--n, 4)) - 1) * var(--gap)) / min(var(--cols), var(--n, 4))), calc((100cqh - var(--pad-top) - 84px) / 0.8), 270px);
+    padding: 0;
+    border: none;
+    border-radius: 18px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.pets-bed:focus { outline: none; }
+
+.pets-bed:focus-visible {
+    outline: 3px solid #f093fb;
+    outline-offset: 3px;
+}
+
+/* Otwarte okno tego łóżka */
+.pets-bed.is-selected .pets-bed__scene { filter: drop-shadow(0 0 10px rgba(240, 147, 251, 0.55)); }
+
+.pets-bed__scene {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 5 / 4;
+    pointer-events: none;
+}
+
+.pets-bed__scene > * { position: absolute; }
+
+/* Pupil w łóżku (rig, pose 'bed') albo zaścielone łóżko; luz nad głową na dłoń pat pat */
+.pets-bed__art {
+    left: 0;
+    bottom: 0;
+    width: 80%;
+    line-height: 0;
+}
+
+.pets-bed__art .pet-rig { width: 100%; }
+
+.pets-bed__empty {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.pets-bed__empty .eb-post { fill: #cfdcec; stroke: #9fb6d2; stroke-width: 2; }
+.pets-bed__empty .eb-board { fill: #eaf3fc; stroke: #a9c3de; stroke-width: 3; }
+.pets-bed__empty .eb-cross { fill: #ff8fa3; }
+.pets-bed__empty .eb-pillow,
+.pets-bed__empty .eb-mattress { fill: #ffffff; stroke: #d5deea; stroke-width: 2; }
+.pets-bed__empty .eb-quilt { fill: #bfe0ff; stroke: #7fb2e5; stroke-width: 2.4; stroke-linejoin: round; }
+.pets-bed__empty .eb-fold { fill: none; stroke: #e6f3ff; stroke-width: 3.2; stroke-linecap: round; }
+.pets-bed__empty .eb-wheel { fill: #8c96ab; }
+
+[data-theme="dark"] .pets-bed__empty .eb-post { fill: #6f7aa6; stroke: #9aa5d1; }
+[data-theme="dark"] .pets-bed__empty .eb-board { fill: #3e4470; stroke: #7c84c0; }
+[data-theme="dark"] .pets-bed__empty .eb-pillow,
+[data-theme="dark"] .pets-bed__empty .eb-mattress { fill: #e4e1f2; stroke: #a9a5c8; }
+[data-theme="dark"] .pets-bed__empty .eb-quilt { fill: #8fb8e8; stroke: #b9d8fa; }
+[data-theme="dark"] .pets-bed__empty .eb-fold { stroke: #b9d8fa; }
+[data-theme="dark"] .pets-bed__empty .eb-wheel { fill: #b4bcd6; }
+
+/* Kroplówka przy leczonych */
+.pets-bed__drip {
+    right: 0;
+    bottom: 0;
+    width: 22%;
+    height: 96%;
+    display: none;
+}
+
+.pets-bed__drip svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.pets-bed.is-healing .pets-bed__drip { display: block; }
+
+.pets-bed__drip .drip-pole,
+.pets-bed__drip .drip-hook,
+.pets-bed__drip .drip-feet { fill: none; stroke: #9fb3c8; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.pets-bed__drip .drip-bag { fill: #eef8ff; stroke: #8fb8dd; stroke-width: 2; }
+.pets-bed__drip .drip-liquid { fill: #9fd6f5; }
+.pets-bed__drip .drip-chamber { fill: #eef8ff; stroke: #8fb8dd; stroke-width: 1.5; }
+.pets-bed__drip .drip-drop { fill: #5bb4e0; }
+.pets-bed__drip .drip-tube { fill: none; stroke: #b7d8ef; stroke-width: 2; stroke-linecap: round; }
+
+.pets-bed.is-healing .pets-bed__drip .drip-drop { animation: pets-ward-drop 1.6s ease-in infinite; }
+
+[data-theme="dark"] .pets-bed__drip .drip-pole,
+[data-theme="dark"] .pets-bed__drip .drip-hook,
+[data-theme="dark"] .pets-bed__drip .drip-feet { stroke: #7c8fb0; }
+[data-theme="dark"] .pets-bed__drip .drip-bag,
+[data-theme="dark"] .pets-bed__drip .drip-chamber { fill: rgba(220, 240, 255, 0.2); stroke: #8fb8dd; }
+[data-theme="dark"] .pets-bed__drip .drip-liquid { fill: #6fb6e0; }
+[data-theme="dark"] .pets-bed__drip .drip-tube { stroke: #6f93b5; }
+
+@keyframes pets-ward-drop {
+    0% { transform: translateY(0); opacity: 0; }
+    25% { opacity: 1; }
+    80% { transform: translateY(5px); opacity: 1; }
+    100% { transform: translateY(6px); opacity: 0; }
+}
+
+/* Wyzdrowiały: jaśniej, serduszka */
+.pets-bed__glow {
+    inset: 4% 14% 0 -6%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 55%, rgba(255, 240, 160, 0.75) 0%, rgba(187, 247, 208, 0.45) 45%, rgba(187, 247, 208, 0) 72%);
+    display: none;
+}
+
+.pets-bed.is-ready .pets-bed__glow { display: block; }
+
+.pets-bed__hearts {
+    left: 18%;
+    top: -2%;
+    width: 44%;
+    display: none;
+}
+
+.pets-bed__hearts svg { display: block; width: 100%; height: auto; overflow: visible; }
+.pets-bed__hearts path { fill: #ff6f9c; transform-box: fill-box; transform-origin: center; }
+
+.pets-bed.is-ready .pets-bed__hearts { display: block; }
+.pets-bed.is-ready .pets-bed__hearts path { animation: pets-ward-heart 2.4s ease-in-out infinite; }
+.pets-bed.is-ready .pets-bed__hearts path:nth-child(2) { animation-delay: 0.6s; }
+.pets-bed.is-ready .pets-bed__hearts path:nth-child(3) { animation-delay: 1.2s; }
+
+[data-theme="dark"] .pets-bed__glow {
+    background: radial-gradient(ellipse at 50% 55%, rgba(255, 230, 140, 0.32) 0%, rgba(134, 239, 172, 0.2) 45%, rgba(134, 239, 172, 0) 72%);
+}
+
+[data-theme="dark"] .pets-bed__hearts path { fill: #ff8fb3; }
+
+@keyframes pets-ward-heart {
+    0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
+    50% { transform: translateY(-6px) scale(1.12); opacity: 1; }
+}
+
+/* Wolne łóżko: przygaszone; przy chorych w domku pulsujący „+” */
+.pets-bed.is-free .pets-bed__art { opacity: 0.6; }
+
+.pets-bed__plus {
+    left: 40%;
+    top: 46%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border-radius: 50%;
+    background: #f5576c;
+    color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(245, 87, 108, 0.25), 0 4px 10px rgba(245, 87, 108, 0.35);
+}
+
+.pets-bed__plus svg { width: 22px; height: 22px; }
+
+.pets-bed.can-admit .pets-bed__plus {
+    display: flex;
+    animation: pets-ward-plus 1.8s ease-in-out infinite;
+}
+
+[data-theme="dark"] .pets-bed__plus {
+    background: #f0657a;
+    box-shadow: 0 0 0 4px rgba(240, 101, 122, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes pets-ward-plus {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.14); }
+}
+
+.pets-bed:hover .pets-bed__art { transform: translateY(-2px); }
+.pets-bed__art { transition: transform 0.2s ease; }
+
+/* Tabliczka pod łóżkiem */
+.pets-bed__plate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    max-width: calc(100% + var(--gap) - 6px);
+    min-height: 32px;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 1.5px #d2e0ef;
+    color: #1f3150;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.2;
+    pointer-events: none;
+}
+
+.pets-bed__plate-main,
+.pets-bed__plate-sub {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pets-bed__plate-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: #4a5d78;
+}
+
+.pets-bed__plate-sub[hidden] { display: none; }
+
+.pets-bed.is-ready .pets-bed__plate {
+    background: #15803d;
+    box-shadow: none;
+    color: #ffffff;
+}
+
+.pets-bed.is-ready .pets-bed__plate-sub { color: rgba(255, 255, 255, 0.92); }
+
+.pets-bed.is-free .pets-bed__plate { color: #5b6b80; background: rgba(255, 255, 255, 0.85); }
+.pets-bed.can-admit .pets-bed__plate-sub { color: #be123c; }
+
+[data-theme="dark"] .pets-bed__plate {
+    background: rgba(26, 18, 48, 0.9);
+    box-shadow: inset 0 0 0 1.5px rgba(240, 147, 251, 0.3);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pets-bed__plate-sub { color: rgba(255, 255, 255, 0.72); }
+[data-theme="dark"] .pets-bed.is-ready .pets-bed__plate { background: #15803d; color: #ffffff; box-shadow: none; }
+[data-theme="dark"] .pets-bed.is-free .pets-bed__plate { background: rgba(26, 18, 48, 0.75); color: rgba(255, 255, 255, 0.72); }
+[data-theme="dark"] .pets-bed.can-admit .pets-bed__plate-sub { color: #fda4af; }
+[data-theme="dark"] .pets-bed.is-selected .pets-bed__scene { filter: drop-shadow(0 0 12px rgba(240, 147, 251, 0.6)); }
+
+@container (max-height: 440px) {
+    .pets-bed__plate { font-size: 11.5px; min-height: 28px; padding: 3px 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-bed__art { transition: none; }
+    .pets-bed.is-healing .pets-bed__drip .drip-drop,
+    .pets-bed.is-ready .pets-bed__hearts path,
+    .pets-bed.can-admit .pets-bed__plus { animation: none; }
+}
+
+html.pet-rig-rm .pets-bed__art { transition: none; }
+
+html.pet-rig-rm .pets-bed.is-healing .pets-bed__drip .drip-drop,
+html.pet-rig-rm .pets-bed.is-ready .pets-bed__hearts path,
+html.pet-rig-rm .pets-bed.can-admit .pets-bed__plus { animation: none; }
