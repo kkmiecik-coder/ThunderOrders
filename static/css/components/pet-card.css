@@ -1,0 +1,122 @@
+/* ================================================
+   Pet card — karta pupila (pełna na /client/pupile, mini w widgecie dashboardu — etap 5)
+   + przyciski pupili (.pet-btn), wspólne dla karty, gniazdka i albumu.
+   Własne klasy zamiast .btn: .btn:disabled ma pointer-events:none i obcy wariant ciemny.
+   ================================================ */
+
+/* === Przyciski === */
+.pet-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid #E9D5FF;
+    background: #FAF5FF;
+    color: #5A189A;
+    font: inherit;
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.pet-btn:hover {
+    background: #F3E8FF;
+    border-color: #D8B4FE;
+}
+
+.pet-btn:active { transform: scale(0.97); }
+
+.pet-btn:focus-visible {
+    outline: 2px solid #f093fb;
+    outline-offset: 2px;
+}
+
+.pet-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.pet-btn--primary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-color: transparent;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(245, 87, 108, 0.25);
+}
+
+.pet-btn--primary:hover {
+    background: linear-gradient(135deg, #f4a8fc 0%, #f76d80 100%);
+    border-color: transparent;
+}
+
+.pet-btn--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-secondary, #616161);
+}
+
+.pet-btn--ghost:hover {
+    background: rgba(90, 24, 154, 0.06);
+    border-color: transparent;
+}
+
+.pet-btn__icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.pet-btn.is-busy { cursor: progress; }
+.pet-btn.is-busy:disabled { opacity: 0.8; }
+.pet-btn.is-busy .pet-btn__icon { animation: pet-btn-spin 0.9s linear infinite; }
+
+@keyframes pet-btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .pet-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.25);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .pet-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .pet-btn--primary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-color: transparent;
+    color: #ffffff;
+    box-shadow: 0 4px 18px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pet-btn--primary:hover {
+    background: linear-gradient(135deg, #f4a8fc 0%, #f76d80 100%);
+}
+
+[data-theme="dark"] .pet-btn--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .pet-btn--ghost:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pet-btn { transition: none; }
+    .pet-btn:active { transform: none; }
+    .pet-btn.is-busy .pet-btn__icon { animation: none; }
+}

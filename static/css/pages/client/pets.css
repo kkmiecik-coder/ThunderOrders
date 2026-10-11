@@ -1,6 +1,287 @@
 /* ================================================
    Moje pupile — strona /client/pupile
-   Szkielet z etapu 4 (paczka A); układ, sekcje, gniazdko, album, ustawienia
-   i warianty dark mode dokłada paczka C. Kropka w nawigacji siedzi
-   w components/pet-companion.css (dołączanym w base_client.html).
+   Układ, sekcje (gniazdko, domek, album, towarzysz), responsywność i dark mode.
+   Karta pupila i przyciski: components/pet-card.css (wspólne z widgetem dashboardu).
+   Modal wyklucia: components/modals.css (sekcja „Pet hatch modal").
+   Kropka w nawigacji: components/pet-companion.css (ładowany w base_client.html).
    ================================================ */
+
+/* === Strona === */
+.pets-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pets-page__header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pets-page__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-page__lead {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-secondary, #616161);
+}
+
+.pets-night {
+    margin: 6px 0 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #EEF0FF;
+    border: 1px solid #D9DCFF;
+    color: #36398A;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.45;
+}
+
+.pets-night[hidden] { display: none; }
+
+[data-theme="dark"] .pets-page__title { color: #ffffff; }
+[data-theme="dark"] .pets-page__lead { color: rgba(255, 255, 255, 0.7); }
+
+[data-theme="dark"] .pets-night {
+    background: rgba(140, 150, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.pets-noscript {
+    margin: 0;
+    padding: 14px;
+    border-radius: 12px;
+    background: #FFF7ED;
+    color: #9A3412;
+}
+
+[data-theme="dark"] .pets-noscript {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* === Sekcje === */
+.pets-section {
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, #E0E4EB);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+    min-width: 0;
+}
+
+.pets-section__title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 0 14px;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-section__body {
+    min-width: 0;
+}
+
+[data-theme="dark"] .pets-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    box-shadow: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .pets-section__title { color: #ffffff; }
+
+/* === Gniazdko === */
+.pets-section--nest .pets-section__body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.pets-nest__available,
+.pets-nest__eggs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.pets-nest__available[hidden],
+.pets-nest__eggs[hidden],
+.pets-nest__monthly[hidden],
+.pets-nest__empty[hidden] { display: none; }
+
+.pets-nest__monthly,
+.pets-nest__empty {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-secondary, #616161);
+}
+
+[data-theme="dark"] .pets-nest__monthly,
+[data-theme="dark"] .pets-nest__empty { color: rgba(255, 255, 255, 0.7); }
+
+/* Kafelek jajka do odebrania */
+.pets-egg-tile {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-areas: "art info" "btn btn";
+    align-items: center;
+    gap: 10px 14px;
+    padding: 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #FFF5FB 0%, #F6F0FF 100%);
+    border: 1px solid #F1DDF5;
+}
+
+.pets-egg-tile--rescue {
+    background: linear-gradient(135deg, #F5F3FF 0%, #EEF2FF 100%);
+    border-color: #DCD6F7;
+}
+
+.pets-egg-tile__art { grid-area: art; display: flex; justify-content: center; }
+.pets-egg-tile__art .pet-rig { width: 72px; }
+.pets-egg-tile__info { grid-area: info; min-width: 0; }
+.pets-egg-tile > .pet-btn { grid-area: btn; width: 100%; }
+
+.pets-egg-tile__title {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-egg-tile__desc {
+    margin: 0;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.45;
+    color: var(--text-secondary, #616161);
+    overflow-wrap: anywhere;
+}
+
+[data-theme="dark"] .pets-egg-tile {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .pets-egg-tile--rescue {
+    background: rgba(160, 150, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .pets-egg-tile__title { color: #ffffff; }
+[data-theme="dark"] .pets-egg-tile__desc { color: rgba(255, 255, 255, 0.7); }
+
+/* Jajko w inkubacji */
+.pets-egg {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    grid-template-areas: "art info" "art actions";
+    align-items: center;
+    gap: 10px 16px;
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--bg-primary, #F5F6FA);
+    border: 1px solid var(--card-border, #E0E4EB);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pets-egg__art { grid-area: art; display: flex; justify-content: center; }
+.pets-egg__art .pet-rig { width: 120px; }
+.pets-egg__info { grid-area: info; min-width: 0; }
+.pets-egg__actions { grid-area: actions; display: flex; flex-wrap: wrap; gap: 8px; }
+.pets-egg__actions .pet-btn { flex: 1 1 140px; }
+
+.pets-egg.is-ready {
+    border-color: #F5B5D9;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.18);
+}
+
+.pets-egg__title {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.pets-egg__status {
+    margin: 8px 0 0;
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.4;
+    color: var(--text-secondary, #616161);
+}
+
+.pets-progress {
+    height: 10px;
+    border-radius: 999px;
+    background: #F1EAF6;
+    overflow: hidden;
+}
+
+.pets-progress__fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+    transition: width 0.6s ease;
+}
+
+.pets-egg.is-boosted .pets-progress__fill {
+    background: linear-gradient(90deg, #FFB26B 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .pets-egg {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-egg.is-ready {
+    border-color: rgba(240, 147, 251, 0.45);
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15), 0 0 24px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-egg__title { color: #ffffff; }
+[data-theme="dark"] .pets-egg__status { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .pets-progress { background: rgba(255, 255, 255, 0.08); }
+
+[data-theme="dark"] .pets-progress__fill {
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .pets-egg.is-boosted .pets-progress__fill {
+    background: linear-gradient(90deg, #FFB26B 0%, #f5576c 100%);
+}
+
+/* === Responsywność === */
+@media (max-width: 768px) {
+    .pets-page { padding: 4px 0 16px; gap: 16px; }
+    .pets-section { padding: 16px; }
+}
+
+@media (max-width: 480px) {
+    .pets-nest__available,
+    .pets-nest__eggs { grid-template-columns: 1fr; }
+
+    .pets-egg {
+        grid-template-columns: 96px minmax(0, 1fr);
+        grid-template-areas: "art info" "actions actions";
+    }
+
+    .pets-egg__art .pet-rig { width: 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pets-progress__fill,
+    .pets-egg { transition: none; }
+}
