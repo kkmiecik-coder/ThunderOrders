@@ -6,7 +6,8 @@
  *   zielona tabliczka „Zdrowy! Odbierz” + „tęskni za domem”. Wolne łóżka zaścielone i przygaszone.
  * - Miejsc max(3, liczba pupili w szpitalu), a gdy w domku ktoś choruje — o jedno wolne więcej (inaczej przy
  *   pełnej sali nie byłoby gdzie go przyjąć); pupil zostaje w swoim łóżku, przyjęty z wolnego łóżka trafia
- *   właśnie do niego. Siatka (CSS): ≥ 1024 px do 4 w rzędzie, 600–1023 px po 3, < 600 px po 2.
+ *   właśnie do niego. Siatka (CSS, wg sceny właściwej): szeroko do 4 w rzędzie, średnio po 3, wąsko albo
+ *   w scenie pionowej (tablet pionowo, sala obok karty okna) po 2 — wtedy w dwóch rzędach, za to większe.
  * - Klik w łóżko z pupilem = okno sceny (fokus zostaje na łóżku): imię, pasek leczenia, czas / tęsknota,
  *   „Odbierz” (wyzdrowiały) albo „Zabierz wcześniej” z potwierdzeniem („Tak, zabieram” / „Zostaw
  *   w szpitalu”) — teksty jak dawniej. Klik w pupila przy jego otwartym oknie = pat pat (paczki w pets.js).
@@ -22,6 +23,7 @@
  *   CSS: kontener ward-wall) i rzędy łóżek pod nią. Każde łóżko ma parawan, szafkę nocną z lampką
  *   (świeci nocą i w ciemnym motywie) i drobiazgiem, kroplówkę z monitorem serca (leczony) albo balonik
  *   (wyzdrowiały). Podłoga zaczyna się na wysokości wezgłowi pierwszego rzędu (--ward-floor-y z JS).
+ *   Przy otwartej karcie okna (≥ 1024 px) pod kartą, przy prawej krawędzi sceny, stoją roślina i wózek z lekami.
  * Rejestruje się w window.PetsWorld.scenes.izba.
  */
 (function () {
@@ -284,6 +286,28 @@
         '</div>' +
         '</div>';
 
+    // Pod kartą okna sceny (≥ 1024 px) sala nie kończy się pustą ścianą: przy prawej krawędzi sceny stoją
+    // duża roślina i wózek z lekami (widoczne tylko przy otwartej karcie — CSS)
+    var CART_SVG =
+        '<svg viewBox="0 0 100 124" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">' +
+        '<ellipse class="wc-shadow" cx="50" cy="120" rx="44" ry="4"/>' +
+        '<path class="wc-handle" d="M86 40V20h8"/>' +
+        '<rect class="wc-bottle" x="16" y="13" width="10" height="19" rx="3"/>' +
+        '<rect class="wc-cap" x="17.5" y="9" width="7" height="5" rx="1.5"/>' +
+        '<rect class="wc-jar" x="30" y="19" width="13" height="13" rx="3.5"/>' +
+        '<path class="wc-jar-heart" transform="translate(33 22.4) scale(.58)" d="' + HEART + '"/>' +
+        '<rect class="wc-box" x="48" y="22" width="22" height="10" rx="2"/>' +
+        '<path class="wc-tissue" d="M54 22c1-5 9-5 10 0z"/>' +
+        '<rect class="wc-tray" x="6" y="31" width="84" height="8" rx="4"/>' +
+        '<rect class="wc-body" x="12" y="38" width="72" height="62" rx="7"/>' +
+        '<rect class="wc-drawer" x="18" y="45" width="60" height="22" rx="4"/>' +
+        '<rect class="wc-drawer" x="18" y="71" width="60" height="22" rx="4"/>' +
+        '<path class="wc-cross" d="M45.5 49h5v4.5H55v5h-4.5V63h-5v-4.5H41v-5h4.5z"/>' +
+        '<rect class="wc-knob" x="42" y="80" width="12" height="4" rx="2"/>' +
+        '<path class="wc-leg" d="M20 100v10M76 100v10"/>' +
+        '<circle class="wc-wheel" cx="20" cy="113" r="5"/><circle class="wc-wheel" cx="76" cy="113" r="5"/>' +
+        '</svg>';
+
     var MOOD_TEXT = { chory: 'Chory', krytyczny: 'W stanie krytycznym' };
 
     function create(ctx, host) {
@@ -322,7 +346,11 @@
         room.appendChild(wall);
         room.appendChild(row);
         scroll.appendChild(room);
+        var extras = el('div', 'pets-ward__extras');
+        extras.setAttribute('aria-hidden', 'true');
+        extras.innerHTML = '<span class="pets-ward__plant">' + PLANT_SVG + '</span><span class="pets-ward__cart">' + CART_SVG + '</span>';
         stage.appendChild(floor);
+        stage.appendChild(extras);
         stage.appendChild(scroll);
         host.appendChild(stage);
 
@@ -860,7 +888,9 @@
             slots = H.syncSlots(slots, ids, min, prefer);
             slots.forEach(function (id) { if (id != null) delete prefer[id]; });
             syncViews(state);
-            row.style.setProperty('--n', String(slots.length));     // kolumn najwyżej tyle, ile łóżek (CSS)
+            // Kolumn najwyżej tyle, ile łóżek; data-n = ile rzędów ma się zmieścić w pionie (CSS)
+            room.style.setProperty('--n', String(slots.length));
+            room.dataset.n = String(slots.length);
             tickClock();
             queueFloor();
             if (pending) {

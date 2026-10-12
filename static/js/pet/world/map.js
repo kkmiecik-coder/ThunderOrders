@@ -63,17 +63,38 @@
         '<rect x="5" y="39" width="18" height="15" rx="2.5" class="map-win" fill="#fff6c9" stroke="#e8c96b"/>' +
         '<rect x="47" y="39" width="18" height="15" rx="2.5" class="map-win" fill="#fff6c9" stroke="#e8c96b"/>' +
         '<g class="map-glow"><circle cx="14" cy="46.5" r="13" fill="#ffd36b" opacity=".35"/><circle cx="56" cy="46.5" r="13" fill="#ffd36b" opacity=".35"/></g>';
+    // Zębatka (szyld warsztatu): `teeth` trapezowych zębów, otwór w środku (evenodd)
+    function gearPath(cx, cy, rOut, rIn, teeth, hole) {
+        var d = '';
+        var step = Math.PI * 2 / teeth;
+        function pt(r, a) { return (Math.round((cx + Math.cos(a) * r) * 10) / 10) + ' ' + (Math.round((cy + Math.sin(a) * r) * 10) / 10); }
+        for (var k = 0; k < teeth; k++) {
+            var a = k * step - Math.PI / 2;
+            d += (k ? 'L' : 'M') + pt(rIn, a - step * 0.3) + 'L' + pt(rOut, a - step * 0.17) + 'L' + pt(rOut, a + step * 0.17) +
+                'L' + pt(rIn, a + step * 0.3) + 'L' + pt(rIn, a + step * 0.5);
+        }
+        return d + 'Z' + 'M' + (cx + hole) + ' ' + cy + 'a' + hole + ' ' + hole + ' 0 1 0 ' + (-2 * hole) + ' 0a' + hole + ' ' + hole + ' 0 1 0 ' + (2 * hole) + ' 0Z';
+    }
+
+    // Warsztat: drewniana szopa z szyldem-zębatką nad drzwiami z desek (dawniej „celownik”)
     var WORKSHOP =
         '<rect x="0" y="14" width="56" height="38" rx="3" fill="#c99a6b" stroke="#a87b4f"/>' +
         '<path d="M-4 16 L28 0 L60 16 Z" fill="#8a5a3b"/>' +
-        '<circle cx="28" cy="32" r="9" fill="none" stroke="#f3e2c3" stroke-width="3"/><circle cx="28" cy="32" r="3" fill="#f3e2c3"/>' +
-        '<path d="M28 20v3M28 41v3M16 32h3M37 32h3" stroke="#f3e2c3" stroke-width="2.4" stroke-linecap="round"/>';
+        '<path d="' + gearPath(28, 28, 10.5, 7.6, 8, 3.2) + '" fill="#f3e2c3" fill-rule="evenodd"/>' +
+        '<rect x="21" y="41" width="14" height="11" rx="1.5" fill="#8a5a3b"/>' +
+        '<path d="M25.7 41v11M30.3 41v11" stroke="#a87b4f" stroke-width=".8"/>';
+    // Ogród: płotek z bramką (ścieżka przechodzi przez nią — szczebel nie przecina ścieżki), nagrobek z boku
     var GARDEN =
-        '<rect x="0" y="22" width="84" height="4" fill="#d9b38a"/>' +
-        '<g fill="#d9b38a"><rect x="4" y="12" width="4" height="16"/><rect x="24" y="12" width="4" height="16"/><rect x="56" y="12" width="4" height="16"/><rect x="76" y="12" width="4" height="16"/></g>' +
-        '<path d="M36 22 v-10 a6 6 0 0 1 12 0 v10 Z" fill="#cfd4dc" stroke="#aab2bf" stroke-width=".8"/>' +
-        '<circle cx="14" cy="8" r="4" fill="#ff9ec4"/><circle cx="66" cy="8" r="4" fill="#ffd36b"/><circle cx="20" cy="4" r="3" fill="#b99cff"/>' +
-        '<circle cx="62" cy="3" r="2.6" fill="#ff9ec4"/>';
+        '<g fill="#d9b38a"><rect x="0" y="22" width="28" height="4"/><rect x="51" y="22" width="33" height="4"/>' +
+        '<rect x="2" y="12" width="4" height="16"/><rect x="14" y="12" width="4" height="16"/>' +
+        '<rect x="66" y="12" width="4" height="16"/><rect x="78" y="12" width="4" height="16"/>' +
+        '<rect x="26" y="7" width="4.4" height="21" rx="1"/><rect x="48.6" y="7" width="4.4" height="21" rx="1"/>' +
+        '<circle cx="28.2" cy="6.6" r="2.6"/><circle cx="50.8" cy="6.6" r="2.6"/></g>' +
+        '<path d="M28.2 8.5 Q39.5 -2 50.8 8.5" fill="none" stroke="#d9b38a" stroke-width="2.2" stroke-linecap="round"/>' +
+        '<path d="M30.4 12.5l4-2.4v12l-4 2.4zM48.6 12.5l-4-2.4v12l4 2.4z" fill="#e8caa3" stroke="#d9b38a" stroke-width=".6"/>' +
+        '<path d="M54 22 v-9 a5.5 5.5 0 0 1 11 0 v9 Z" fill="#cfd4dc" stroke="#aab2bf" stroke-width=".8"/>' +
+        '<circle cx="10" cy="8" r="4" fill="#ff9ec4"/><circle cx="74" cy="7" r="3.6" fill="#ffd36b"/><circle cx="16" cy="4" r="3" fill="#b99cff"/>' +
+        '<circle cx="70" cy="2.6" r="2.4" fill="#ff9ec4"/>';
 
     function tree(x, y, r, c) {
         return '<g><rect x="' + (x - r * 0.12) + '" y="' + (y + r * 0.6) + '" width="' + (r * 0.24) + '" height="' + (r * 0.6) + '" fill="#9b7653"/>' +
@@ -166,14 +187,14 @@
         bleed(640, 460, 'W', 60, 48) +
         '<rect y="40" width="640" height="420" fill="url(#mapGrassW)"/>' +
         '<g transform="translate(0,20) scale(2)">' +
-        '<path d="M60 120 C110 100, 120 140, 160 125 S 230 95, 265 120 M160 125 C 160 150, 150 170, 160 195" stroke="#f1dfb4" stroke-width="14" fill="none" stroke-linecap="round"/>' +
-        '<path d="M60 120 C110 100, 120 140, 160 125 S 230 95, 265 120 M160 125 C 160 150, 150 170, 160 195" stroke="#e6cf9b" stroke-width="1" stroke-dasharray="2 6" fill="none"/>' +
+        '<path d="M60 112 C110 98, 120 140, 160 125 S 230 95, 265 112 M160 125 C 160 146, 152 160, 160 183" stroke="#f1dfb4" stroke-width="14" fill="none" stroke-linecap="round"/>' +
+        '<path d="M60 112 C110 98, 120 140, 160 125 S 230 95, 265 112 M160 125 C 160 146, 152 160, 160 183" stroke="#e6cf9b" stroke-width="1" stroke-dasharray="2 6" fill="none"/>' +
         tree(22, 46, 16) + tree(300, 190, 14) + tree(296, 40, 12, '#6cc466') + tree(30, 196, 12, '#6cc466') + tree(108, 196, 9, '#58ad53') + tree(226, 34, 8, '#58ad53') +
         flowers([[90, 60], [96, 66, 2.4], [240, 160], [246, 166, 2.4], [70, 170], [214, 196], [276, 74, 2.4], [130, 34, 2.4]]) +
         '<g transform="translate(28,70)">' + HOSPITAL + '</g>' +
         '<g transform="translate(126,42)">' + HOUSE + '</g>' +
         '<g transform="translate(236,72)">' + WORKSHOP + '</g>' +
-        '<g transform="translate(118,160)">' + GARDEN + '</g>' +
+        '<g transform="translate(118,148)">' + GARDEN + '</g>' +
         '</g>' +
         sky(640, 60, 'W') +
         '<path d="M0 60 Q80 40 160 56 T320 50 T480 58 T640 48 V70 H0 Z" fill="#a9de8f"/>' +

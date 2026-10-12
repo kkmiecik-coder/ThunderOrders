@@ -12,7 +12,13 @@
 [data-theme="dark"] .pets-scene--mapa { background: #6d8a71; }
 .pets-page--night .pets-scene--mapa { background: #4c6779; }
 
-.pets-map__stage { container-type: size; }
+/* Scena właściwa mapy na całą szerokość sceny (nie max 1200 px) — na dużym monitorze plansza rośnie z wysokością */
+.pets-map__stage {
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    container-type: size;
+}
 
 .pets-map {
     position: absolute;
@@ -27,11 +33,25 @@
     .pets-page--night .pets-map { padding-top: 52px; }
 }
 
+/* Plansza pozioma: cała mieści się w scenie, a gdy brakuje jej wysokości (szeroki ekran, laptop 1366×600),
+   rośnie o pas, który i tak jest pusty — u góry przycina najwyżej skrawek nieba nad słońcem (tarcza słońca
+   zostaje w scenie), u dołu zostaje 10 px pod podpisem ogrodu (92,5% planszy). Pozycja z top/left (nie
+   transform — tym animuje się zoom do miejsca). */
 .pets-map__board {
+    --bh: min(100cqw * 460 / 640, calc((100cqh - 16px) / 0.897));
     position: relative;
     width: 100%;
     width: min(100cqw, 100cqh * 640 / 460);
     aspect-ratio: 640 / 460;
+}
+
+@supports (width: 1cqw) {
+    .pets-map > .pets-map__board {
+        position: absolute;
+        width: calc(var(--bh) * 640 / 460);
+        left: calc(50% - var(--bh) * 320 / 460);
+        top: max(calc(6px - var(--bh) * 0.028), min(calc((100cqh - var(--bh)) / 2), calc(100cqh - 10px - var(--bh) * 0.925)));
+    }
 }
 
 .pets-map__art {
@@ -118,7 +138,7 @@
 .pets-map__place--szpital { left: 6.5%; top: 31%; width: 24%; height: 35%; }
 .pets-map__place--domek { left: 35.5%; top: 18%; width: 29.5%; height: 47%; }
 .pets-map__place--warsztat { left: 71%; top: 31%; width: 23%; height: 35%; }
-.pets-map__place--ogrod { left: 35.5%; top: 72%; width: 29.5%; height: 26%; }
+.pets-map__place--ogrod { left: 35.5%; top: 66.8%; width: 29.5%; height: 26%; }
 
 .pets-map__place:hover { background: rgba(255, 255, 255, 0.22); }
 
@@ -354,7 +374,11 @@
 
 /* Scena wyraźnie pionowa (telefon, tablet pionowo): plansza pionowa 360×640, miejsca jedno pod drugim */
 @container (max-aspect-ratio: 4 / 5) {
-    .pets-map__board {
+    .pets-map__board,
+    .pets-map > .pets-map__board {
+        position: relative;
+        top: auto;
+        left: auto;
         width: min(100cqw, 100cqh * 360 / 640);
         aspect-ratio: 360 / 640;
     }

@@ -26,32 +26,58 @@
     background: repeating-linear-gradient(90deg, #141b30 0 44px, #161f37 44px 88px);
 }
 
-/* Siatka łóżek (spec v3.1 §4.4): wąsko po 2, średnio po 3, szeroko do 4 w rzędzie; kolumn najwyżej
-   tyle, ile łóżek (--n z JS). Szerokość z miejsca w scenie właściwej (cqw) i z jej wysokości (cqh: jeden rząd
-   mieści się pod pigułką razem z pasem ściany --wall-min na okno; kolejne rzędy przewijają się).
+/* Sala szersza niż inne sceny (max 1640 px zamiast 1200): na dużym monitorze trzy łóżka mają gdzie urosnąć.
+   Przy otwartej karcie okna (≥ 1024 px) rezerwa 376 px z pets.css wygrywa (mocniejszy selektor). */
+.pets-scene--izba .pets-stage {
+    max-width: 1640px;
+    margin-right: max(0px, calc((100% - 1640px) / 2));
+}
+
+/* Siatka łóżek (spec v3.1 §4.4): po 2 (wąsko albo scena pionowa — tablet pionowo, karta okna obok sali),
+   po 3, szeroko do 4 w rzędzie; kolumn najwyżej tyle, ile łóżek (--n z JS). Rozmiar łóżka:
+   - z szerokości sceny właściwej (cqw): rząd wyśrodkowany, z marginesem --side od krawędzi liczonym OD
+     PARAWANU (wystaje 4% szerokości łóżka w lewo — stąd „+ 0,08” w mianowniku), więc nie ucina go krawędź;
+   - z wysokości (cqh): --rows rzędów (1, a gdy łóżek jest więcej niż kolumn — 2) mieści się pod pigułką
+     razem z pasem ściany --wall-min na okno; dalsze rzędy przewijają się;
+   - najwyżej --bed-max.
+   Kompozycja na całą wysokość: ściana z oknem ok. 1/3 sceny, łóżka pod nią, pod nimi pas podłogi.
    Zmienne z cqh to tokeny — liczą się w elementach, które ich używają (kontener: .pets-ward). */
 .pets-ward {
     --cols: 2;
     --gap: 12px;
-    --pad-x: 24px;
+    --side: 12px;
     --pad-top: 72px;
     --plate-h: 46px;
-    --bed-max: 320px;
-    --pad-bottom: clamp(12px, calc(14cqh - 40px), 150px);
-    --wall-min: clamp(0px, calc(100cqh - 400px), 190px);
+    --bed-max: 480px;
+}
+
+/* Liczba rzędów, które mają się zmieścić (--rows), i pasy nad nimi (ściana) i pod nimi (podłoga) — na
+   .pets-ward__room (data-n = liczba łóżek z JS), bo czytają je i ściana, i rząd. Dwa rzędy: niższa ściana
+   i mniej podłogi pod drugim rzędem (stoi już na podłodze). */
+.pets-ward__room {
+    --rows: 2;
+    --row-gap: clamp(14px, 3.4cqh, 36px);
+    --pad-bottom: clamp(12px, calc(6cqh - 20px), 50px);
+    --wall-min: clamp(0px, calc(100cqh - 560px), 23cqh);
+    --pad-bottom-1: clamp(12px, calc(10cqh - 30px), 110px);
+    --wall-min-1: clamp(0px, calc(100cqh - 380px), 30cqh);
 }
 
 @media (min-width: 600px) {
-    .pets-ward { --gap: 20px; --pad-x: 40px; --pad-top: 76px; }
+    .pets-ward { --gap: 20px; --side: 16px; --pad-top: 76px; }
 }
 
-/* Kolumny wg szerokości sceny właściwej (jak w Inkubatorium) */
-@container (min-width: 480px) {
-    .pets-ward__row { --cols: 3; }
+/* Kolumny wg szerokości i proporcji sceny właściwej: scena wyraźnie pionowa (tablet pionowo, sala obok karty
+   okna) zostaje przy 2 kolumnach — łóżka w dwóch rzędach są większe niż trzy wąskie w jednym. Wszystkie
+   łóżka w jednym rzędzie = --rows: 1. */
+@container (min-width: 480px) and (min-aspect-ratio: 9 / 10) {
+    .pets-ward__room { --cols: 3; }
+    .pets-ward__room[data-n="3"] { --rows: 1; --pad-bottom: var(--pad-bottom-1); --wall-min: var(--wall-min-1); }
 }
 
-@container (min-width: 780px) {
-    .pets-ward__row { --cols: 4; --gap: 28px; }
+@container (min-width: 780px) and (min-aspect-ratio: 9 / 10) {
+    .pets-ward__room { --cols: 4; --gap: 28px; }
+    .pets-ward__room[data-n="4"] { --rows: 1; --pad-bottom: var(--pad-bottom-1); --wall-min: var(--wall-min-1); }
 }
 
 @media (max-width: 599.98px) {
@@ -97,8 +123,11 @@
 }
 
 /* --- Wnętrze: ściana z wystrojem (wolne miejsce nad łóżkami) + rzędy łóżek ---------------------------- */
+/* Boczne marginesy daje sam rząd (wzór szerokości łóżka z --side), nie przewijane wnętrze */
 .pets-ward__scroll {
     position: relative;
+    padding-left: 0;
+    padding-right: 0;
     padding-bottom: 0;
 }
 
@@ -114,6 +143,7 @@
     position: relative;
     flex: 1 0 0px;
     min-height: var(--wall-min);
+    margin: 0 var(--side);
     container: ward-wall / size;
     pointer-events: none;
 }
@@ -125,7 +155,7 @@
     justify-content: center;
     align-items: flex-end;
     column-gap: var(--gap);
-    row-gap: clamp(14px, 3.4cqh, 36px);
+    row-gap: var(--row-gap);
     padding-bottom: var(--pad-bottom);
 }
 
@@ -136,9 +166,113 @@
     .pets-scene--izba.has-window .pets-ward__row { padding-bottom: calc(var(--window-h, 0px) + 16px); }
 
     .pets-scene--izba.has-window .pets-bed {
-        width: min(calc((100cqw - var(--pad-x) - (min(var(--cols), var(--n, 4)) - 1) * var(--gap)) / min(var(--cols), var(--n, 4))), calc((100cqh - var(--pad-top) - var(--plate-h) - 24px) / 0.8), calc((100cqh - var(--window-h, 0px) - var(--plate-h) - 30px) / 0.8), var(--bed-max));
+        width: min(calc((100cqw - 2 * var(--side) - (min(var(--cols), var(--n, 4)) - 1) * var(--gap)) / (min(var(--cols), var(--n, 4)) + 0.08)), calc((100cqh - var(--pad-top) - var(--plate-h) - 24px) / 0.8), calc((100cqh - var(--window-h, 0px) - var(--plate-h) - 30px) / 0.8), var(--bed-max));
     }
 }
+
+/* --- Pod kartą okna sceny (≥ 1024 px): roślina i wózek z lekami przy prawej krawędzi sceny ---
+   Karta ma wysokość treści, a scena właściwa oddaje jej prawe 376 px — bez tego pod kartą zostawała pusta
+   ściana. Stoją na podłodze (--ward-floor-y z JS), poza sceną właściwą; ozdoba bez kliknięć. */
+.pets-ward__extras {
+    --cart-h: clamp(96px, 20cqh, 176px);
+    position: absolute;
+    right: calc(40px - 376px);
+    top: calc(var(--ward-floor-y, 70%) * 0.6 + 40% - var(--cart-h));
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+    height: var(--cart-h);
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+@media (min-width: 1024px) {
+    .pets-scene--izba.has-window .pets-ward__extras {
+        visibility: visible;
+        opacity: 1;
+        transition: opacity 0.3s ease 0.1s, visibility 0s;
+    }
+}
+
+.pets-ward__plant,
+.pets-ward__cart {
+    display: block;
+    height: 100%;
+}
+
+.pets-ward__plant {
+    position: relative;
+    height: 92%;
+    aspect-ratio: 60 / 80;
+}
+
+/* Cień donicy na podłodze */
+.pets-ward__plant::before {
+    content: '';
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: -3%;
+    height: 7%;
+    border-radius: 50%;
+    background: rgba(70, 100, 140, 0.16);
+}
+
+[data-theme="dark"] .pets-ward__plant::before { background: rgba(0, 0, 0, 0.35); }
+.pets-ward__cart { aspect-ratio: 100 / 124; }
+
+.pets-ward__extras svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.pets-ward__plant .wpl-leaf { fill: #7ccf8a; }
+.pets-ward__plant .wpl-leaf--b { fill: #5fb873; }
+.pets-ward__plant .wpl-leaf--c { fill: #98dda2; }
+.pets-ward__plant .wpl-pot { fill: #b9d8f5; }
+.pets-ward__plant .wpl-rim { fill: #9cc6ee; }
+
+.pets-ward__cart .wc-shadow { fill: rgba(70, 100, 140, 0.16); }
+.pets-ward__cart .wc-handle { fill: none; stroke: #9fb3c8; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.pets-ward__cart .wc-tray { fill: #e3ecf8; stroke: #c7d6ea; stroke-width: 1.5; }
+.pets-ward__cart .wc-body { fill: #ffffff; stroke: #c7d6ea; stroke-width: 2; }
+.pets-ward__cart .wc-drawer { fill: #f2f6fc; stroke: #c7d6ea; stroke-width: 1.5; }
+.pets-ward__cart .wc-cross { fill: #ff6f8a; }
+.pets-ward__cart .wc-knob { fill: #9fb3c8; }
+.pets-ward__cart .wc-leg { fill: none; stroke: #9fb3c8; stroke-width: 4; stroke-linecap: round; }
+.pets-ward__cart .wc-wheel { fill: #8c96ab; }
+.pets-ward__cart .wc-bottle { fill: #8fe0c4; }
+.pets-ward__cart .wc-cap { fill: #ffffff; stroke: #8fe0c4; stroke-width: 1.2; }
+.pets-ward__cart .wc-jar { fill: #ffd36b; }
+.pets-ward__cart .wc-jar-heart { fill: #ffffff; }
+.pets-ward__cart .wc-box { fill: #c9b8f5; }
+.pets-ward__cart .wc-tissue { fill: #ffffff; stroke: #d9cff3; stroke-width: 1; }
+
+[data-theme="dark"] .pets-ward__plant .wpl-leaf { fill: #4f9a62; }
+[data-theme="dark"] .pets-ward__plant .wpl-leaf--b { fill: #3f8253; }
+[data-theme="dark"] .pets-ward__plant .wpl-leaf--c { fill: #63ad73; }
+[data-theme="dark"] .pets-ward__plant .wpl-pot { fill: #5d7aa6; }
+[data-theme="dark"] .pets-ward__plant .wpl-rim { fill: #4f6a94; }
+
+[data-theme="dark"] .pets-ward__cart .wc-shadow { fill: rgba(0, 0, 0, 0.35); }
+[data-theme="dark"] .pets-ward__cart .wc-handle,
+[data-theme="dark"] .pets-ward__cart .wc-leg { stroke: #7c8fb0; }
+[data-theme="dark"] .pets-ward__cart .wc-tray { fill: #3b4670; stroke: #56638e; }
+[data-theme="dark"] .pets-ward__cart .wc-body { fill: #313a5e; stroke: #56638e; }
+[data-theme="dark"] .pets-ward__cart .wc-drawer { fill: #2a3354; stroke: #56638e; }
+[data-theme="dark"] .pets-ward__cart .wc-cross { fill: #f0657a; }
+[data-theme="dark"] .pets-ward__cart .wc-knob { fill: #8a98c0; }
+[data-theme="dark"] .pets-ward__cart .wc-wheel { fill: #b4bcd6; }
+[data-theme="dark"] .pets-ward__cart .wc-bottle { fill: #5fb39a; }
+[data-theme="dark"] .pets-ward__cart .wc-cap { fill: #e4e1f2; stroke: #5fb39a; }
+[data-theme="dark"] .pets-ward__cart .wc-jar { fill: #d8b456; }
+[data-theme="dark"] .pets-ward__cart .wc-jar-heart { fill: #f5ecd0; }
+[data-theme="dark"] .pets-ward__cart .wc-box { fill: #9a88d2; }
+[data-theme="dark"] .pets-ward__cart .wc-tissue { fill: #e4e1f2; stroke: #a9a5c8; }
 
 /* =====================================================================
    Ściana: duże okno z zasłonkami i parapetem, zegar, plakat, szafka z lekami
@@ -185,9 +319,11 @@
     .pets-ward__decor { display: none; }
 }
 
-/* --- Okno: karnisz, rama z widokiem i szprosami, zasłonki z wiązaniem, parapet z roślinkami --- */
+/* --- Okno: karnisz, rama z widokiem i szprosami, zasłonki z wiązaniem, parapet z roślinkami ---
+   Ok. 56% pasa ściany (w niskim pasie więcej, ale nie mniej niż 150 px), najwyżej 320 px — okno nie przytłacza
+   łóżek, a pas ściany wokół niego zostaje na zegar, plakat i szafkę */
 .pets-ward__window {
-    --win-h: min(90cqh, 480px);
+    --win-h: min(calc(100cqh - 34px), max(56cqh, 150px), 320px);
     position: relative;
     flex: 0 1 auto;
     min-width: 0;
@@ -522,7 +658,7 @@
     align-items: center;
     gap: 4px;
     width: 180px;
-    width: min(calc((100cqw - var(--pad-x) - (min(var(--cols), var(--n, 4)) - 1) * var(--gap)) / min(var(--cols), var(--n, 4))), calc((100cqh - var(--pad-top) - var(--pad-bottom) - var(--plate-h) - var(--wall-min)) / 0.8), var(--bed-max));
+    width: min(calc((100cqw - 2 * var(--side) - (min(var(--cols), var(--n, 4)) - 1) * var(--gap)) / (min(var(--cols), var(--n, 4)) + 0.08)), calc((100cqh - var(--pad-top) - var(--pad-bottom) - var(--wall-min) - var(--rows) * var(--plate-h) - (var(--rows) - 1) * var(--row-gap)) / (0.8 * var(--rows))), var(--bed-max));
     padding: 0;
     border: none;
     border-radius: 18px;
@@ -574,15 +710,16 @@
 .pets-bed__line {
     left: 0;
     right: 0;
-    top: 76%;
+    top: 74%;
     height: 0;
 }
 
-/* Pupil w łóżku (rig, pose 'bed') albo zaścielone łóżko; luz nad głową na dłoń pat pat */
+/* Pupil w łóżku (rig, pose 'bed') albo zaścielone łóżko; luz nad głową na dłoń pat pat. Łóżko zajmuje
+   84% pola (parawan, szafka i kroplówka po bokach są wąskie) — wyższe niż pole, ale górę rysunku zajmuje luz */
 .pets-bed__art {
-    left: 12%;
+    left: 8%;
     bottom: 0;
-    width: 76%;
+    width: 84%;
     line-height: 0;
     transition: transform 0.2s ease;
 }
@@ -658,10 +795,10 @@
 
 /* --- Szafka nocna z lampką i drobiazgiem (tulipany / kubek na książce / laurka i jabłko) --- */
 .pets-bed__stand {
-    left: 0;
+    left: -1%;
     bottom: 0;
-    width: 21%;
-    height: 44%;
+    width: 20%;
+    height: 42%;
 }
 
 /* Światło lampki — nocą i w ciemnym motywie przy zajętych łóżkach */
@@ -970,7 +1107,9 @@
 /* --- Ograniczony ruch: bez kapania, pulsowania, bujania, migotania i przesuwania chmur --- */
 @media (prefers-reduced-motion: reduce) {
     .pets-bed__art,
-    .pets-bed__stand::before { transition: none; }
+    .pets-bed__stand::before,
+    .pets-ward__extras,
+    .pets-scene--izba.has-window .pets-ward__extras { transition: none; }
 
     .pets-bed.is-healing .pets-bed__drip .drip-drop,
     .pets-bed.is-healing .pets-bed__drip .mon-line,
@@ -986,7 +1125,9 @@
 }
 
 html.pet-rig-rm .pets-bed__art,
-html.pet-rig-rm .pets-bed__stand::before { transition: none; }
+html.pet-rig-rm .pets-bed__stand::before,
+html.pet-rig-rm .pets-ward__extras,
+html.pet-rig-rm .pets-scene--izba.has-window .pets-ward__extras { transition: none; }
 
 html.pet-rig-rm .pets-bed.is-healing .pets-bed__drip .drip-drop,
 html.pet-rig-rm .pets-bed.is-healing .pets-bed__drip .mon-line,

@@ -18,6 +18,15 @@
     initial-value: 0px;
 }
 
+/* Skala ogrodu: 1 px rysunku odniesienia (scena właściwa 1073×836 — laptop 1313×900) w px tej sceny. Liczona
+   raz na łące (zarejestrowana długość = wartość w px, dziedziczona — nie token cq), z wysokości i szerokości
+   sceny; nagrobki, wierzba, staw, ławeczka, latarenki i krzewy rosną i maleją razem ze sceną. */
+@property --pg-k {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 1px;
+}
+
 /* =====================================================================
    Scena i scena właściwa
    ===================================================================== */
@@ -77,7 +86,7 @@
     align-items: center;
     gap: 8px;
     min-height: 44px;
-    padding: 0 14px;
+    padding: 0 clamp(10px, min(1.675cqh, 1.4cqw), 16px);
     border-radius: 14px;
     border: 2px solid #a87b4f;
     background: linear-gradient(180deg, #d9a877 0%, #c99a6b 100%);
@@ -85,6 +94,7 @@
     color: #ffffff;
     font: inherit;
     font-size: var(--text-sm, 0.875rem);
+    font-size: clamp(12.5px, min(1.675cqh, 1.4cqw), 15px);     /* rośnie i maleje ze sceną (jak nagrobki) */
     font-weight: 700;
     cursor: pointer;
     text-shadow: 0 1px 0 rgba(90, 61, 36, 0.4);
@@ -148,6 +158,7 @@
    Ogród: trzy pasy na całą wysokość sceny
    ===================================================================== */
 .pets-garden__meadow {
+    --pg-k: clamp(0.6px, min(0.1196cqh, 0.1cqw), 1.3px);
     --pg-sky-min: calc(var(--pg-ui-top) + 46px);
     --pg-fore-min: 64px;
     --pg-cx: calc((100% - var(--pg-reserve, 0px)) / 2);       /* środek widocznej części (bez okna sceny) */
@@ -378,7 +389,7 @@
 
 /* Wierzba płacząca — „drzewo wspomnień” na horyzoncie, na lewo od nagrobków; od dołu pasa do pigułki */
 .pg-willow {
-    --wh: clamp(0px, min(calc(100cqh - var(--pg-ui-top) - 6px), 46cqw), 360px);
+    --wh: clamp(0px, min(calc(100cqh - var(--pg-wtop, calc(var(--pg-ui-top) + 6px))), 46cqw, calc(var(--pg-k) * 300)), 400px);
     left: max(1.5%, calc(var(--pg-cx) - var(--wh) * 1.185 - min(9cqw, 110px)));
     bottom: 2px;
     width: calc(var(--wh) * 320 / 270);
@@ -533,16 +544,18 @@
     max-width: 1160px;
 }
 
-/* Nagrobek = przycisk (rig + znicz + tabliczka); szczegóły w oknie sceny */
+/* Nagrobek = przycisk (rig + znicz + tabliczka); szczegóły w oknie sceny. Rozmiar rysunku --rig rośnie
+   i maleje ze sceną (--pg-k); znicz, poświata i tabliczka liczą się od niego. */
 .pets-grave {
+    --rig: clamp(84px, calc(var(--pg-k) * 156), 220px);
     position: relative;
-    flex: 0 1 clamp(140px, calc((100% - 54px) / 4), 170px);
+    flex: 0 1 calc(var(--rig) + 46px);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
     min-width: 0;
-    max-width: 170px;
+    max-width: calc(var(--rig) + 46px);
     min-height: 44px;
     padding: 6px 6px 8px;
     border: none;
@@ -555,7 +568,9 @@
     transition: background 0.15s ease, transform 0.15s ease;
 }
 
-.pets-grave:hover { background: rgba(255, 255, 255, 0.3); }
+/* Najechanie i otwarte okno: bez podkładu pod przyciskiem — rysunek lekko się unosi i świeci (niżej) */
+.pets-grave__art { transition: transform 0.2s ease, filter 0.2s ease; }
+.pets-grave:hover .pets-grave__art { transform: translateY(-2px); }
 
 .pets-grave:focus-visible {
     outline: 3px solid #f093fb;
@@ -567,10 +582,10 @@
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    min-height: 110px;
+    min-height: calc(var(--rig) * 0.92);
 }
 
-.pets-grave__art .pet-rig { width: 120px; }
+.pets-grave__art .pet-rig { width: var(--rig); }
 
 /* Własna świeczka rigu ustępuje w ogrodzie zniczowi (większy, ciepły — światełko gracza); ukryty płomyk
    rigu nie animuje się na próżno */
@@ -606,8 +621,8 @@
     z-index: 2;
     left: 68%;
     bottom: 0;
-    width: 21px;
-    height: 31.5px;
+    width: calc(var(--rig) * 0.175);
+    height: calc(var(--rig) * 0.2625);
     pointer-events: none;
 }
 
@@ -658,10 +673,10 @@
 .pets-grave__glow {
     position: absolute;
     z-index: 1;
-    left: calc(68% + 10.5px - 56px);
-    bottom: -32px;
-    width: 112px;
-    height: 112px;
+    left: calc(68% + var(--rig) * 0.0875 - var(--rig) * 0.465);
+    bottom: calc(var(--rig) * -0.267);
+    width: calc(var(--rig) * 0.93);
+    height: calc(var(--rig) * 0.93);
     border-radius: 50%;
     background: radial-gradient(circle, rgba(255, 196, 104, 0.78) 0%, rgba(255, 182, 92, 0.34) 34%, rgba(255, 176, 90, 0) 68%);
     opacity: 0;
@@ -687,7 +702,7 @@
     background: rgba(255, 255, 255, 0.9);
     box-shadow: 0 2px 6px rgba(90, 60, 40, 0.1);
     color: #2b2445;
-    font-size: 13px;
+    font-size: clamp(12px, calc(var(--pg-k) * 13.5), 15px);
     font-weight: 700;
     line-height: 1.5;
     white-space: nowrap;
@@ -695,12 +710,13 @@
     text-overflow: ellipsis;
 }
 
-/* Płomyk: dziś można zapalić światełko */
+/* Płomyk: dziś można zapalić światełko — wyśrodkowany nad kamieniem */
 .pets-grave__flame {
     position: absolute;
     z-index: 3;
-    top: 4px;
-    right: 14px;
+    top: calc(var(--rig) * 0.18 - 12px);
+    left: 50%;
+    margin-left: -14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -732,13 +748,34 @@
 
 [data-theme="dark"] .pets-grave__flame { border-color: rgba(26, 18, 48, 0.9); }
 
-/* Pusty ogród: łagodny napis na polanie */
+/* Najechanie / otwarte okno nagrobka (.is-selected z garden.js): ciepła poświata wokół kamienia i obwódka
+   tabliczki zamiast kwadratowego podkładu pod przyciskiem (także w wieczornym motywie) */
+.pets-scene--ogrod .pets-grave:hover,
+[data-theme="dark"] .pets-scene--ogrod .pets-grave:hover { background: transparent; }
+
+.pets-grave:hover .pets-grave__art,
+.pets-grave.is-selected .pets-grave__art { filter: drop-shadow(0 0 10px rgba(255, 244, 214, 0.95)); }
+
+.pets-grave.is-selected .pets-grave__name { box-shadow: 0 0 0 2px #f5c26b, 0 2px 8px rgba(90, 60, 40, 0.16); }
+
+[data-theme="dark"] .pets-grave:hover .pets-grave__art,
+[data-theme="dark"] .pets-grave.is-selected .pets-grave__art { filter: drop-shadow(0 0 10px rgba(240, 147, 251, 0.55)); }
+
+[data-theme="dark"] .pets-grave.is-selected .pets-grave__name { box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3); }
+
+/* Pusty ogród: napis na tabliczce wbitej w trawę u stóp wierzby (prawym brzegiem pod jej koroną — wierzba
+   kończy się min(9cqw, 110px) na lewo od środka widocznej części); na wąskiej scenie wyśrodkowany */
 .pets-garden__empty {
+    --note-w: min(360px, 62cqw);
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
+    box-sizing: border-box;
+    align-self: flex-start;
+    width: var(--note-w);
     max-width: 440px;
-    margin: 4px auto;
+    margin: 6px 0 30px max(0px, calc((100cqw - var(--pg-reserve, 0px)) / 2 - min(9cqw, 110px) + 10px - var(--note-w)));
     padding: 12px 18px 12px 14px;
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.82);
@@ -747,6 +784,29 @@
     color: #4a3f5c;
     font-size: var(--text-sm, 0.875rem);
     line-height: 1.5;
+}
+
+/* Paliki tabliczki w trawie */
+.pets-garden__empty::before,
+.pets-garden__empty::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 100%;
+    width: 8px;
+    height: 26px;
+    border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, #c99a6b 0%, #b08560 100%);
+    box-shadow: 0 6px 0 -3px rgba(70, 100, 50, 0.18);
+}
+
+.pets-garden__empty::before { left: 22%; }
+.pets-garden__empty::after { right: 22%; }
+
+[data-theme="dark"] .pets-garden__empty::before,
+[data-theme="dark"] .pets-garden__empty::after {
+    background: linear-gradient(90deg, #7d5d42 0%, #6b4f38 100%);
+    box-shadow: 0 6px 0 -3px rgba(0, 0, 0, 0.3);
 }
 
 .pets-garden__empty-icon {
@@ -798,7 +858,7 @@
 
 /* Latarenki przy wejściu na ścieżkę */
 .pg-lantern {
-    --lh: clamp(0px, 50cqh, 124px);
+    --lh: clamp(0px, min(50cqh, calc(var(--pg-k) * 124)), 150px);
     bottom: 5%;
     width: calc(var(--lh) * 50 / 130);
     height: var(--lh);
@@ -852,7 +912,7 @@
 
 /* Ławeczka (na lewo od ścieżki) */
 .pg-bench {
-    --bh: clamp(0px, min(34cqh, 12cqw), 104px);
+    --bh: clamp(0px, min(38cqh, 12cqw, calc(var(--pg-k) * 100)), 124px);
     bottom: 36%;
     left: max(1%, calc(var(--pg-cx) - var(--pw) / 2 - min(13cqw, 150px) - var(--bh) * 130 / 84));
     width: calc(var(--bh) * 130 / 84);
@@ -873,7 +933,7 @@
 
 /* Staw z liliami (na prawo od ścieżki) */
 .pg-pond {
-    --ph: clamp(0px, min(42cqh, 15cqw), 150px);
+    --ph: clamp(0px, min(46cqh, 15cqw, calc(var(--pg-k) * 132)), 170px);
     bottom: 13%;
     left: calc(var(--pg-cx) + var(--pw) / 2 + min(8cqw, 90px));
     width: calc(var(--ph) * 240 / 112);
@@ -925,13 +985,13 @@
 
 /* Kwitnące krzewy w głębi i kępki trawy */
 .pg-bush {
-    --bsh: clamp(0px, 24cqh, 92px);
+    --bsh: clamp(0px, min(24cqh, calc(var(--pg-k) * 92)), 112px);
     width: calc(var(--bsh) * 120 / 76);
     height: var(--bsh);
 }
 
 .pg-bush--1 { left: max(1%, calc(var(--pg-cx) - min(44cqw, 500px))); top: 6%; }
-.pg-bush--2 { --bsh: clamp(0px, 19cqh, 74px); left: calc(var(--pg-cx) + min(30cqw, 340px)); top: 3%; }
+.pg-bush--2 { --bsh: clamp(0px, min(19cqh, calc(var(--pg-k) * 74)), 90px); left: calc(var(--pg-cx) + min(30cqw, 340px)); top: 3%; }
 
 .pg-bush-leaf { fill: #8fca7a; }
 .pg-bush-hi { fill: #b4df9a; }
@@ -1217,6 +1277,38 @@
 [data-theme="dark"] .pets-page--night .pg-hill-near { fill: #25473f; }
 
 /* =====================================================================
+   Kropki na trawie (drobne kwiatki) — rozsypane losowo (garden.js: dwa wzory o dużych, różnych okresach)
+   zamiast regularnej siatki z tła łąki. Warstwy kropek w tle łąki (2.–4. warstwa każdego wariantu: dzień,
+   wieczór, noc) mają rozmiar 0 — zostaje ciepłe światło i gradient trawy. Warstwa leży pod pasami (niebo
+   ją zasłania), kolory jak dawne kropki w danej porze.
+   ===================================================================== */
+.pets-page .pets-scene--ogrod .pets-garden__meadow { background-size: auto, 0 0, 0 0, 0 0, auto; }
+
+.pets-garden__specks {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.pg-speck--white { fill: rgba(255, 255, 255, 0.9); }
+.pg-speck--pink { fill: rgba(255, 166, 204, 0.85); }
+.pg-speck--blue { fill: rgba(142, 197, 255, 0.85); }
+
+[data-theme="dark"] .pg-speck--white { fill: rgba(230, 225, 255, 0.45); }
+[data-theme="dark"] .pg-speck--pink { fill: rgba(217, 139, 176, 0.5); }
+[data-theme="dark"] .pg-speck--blue { fill: rgba(122, 168, 230, 0.5); }
+
+.pets-page--night .pg-speck--white { fill: rgba(230, 235, 255, 0.4); }
+.pets-page--night .pg-speck--pink { fill: rgba(217, 139, 176, 0.45); }
+.pets-page--night .pg-speck--blue { fill: rgba(122, 168, 230, 0.45); }
+
+[data-theme="dark"] .pets-page--night .pg-speck--white { fill: rgba(230, 235, 255, 0.32); }
+[data-theme="dark"] .pets-page--night .pg-speck--pink { fill: rgba(217, 139, 176, 0.36); }
+[data-theme="dark"] .pets-page--night .pg-speck--blue { fill: rgba(122, 168, 230, 0.36); }
+
+/* =====================================================================
    Układ wg rozmiaru sceny (zapytania kontenera — scena właściwa ogrodu)
    ===================================================================== */
 
@@ -1224,7 +1316,12 @@
 @container pets-garden (max-width: 599.98px) {
     .pets-garden__plot { padding: 10px 12px 8px; }
     .pets-graves { gap: 14px 10px; }
-    .pets-grave { flex-basis: calc(50% - 5px); }
+    .pets-garden__empty { --note-w: min(440px, 100%); align-self: center; margin: 4px auto 30px; }
+
+    .pets-grave {
+        --rig: clamp(84px, min(32cqw, 30cqh), 132px);
+        max-width: calc(50% - 5px);
+    }
     .pets-garden__fore { --pw: clamp(56px, min(22cqw, 60cqh), 120px); }
     .pg-lantern,
     .pg-bench { display: none; }
@@ -1254,26 +1351,7 @@
 
     .pets-garden__plot { padding-top: 6px; padding-bottom: 4px; }
     .pets-graves { gap: 8px 12px; }
-    .pets-grave { flex-basis: clamp(108px, calc((100% - 36px) / 4), 140px); padding: 2px 4px 4px; gap: 4px; }
-    .pets-grave__art { min-height: 88px; }
-    .pets-grave__art .pet-rig { width: 92px; }
-    .pets-grave__znicz { width: 16px; height: 24px; }
-    .pets-grave__glow { left: calc(68% + 8px - 44px); bottom: -26px; width: 88px; height: 88px; }
-    .pets-grave__flame { right: 6px; }
-}
-
-/* Wysoka i szeroka scena: większe nagrobki — zostają głównym punktem dużego ogrodu */
-@container pets-garden (min-height: 860px) and (min-width: 900px) {
-    .pets-grave {
-        flex-basis: clamp(150px, calc((100% - 54px) / 4), 190px);
-        max-width: 190px;
-    }
-
-    .pets-grave__art { min-height: 140px; }
-    .pets-grave__art .pet-rig { width: 144px; }
-    .pets-grave__znicz { width: 25px; height: 37.5px; }
-    .pets-grave__glow { left: calc(68% + 12.5px - 66px); bottom: -38px; width: 132px; height: 132px; }
-    .pets-grave__name { font-size: 14px; }
+    .pets-grave { padding: 2px 4px 4px; gap: 4px; }
 }
 
 /* Szeroka scena z niskim niebem (np. 1366×600): księżyc (noc) nie mieści się pod pigułką — świeci
@@ -1286,6 +1364,24 @@
             top: 14px;
             left: calc(var(--pg-cx) + min(16cqw, 190px));
         }
+    }
+}
+
+/* Szeroka i niska scena (laptop 1366×600, 1280×720): wierzba nie mieści się pod pigułką w skali sceny — stoi
+   na prawo od pigułki (≥ 390 px od lewej krawędzi, z zapasem na pigułkę nocy) i sięga pod górną krawędź;
+   tabliczka pustego ogrodu stoi pod nią */
+@container pets-garden (min-width: 900px) and (max-height: 700px) {
+    .pets-scene--ogrod:not(.has-window) .pg-willow {
+        --pg-wtop: 18px;
+        left: max(390px, calc(var(--pg-cx) - var(--wh) * 1.185 - min(9cqw, 110px)));
+    }
+
+    /* Noc: w pierwszym rzędzie obok nazwy miejsca stoi pigułka nocy — wierzba zaczyna się pod tym rzędem */
+    .pets-page--night .pets-scene--ogrod:not(.has-window) .pg-willow { --pg-wtop: 68px; }
+
+    .pets-scene--ogrod:not(.has-window) .pets-garden__empty {
+        --note-w: 300px;
+        margin-left: 380px;
     }
 }
 
@@ -1417,6 +1513,7 @@
 @media (prefers-reduced-motion: reduce) {
     .pets-garden__sign,
     .pets-grave,
+    .pets-grave__art,
     .pets-scene--ogrod .pets-stage,
     .zn-inner,
     .zn-flame-wrap,
@@ -1437,6 +1534,7 @@
 
 html.pet-rig-rm .pets-garden__sign,
 html.pet-rig-rm .pets-grave,
+html.pet-rig-rm .pets-grave__art,
 html.pet-rig-rm .pets-scene--ogrod .pets-stage,
 html.pet-rig-rm .zn-inner,
 html.pet-rig-rm .zn-flame-wrap,

@@ -877,6 +877,17 @@
     }
 }
 
+/* Karta okna (≥ 1024 px) zabiera prawe 376 px sceny: kosz z pluszakami staje pod kartą, przy prawej krawędzi
+   sceny, na linii podstaw inkubatorów — pod krótką kartą nie zostaje pusta ściana (rząd inkubatorów ma swoje
+   miejsce w widocznej części, więc kosz tam stoi zawsze) */
+@media (min-width: 1024px) {
+    .pets-scene--inkubatorium.has-window .pets-inc__side--r {
+        right: calc(56px - 376px);
+        width: clamp(120px, 22cqh, 176px);
+        visibility: visible;
+    }
+}
+
 /* Tabliczka „Jajka do odebrania na recepcji →” — prawy górny róg sceny (pigułka jest w lewym), pod girlandą
    (żarówki wiszą do ok. 45 px; wyżej tabliczka przylegała do nich) */
 .pets-inc__note {

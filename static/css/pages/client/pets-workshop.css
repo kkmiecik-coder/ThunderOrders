@@ -1,8 +1,10 @@
 /* ================================================
-   Świat pupili — warsztat (spec v3 §6.5): drewniany stół z narzędziami
-   (ramka = towarzysz, dzwonek = powiadomienia, książeczka = zasady). Logika: js/pet/world/workshop.js
-   Pełny ekran (spec v3.1 §3.5): deska stołu to tło całej sceny, karty w scenie właściwej,
-   przewijanie wewnątrz deski (.pets-scroll z pets.css), gdy karty nie mieszczą się w pionie.
+   Świat pupili — warsztat (spec v3 §6.5): ściana z desek, na niej perforowana tablica z narzędziami.
+   Karty (ramka = towarzysz, dzwonek = powiadomienia, książeczka = zasady) przypięte pinezkami do tablicy,
+   lekko przekrzywione, w rzędzie równej wysokości; obok kart narzędzia na kołkach i półka z puszkami; zasady
+   jako kafelki z ikonami. Na szerokim ekranie po bokach tablicy zębatki i piła. Logika: js/pet/world/workshop.js
+   Pełny ekran (spec v3.1 §3.5): ściana to tło całej sceny, tablica w scenie właściwej (wyśrodkowana także
+   w pionie), przewijanie wewnątrz (.pets-scroll z pets.css), gdy tablica nie mieści się w pionie.
    ================================================ */
 
 .pets-scene--warsztat {
@@ -11,14 +13,90 @@
         linear-gradient(180deg, #d9a877 0%, #c99a6b 100%);
 }
 
-.pets-workshop__table {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-    gap: 16px;
-    align-items: start;
+/* Scena właściwa na całą szerokość (tablica sama ma max-width; boki zostają na ozdoby ściany) */
+.pets-scene--warsztat .pets-workshop__stage {
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    container: pets-workshop / size;
 }
 
+.pets-workshop__scroll {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Tablica perforowana (płyta z otworami w drewnianej ramie) --- */
+.pets-workshop {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1180px;
+    margin: auto;
+    padding: 30px 26px 26px;
+    border: 10px solid #b98a5e;
+    border-radius: 22px;
+    background:
+        radial-gradient(circle, rgba(110, 72, 36, 0.3) 2.2px, transparent 2.8px) 0 0 / 26px 26px,
+        linear-gradient(180deg, #f1dcbc 0%, #e8cfaa 100%);
+    box-shadow: 0 10px 0 rgba(122, 80, 40, 0.22), 0 18px 34px rgba(80, 50, 20, 0.2), inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .pets-workshop {
+    border-color: #5a4030;
+    background:
+        radial-gradient(circle, rgba(0, 0, 0, 0.5) 2.2px, transparent 2.8px) 0 0 / 26px 26px,
+        linear-gradient(180deg, #3a2c22 0%, #33271e 100%);
+    box-shadow: 0 10px 0 rgba(0, 0, 0, 0.35), 0 18px 34px rgba(0, 0, 0, 0.4), inset 0 0 0 2px rgba(240, 147, 251, 0.08);
+}
+
+/* Układ: telefon — kolumna (narzędzia paskiem u góry); średnio — dwie karty obok siebie, narzędzia paskiem
+   nad nimi; szeroko — dwie karty i narzędzia w jednym rzędzie, zasady pod spodem. Rząd = równa wysokość. */
+.pets-workshop__table {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    align-items: stretch;
+}
+
+@container pets-workshop (min-width: 640px) {
+    .pets-workshop__table { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 24px; }
+
+    .pets-workshop__table > .pets-tool--book,
+    .pets-workshop__table > .pets-workshop__rack { grid-column: 1 / -1; }
+    .pets-tool--book .pets-tool__rules { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container pets-workshop (min-width: 980px) {
+    .pets-workshop__table { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(200px, 0.72fr); }
+    .pets-workshop__table > .pets-workshop__rack { grid-column: auto; order: 0; height: auto; }
+    .pets-tool--book .pets-tool__rules { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* --- Narzędzia na kołkach + półka z puszkami (ozdoba w rzędzie kart) --- */
+.pets-workshop__rack {
+    order: -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 112px;
+    min-width: 0;
+    pointer-events: none;
+}
+
+.pets-workshop__rack-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 280px;
+    overflow: visible;
+}
+
+/* --- Karty przypięte pinezkami, lekko przekrzywione --- */
 .pets-tool {
+    --pin: #ff7eb3;
+    --tilt: 0deg;
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -28,9 +106,31 @@
     border: 1px solid #F0DCC4;
     box-shadow: 0 4px 0 rgba(122, 80, 40, 0.18);
     min-width: 0;
+    transform: rotate(var(--tilt));
 }
 
-.pets-tool--book { grid-column: 1 / -1; }
+.pets-tool::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: -9px;
+    left: 50%;
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 32%, rgba(255, 255, 255, 0.95) 0 16%, var(--pin) 22% 100%);
+    box-shadow: 0 3px 4px rgba(80, 40, 10, 0.35);
+}
+
+.pets-tool--frame { --pin: #ff7eb3; --tilt: -1.1deg; }
+.pets-tool--bell { --pin: #4fcf9f; --tilt: 0.9deg; }
+.pets-tool--book { --pin: #a98bff; --tilt: -0.3deg; }
+
+[data-theme="dark"] .pets-tool--frame { --pin: #e0729a; }
+[data-theme="dark"] .pets-tool--bell { --pin: #3fae86; }
+[data-theme="dark"] .pets-tool--book { --pin: #8a72d8; }
+[data-theme="dark"] .pets-tool::before { box-shadow: 0 3px 5px rgba(0, 0, 0, 0.55); }
 
 .pets-tool__head {
     display: flex;
@@ -62,12 +162,14 @@
 
 .pets-tool__empty[hidden] { display: none; }
 
+/* --- Zasady gry: kafelki z ikonami (tekst ≥ 14 px) --- */
 .pets-tool__rules {
     margin: 0;
-    padding-left: 20px;
+    padding: 0;
+    list-style: none;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 8px 28px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
     font-size: var(--text-sm, 0.875rem);
     line-height: 1.45;
     color: var(--text-secondary, #616161);
@@ -75,9 +177,206 @@
 
 .pets-tool__rules strong { color: var(--text-primary, #212121); }
 
+.pets-tool__rule {
+    --rule-bg: #fff4f8;
+    --rule-chip: #ffd9e7;
+    --rule-ink: #e8608c;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--rule-bg);
+    border: 1px solid rgba(122, 80, 40, 0.1);
+}
+
+.pets-tool__rule--night { --rule-bg: #f4f1ff; --rule-chip: #e3dbff; --rule-ink: #7c5fd6; }
+.pets-tool__rule--hospital { --rule-bg: #eefaf4; --rule-chip: #cdf1df; --rule-ink: #ff6b7d; }
+.pets-tool__rule--eggs { --rule-bg: #fff9e6; --rule-chip: #ffeab0; --rule-ink: #e0a93b; }
+.pets-tool__rule--stars { --rule-bg: #fff4ea; --rule-chip: #ffdfc2; --rule-ink: #f08c2e; }
+.pets-tool__rule--farewell { --rule-bg: #eff4ff; --rule-chip: #d9e5ff; --rule-ink: #7f9be0; }
+
+.pets-tool__rule-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--rule-chip);
+}
+
+.pets-tool__rule-icon svg { width: 24px; height: 24px; display: block; }
+.pets-tool__rule-icon .ri-fill { fill: var(--rule-ink); }
+.pets-tool__rule-icon .ri-dot { fill: #ffffff; opacity: 0.85; }
+.pets-tool__rule-icon .ri-flame { fill: #ffb547; }
+
+.pets-tool__rule-body { min-width: 0; }
+
+.pets-tool__rule-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.pets-tool__rule-text {
+    margin: 3px 0 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #5c4a3c;
+}
+
+[data-theme="dark"] .pets-tool__rule {
+    --rule-bg: rgba(255, 255, 255, 0.05);
+    --rule-chip: rgba(255, 143, 179, 0.18);
+    --rule-ink: #ff9fc0;
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pets-tool__rule--night { --rule-chip: rgba(169, 139, 255, 0.2); --rule-ink: #c4b2ff; }
+[data-theme="dark"] .pets-tool__rule--hospital { --rule-chip: rgba(79, 207, 159, 0.18); --rule-ink: #ff8a97; }
+[data-theme="dark"] .pets-tool__rule--eggs { --rule-chip: rgba(255, 211, 107, 0.18); --rule-ink: #f2c75c; }
+[data-theme="dark"] .pets-tool__rule--stars { --rule-chip: rgba(240, 140, 46, 0.2); --rule-ink: #f5a95c; }
+[data-theme="dark"] .pets-tool__rule--farewell { --rule-chip: rgba(127, 155, 224, 0.2); --rule-ink: #9fb6ee; }
+[data-theme="dark"] .pets-tool__rule-icon .ri-dot { fill: #1a1230; opacity: 0.6; }
+[data-theme="dark"] .pets-tool__rule-text { color: rgba(255, 255, 255, 0.78); }
+
 .pets-tool .pets-setting {
     border-top: none;
     padding: 6px 0;
+}
+
+/* Wybór towarzysza: etykieta nad listą (na każdym ekranie tak samo — nie łamie się obok kontrolki); przełączniki
+   na wysokości pierwszego wiersza etykiety */
+.pets-tool .pets-setting--select {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.pets-tool .pets-setting--select .pets-select {
+    flex: 0 0 auto;
+    width: 100%;
+}
+
+.pets-tool .pets-setting:not(.pets-setting--select) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 16px;
+}
+
+/* Etykieta i przełącznik w jednym wierszu, opis pod nimi na całą szerokość karty */
+.pets-tool .pets-setting:not(.pets-setting--select) .pets-setting__text { display: contents; }
+.pets-tool .pets-setting:not(.pets-setting--select) .pets-setting__label { grid-column: 1; grid-row: 1; }
+.pets-tool .pets-setting:not(.pets-setting--select) .pets-switch { grid-column: 2; grid-row: 1; }
+.pets-tool .pets-setting__hint { grid-column: 1 / -1; grid-row: 2; margin-top: 4px; font-size: 13px; }
+
+/* --- Ściana po bokach tablicy (szeroki ekran): zębatki z lewej, piła i miarka z prawej --- */
+.pets-workshop__side {
+    --side-w: clamp(120px, 9cqw, 176px);
+    position: absolute;
+    top: 50%;
+    display: none;
+    width: var(--side-w);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.pets-workshop__side svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.pets-workshop__side--l { left: calc((100cqw - 1220px) / 4 - var(--side-w) / 2); }
+.pets-workshop__side--r { right: calc((100cqw - 1220px) / 4 - var(--side-w) / 2); }
+
+@container pets-workshop (min-width: 1560px) {
+    .pets-workshop__side { display: block; }
+}
+
+/* --- Rysunki narzędzi --- */
+.pets-workshop .pw-peg,
+.pets-workshop__side .pw-peg { fill: #8a5a3b; }
+.pets-workshop .pw-wood { fill: #c98b5c; }
+.pets-workshop .pw-metal { fill: #aab7c7; }
+.pets-workshop .pw-metal-line { fill: none; stroke: #aab7c7; stroke-width: 10; stroke-linecap: round; }
+.pets-workshop .pw-metal-line--thin { stroke-width: 6; }
+.pets-workshop .pw-shine { fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 3; stroke-linecap: round; }
+.pets-workshop .pw-grip,
+.pets-workshop__side .pw-grip { fill: #ff8fab; }
+.pets-workshop .pw-grip-line { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.6; stroke-linecap: round; }
+.pets-workshop .pw-string { fill: none; stroke: #8a5a3b; stroke-width: 2; }
+.pets-workshop .pw-gear,
+.pets-workshop__side .pw-gear { fill: #f5b83d; }
+.pets-workshop__side .pw-gear--small { fill: #ff9eb5; }
+.pets-workshop .pw-bracket { fill: none; stroke: #8a5a3b; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.pets-workshop .pw-shelf { fill: #a87b4f; }
+.pets-workshop .pw-can--blue { fill: #7cc4ff; }
+.pets-workshop .pw-can--pink,
+.pets-workshop .pw-drip { fill: #ff9eb5; }
+.pets-workshop .pw-can--yellow { fill: #ffd36b; }
+.pets-workshop .pw-can--mint { fill: #8fe0c4; }
+.pets-workshop .pw-lid { fill: #e3e8ef; }
+.pets-workshop .pw-label { fill: rgba(255, 255, 255, 0.6); }
+.pets-workshop .pw-bristle { fill: #7cc4ff; }
+.pets-workshop .pw-jar { fill: rgba(225, 242, 255, 0.75); stroke: #a9c3de; stroke-width: 1.5; }
+.pets-workshop .pw-jar-lid { fill: #c9a97a; }
+.pets-workshop .pw-screw { fill: none; stroke: #8a96a8; stroke-width: 2.6; stroke-linecap: round; }
+.pets-workshop .pw-tape { fill: #ffffff; }
+.pets-workshop .pw-tape-end { fill: #ffd36b; }
+.pets-workshop__side .pw-saw-blade { fill: #cdd7e3; }
+.pets-workshop__side .pw-saw-teeth { fill: none; stroke: #aab7c7; stroke-width: 2; stroke-linejoin: round; }
+.pets-workshop__side .pw-ruler { fill: #ffd36b; }
+.pets-workshop__side .pw-ruler-marks { fill: none; stroke: #8a5a3b; stroke-width: 1.6; }
+
+[data-theme="dark"] .pets-workshop .pw-peg,
+[data-theme="dark"] .pets-workshop__side .pw-peg { fill: #2a1f17; }
+[data-theme="dark"] .pets-workshop .pw-wood { fill: #9b6b45; }
+[data-theme="dark"] .pets-workshop .pw-metal { fill: #7d8aa0; }
+[data-theme="dark"] .pets-workshop .pw-metal-line { stroke: #7d8aa0; }
+[data-theme="dark"] .pets-workshop .pw-shine { stroke: rgba(255, 255, 255, 0.25); }
+[data-theme="dark"] .pets-workshop .pw-grip,
+[data-theme="dark"] .pets-workshop__side .pw-grip { fill: #c96a88; }
+[data-theme="dark"] .pets-workshop .pw-string,
+[data-theme="dark"] .pets-workshop .pw-bracket { stroke: #6b4a33; }
+[data-theme="dark"] .pets-workshop .pw-gear,
+[data-theme="dark"] .pets-workshop__side .pw-gear { fill: #c9962f; }
+[data-theme="dark"] .pets-workshop__side .pw-gear--small { fill: #c97a90; }
+[data-theme="dark"] .pets-workshop .pw-shelf { fill: #6b4a33; }
+[data-theme="dark"] .pets-workshop .pw-can--blue,
+[data-theme="dark"] .pets-workshop .pw-bristle { fill: #5c8fc0; }
+[data-theme="dark"] .pets-workshop .pw-can--pink,
+[data-theme="dark"] .pets-workshop .pw-drip { fill: #c97a90; }
+[data-theme="dark"] .pets-workshop .pw-can--yellow { fill: #c9a64f; }
+[data-theme="dark"] .pets-workshop .pw-can--mint { fill: #5fae94; }
+[data-theme="dark"] .pets-workshop .pw-lid { fill: #9aa3b0; }
+[data-theme="dark"] .pets-workshop .pw-label { fill: rgba(255, 255, 255, 0.25); }
+[data-theme="dark"] .pets-workshop .pw-jar { fill: rgba(170, 200, 255, 0.18); stroke: #5d7aa6; }
+[data-theme="dark"] .pets-workshop .pw-jar-lid { fill: #8f7350; }
+[data-theme="dark"] .pets-workshop .pw-screw { stroke: #9aa3b0; }
+[data-theme="dark"] .pets-workshop .pw-tape { fill: #d8d4e6; }
+[data-theme="dark"] .pets-workshop .pw-tape-end { fill: #c9a64f; }
+[data-theme="dark"] .pets-workshop__side .pw-saw-blade { fill: #8f9bb0; }
+[data-theme="dark"] .pets-workshop__side .pw-saw-teeth { stroke: #6f7b90; }
+[data-theme="dark"] .pets-workshop__side .pw-ruler { fill: #c9a64f; }
+[data-theme="dark"] .pets-workshop__side .pw-ruler-marks { stroke: #4a3424; }
+
+/* Zębatki na ścianie obracają się powoli (ograniczony ruch: stoją) */
+.pets-workshop__side .pw-spin {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pets-workshop-spin 24s linear infinite;
+}
+
+.pets-workshop__side .pw-spin--rev { animation-duration: 16s; animation-direction: reverse; }
+
+@keyframes pets-workshop-spin {
+    to { transform: rotate(360deg); }
 }
 
 /* Pora dnia (reguła: motyw = UI, noc gry = scena): ciemny motyw = wieczór — ciepłe, przygaszone drewno w świetle
@@ -120,16 +419,9 @@
 [data-theme="dark"] .pets-tool__rules { color: rgba(255, 255, 255, 0.72); }
 
 @media (max-width: 480px) {
-    .pets-workshop__table { gap: 12px; }
     .pets-tool { padding: 14px; }
-
-    .pets-setting--select {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-    }
-
-    .pets-setting--select .pets-select { flex-basis: auto; width: 100%; }
+    .pets-workshop { padding: 22px 12px 14px; border-width: 6px; border-radius: 16px; }
+    .pets-workshop__rack { height: 96px; }
 }
 
 /* === Przełączniki i wybór (przeniesione z dawnej sekcji ustawień) === */
@@ -271,4 +563,7 @@
 @media (prefers-reduced-motion: reduce) {
     .pets-switch__slider,
     .pets-switch__slider::after { transition: none; }
+    .pets-workshop__side .pw-spin { animation: none; }
 }
+
+html.pet-rig-rm .pets-workshop__side .pw-spin { animation: none; }
