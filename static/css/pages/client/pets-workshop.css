@@ -42,7 +42,7 @@
     box-shadow: 0 10px 0 rgba(122, 80, 40, 0.22), 0 18px 34px rgba(80, 50, 20, 0.2), inset 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 
-[data-theme="dark"] .pets-workshop {
+:is([data-theme="dark"], .pets-page--night) .pets-workshop {
     border-color: #5a4030;
     background:
         radial-gradient(circle, rgba(0, 0, 0, 0.5) 2.2px, transparent 2.8px) 0 0 / 26px 26px,
@@ -334,37 +334,37 @@
 .pets-workshop__side .pw-ruler { fill: #ffd36b; }
 .pets-workshop__side .pw-ruler-marks { fill: none; stroke: #8a5a3b; stroke-width: 1.6; }
 
-[data-theme="dark"] .pets-workshop .pw-peg,
-[data-theme="dark"] .pets-workshop__side .pw-peg { fill: #2a1f17; }
-[data-theme="dark"] .pets-workshop .pw-wood { fill: #9b6b45; }
-[data-theme="dark"] .pets-workshop .pw-metal { fill: #7d8aa0; }
-[data-theme="dark"] .pets-workshop .pw-metal-line { stroke: #7d8aa0; }
-[data-theme="dark"] .pets-workshop .pw-shine { stroke: rgba(255, 255, 255, 0.25); }
-[data-theme="dark"] .pets-workshop .pw-grip,
-[data-theme="dark"] .pets-workshop__side .pw-grip { fill: #c96a88; }
-[data-theme="dark"] .pets-workshop .pw-string,
-[data-theme="dark"] .pets-workshop .pw-bracket { stroke: #6b4a33; }
-[data-theme="dark"] .pets-workshop .pw-gear,
-[data-theme="dark"] .pets-workshop__side .pw-gear { fill: #c9962f; }
-[data-theme="dark"] .pets-workshop__side .pw-gear--small { fill: #c97a90; }
-[data-theme="dark"] .pets-workshop .pw-shelf { fill: #6b4a33; }
-[data-theme="dark"] .pets-workshop .pw-can--blue,
-[data-theme="dark"] .pets-workshop .pw-bristle { fill: #5c8fc0; }
-[data-theme="dark"] .pets-workshop .pw-can--pink,
-[data-theme="dark"] .pets-workshop .pw-drip { fill: #c97a90; }
-[data-theme="dark"] .pets-workshop .pw-can--yellow { fill: #c9a64f; }
-[data-theme="dark"] .pets-workshop .pw-can--mint { fill: #5fae94; }
-[data-theme="dark"] .pets-workshop .pw-lid { fill: #9aa3b0; }
-[data-theme="dark"] .pets-workshop .pw-label { fill: rgba(255, 255, 255, 0.25); }
-[data-theme="dark"] .pets-workshop .pw-jar { fill: rgba(170, 200, 255, 0.18); stroke: #5d7aa6; }
-[data-theme="dark"] .pets-workshop .pw-jar-lid { fill: #8f7350; }
-[data-theme="dark"] .pets-workshop .pw-screw { stroke: #9aa3b0; }
-[data-theme="dark"] .pets-workshop .pw-tape { fill: #d8d4e6; }
-[data-theme="dark"] .pets-workshop .pw-tape-end { fill: #c9a64f; }
-[data-theme="dark"] .pets-workshop__side .pw-saw-blade { fill: #8f9bb0; }
-[data-theme="dark"] .pets-workshop__side .pw-saw-teeth { stroke: #6f7b90; }
-[data-theme="dark"] .pets-workshop__side .pw-ruler { fill: #c9a64f; }
-[data-theme="dark"] .pets-workshop__side .pw-ruler-marks { stroke: #4a3424; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-peg,
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-peg { fill: #2a1f17; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-wood { fill: #9b6b45; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-metal { fill: #7d8aa0; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-metal-line { stroke: #7d8aa0; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-shine { stroke: rgba(255, 255, 255, 0.25); }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-grip,
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-grip { fill: #c96a88; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-string,
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-bracket { stroke: #6b4a33; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-gear,
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-gear { fill: #c9962f; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-gear--small { fill: #c97a90; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-shelf { fill: #6b4a33; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-can--blue,
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-bristle { fill: #5c8fc0; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-can--pink,
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-drip { fill: #c97a90; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-can--yellow { fill: #c9a64f; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-can--mint { fill: #5fae94; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-lid { fill: #9aa3b0; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-label { fill: rgba(255, 255, 255, 0.25); }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-jar { fill: rgba(170, 200, 255, 0.18); stroke: #5d7aa6; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-jar-lid { fill: #8f7350; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-screw { stroke: #9aa3b0; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-tape { fill: #d8d4e6; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop .pw-tape-end { fill: #c9a64f; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-saw-blade { fill: #8f9bb0; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-saw-teeth { stroke: #6f7b90; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-ruler { fill: #c9a64f; }
+:is([data-theme="dark"], .pets-page--night) .pets-workshop__side .pw-ruler-marks { stroke: #4a3424; }
 
 /* Zębatki na ścianie obracają się powoli (ograniczony ruch: stoją) */
 .pets-workshop__side .pw-spin {
