@@ -16,6 +16,8 @@ REWIZJA = 'f3e9a1c7b2d4'
 PLIK = pathlib.Path('migrations/versions') / f'{REWIZJA}_pupile_fundament.py'
 REWIZJA_SZPITAL = 'b5d8e2f4a917'
 PLIK_SZPITAL = pathlib.Path('migrations/versions') / f'{REWIZJA_SZPITAL}_pupile_szpital_skorki.py'
+REWIZJA_ZARTY = 'c7a4d1e9f2b6'
+PLIK_ZARTY = pathlib.Path('migrations/versions') / f'{REWIZJA_ZARTY}_pupile_zarty.py'
 
 
 def _zaladuj(plik, nazwa):
@@ -69,13 +71,14 @@ def test_migracja_jest_jedyna_glowa():
     cfg = Config('migrations/alembic.ini')
     cfg.set_main_option('script_location', 'migrations')
     sd = ScriptDirectory.from_config(cfg)
-    assert sd.get_heads() == [REWIZJA_SZPITAL]
+    assert sd.get_heads() == [REWIZJA_ZARTY]
+    assert sd.get_revision(REWIZJA_ZARTY).down_revision == REWIZJA_SZPITAL
     assert sd.get_revision(REWIZJA_SZPITAL).down_revision == REWIZJA
     assert sd.get_revision(REWIZJA).down_revision == 'dde1a45a7d87'
 
 
 def test_upgrade_tworzy_tabele_zgodne_z_modelami(silnik):
-    from modules.pets.models import Pet, PetProfile, PetEvent
+    from modules.pets.models import Pet, PetProfile, PetEvent, PetPeekImage
     migracja = _zaladuj_migracje()
     with silnik.begin() as conn:
         assert 'pet_updates' not in _kolumny(sa.inspect(conn), 'notification_preferences')
@@ -83,11 +86,12 @@ def test_upgrade_tworzy_tabele_zgodne_z_modelami(silnik):
         with Operations.context(ctx):
             migracja.upgrade()
             _zaladuj(PLIK_SZPITAL, 'migracja_szpital').upgrade()
+            _zaladuj(PLIK_ZARTY, 'migracja_zarty').upgrade()
         insp = sa.inspect(conn)
         tabele = set(insp.get_table_names())
-        assert {'pets', 'pet_profiles', 'pet_events'} <= tabele
+        assert {'pets', 'pet_profiles', 'pet_events', 'pet_peek_images'} <= tabele
 
-        for model in (Pet, PetProfile, PetEvent):
+        for model in (Pet, PetProfile, PetEvent, PetPeekImage):
             z_modelu = {c.name: c.nullable for c in model.__table__.columns}
             assert _kolumny(insp, model.__tablename__) == z_modelu, model.__tablename__
 
@@ -123,3 +127,20 @@ def test_szpital_downgrade_usuwa_kolumny(silnik):
             assert {'hospital_since', 'hospital_healed_at', 'hospital_ready_notified_at', 'egg_skin'} <= set(_kolumny(sa.inspect(conn), 'pets'))
             nowa.downgrade()
         assert not ({'hospital_since', 'egg_skin'} & set(_kolumny(sa.inspect(conn), 'pets')))
+
+
+def test_zarty_upgrade_i_downgrade(silnik):
+    with silnik.begin() as conn:
+        ctx = MigrationContext.configure(conn)
+        with Operations.context(ctx):
+            _zaladuj_migracje().upgrade()
+            _zaladuj(PLIK_SZPITAL, 'migracja_szpital').upgrade()
+            zarty = _zaladuj(PLIK_ZARTY, 'migracja_zarty')
+            zarty.upgrade()
+            insp = sa.inspect(conn)
+            assert 'pet_peek_images' in insp.get_table_names()
+            assert 'jokes_enabled' in _kolumny(insp, 'pet_profiles')
+            zarty.downgrade()
+        insp = sa.inspect(conn)
+        assert 'pet_peek_images' not in insp.get_table_names()
+        assert 'jokes_enabled' not in _kolumny(insp, 'pet_profiles')

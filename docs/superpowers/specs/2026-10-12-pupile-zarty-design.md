@@ -177,7 +177,7 @@ uploadu), style w `static/css/pages/admin/pets.css` z wariantem dark mode.
 ### 6.6 Wyłącznik admina
 
 `('pets_jokes_enabled', 'boolean', None, 'Żarty pupili włączone')` w `ADMIN_FIELDS`; `PetConfig.jokes_enabled: bool = True`.
-Checkbox w głównym formularzu ustawień (nie w „Włączniku i rollout", bo ten jest awaryjnym wyłączeniem całej funkcji).
+Checkbox leży w karcie „Włącznik i rollout" (ten sam krótki formularz `scope=switch`), bo formularz „Liczby gry" nie zawiera boolean-ów, a walidator zapisuje `false` dla każdego boolean-a bez pola.
 Niezaznaczony checkbox zapisuje `false` (istniejąca konwencja walidatora).
 
 ### 6.7 Endpoint klienta

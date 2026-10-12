@@ -55,6 +55,7 @@ class PetConfig:
     stage_days: dict = _slownik('stage_days')
     actions: dict = _slownik('actions')
     hospital: dict = _slownik('hospital')
+    jokes_enabled: bool = True          # globalny wyłącznik żartów towarzysza (spec v3.2 §6.6)
 
     # Pola, które mogą być zerem (reszta liczb musi być dodatnia)
     _ZERO_OK: ClassVar[frozenset] = frozenset({'rollout_pct', 'rescue_hours', 'pity_after', 'max_stars'})
@@ -205,6 +206,7 @@ def pets_feature_for(user):
 ADMIN_FIELDS = (
     ('pets_enabled', 'boolean', None, 'Funkcja włączona'),
     ('pets_rollout_pct', 'integer', None, 'Rollout (% użytkowników po user_id)'),
+    ('pets_jokes_enabled', 'boolean', None, 'Żarty pupili włączone'),
     ('pets_decay_hours', 'json', ('hunger', 'fun', 'clean'), 'Pasek 100→0 w godzinach (sytość / radość / czystość)'),
     ('pets_night', 'json', ('start', 'end', 'factor'), 'Noc (od godz. / do godz. / mnożnik spadków)'),
     ('pets_health_drop_hours', 'integer', None, 'Zdrowie 100→0 przy pasku na zerze (h)'),
@@ -233,7 +235,7 @@ _FLOAT_FIELDS = frozenset({'pets_night_factor', 'pets_boost_factor', 'pets_actio
                            'pets_actions_heal', 'pets_actions_heal_cooldown_h', 'pets_actions_allow_below',
                            'pets_actions_pat_per_hour', 'pets_actions_wake_penalty', 'pets_actions_awake_minutes',
                            'pets_hospital_hours', 'pets_hospital_wait_hours'})
-SWITCH_KEYS = frozenset({'pets_enabled', 'pets_rollout_pct'})   # osobny formularz „Włącznik i rollout”
+SWITCH_KEYS = frozenset({'pets_enabled', 'pets_rollout_pct', 'pets_jokes_enabled'})   # osobny formularz „Włącznik i rollout”
 
 
 def admin_form_fields():

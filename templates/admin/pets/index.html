@@ -8,6 +8,7 @@
 
 {% set float_fields = ['pets_night_factor', 'pets_boost_factor', 'pets_actions_pat_gain'] %}
 {% set enabled_on = form.get('pets_enabled') in ('on', 'true', '1') %}
+{% set jokes_on = form.get('pets_jokes_enabled') in ('on', 'true', '1') %}
 
 {% block content %}
 <div class="pa-page" id="petsAdmin" data-search-url="{{ url_for('pets_admin.search_users') }}" data-grant-url="{{ url_for('pets_admin.grant_egg') }}">
@@ -59,6 +60,11 @@
                     <input type="checkbox" name="pets_enabled" id="petsEnabled" {% if enabled_on %}checked{% endif %}>
                     <span class="pa-toggle__slider"></span>
                     <span class="pa-toggle__text">Funkcja włączona</span>
+                </label>
+                <label class="pa-toggle">
+                    <input type="checkbox" name="pets_jokes_enabled" id="petsJokesEnabled" {% if jokes_on %}checked{% endif %}>
+                    <span class="pa-toggle__slider"></span>
+                    <span class="pa-toggle__text">Żarty pupili włączone</span>
                 </label>
                 <div class="pa-field {% if errors.get('pets_rollout_pct') %}pa-field--error{% endif %}">
                     <label for="petsRolloutPct">Rollout (% użytkowników po user_id; admin/mod widzą zawsze)</label>

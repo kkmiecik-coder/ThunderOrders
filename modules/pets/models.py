@@ -4,7 +4,7 @@ Spec: docs/superpowers/specs/2026-10-10-pupile-tamagotchi-design.md §3.3
 
 Zasada: w bazie leżą wartości pasków W CHWILI `state_at`; stan „na teraz" liczy
 modules/pets/rules.py. Modele nie zawierają logiki gry. Kolumny muszą być 1:1
-z migracją f3e9a1c7b2d4 (pilnuje tego tests/test_pets_migration.py).
+z migracjami f3e9a1c7b2d4, b5d8e2f4a917 i c7a4d1e9f2b6 (pilnuje tego tests/test_pets_migration.py).
 """
 from extensions import db
 from modules.auth.models import get_local_now
@@ -33,6 +33,8 @@ class PetProfile(db.Model):
                                  nullable=True)
     companion_enabled = db.Column(db.Boolean, nullable=False, default=True,
                                   server_default=db.text('1'))
+    # Żarty towarzysza (spec v3.2 §6.2): jeden przełącznik użytkownika w warsztacie
+    jokes_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text('1'))
     dupes_in_row = db.Column(db.Integer, nullable=False, default=0, server_default=db.text('0'))
     start_egg_claimed_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
     # Licznik miesięczny biegnie od ODBIORU (startowego lub poprzedniego miesięcznego)
@@ -136,3 +138,18 @@ class PetEvent(db.Model):
 
     def __repr__(self):
         return f'<PetEvent {self.type} pet={self.pet_id} value={self.value}>'
+
+
+class PetPeekImage(db.Model):
+    """Ozdobny obrazek, który towarzysz wychyla zza krawędzi ekranu (spec v3.2 §6.1). Zarządza admin."""
+    __tablename__ = 'pet_peek_images'
+
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(80), nullable=False, unique=True)   # <uuid>.webp w static/uploads/pet_peeks/
+    label = db.Column(db.String(60), nullable=True)                     # nazwa dla admina
+    is_active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text('1'))
+    created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+
+    def __repr__(self):
+        return f'<PetPeekImage {self.id} {self.filename} active={self.is_active}>'

@@ -2,7 +2,7 @@
 from tests.pets_helpers import zaloz_profil, zaloz_pupila
 
 PELNY_FORMULARZ = {
-    'pets_enabled': 'on', 'pets_rollout_pct': '25',
+    'pets_enabled': 'on', 'pets_rollout_pct': '25', 'pets_jokes_enabled': 'on',
     'pets_decay_hours_hunger': '20', 'pets_decay_hours_fun': '30', 'pets_decay_hours_clean': '48',
     'pets_night_start': '22', 'pets_night_end': '7', 'pets_night_factor': '0.25',
     'pets_health_drop_hours': '72', 'pets_health_regen_hours': '24',
@@ -114,3 +114,27 @@ def test_przyznaj_bez_profilu_czytelny_blad(client, login, make_user, db):
     assert r.status_code == 409 and 'startowego' in r.get_json()['message']
     r = client.post('/admin/pupile/przyznaj', json={'user_id': 999999})
     assert r.status_code == 404
+
+
+def test_wylacznik_zartow_zapisuje_sie_z_formularza_wlacznika(client, login, make_user, db):
+    from modules.pets.config import PetConfig
+    _admin(make_user, login)
+    dane = {'scope': 'switch', 'pets_enabled': 'on', 'pets_rollout_pct': '25'}   # bez pets_jokes_enabled = odznaczony
+    assert client.post('/admin/pupile/ustawienia', data=dane).status_code == 302
+    assert PetConfig.load(force=True).jokes_enabled is False
+    dane['pets_jokes_enabled'] = 'on'
+    assert client.post('/admin/pupile/ustawienia', data=dane).status_code == 302
+    assert PetConfig.load(force=True).jokes_enabled is True
+
+
+def test_zapis_liczb_gry_nie_rusza_wylacznika_zartow(client, login, make_user, db):
+    """Review Focus 2: formularz „Liczby gry” nie zawiera checkboxa żartów — nie może go wyzerować."""
+    from modules.auth.models import Settings
+    from modules.pets.config import PetConfig
+    _admin(make_user, login)
+    Settings.set_value('pets_jokes_enabled', 'true', type='boolean')
+    db.session.commit()
+    liczby = {k: v for k, v in PELNY_FORMULARZ.items()
+              if k not in ('pets_enabled', 'pets_rollout_pct', 'pets_jokes_enabled')}
+    assert client.post('/admin/pupile/ustawienia', data=liczby).status_code == 302
+    assert PetConfig.load(force=True).jokes_enabled is True
