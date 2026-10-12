@@ -14,13 +14,15 @@
  *   inaczej same liczby); zniknęło (wyklute w innej karcie) → okno się zamyka, fokus na scenie.
  * - Wystrój sali (feedback: „smutno i pusto”): girlanda światełek pod sufitem, tapeta w jajka i serduszka,
  *   lamperia, podłoga z dywanem; nad inkubatorami „ściana” (.pets-inc__wall — elastyczny pas w przepływie
- *   między tabliczką a rzędem, więc nigdy nie nachodzi na inkubatory): szyld, karuzela-pozytywka, okno
- *   z firankami (dzień/noc), termometr (wyżej, gdy jakieś jajko jest ogrzane), półki z kocykami, butelkami
- *   i pluszakami, obrazek i tablica „Wykluło się w tym miesiącu”. Co się pokaże, decydują zapytania kontenera
- *   o wysokość tej ściany (CSS). Po bokach rzędu na podłodze roślina i kosz z pluszakami — tylko gdy obok
- *   inkubatorów jest wolne miejsce, a w niskim i szerokim widoku okno i półki stają w bocznych kolumnach obok
- *   rzędu (mierzone w JS: layoutSides). Dekoracje: aria-hidden, bez zdarzeń
- *   (klik w nie = klik w tło sceny); tablica z liczbą jest zwykłym tekstem.
+ *   między tabliczką a rzędem, więc nigdy nie nachodzi na inkubatory): szyld z pisklęciem w skorupce (bez
+ *   napisu — nazwę sali ma pigułka), karuzela-pozytywka, okno z firankami (dzień/noc), termometr (wyżej, gdy
+ *   jakieś jajko jest ogrzane), półki z kocykami, butelkami i pluszakami, obrazek i tablica „Wykluło się w tym
+ *   miesiącu”. Co się pokaże, decydują zapytania kontenera o wysokość tej ściany (CSS; przy wielu
+ *   inkubatorach niska ściana dostaje chociaż małe okno). Po bokach rzędu na podłodze roślina i kosz
+ *   z pluszakami — tylko gdy obok inkubatorów jest wolne miejsce, a w niskim i szerokim widoku okno i półki
+ *   stają w bocznych kolumnach obok rzędu (mierzone w JS: layoutSides). Lampy wiszą na przewodach od sufitu
+ *   (warstwa .pets-inc__cords za wszystkim, położenie z pomiaru inkubatorów — także po przewinięciu).
+ *   Dekoracje: aria-hidden, bez zdarzeń (klik w nie = klik w tło sceny); tablica z liczbą jest zwykłym tekstem.
  * Rejestruje się w window.PetsWorld.scenes.inkubatorium.
  */
 (function () {
@@ -217,6 +219,18 @@
         '<rect class="bk-rim" x="8" y="62" width="134" height="10" rx="5"/>' +
         '</svg>';
 
+    // Szyld nad karuzelą: pisklę wygląda ze skorupki (zamiast napisu „Inkubatorium” — ten jest w pigułce)
+    var CHICK_SVG =
+        '<svg class="pets-inc__sign-art" viewBox="0 0 48 30" focusable="false">' +
+        '<path class="sg-tuft" d="M22.5 4.5c.4-2 1.4-3 2.8-3.2-.3 1-.2 2 .4 2.8"/>' +
+        '<circle class="sg-chick" cx="24" cy="13" r="9"/>' +
+        '<ellipse class="sg-cheek" cx="18.6" cy="15.2" rx="1.7" ry="1.1"/><ellipse class="sg-cheek" cx="29.4" cy="15.2" rx="1.7" ry="1.1"/>' +
+        '<circle class="sg-eye" cx="20.8" cy="12" r="1.25"/><circle class="sg-eye" cx="27.2" cy="12" r="1.25"/>' +
+        '<path class="sg-beak" d="M22.4 14.6h3.2L24 17z"/>' +
+        '<path class="sg-shell" d="M11 16.5l3.4 3 3.2-3 3.2 3 3.2-3 3.2 3 3.2-3 3.2 3 3.4-3c0 7.2-5.6 12-13 12s-13-4.8-13-12z"/>' +
+        '<path class="sg-spark" d="M5 9l.9 2.1 2.1.9-2.1.9L5 15l-.9-2.1L2 12l2.1-.9zM43 6l.8 1.7 1.7.8-1.7.8L43 11l-.8-1.7-1.7-.8 1.7-.8z"/>' +
+        '</svg>';
+
     // Skorupka po wykluciu (tablica „Wykluło się w tym miesiącu”: jedna na pupila, najwyżej 5)
     var SHELL_SVG =
         '<svg viewBox="0 0 24 20" focusable="false"><path d="M3 9l3-3 3 3 3-3 3 3 3-3 3 3c0 5.5-4 9.5-9 9.5S3 14.5 3 9z"/></svg>';
@@ -258,10 +272,12 @@
         }
 
         var stage = el('div', 'pets-stage pets-inc');
-        // Tło sali (kolejność = warstwy pod inkubatorami): ciepłe światło, girlanda, podłoga, dywan, boki
+        // Tło sali (kolejność = warstwy pod inkubatorami): ciepłe światło, przewody lamp, girlanda, podłoga, dywan,
+        // boki
         var garlandHtml = '';
         for (var g = 0; g < GARLAND_SEGMENTS; g++) garlandHtml += GARLAND_SEG;
         var glow = decor('div', 'pets-inc__light');
+        var cordsLayer = decor('div', 'pets-inc__cords');
         var garland = decor('div', 'pets-inc__garland', garlandHtml);
         var floor = decor('div', 'pets-inc__floor');
         var rug = decor('div', 'pets-inc__rug');
@@ -299,7 +315,9 @@
         groupL.appendChild(board);
         var groupC = decor('div', 'pets-inc__group pets-inc__group--c');
         var sign = el('span', 'pets-inc__sign');
-        sign.appendChild(el('span', 'pets-inc__sign-text', 'Inkubatorium'));
+        var signArt = el('span', 'pets-inc__sign-text');
+        signArt.innerHTML = CHICK_SVG;
+        sign.appendChild(signArt);
         groupC.appendChild(sign);
         groupC.appendChild(el('span', 'pets-inc__mobile'));
         groupC.lastChild.innerHTML = MOBILE_SVG;
@@ -316,7 +334,7 @@
         scroll.appendChild(note);
         scroll.appendChild(wall);
         scroll.appendChild(row);
-        [glow, garland, floor, rug, sideL, sideR, asideL, asideR, scroll].forEach(function (node) { stage.appendChild(node); });
+        [glow, cordsLayer, garland, floor, rug, sideL, sideR, asideL, asideR, scroll].forEach(function (node) { stage.appendChild(node); });
         host.appendChild(stage);
 
         var win = window.PetsSceneWindow ? window.PetsSceneWindow.attach(host) : null;
@@ -465,6 +483,7 @@
             var box = stage.getBoundingClientRect();
             if (!box.width || !stage.offsetWidth) return;
             var k = box.width / stage.offsetWidth;
+            layoutCords(box, k);
             var rects = [];
             var left = Infinity, right = -Infinity, bottom = -Infinity, incH = 0;
             views.forEach(function (v) {
@@ -552,6 +571,47 @@
             });
             node.classList.toggle('is-shown', w >= SIDE_MIN && !hit);
         }
+
+        // --- przewody lamp: od sufitu (góra sceny) do klosza każdego inkubatora --------------------------
+        // Warstwa za girlandą, ścianą i inkubatorami: przewód inkubatora z dolnego rzędu chowa się za tymi wyżej.
+        // Grubość jak przewód w SVG inkubatora (2,5 jedn. viewBoxu 120 px szerokości).
+        var cordEls = [];
+        var cordsQueued = false;
+
+        function layoutCords(box, k) {
+            while (cordEls.length < views.length) {
+                var c = decor('span', 'pets-inc__cord');
+                cordsLayer.appendChild(c);
+                cordEls.push(c);
+            }
+            while (cordEls.length > views.length) cordsLayer.removeChild(cordEls.pop());
+            views.forEach(function (v, i) {
+                var cord = cordEls[i];
+                var r = v.el.getBoundingClientRect();
+                var h = (r.top - box.top) / k + 3;        // +3 px: zakładka z przewodem w SVG inkubatora
+                cord.hidden = !r.width || h <= 0;
+                if (cord.hidden) return;
+                cord.classList.toggle('is-free', v.el.classList.contains('is-free'));
+                cord.style.setProperty('--cord-x', ((r.left + r.width / 2 - box.left) / k).toFixed(1) + 'px');
+                cord.style.setProperty('--cord-h', h.toFixed(1) + 'px');
+                cord.style.setProperty('--cord-w', Math.max(1.5, 2.5 * r.width / k / 120).toFixed(2) + 'px');
+            });
+        }
+
+        function syncCords() {
+            cordsQueued = false;
+            var box = stage.getBoundingClientRect();
+            if (box.width && stage.offsetWidth) layoutCords(box, box.width / stage.offsetWidth);
+        }
+
+        // Przewinięcie wnętrza (dużo jajek) przesuwa inkubatory — przewody za nimi
+        scroll.addEventListener('scroll', function () {
+            if (cordsQueued) return;
+            cordsQueued = true;
+            // Ukryta karta nie rysuje klatek — wtedy od razu
+            if (document.visibilityState === 'hidden' || !window.requestAnimationFrame) syncCords();
+            else window.requestAnimationFrame(syncCords);
+        }, { passive: true });
 
         if (window.ResizeObserver) {
             var sidesObs = new ResizeObserver(function () { layoutSides(); });
