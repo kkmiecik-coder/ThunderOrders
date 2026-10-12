@@ -11,6 +11,11 @@
  * - `?pupil=ID` otwiera okno (fokus na kartę); pupil w szpitalu → przekierowanie na Izbę przyjęć z jego
  *   oknem (replaceState); pupil nieistniejący / odeszły → pokój bez okna i bez błędu (Review Focus 5). Otwarte
  *   okno aktualizuje adres przez replaceState (bez nowych wpisów historii).
+ * - Podpowiedzi (kto jest w szpitalu, „Kliknij pupila…”) to jeden mały przycisk w prawym górnym rogu (licznik
+ *   pupili w szpitalu albo „i”), który rozwija karteczkę z treścią — nic nie zasłania okna ani mebli, póki gość
+ *   sam jej nie otworzy. Podpowiedź o klikaniu znika na stałe po pierwszym kliknięciu w pupila (localStorage).
+ * - Pusty domek: mała karta na podłodze (tytuł, jedno zdanie, przycisk do recepcji / Inkubatorium, zasady
+ *   zwinięte w „Jak dbać o pupila?”), nie na środku pokoju.
  * Rejestruje się w window.PetsWorld.scenes.domek.
  */
 (function () {
@@ -20,6 +25,22 @@
     W.scenes = W.scenes || {};
     if (W.scenes.domek) return;
 
+    var TIP_KEY = 'pets_house_tip_seen';
+    var TIP_TEXT = 'Kliknij pupila, żeby się nim zająć. Kliknij go jeszcze raz, żeby go pogłaskać.';
+    var INFO_SVG =
+        '<svg class="pets-house__hint-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" ' +
+        'stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/>' +
+        '<path d="M12 11v6M12 7.6v.01"/></svg>';
+
+    /** Podpowiedź „Kliknij pupila…” już niepotrzebna (był klik w pupila) — prywatne okno: pokazujemy dalej. */
+    function tipSeen() {
+        try { return window.localStorage.getItem(TIP_KEY) === '1'; } catch (e) { return false; }
+    }
+
+    function markTipSeen() {
+        try { window.localStorage.setItem(TIP_KEY, '1'); } catch (e) { /* prywatne okno / pełny storage */ }
+    }
+
     function create(ctx, host) {
         var u = ctx.u;
         var room = null;
@@ -27,17 +48,39 @@
         var openId = null;
         var pending = null;          // parametry z adresu czekające na stan
         var lastPets = [];
+        var tipDone = tipSeen();
 
         var stage = u.el('div', 'pets-stage');
         var wrap = u.el('div', 'pets-house');
+        // Podpowiedzi: przycisk (licznik szpitala / „i”) + rozwijana karteczka pod nim
         var notes = u.el('div', 'pets-house__notes');
-        var tip = u.el('p', 'pets-house__tip', 'Kliknij pupila, żeby się nim zająć. Kliknij go jeszcze raz, żeby go pogłaskać.');
-        var away = u.el('p', 'pets-house__away');
+        notes.hidden = true;
+        var hintBtn = u.el('button', 'pets-house__hint');
+        hintBtn.type = 'button';
+        hintBtn.setAttribute('aria-expanded', 'false');
+        hintBtn.setAttribute('aria-controls', 'petsHouseHintCard');
+        var hintArt = u.el('span', 'pets-house__hint-art');
+        hintArt.setAttribute('aria-hidden', 'true');
+        var hintLabel = u.el('span', 'pets-house__hint-label');
+        hintLabel.setAttribute('aria-hidden', 'true');
+        var hintCount = u.el('span', 'pets-house__hint-count');
+        hintCount.setAttribute('aria-hidden', 'true');
+        hintBtn.appendChild(hintArt);
+        hintBtn.appendChild(hintLabel);
+        hintBtn.appendChild(hintCount);
+        var hintCard = u.el('div', 'pets-house__hint-card');
+        hintCard.id = 'petsHouseHintCard';
+        hintCard.hidden = true;
+        var away = u.el('div', 'pets-house__away');
         away.hidden = true;
+        var tip = u.el('p', 'pets-house__tip', TIP_TEXT);
+        tip.hidden = true;
+        hintCard.appendChild(away);
+        hintCard.appendChild(tip);
+        notes.appendChild(hintBtn);
+        notes.appendChild(hintCard);
         var intro = u.el('div', 'pets-house__intro pets-block');
         intro.hidden = true;
-        notes.appendChild(away);
-        notes.appendChild(tip);
         wrap.appendChild(notes);
         wrap.appendChild(intro);
         stage.appendChild(wrap);
@@ -60,6 +103,13 @@
         // --- pokój -------------------------------------------------------------------------
 
         function onPetClick(id) {
+            if (!tipDone) {
+                // Pierwszy klik w pupila: podpowiedź o klikaniu spełniła swoje zadanie
+                tipDone = true;
+                markTipSeen();
+                var st = ctx.state();
+                if (st) renderNotes(st, !homePets(st).length);
+            }
             if (openId === id) {
                 if (ctx.pat(id) && room) room.pat(id);
                 return;
@@ -132,6 +182,7 @@
             }
             ctx.flushPats();
             openId = id;
+            setHintOpen(false);
             if (room) room.focus(id);
             var box = u.el('div', 'pets-house__panel');
             card = window.PetCard.render(box, pet, {
@@ -162,28 +213,76 @@
 
         // --- treść poza pokojem -------------------------------------------------------------
 
-        function renderAway(state) {
-            var inHospital = ((state.pets) || []).filter(function (p) { return p.hospital; });
+        // Karteczka podpowiedzi: otwiera ją tylko gość (przycisk), zamyka przycisk, Esc, klik obok i okno pupila
+        function setHintOpen(open) {
+            open = !!open && !notes.hidden;
+            hintCard.hidden = !open;
+            hintBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            notes.classList.toggle('is-open', open);
+        }
+
+        hintBtn.addEventListener('click', function () {
+            setHintOpen(hintCard.hidden);
+        });
+
+        notes.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' || hintCard.hidden) return;
+            e.stopPropagation();         // Esc zamyka najpierw karteczkę, nie okno pupila
+            setHintOpen(false);
+            hintBtn.focus();
+        });
+
+        host.addEventListener('click', function (e) {
+            if (!hintCard.hidden && !notes.contains(e.target)) setHintOpen(false);
+        });
+
+        function renderAway(inHospital, ready) {
             away.hidden = !inHospital.length;
             if (!inHospital.length) return;
             var names = inHospital.map(function (p) { return p.name || u.speciesName(p.species); });
-            var ready = inHospital.some(function (p) { return p.hospital.ready; });
             var sig = names.join('|') + (ready ? '!' : '');
             if (away.dataset.sig === sig) return;
             away.dataset.sig = sig;
             away.innerHTML = '';
-            away.appendChild(document.createTextNode(
+            away.appendChild(u.el('p', 'pets-house__away-text',
                 (inHospital.length === 1 ? 'W szpitalu: ' : 'W szpitalu są: ') + names.join(', ') +
-                (ready ? ' — ktoś już wyzdrowiał i czeka na odbiór. ' : '. ')));
-            var link = u.el('a', 'pets-link', 'Przejdź do szpitala');
+                (ready ? ' — ktoś już wyzdrowiał i czeka na odbiór.' : '.')));
+            // Link w osobnym wierszu, cel ≥ 44 px (pets-link)
+            var link = u.el('a', 'pets-link pets-house__away-link', 'Przejdź do szpitala');
             link.href = ctx.href('izba');
             link.dataset.sceneLink = 'izba';
             away.appendChild(link);
         }
 
+        /** Przycisk podpowiedzi: szpital (licznik, „czeka na odbiór”) albo „i” z podpowiedzią; nic → ukryty. */
+        function renderNotes(state, empty) {
+            var inHospital = ((state.pets) || []).filter(function (p) { return p.hospital; });
+            var ready = inHospital.some(function (p) { return p.hospital.ready; });
+            var showTip = !empty && !tipDone;
+            renderAway(inHospital, ready);
+            tip.hidden = !showTip;
+            notes.hidden = !inHospital.length && !showTip;
+            if (notes.hidden) {
+                setHintOpen(false);
+                return;
+            }
+            var n = inHospital.length;
+            var mode = n ? 'hospital' : 'tip';
+            if (hintBtn.dataset.mode !== mode) {
+                hintBtn.dataset.mode = mode;
+                hintArt.innerHTML = n ? u.icon('cross', 'pets-house__hint-icon') : INFO_SVG;
+            }
+            hintBtn.classList.toggle('is-ready', ready);
+            hintLabel.textContent = n ? 'W szpitalu' : 'Podpowiedź';
+            hintCount.textContent = n ? String(n) : '';
+            hintCount.hidden = !n;
+            hintBtn.setAttribute('aria-label', n
+                ? 'W szpitalu: ' + n + ' ' + u.plural(n, 'pupil', 'pupile', 'pupili') + (ready ? ', ktoś czeka na odbiór' : '')
+                : 'Podpowiedź: jak zająć się pupilem');
+        }
+
         function renderIntro(state, empty) {
             intro.hidden = !empty;
-            tip.hidden = empty;
             if (!empty) return;
             var toClaim = (state.eggs_available || []).length > 0;
             var hasEgg = (state.eggs || []).length > 0 || toClaim;
@@ -191,17 +290,17 @@
             if (intro.dataset.sig === sig) return;
             intro.dataset.sig = sig;
             intro.innerHTML = '';
-            intro.appendChild(u.el('h2', 'pets-block__title', hasEgg ? 'Domek czeka na pierwszego lokatora' : 'W domku nikogo teraz nie ma'));
-            var list = u.el('ul', 'pets-house__rules');
+            intro.appendChild(u.el('h2', 'pets-block__title pets-house__intro-title', hasEgg ? 'Domek czeka na pierwszego lokatora' : 'W domku nikogo teraz nie ma'));
             var night = state.night || {};
-            [
+            var rules = [
                 'Jajka odbierasz na recepcji w szpitalu, a wykluwasz w Inkubatorium. Ogrzewaj je przy każdej wizycie — tak wyklują się szybciej.',
                 'Każde jajko to losowy z ośmiu gatunków. Zbierz wszystkie w albumie w ogrodzie wspomnień!',
                 'Karm, baw się i myj pupila. Jedna wizyta dziennie wystarczy, żeby był zdrowy, dwie–trzy — żeby był szczęśliwy.',
                 'W nocy (' + (night.start != null && night.start !== night.end ? night.start + ':00–' + night.end + ':00' : '23:00–7:00') +
                     ') pupil śpi. Zaniedbany choruje — wtedy zabierz go do szpitala.'
-            ].forEach(function (text) { list.appendChild(u.el('li', null, text)); });
-            intro.appendChild(list);
+            ];
+            // Pierwsza zasada na wierzchu (skąd wziąć pupila), reszta zwinięta — karta nie zasłania pokoju
+            intro.appendChild(u.el('p', 'pets-block__lead pets-house__intro-lead', rules[0]));
             // Jajko do odebrania → recepcja w holu; jajka w inkubacji → Inkubatorium; nic → hol szpitala
             var target = hasEgg && !toClaim ? 'inkubatorium' : 'szpital';
             var go = u.el('a', 'pet-btn pet-btn--primary pets-house__go');
@@ -209,6 +308,13 @@
             go.dataset.sceneLink = target;
             go.textContent = toClaim ? 'Odbierz jajko na recepcji' : hasEgg ? 'Do Inkubatorium' : 'Do szpitala';
             intro.appendChild(go);
+            var more = u.el('details', 'pets-house__more');
+            more.appendChild(u.el('summary', 'pets-house__more-toggle', 'Jak dbać o pupila?'));
+            // Pierwsza zasada też w liście — widać ją tam tylko w niskim pokoju, gdzie zdanie wstępu jest schowane (CSS)
+            var list = u.el('ul', 'pets-house__rules');
+            rules.forEach(function (text, i) { list.appendChild(u.el('li', i ? null : 'pets-house__rules-lead', text)); });
+            more.appendChild(list);
+            intro.appendChild(more);
         }
 
         // --- parametry z adresu (?pupil=ID) --------------------------------------------------
@@ -240,7 +346,7 @@
             lastPets = pets;
             room.update(pets, { night: !!(state.night && state.night.is_night) });
             renderIntro(state, !pets.length);
-            renderAway(state);
+            renderNotes(state, !pets.length);
             if (pending) {
                 applyParams(pending, state);
                 return;
@@ -260,6 +366,7 @@
             },
             leave: function () {
                 closePanel(false);
+                setHintOpen(false);
                 pending = null;
                 if (room) {
                     room.destroy();
