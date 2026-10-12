@@ -1376,6 +1376,9 @@
         left: max(390px, calc(var(--pg-cx) - var(--wh) * 1.185 - min(9cqw, 110px)));
     }
 
+    /* Noc: w pierwszym rzędzie obok nazwy miejsca stoi pigułka nocy — wierzba zaczyna się pod tym rzędem */
+    .pets-page--night .pets-scene--ogrod:not(.has-window) .pg-willow { --pg-wtop: 68px; }
+
     .pets-scene--ogrod:not(.has-window) .pets-garden__empty {
         --note-w: 300px;
         margin-left: 380px;
