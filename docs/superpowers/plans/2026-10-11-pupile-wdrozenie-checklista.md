@@ -5,8 +5,9 @@ z panelu admina. Instrukcja crona: `2026-10-11-pupile-cron-instrukcja.md`.
 
 **Co widzą klienci przed włączeniem:** w sidebarze i w arkuszu „Więcej” paska PWA zamiast „Moje pupile” jest wyszarzona,
 nieklikalna pozycja z łapką i napisem **„Wkrótce”**. Strona, API, widget i towarzysz są niewidoczne (404). Klienci zobaczą
-prawdziwą zakładkę dopiero, gdy włączysz funkcję i ich `user_id` wejdzie w rollout (sekcja 3). Przy WYŁĄCZONEJ fladze
-„Wkrótce” widzą wszyscy, także admin/mod — żeby testować na produkcji przed klientami, włącz flagę z rolloutem **0%**.
+prawdziwą zakładkę dopiero, gdy ustawisz rollout na **100%** (sekcja 3). Decyzja Konrada: bez stopniowego rolloutu — używamy
+TYLKO dwóch stanów: **0%** (tylko admin/mod, klienci widzą „Wkrótce”) albo **100%** (wszyscy); pośrednich wartości (10, 50…) nie wpisujemy.
+Przy WYŁĄCZONEJ fladze „Wkrótce” widzą wszyscy, także admin/mod — żeby testować na produkcji przed klientami, włącz flagę z rolloutem **0%**.
 
 ## 0. Przed pushem (lokalnie)
 - [ ] pełna suita zielona (`venv/bin/python -m pytest -q`; jedyny znany czerwony test: DST w `test_mobile_api_auth`, niezwiązany),
@@ -31,12 +32,12 @@ prawdziwą zakładkę dopiero, gdy włączysz funkcję i ich `user_id` wejdzie w
 - [ ] `venv/bin/flask pets report --days 7` → tabela bez wyjątków (same zera).
 
 ## 3. Włączenie (panel `/admin/pupile`, sekcja „Włącznik i rollout”)
-- [ ] `pets_enabled` = ON, `pets_rollout_pct` = **10** → zapis; admin/mod widzą od razu, klienci wg `user_id % 100 < 10`,
 - [ ] **najpierw rollout 0%:** `pets_enabled` = ON, `pets_rollout_pct` = **0** → prawdziwą zakładkę widzą tylko admin/mod, klienci nadal „Wkrótce”; tu przetestować na produkcji,
 - [ ] po zapisie: strona `/client/pupile` jako admin — odbiór startowego, ogrzanie, akcja; dashboard — widget; towarzysz (bieg, klik, przenoszenie),
 - [ ] żarty: w karcie „Obrazki wychylania” wgrać ozdobniki (bez nich wychylenie się nie zdarza; kradzież kursora działa bez obrazków); checkbox „Żarty pupili włączone” domyślnie ON (awaryjny wyłącznik bez deployu); klient ma własny przełącznik „Żarty pupila” w warsztacie,
 - [ ] po 1 h: `logs/cron-pets.log` ma wpis z `Użytkowników: N`; `flask pets report --days 1`,
-- [ ] po ~tygodniu: `pets_rollout_pct` = **50**, po kolejnym: **100**; po każdym kroku `flask pets report --days 7`,
+- [ ] **premiera:** gdy wszystko sprawdzone na rolloucie 0% — `pets_rollout_pct` = **100** (wszyscy klienci od razu widzą prawdziwą zakładkę zamiast „Wkrótce”); potem `flask pets report --days 1` i `--days 7`,
+- [ ] powrót do stanu „tylko admin”: `pets_rollout_pct` = **0** (klienci znowu widzą „Wkrótce”; dane i pupile zostają),
 - [ ] e-mail: kill-switch `notify_pet_alert` w ustawieniach maili domyślnie włączony — wyłączyć tylko w razie problemu,
 - [ ] ogłoszenie dla klientów: popup `display_mode='once'` z `cta_url=/client/pupile` (decyzja Konrada; krok toura „Twój pupil” działa od razu).
 
