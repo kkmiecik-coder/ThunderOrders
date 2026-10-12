@@ -1,8 +1,8 @@
 /**
  * Świat pupili — scena „warsztat” (spec v3 §6.5): ściana warsztatu z tablicą na narzędzia.
  *
- * - ramka ze zdjęciem = wybór towarzysza (żywi poza szpitalem + „automatycznie”) i włącznik
- *   (POST /towarzysz — jak dotąd),
+ * - ramka ze zdjęciem = wybór towarzysza (żywi poza szpitalem + „automatycznie”), włącznik i przełącznik
+ *   żartów (POST /towarzysz, pola enabled i jokes; opis żartów nie wymienia ich rodzajów — niespodzianka),
  * - dzwonek = przełącznik „Powiadomienia o pupilach” (GET/POST /notifications/preferences {pet_updates}),
  * - książeczka = zasady gry jako kafelki z ikonami (liczby z state.config / state.night, nie na sztywno).
  * Wygląd (feedback: „najmniej growa scena”): karty przypięte pinezkami do perforowanej tablicy (lekko
@@ -198,9 +198,11 @@
         pick.appendChild(pickText);
         pick.appendChild(select);
         var show = switchRow('petsCompanionToggle', 'Pokazuj towarzysza na stronach', null);
+        var jokes = switchRow('petsJokesToggle', 'Żarty pupila', 'Pupil czasem lubi coś wywinąć. Wyłącz, jeśli wolisz spokój.');
         var empty = el('p', 'pets-tool__empty', 'Towarzysza wybierzesz, gdy w domku zamieszka pierwszy pupil.');
         frame.appendChild(pick);
         frame.appendChild(show.row);
+        frame.appendChild(jokes.row);
         frame.appendChild(empty);
 
         // --- dzwonek: powiadomienia ------------------------------------------------------------
@@ -264,10 +266,11 @@
         function renderCompanion(state) {
             if (saving) return;
             var pets = (state.pets || []).filter(function (p) { return !p.hospital; });
-            var companion = state.companion || { enabled: true, pet_id: null, auto: true };
+            var companion = state.companion || { enabled: true, pet_id: null, auto: true, jokes: true };
             var has = pets.length > 0;
             pick.hidden = !has;
             show.row.hidden = !has;
+            jokes.row.hidden = !has;
             empty.hidden = has;
             var sig = pets.map(function (p) { return p.id + ':' + p.name; }).join('|');
             if (sig !== petsSig) {
@@ -285,16 +288,19 @@
             var chosen = companion.auto || companion.pet_id == null ? 'auto' : String(companion.pet_id);
             select.value = select.querySelector('option[value="' + chosen + '"]') ? chosen : 'auto';
             show.input.checked = !!companion.enabled;
+            jokes.input.checked = companion.jokes !== false;
             select.disabled = false;
             show.input.disabled = false;
+            jokes.input.disabled = false;
         }
 
         function saveCompanion() {
             var value = select.value;
-            var body = { pet_id: value === 'auto' ? null : parseInt(value, 10), enabled: !!show.input.checked };   // boolean, nie string
+            var body = { pet_id: value === 'auto' ? null : parseInt(value, 10), enabled: !!show.input.checked, jokes: !!jokes.input.checked };   // boolean, nie string
             saving = true;
             select.disabled = true;
             show.input.disabled = true;
+            jokes.input.disabled = true;
             ctx.send('/towarzysz', body).then(function () {
                 u.toast('Zapisano ustawienia towarzysza.', 'success');
             }, function () { /* toast/odświeżenie już były */ }).then(function () {
@@ -357,6 +363,7 @@
 
         select.addEventListener('change', saveCompanion);
         show.input.addEventListener('change', saveCompanion);
+        jokes.input.addEventListener('change', saveCompanion);
         notify.input.addEventListener('change', saveNotify);
 
         return {
