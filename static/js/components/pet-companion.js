@@ -1126,6 +1126,7 @@
         if (document.getElementById('petsApp')) return;
         if (mode === 'walk') {
             window.PetCompanionApi = { ready: apiReady, rect: rectNow, claim: claimPet, runTo: runTo, face: faceDir };
+            document.dispatchEvent(new CustomEvent('pets:companion-api'));   // pet-jokes.js startuje po rejestracji API
         }
         window.PetsState.onChange(function (state) {
             if (started) apply(state);

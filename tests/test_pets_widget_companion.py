@@ -244,3 +244,15 @@ def test_odznaki_bez_pupili_na_cala_szerokosc(client, login, make_user, db):
         odznaki = d.po_id['achievements-widget']
         assert odznaki.rodzic.dzieci == [odznaki]
         assert 'dashboard-pair--split' not in odznaki.rodzic.klasy()
+
+
+def test_towarzysz_laduje_zarty_tylko_w_trybie_walk(client, login, make_user, db, strona_sprzedazy):
+    """Spec v3.2 §5: żarty tylko w panelu klienta; strony ofert (tryb sit) ich nie ładują."""
+    user = make_user(profile_completed=True)
+    login(user)
+    _wlacz(db)
+    panel = client.get('/client/dashboard').data.decode()
+    assert 'css/components/pet-jokes.css' in panel and 'js/components/pet-jokes.js' in panel
+    assert panel.index('js/components/pet-companion.js') < panel.index('js/components/pet-jokes.js')
+    oferta = client.get(f'/offer/{strona_sprzedazy.token}/thank-you').data.decode()
+    assert 'js/components/pet-companion.js' in oferta and 'pet-jokes' not in oferta

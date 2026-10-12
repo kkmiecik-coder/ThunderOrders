@@ -22,4 +22,8 @@
 <script src="{{ url_for('static', filename='js/utils/haptics.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pet/pets-core.js') }}"></script>
 <script src="{{ url_for('static', filename='js/components/pet-companion.js') }}"></script>
+{% if (companion_mode | default('walk')) == 'walk' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-jokes.css') }}">
+<script src="{{ url_for('static', filename='js/components/pet-jokes.js') }}"></script>
+{% endif %}
 {% endif %}
