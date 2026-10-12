@@ -8,7 +8,7 @@
 import json
 from functools import wraps
 
-from flask import abort, jsonify, render_template, request
+from flask import abort, jsonify, render_template, request, url_for
 from flask_limiter.util import get_remote_address
 from flask_login import current_user, login_required
 
@@ -16,6 +16,7 @@ from extensions import limiter
 from modules.pets import pets_bp, service
 from modules.pets.config import pets_feature_for
 from modules.pets.errors import PetError
+from modules.pets.models import PetPeekImage
 from modules.pets.species import SPECIES
 
 API_PREFIX = '/client/pupile/api'
@@ -265,8 +266,22 @@ def api_companion():
     enabled = dane.get('enabled', True)
     if not isinstance(enabled, bool):   # bool("false") == True — front ma wysyłać prawdziwy boolean
         raise PetError('bad_request', 'Nieprawidłowe pole enabled.', 400)
-    service.set_companion(current_user._get_current_object(), pet_id=pet_id, enabled=enabled)
+    jokes = dane.get('jokes')
+    if jokes is not None and not isinstance(jokes, bool):
+        raise PetError('bad_request', 'Nieprawidłowe pole jokes.', 400)
+    service.set_companion(current_user._get_current_object(), pet_id=pet_id, enabled=enabled, jokes=jokes)
     return jsonify({'ok': True, 'state': _state()})
+
+
+@pets_bp.route('/api/wychylenia')
+@feature_required
+def api_peek_images():
+    """Aktywne obrazki wychylania towarzysza (spec v3.2 §6.7) — ozdobniki wgrane w panelu admina."""
+    obrazki = PetPeekImage.query.filter_by(is_active=True).order_by(PetPeekImage.id).all()
+    odp = jsonify({'ok': True, 'images': [
+        {'id': o.id, 'url': url_for('static', filename=f'uploads/pet_peeks/{o.filename}')} for o in obrazki]})
+    odp.headers['Cache-Control'] = 'private, max-age=300'
+    return odp
 
 
 @pets_bp.route('/api/<path:_reszta>', methods=['GET', 'POST'])

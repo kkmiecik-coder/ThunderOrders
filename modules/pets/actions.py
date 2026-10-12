@@ -205,12 +205,14 @@ def rename_pet(user, pet_id, name, now=None):
     return pet
 
 
-def set_companion(user, pet_id=None, enabled=True):
+def set_companion(user, pet_id=None, enabled=True, jokes=None):
     profil = lock_profile(user)
     if pet_id is not None:
         own_pet(user, pet_id, ('alive',))
     profil.companion_pet_id = pet_id
     profil.companion_enabled = bool(enabled)
+    if jokes is not None:           # None = „nie zmieniaj” (spec v3.2 §6.8)
+        profil.jokes_enabled = bool(jokes)
     db.session.commit()
     return profil
 
