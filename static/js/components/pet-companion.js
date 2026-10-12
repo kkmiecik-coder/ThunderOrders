@@ -32,6 +32,11 @@
  *    upuszczono go na stronie oferty, trzyma osobno: sessionStorage['pets_companion_sit_<user_id>'].
  *  - Pupil w szpitalu nigdy nie jest towarzyszem (stan: companion.pet_id wskazuje kogoś spoza szpitala albo
  *    null) — tu tylko obrona: null / pupil z `hospital` = towarzysz ukryty.
+ *  - Dymek jest mały, sam znika po 7 s i ma × (cel 44 px). Zamknięty (× albo klik w dymek) nie wraca w tej samej
+ *    sprawie do końca sesji karty: sessionStorage['pets_bubble_closed_<user_id>'] = lista spraw (np. „glodny:12”,
+ *    „jajko-gotowe”). Tryb sit (strony ofert) nie pokazuje dymków opieki ani „Śpi…” sam z siebie — tylko małą
+ *    plakietkę „!” na pupilu, bez linku wyprowadzającego z zakupów (dymek po kliknięciu w śpiącego i podziękowanie
+ *    na stronie po zamówieniu zostają — bez linków).
  */
 (function () {
     'use strict';
@@ -59,7 +64,7 @@
     var CLICK_GUARD_MS = 450;          // „klik" kończący przeciąganie nie jest pat
     var PAT_DEBOUNCE_MS = 2000, PAT_MAX = 50;
     var SIT_DELAY_MS = 4000;
-    var BUBBLE_CARE_MS = 8000, BUBBLE_SLEEP_MS = 4000, BUBBLE_CELEBRATE_MS = 6000;
+    var BUBBLE_CARE_MS = 7000, BUBBLE_SLEEP_MS = 4000, BUBBLE_CELEBRATE_MS = 6000;
     var BUBBLE_REPEAT_MS = 10 * 60 * 1000;
     var BUBBLE_GAP = 10, BUBBLE_MARGIN = 8;
     var LIFT_GAP = 8;
@@ -86,6 +91,7 @@
     var wardUrl = el.getAttribute('data-ward-url') || hospitalUrl + '/izba-przyjec';
     var celebratePending = el.getAttribute('data-celebrate') === '1';
     var bubbleKey = 'pets_bubble_shown_' + userId;
+    var closedKey = 'pets_bubble_closed_' + userId;
     var posKey = 'pets_companion_pos_' + userId;
     var sitKey = 'pets_companion_sit_' + userId;
 
@@ -106,6 +112,8 @@
     var timers = { walk: 0, arrive: 0, pat: 0, bubble: 0, bubbleFade: 0 };
     var patCount = 0, patPetId = null;
     var liftRaf = 0;
+    var bubbleTopic = null;            // sprawa bieżącego dymka (zamknięcie → nie wraca do końca sesji)
+    var badge = null;                  // tryb sit: plakietka „!” zamiast dymka opieki
 
     el.classList.add('pet-companion--' + mode);
     bubble.setAttribute('role', 'status');
@@ -199,6 +207,7 @@
         clearTimeout(timers.pat);
         patCount = 0;
         hideBubble(true);
+        if (badge) badge.hidden = true;
         if (rig) { rig.destroy(); rig = null; }
         pet = null;
         el.hidden = true;
@@ -240,14 +249,15 @@
                 celebratePending = false;
                 if (!pet.asleep) {
                     rig.playAction('celebrate').then(noop, noop);
-                    showBubble('Hura! Dziękuję za zamówienie 🎉', { ms: BUBBLE_CELEBRATE_MS });
+                    showBubble('Hura! Dziękuję za zamówienie 🎉', { ms: BUBBLE_CELEBRATE_MS, topic: 'dziekuje' });
                     return;
                 }
             }
+            // Na stronie oferty sam z siebie nic nie mówi (zakupy mają pierwszeństwo)
             if (pet.asleep) {
-                if (bubbleAllowed()) {
+                if (mode !== 'sit' && bubbleAllowed() && !topicClosed('sen')) {
                     markBubble();
-                    showBubble('Śpi… zzz', { ms: BUBBLE_SLEEP_MS });
+                    showBubble('Śpi… zzz', { ms: BUBBLE_SLEEP_MS, topic: 'sen' });
                 }
                 return;
             }
@@ -648,36 +658,75 @@
         try { sessionStorage.setItem(bubbleKey, String(Date.now())); } catch (e) { /* prywatne okno */ }
     }
 
+    // Sprawy zamkniętych dymków (do końca sesji karty) — prywatne okno: lista w pamięci strony
+    var closedMem = [];
+
+    function closedTopics() {
+        try {
+            var list = JSON.parse(sessionStorage.getItem(closedKey) || '[]');
+            return Array.isArray(list) ? list : [];
+        } catch (e) { return closedMem; }
+    }
+
+    function topicClosed(topic) {
+        return !!topic && closedTopics().indexOf(topic) >= 0;
+    }
+
+    function closeTopic(topic) {
+        if (!topic || topicClosed(topic)) return;
+        var list = closedTopics().concat([topic]).slice(-30);
+        closedMem = list;
+        try { sessionStorage.setItem(closedKey, JSON.stringify(list)); } catch (e) { /* prywatne okno / pełny storage */ }
+    }
+
     // Dymek opieki: tekst + cel linku wg potrzeby (spec v3 §3.1: dymek towarzysza → miejsce właściwe dla
     // potrzeby): głód / smutek / brud / nuda → domek z panelem pupila; choroba → Izba przyjęć (spec v3.1 §5);
-    // jajka → hol szpitala (recepcja; pielęgniarka wskaże salę)
+    // jajka → hol szpitala (recepcja; pielęgniarka wskaże salę). `topic` = sprawa (zamknięcie wycisza tylko ją).
     function careBubble(state) {
         var m = pet && pet.mood;
         var house = { href: houseUrl + '?pupil=' + encodeURIComponent(pet.id), label: 'Do domku' };
         var hospital = { href: hospitalUrl, label: 'Do szpitala' };
         var ward = { href: wardUrl, label: 'Do szpitala' };
-        if (m === 'krytyczny' || m === 'chory') return { text: 'Źle się czuję…', link: ward };
-        if (m === 'glodny') return { text: 'Jestem głodny!', link: house };
-        if (m === 'smutny' || m === 'znudzony') return { text: 'Pobaw się ze mną!', link: house };
-        if (m === 'brudny') return { text: 'Umyj mnie!', link: house };
+        if (m === 'krytyczny' || m === 'chory') return { text: 'Źle się czuję…', link: ward, topic: 'chory:' + pet.id };
+        if (m === 'glodny') return { text: 'Jestem głodny!', link: house, topic: 'glodny:' + pet.id };
+        if (m === 'smutny' || m === 'znudzony') return { text: 'Pobaw się ze mną!', link: house, topic: 'zabawa:' + pet.id };
+        if (m === 'brudny') return { text: 'Umyj mnie!', link: house, topic: 'brudny:' + pet.id };
         var eggs = state.eggs || [];
-        for (var i = 0; i < eggs.length; i++) if (eggs[i].ready) return { text: 'Jajko gotowe!', link: hospital };
-        if (state.eggs_available && state.eggs_available.length) return { text: 'Czeka na Ciebie jajko!', link: hospital };
+        for (var i = 0; i < eggs.length; i++) if (eggs[i].ready) return { text: 'Jajko gotowe!', link: hospital, topic: 'jajko-gotowe' };
+        if (state.eggs_available && state.eggs_available.length) return { text: 'Czeka na Ciebie jajko!', link: hospital, topic: 'jajko-recepcja' };
         return null;   // opieki potrzebuje inny pupil — kropka w nawigacji to pokazuje, towarzysz nie mówi za niego
     }
 
     function maybeCareBubble(state) {
-        if (!pet || pet.asleep || !state || !state.needs_care) return;
-        if (!bubble.hidden || held) return;
-        var care = careBubble(state);
-        if (!care || !bubbleAllowed()) return;
+        var care = pet && !pet.asleep && state && state.needs_care ? careBubble(state) : null;
+        if (mode === 'sit') {
+            // Strona oferty: bez dymka z linkiem — tylko plakietka „!” (sprawa zamknięta wcześniej → bez niej)
+            setBadge(!!care && !topicClosed(care.topic));
+            return;
+        }
+        if (!care || !bubble.hidden || held) return;
+        if (topicClosed(care.topic) || !bubbleAllowed()) return;
         markBubble();
-        showBubble(care.text, { ms: BUBBLE_CARE_MS, link: care.link });
+        showBubble(care.text, { ms: BUBBLE_CARE_MS, link: care.link, topic: care.topic });
+    }
+
+    /** Tryb sit: mała plakietka na pupilu („potrzebuje opieki”), bez linku i bez klikania. */
+    function setBadge(on) {
+        if (on && !badge) {
+            badge = document.createElement('span');
+            badge.className = 'pet-companion__badge';
+            badge.setAttribute('aria-hidden', 'true');
+            badge.textContent = '!';
+            el.appendChild(badge);
+        }
+        if (badge) badge.hidden = !on;
+        if (hit && pet) hit.setAttribute('aria-label', pet.asleep ? 'Pupil śpi' : on ? 'Pogłaszcz pupila (potrzebuje opieki)' : 'Pogłaszcz pupila');
     }
 
     function showBubble(text, opts) {
         clearTimeout(timers.bubble);
         clearTimeout(timers.bubbleFade);
+        bubbleTopic = opts.topic || null;
         bubble.innerHTML = '';
         var span = document.createElement('span');
         span.className = 'pet-companion__bubble-text';
@@ -692,6 +741,12 @@
             a.textContent = target.label;
             bubble.appendChild(a);
         }
+        // × — cel 44 px (widoczne kółko mniejsze); zamknięcie wycisza tę sprawę do końca sesji
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'pet-companion__bubble-close';
+        x.setAttribute('aria-label', 'Zamknij dymek');
+        bubble.appendChild(x);
         // Mówiąc stoi: dymek (i link w nim) nie odjeżdża razem z pupilem; spacer wraca po dymku
         if (walking) {
             stopWalk();
@@ -737,8 +792,10 @@
         el.classList.toggle('pet-companion--bubble-below', below);
     }
 
+    // Klik w dymek (poza linkiem) albo × = zamknięcie: ta sprawa nie wraca do końca sesji
     bubble.addEventListener('click', function (e) {
         if (e.target && e.target.closest && e.target.closest('.pet-companion__bubble-link')) return;
+        closeTopic(bubbleTopic);
         hideBubble(false);
     });
 

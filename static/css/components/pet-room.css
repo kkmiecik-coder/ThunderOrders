@@ -320,23 +320,50 @@
     45% { transform: translateY(-16%); }
 }
 
+/* Podpisy (pełny pokój): osobna warstwa nad pupilami (room.js) — podpis pupila z tyłu nie chowa się za pupilem
+   z przodu. Pozycja i czas ruchu jak u pupila (left/bottom + --walk z room.js), górna krawędź tuż nad stopami;
+   --name-dx rozsuwa podpisy, które na siebie nachodzą. Pod podpowiedziami domku (z-index 160). */
+.pet-room__names {
+    position: absolute;
+    inset: 0;
+    z-index: 155;
+    pointer-events: none;
+}
+
 .pet-room__name {
+    --walk: 0s;
+    --ease: linear;
     position: absolute;
     left: 50%;
-    top: 92%;
-    max-width: 140%;
-    padding: 1px 8px;
+    bottom: 5%;
+    max-width: 160px;
+    padding: 2px 9px;
+    border: 1px solid rgba(90, 61, 36, 0.2);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.88);
-    color: #5a3d24;
-    font-size: 11px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 1px 4px rgba(90, 61, 36, 0.18);
+    color: #4a2f1a;
+    font-size: 12.5px;
     font-weight: 700;
-    line-height: 1.5;
+    line-height: 1.4;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transform: translateX(-50%);
+    transform: translate(-50%, calc(100% - 6px));
+    translate: var(--name-dx, 0px) 0;
+    transition: left var(--walk) var(--ease), bottom var(--walk) var(--ease), translate 0.2s ease, opacity 0.3s ease;
     pointer-events: none;
+}
+
+.pet-room__name:empty { display: none; }
+.pet-room__name.is-running { --ease: cubic-bezier(0.25, 0.75, 0.35, 1); }
+.pet-room__name.is-hopping { --ease: cubic-bezier(0.35, 0, 0.45, 1); }
+.pet-room__name.is-focused { z-index: 1; }
+.pet-room__name.is-dimmed { opacity: 0.45; }
+
+[data-theme="dark"] .pet-room__name {
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
 }
 
 .pet-room__pet.is-focused { --focus: 1.3; }
@@ -529,6 +556,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .pet-room__pet,
+    .pet-room__name,
     .pet-room__dark,
     .pet-room__lamplight,
     .pet-room .pf-shade,
@@ -538,7 +566,8 @@
     .pet-room__pet.is-hopping .pet-room__body { animation: none; }
 }
 
-html.pet-rig-rm .pet-room__pet { transition: none; }
+html.pet-rig-rm .pet-room__pet,
+html.pet-rig-rm .pet-room__name { transition: none; }
 html.pet-rig-rm .pet-room__pet.is-walking .pet-room__body,
 html.pet-rig-rm .pet-room__pet.is-running .pet-room__body,
 html.pet-rig-rm .pet-room__pet.is-hopping .pet-room__body { animation: none; }

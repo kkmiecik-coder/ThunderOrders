@@ -11,7 +11,7 @@
  *   „Odbierz” (wyzdrowiały) albo „Zabierz wcześniej” z potwierdzeniem („Tak, zabieram” / „Zostaw
  *   w szpitalu”) — teksty jak dawniej. Klik w pupila przy jego otwartym oknie = pat pat (paczki w pets.js).
  *   Po odbiorze → domek z panelem pupila.
- * - Wolne łóżko przy chorych w domku: pulsujący „+”; klik = okno „Kogo przyjąć?” (mini rig, imię, nastrój,
+ * - Wolne łóżko przy chorych w domku: pulsujący „+”; klik = okno „Kogo przyjąć?” (mini rig na kółku, imię, nastrój,
  *   „wyzdrowieje w najwyżej N h” z config.hospital_hours, „Przyjmij” → POST /<id>/szpital → pupil w tym
  *   łóżku, okno pokazuje jego). Bez chorych: okno „Wolne łóżko”.
  * - `?pupil=ID` otwiera okno pupila w szpitalu; pupil spoza szpitala / nieistniejący → sala bez okna.
@@ -537,6 +537,9 @@
             var note = el('p', 'pets-window__text');
             box.appendChild(status);
             box.appendChild(note);
+            // Podpowiedź nad przyciskami: na telefonie rząd przycisków jest przyklejony do dołu arkusza i zasłaniał
+            // ostatni wiersz pod sobą
+            box.appendChild(el('p', 'pets-hosp-win__tip', 'Kliknij pupila w łóżku, żeby go pogłaskać.'));
             var actions = el('div', 'pets-window__actions');
             var btn;
             if (pet.hospital.ready) {
@@ -551,16 +554,18 @@
                 btn = u.button('Tak, zabieram', 'home', null, { wardAction: 'discharge', petId: String(pet.id) });
                 btn.setAttribute('data-window-key', 'early');
                 actions.appendChild(btn);
-                var keep = u.button('Zostaw w szpitalu', null, 'ghost', { wardAction: 'confirm-cancel', petId: String(pet.id) });
+                var keep = u.button('Zostaw w szpitalu', null, null, { wardAction: 'confirm-cancel', petId: String(pet.id) });
+                keep.classList.add('pets-hosp-win__secondary');
                 keep.setAttribute('data-window-key', 'keep');
                 actions.appendChild(keep);
             } else {
-                btn = u.button('Zabierz wcześniej', null, 'ghost', { wardAction: 'early', petId: String(pet.id) });
+                // Przycisk drugorzędny (obrys + ikonka), nie szary tekst — wcześniejszy odbiór ma potwierdzenie
+                btn = u.button('Zabierz wcześniej', 'home', null, { wardAction: 'early', petId: String(pet.id) });
+                btn.classList.add('pets-hosp-win__secondary');
                 btn.setAttribute('data-window-key', 'early');
                 actions.appendChild(btn);
             }
             box.appendChild(actions);
-            box.appendChild(el('p', 'pets-hosp-win__tip', 'Kliknij pupila w łóżku, żeby go pogłaskać.'));
             refs = { pet: pet, bar: bar, pct: pct, status: status, note: note };
             fillBed(refs);
             return box;
@@ -580,12 +585,14 @@
 
         function admitRow(pet, hours) {
             var li = el('li', 'pets-hosp-win__row');
+            // Miniatura na kółku w kolorze wiersza: siedzący pupil wypełnia kółko (leżący miał ok. 25 px i ginął
+            // na jasnym tle — zwłaszcza biały piesek)
             var art = el('span', 'pets-hosp-win__mini');
             art.setAttribute('aria-hidden', 'true');
             if (R()) {
                 winRigs.push(R().mount(art, {
                     species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: pet.asleep,
-                    size: 'mini', need: R().needOf ? R().needOf(pet) : 'sick', pose: 'lie'
+                    size: 'mini', need: R().needOf ? R().needOf(pet) : 'sick', pose: 'sit'
                 }));
             }
             var info = el('div', 'pets-hosp-win__who');

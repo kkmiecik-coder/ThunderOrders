@@ -22,6 +22,9 @@
  *   - compact (widget): mniejsza skala, `mainPetId` duży na środku z dymkiem potrzeby, max 4 pozostałych
  *     w tle + znacznik „+N”, bez spaceru po całej szerokości (lekkie ruchy w miejscu), bez mebli;
  *   - interactive: false — pupile są tylko linkami do domku (klik woła onPetClick), bez fokusu/pat;
+ *   - podpisy (pełny pokój) w osobnej warstwie nad pupilami: jadą razem z pupilem (te same left/bottom i czas
+ *     ruchu), nie chowają się za pupilem stojącym z przodu; gdy dwa podpisy na siebie nachodzą, rozsuwają się
+ *     na boki (--name-dx), podpis wybranego jest na wierzchu;
  *   - prefers-reduced-motion (lub html.pet-rig-rm): bez spaceru, biegu i skoków — pupile stają od razu na miejscu.
  * Bezpieczeństwo: imiona przez textContent / setAttribute; zero inline onclick (delegacja).
  * Plik ładuje się na kilku stronach (domek + dashboard) — guard idempotencji.
@@ -285,6 +288,15 @@
         var layer = document.createElement('div');
         layer.className = 'pet-room__pets';
         el.appendChild(layer);
+        // Podpisy pełnego pokoju: warstwa nad pupilami (widget podpisów nie ma)
+        var names = null;
+        if (!compact) {
+            names = document.createElement('div');
+            names.className = 'pet-room__names';
+            names.setAttribute('aria-hidden', 'true');
+            el.appendChild(names);
+        }
+        var namesTimer = 0;
         var bubble = document.createElement('span');
         bubble.className = 'pet-room__bubble';
         bubble.hidden = true;
@@ -319,6 +331,7 @@
             }
             // Kanapa rośnie i maleje z szerokością pokoju — siedzący na niej zostają na siedzisku
             refreshSeats();
+            queueNames();            // podpisy mają stały rozmiar, pokój nie — kolizje od nowa
             // Wyraźnie inna szerokość (domek: okno sceny rezerwuje prawe 376 px, zwinięty sidebar, obrót) —
             // pozycje w % zostają, ale pupile są względem pokoju więksi/mniejsi: rozstaw od nowa, spacerem
             if (!compact && order.length && layoutWidth && Math.abs(w - layoutWidth) / layoutWidth > 0.12) {
@@ -368,18 +381,77 @@
             entry.el.style.left = (x * 100).toFixed(2) + '%';
             entry.el.style.bottom = ((y * k + lift) * 100).toFixed(2) + '%';
             entry.el.style.zIndex = String(100 - Math.round(y * 100) + (entry.pet.id === focusedId ? 50 : 0));
+            if (entry.name) {
+                // Podpis jedzie tak samo jak pupil (ten sam czas i krzywa); w drodze bez rozsunięcia
+                var n = entry.name;
+                n.classList.toggle('is-running', move && !!o.run);
+                n.classList.toggle('is-hopping', move && !!o.hop);
+                n.style.setProperty('--walk', dur.toFixed(2) + 's');
+                n.style.left = entry.el.style.left;
+                n.style.bottom = entry.el.style.bottom;
+                if (move) n.style.removeProperty('--name-dx');
+            }
             clearTimeout(entry.arrive);
             if (!compact && o.pose) setPose(entry, move ? 'stand' : o.pose);
             if (move) {
                 entry.arrive = setTimeout(function () {
                     entry.el.classList.remove('is-walking', 'is-running', 'is-hopping');
+                    if (entry.name) entry.name.classList.remove('is-running', 'is-hopping');
                     if (!compact && o.pose) setPose(entry, o.pose);
                     if (compact && entry.pet.id === mainId) placeBubble();
+                    queueNames();
                     if (o.done) o.done();
                 }, dur * 1000);
-            } else if (o.done) {
-                o.done();
+            } else {
+                queueNames();
+                if (o.done) o.done();
             }
+        }
+
+        // --- podpisy: rozsuwanie przy kolizji -----------------------------------------------
+        // Podpisy stojących pupili, które na siebie nachodzą (z odstępem 4 px), rozjeżdżają się na boki o połowę
+        // nakładki każdy (kilka przebiegów — trzy w rzędzie też się rozsuną). Idący mają podpis bez przesunięcia.
+        function queueNames() {
+            if (!names || destroyed) return;
+            clearTimeout(namesTimer);
+            namesTimer = setTimeout(spreadNames, 60);
+        }
+
+        function spreadNames() {
+            namesTimer = 0;
+            if (!names || destroyed) return;
+            var list = [];
+            order.forEach(function (id) {
+                var e = entries[id];
+                if (!e || !e.name || !e.name.textContent || moving(e)) return;
+                var dx = parseFloat(e.name.style.getPropertyValue('--name-dx')) || 0;
+                var r = e.name.getBoundingClientRect();
+                if (!r.width) return;
+                // Pozycja bez bieżącego przesunięcia
+                list.push({ e: e, l: r.left - dx, r: r.right - dx, t: r.top, b: r.bottom, dx: 0 });
+            });
+            for (var pass = 0; pass < 3; pass++) {
+                var changed = false;
+                for (var i = 0; i < list.length; i++) {
+                    for (var j = i + 1; j < list.length; j++) {
+                        var a = list[i], c = list[j];
+                        if (a.t >= c.b || c.t >= a.b) continue;           // różne wysokości
+                        var al = a.l + a.dx, ar = a.r + a.dx, cl = c.l + c.dx, cr = c.r + c.dx;
+                        var over = Math.min(ar, cr) - Math.max(al, cl) + 4;
+                        if (over <= 0) continue;
+                        var left = (al + ar) <= (cl + cr) ? a : c;          // ten bardziej z lewej idzie w lewo
+                        var right = left === a ? c : a;
+                        left.dx -= over / 2;
+                        right.dx += over / 2;
+                        changed = true;
+                    }
+                }
+                if (!changed) break;
+            }
+            list.forEach(function (s) {
+                if (Math.abs(s.dx) < 0.5) s.e.name.style.removeProperty('--name-dx');
+                else s.e.name.style.setProperty('--name-dx', Math.round(s.dx) + 'px');
+            });
         }
 
         // --- kanapa ------------------------------------------------------------------------
@@ -433,6 +505,7 @@
             if (!o.instant && !o.done && moving(entry) && entry.x === t.x && entry.y === t.y &&
                     (entry.lift || 0) === (t.lift || 0)) {
                 entry.el.style.bottom = ((t.y * yScale() + (t.lift || 0)) * 100).toFixed(2) + '%';
+                if (entry.name) entry.name.style.bottom = entry.el.style.bottom;
                 return;
             }
             clearTimeout(entry.arrive);
@@ -755,7 +828,10 @@
             entry.pose = behavior[1];
             entry.el.setAttribute('data-need', need);
             entry.el.setAttribute('aria-label', labelFor(pet, need));
-            if (entry.name) entry.name.textContent = pet.name || '';
+            if (entry.name && entry.name.textContent !== (pet.name || '')) {
+                entry.name.textContent = pet.name || '';
+                queueNames();
+            }
             if (entry.rig) {
                 entry.rig.update({ species: pet.species, stage: pet.stage, stars: pet.stars, mood: pet.mood, asleep: pet.asleep });
                 if (typeof entry.rig.setNeed === 'function') entry.rig.setNeed(need);
@@ -780,11 +856,10 @@
             hitArea.setAttribute('aria-hidden', 'true');
             btn.appendChild(hitArea);
             var name = null;
-            if (!compact) {
+            if (names) {
                 name = document.createElement('span');
                 name.className = 'pet-room__name';
-                name.setAttribute('aria-hidden', 'true');
-                btn.appendChild(name);
+                names.appendChild(name);
             }
             layer.appendChild(btn);
             var need = needOf(pet);
@@ -810,6 +885,7 @@
             clearTimeout(e.arrive);
             if (e.rig) e.rig.destroy();
             if (e.el.parentNode) e.el.parentNode.removeChild(e.el);
+            if (e.name && e.name.parentNode) e.name.parentNode.removeChild(e.name);
             delete entries[id];
         }
 
@@ -872,6 +948,10 @@
                 var e = entries[pid];
                 e.el.classList.toggle('is-focused', pid === focusedId);
                 e.el.classList.toggle('is-dimmed', focusedId != null && pid !== focusedId);
+                if (e.name) {
+                    e.name.classList.toggle('is-focused', pid === focusedId);
+                    e.name.classList.toggle('is-dimmed', focusedId != null && pid !== focusedId);
+                }
                 if (pid === focusedId) e.el.setAttribute('aria-pressed', 'true');
                 else e.el.removeAttribute('aria-pressed');
             });
@@ -910,6 +990,7 @@
             Object.keys(entries).forEach(destroyEntry);
             destroyed = true;
             clearTimeout(resizeTimer);
+            clearTimeout(namesTimer);
             if (resizeObs) resizeObs.disconnect();
             else window.removeEventListener('resize', checkNarrow);
             if (el.parentNode) el.parentNode.removeChild(el);
