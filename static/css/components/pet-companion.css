@@ -54,9 +54,6 @@
 
 .pet-companion > * { pointer-events: auto; }
 
-/* Zajęty przez żart (spec v3.2 §4): pupil nie reaguje na klik/chwyt do końca żartu */
-.pet-companion--claimed > .pet-companion__hit { pointer-events: none; }
-
 .pet-companion--sit {
     left: auto;
     right: 16px;

@@ -20,7 +20,7 @@ def test_bez_profilu_wirtualne_startowe_i_zero_zapisow(db, make_user):
     assert s['eggs_available'] == [{'source': 'start'}] and s['next_monthly_at'] is None
     assert s['eggs'] == [] and s['pets'] == []
     assert all(k['status'] == 'unknown' for k in s['album']) and len(s['album']) == 8
-    assert s['companion'] == {'enabled': True, 'pet_id': None, 'auto': True, 'jokes': True}
+    assert s['companion'] == {'enabled': True, 'pet_id': None, 'auto': True, 'jokes': True, 'jokes_pref': True}
     assert s['needs_care'] is True
     assert PetProfile.query.count() == 0 and Pet.query.count() == 0
 
@@ -44,7 +44,7 @@ def test_pelny_stan_z_jajkiem_pupilem_i_pamiecia(db, make_user):
     assert album['kotek'] == {'species': 'kotek', 'status': 'alive', 'pet_id': pet.id}
     assert album['mis']['status'] == 'memorial' and album['mis']['lights_count'] == 1 and album['mis']['can_light'] is True
     assert album['wiewiorka'] == {'species': 'wiewiorka', 'status': 'unknown'}
-    assert s['companion'] == {'enabled': True, 'pet_id': pet.id, 'auto': False, 'jokes': True}
+    assert s['companion'] == {'enabled': True, 'pet_id': pet.id, 'auto': False, 'jokes': True, 'jokes_pref': True}
     assert s['needs_care'] is True   # jajko ratunkowe do odebrania
 
 
@@ -80,7 +80,7 @@ def test_towarzysz_auto_najbardziej_potrzebujacy(db, make_user):
     a = zaloz_pupila(user, species='kotek', hunger=90.0)
     b = zaloz_pupila(user, species='mis', clean=35.0)
     s = state_for_user(user, now=T0, cfg=_cfg())
-    assert s['companion'] == {'enabled': True, 'pet_id': b.id, 'auto': True, 'jokes': True}
+    assert s['companion'] == {'enabled': True, 'pet_id': b.id, 'auto': True, 'jokes': True, 'jokes_pref': True}
 
 
 def test_towarzysz_wskazany_ale_odeszly_wraca_do_auto(db, make_user):
@@ -93,7 +93,7 @@ def test_towarzysz_wskazany_ale_odeszly_wraca_do_auto(db, make_user):
     profil.companion_enabled = False
     db.session.commit()
     s = state_for_user(user, now=T0, cfg=_cfg())
-    assert s['companion'] == {'enabled': False, 'pet_id': zywy.id, 'auto': True, 'jokes': True}
+    assert s['companion'] == {'enabled': False, 'pet_id': zywy.id, 'auto': True, 'jokes': True, 'jokes_pref': True}
 
 
 def test_odejscie_zapisane_przy_odczycie_i_nagrobek(db, make_user):

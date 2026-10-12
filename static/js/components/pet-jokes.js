@@ -42,6 +42,8 @@
         var SHOP_BARS = '.checkout-bottom-bar, .product-sticky-bar, .floating-actions, .cart-sidebar .cart-footer';
         var TEXT_FIELDS = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
         var NO_CURSOR = 'pet-jokes--no-cursor';
+        // Strony, na których klient składa zamówienie albo wysyła potwierdzenie płatności — żadnych żartów
+        var NO_JOKE_PATHS = /^\/client\/(shop\/checkout|payment-confirmations)/;
 
         var nextKey = 'pets_jokes_next_' + userId;
         var lastPeekKey = 'pets_jokes_lastpeek_' + userId;
@@ -95,6 +97,7 @@
         }
 
         function blocked() {
+            if (NO_JOKE_PATHS.test(window.location.pathname)) return true;   // składanie zamówienia / płatności
             if (anyShown(BLOCKERS) || anyShown(SHOP_BARS) || fullscreenOverlay()) return true;
             if (document.body && document.body.style.overflow === 'hidden') return true;   // scroll-lock = otwarta nakładka
             var a = document.activeElement;
@@ -202,8 +205,9 @@
                 return { edge: edge, face: 'left', place: 'left', x: Math.round(w - r.w * 0.6), y: y, back: { x: w - 220, y: y } };
             }
             var bx = Math.round(rand(wl + 60, Math.max(wl + 61, w - r.w - 60)));
-            return { edge: edge, face: Math.random() < 0.5 ? 'left' : 'right', place: 'up', x: bx, y: Math.round(h - r.h * 0.65),
-                back: { x: bx, y: h - 240 } };
+            var floor = api.floor ? api.floor(bx) : h;     // górna krawędź paska PWA albo dół okna: wychylamy się zza paska
+            return { edge: edge, face: Math.random() < 0.5 ? 'left' : 'right', place: 'up', x: bx, y: Math.round(floor - r.h * 0.65),
+                back: { x: bx, y: floor - 240 } };
         }
 
         function buildPeek(image, place) {
@@ -281,7 +285,8 @@
             ssSet(lastPeekKey, String(image.id));
 
             api.runTo(geo.x, geo.y, { allowOutside: true, face: geo.face }).then(function (ok) {
-                if (!ok || ended) return;                        // przerwane — onBreak już posprzątał
+                if (ended) return;
+                if (!ok) { stop(); return; }                     // ruch przerwany (klik, chwyt…) — sprzątamy i oddajemy pupila
                 box = buildPeek(image, geo.place);
                 box.querySelector('.pet-jokes__close').addEventListener('click', close);
                 onKey = function (e) {
@@ -434,7 +439,8 @@
                 var dir = (r.x + r.w / 2) < vw() / 2 ? -1 : 1;
                 if ((dir < 0 && r.x < 200) || (dir > 0 && r.x > vw() - 280)) dir = -dir;
                 api.runTo(r.x + dir * rand(150, 250), r.y, { face: dir > 0 ? 'right' : 'left' }).then(function (ok) {
-                    if (!ok || done) return;
+                    if (done) return;
+                    if (!ok) { end(); return; }
                     sprite.classList.add('is-dropped');
                     dropTimer = setTimeout(end, DROP_MS);
                 });
@@ -450,7 +456,8 @@
                 // dobiega do punktu obok kursora (nie na sam kursor), potem schwytanie
                 var side = m.x + 28 + r0.w < vw() ? 28 : -(28 + r0.w);
                 api.runTo(m.x + side, m.y - r0.h / 2).then(function (ok) {
-                    if (!ok || done) return;
+                    if (done) return;
+                    if (!ok) { end(); return; }
                     if (!mouse) { end(); return; }                   // mysz opuściła okno w trakcie dobiegania
                     try { engage(); } catch (e) { end(); }
                 });

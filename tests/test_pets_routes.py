@@ -205,7 +205,7 @@ def test_swiatelko_i_towarzysz(client, gracz, db):
     assert r.status_code == 200 and r.get_json()['lights_count'] == 1
     assert client.post(f'/client/pupile/api/{zmarly.id}/swiatelko', json={}).status_code == 409
     r = client.post('/client/pupile/api/towarzysz', json={'pet_id': zywy.id, 'enabled': False})
-    assert r.status_code == 200 and r.get_json()['state']['companion'] == {'enabled': False, 'pet_id': zywy.id, 'auto': False, 'jokes': True}
+    assert r.status_code == 200 and r.get_json()['state']['companion'] == {'enabled': False, 'pet_id': zywy.id, 'auto': False, 'jokes': True, 'jokes_pref': True}
     r = client.post('/client/pupile/api/towarzysz', json={'pet_id': 'x', 'enabled': True})
     assert r.status_code == 400 and r.get_json()['error'] == 'bad_request'
 

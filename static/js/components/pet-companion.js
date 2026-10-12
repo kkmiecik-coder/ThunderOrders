@@ -640,7 +640,7 @@
     function setClaimed(on) { el.classList.toggle('pet-companion--claimed', on); }
 
     function apiReady() {
-        return mode === 'walk' && !claim && !!pet && !!rig && !pet.asleep && !held && !el.hidden &&
+        return mode === 'walk' && !claim && !drag && !!pet && !!rig && !pet.asleep && !held && !el.hidden &&
             bubble.hidden && document.visibilityState !== 'hidden' && !reducedMotion();
     }
 
@@ -650,6 +650,23 @@
     }
 
     function faceDir(dir) { el.classList.toggle('pet-companion--flipped', dir === 'left'); }
+
+    /** Y „podłogi” pod pupilem stojącym od x: górna krawędź dolnego paska (PWA) albo dół okna — dla wychylenia od dołu. */
+    function floorAt(x) {
+        var a = area(), f = viewport().h;
+        for (var i = 0; i < a.obs.length; i++) {
+            var o = a.obs[i];
+            if (o.right <= x || o.left >= x + a.w) continue;
+            f = Math.min(f, o.top + LIFT_GAP);          // obs.top ma już odjęty LIFT_GAP
+        }
+        return f;
+    }
+
+    /** Po żarcie pupil mógł zostać na kontrolce (cele runTo jej nie omijają) — zejdzie z niej od razu, nie po 4–9 s. */
+    function recheckSpot() {
+        clearTimeout(scrollCheckTimer);
+        scrollCheckTimer = setTimeout(checkStandingSpot, 400);
+    }
 
     /** Zajmuje pupila (null, gdy zajęty albo nie pora); zwraca release(). onBreak: chwycenie, sen, ukrycie. */
     function claimPet(onBreak) {
@@ -668,6 +685,7 @@
             setClaimed(false);
             stopWalk();
             if (walkAllowed()) scheduleWalk(rand(PAUSE_MIN, PAUSE_MAX));
+            recheckSpot();
         };
     }
 
@@ -682,6 +700,7 @@
             try { c.onBreak(); } catch (e) { /* żart sprząta po sobie sam */ }
         }
         updateWalk();
+        recheckSpot();
     }
 
     /** Biegnie do (x, y) — tylko podczas claim. allowOutside zdejmuje ograniczenie do obszaru spaceru. */
@@ -972,6 +991,7 @@
     });
 
     function beginDrag() {
+        if (claim) breakClaim();           // chwyt kończy żart
         clearTimeout(drag.hold);
         drag.hold = 0;
         drag.active = true;
@@ -1089,6 +1109,7 @@
     hit.addEventListener('click', function () {
         if (!pet || !rig) return;
         if (held || Date.now() < clickGuardUntil) return;   // koniec przeciągania — to nie pat
+        if (claim) { breakClaim(); return; }                // klik w zajętego pupila kończy żart (spec v3.2 §4), bez pata
         if (pet.asleep) {
             showBubble('Śpi… zzz', { ms: BUBBLE_SLEEP_MS });
             return;
@@ -1125,7 +1146,7 @@
         // Na stronie domku wszystkie pupile są na wierzchu — towarzysz z linkiem „Do świata" byłby dublem
         if (document.getElementById('petsApp')) return;
         if (mode === 'walk') {
-            window.PetCompanionApi = { ready: apiReady, rect: rectNow, claim: claimPet, runTo: runTo, face: faceDir };
+            window.PetCompanionApi = { ready: apiReady, rect: rectNow, claim: claimPet, runTo: runTo, face: faceDir, floor: floorAt };
             document.dispatchEvent(new CustomEvent('pets:companion-api'));   // pet-jokes.js startuje po rejestracji API
         }
         window.PetsState.onChange(function (state) {

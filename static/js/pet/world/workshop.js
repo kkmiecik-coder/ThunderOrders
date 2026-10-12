@@ -266,7 +266,7 @@
         function renderCompanion(state) {
             if (saving) return;
             var pets = (state.pets || []).filter(function (p) { return !p.hospital; });
-            var companion = state.companion || { enabled: true, pet_id: null, auto: true, jokes: true };
+            var companion = state.companion || { enabled: true, pet_id: null, auto: true, jokes: true, jokes_pref: true };
             var has = pets.length > 0;
             pick.hidden = !has;
             show.row.hidden = !has;
@@ -288,7 +288,8 @@
             var chosen = companion.auto || companion.pet_id == null ? 'auto' : String(companion.pet_id);
             select.value = select.querySelector('option[value="' + chosen + '"]') ? chosen : 'auto';
             show.input.checked = !!companion.enabled;
-            jokes.input.checked = companion.jokes !== false;
+            // preferencja użytkownika, nie flaga efektywna: wyłącznik admina nie może nadpisywać wyboru osoby
+            jokes.input.checked = (companion.jokes_pref != null ? companion.jokes_pref : companion.jokes) !== false;
             select.disabled = false;
             show.input.disabled = false;
             jokes.input.disabled = false;

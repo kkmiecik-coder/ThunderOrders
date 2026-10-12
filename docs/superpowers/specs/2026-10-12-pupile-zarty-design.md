@@ -61,6 +61,7 @@ W `static/js/components/pet-companion.js`:
 | `claim(onBreak)` | zajmuje pupila: spacer i dymki stoją; zwraca funkcję `release()`; `onBreak` woła się, gdy coś przerwie (chwycenie, klik w pupila, sen, zmiana towarzysza, ukrycie) |
 | `runTo(x, y, opts)` | `Promise<boolean>`: biegnie po prostej w biegu (`RUN_SPEED`), `true` po dotarciu, `false` przy przerwaniu; `opts.allowOutside` zdejmuje ograniczenie do obszaru spaceru (dla wychylenia); `opts.face` ustawia zwrot po dotarciu |
 | `face(dir)` | `'left'` / `'right'` |
+| `floor(x)` | Y „podłogi” pod pupilem stojącym od `x`: górna krawędź dolnego paska (PWA) albo dół okna |
 
 Wszystko poza tym zostaje w module towarzysza: zapis pozycji, dymki, pat, przenoszenie. Chwycenie pupila
 podczas `claim` kończy żart przez `onBreak`.
@@ -82,7 +83,7 @@ motywach: stałe, z obrysem, a przycisk „x" ma wariant `[data-theme="dark"]`.
   4. brak otwartego modala/arkusza/koszyka (`.modal-overlay.active`, `.cart-sidebar.mobile-open`,
      `.cart-mobile-overlay.active`, pełnoekranowe wyszukiwanie i powiadomienia);
   5. fokus nie jest w polu tekstowym (`input`, `textarea`, `select`, `[contenteditable]`);
-  6. na stronie nie ma pasków zakupowych (`OBSTACLES` z towarzysza: `.checkout-bottom-bar`, `.product-sticky-bar` itd.);
+  6. na stronie nie ma pasków zakupowych (`.checkout-bottom-bar`, `.product-sticky-bar` itd.), nie jest to strona składania zamówienia ani płatności (`/client/shop/checkout`, `/client/payment-confirmations`), nie ma wycieczki onboardingowej ani żadnej widocznej pełnoekranowej nakładki `position: fixed`;
   7. karta jest widoczna.
 - Wybór: wychylenie (waga 0,7, tylko gdy są aktywne, niezamknięte obrazki), kursor (waga 0,3, tylko gdy spełnione
   warunki §5.2). Kursor najwyżej **2 razy na sesję karty** i nie częściej niż co **10 min**
@@ -119,9 +120,9 @@ klasa jeszcze jest, wymusza `restoreCursor()`.
 2. Losowa krawędź:
    - **lewa**: pod sidebar. Sidebar ma `z-index: 1000`, a towarzysz `890`, więc pupil przesunięty o ~55% swojej
      szerokości za `.main-wrapper` jest po prostu zasłonięty. Tylko gdy sidebar jest widoczny (desktop).
-   - **prawa** i **dolna**: pupil wychodzi poza okno (`position: fixed` poza oknem nie tworzy przewijania).
+   - **prawa** i **dolna**: pupil wychodzi poza okno (`position: fixed` poza oknem nie tworzy przewijania). Dolna krawędź to `PetCompanionApi.floor(x)`: górna krawędź dolnego paska PWA (wychylenie zza paska, jak zza sidebara) albo dół okna.
    - Na telefonie: prawa i dolna krawędź okna, z uwzględnieniem dolnego paska PWA i `env(safe-area-inset-*)`.
-3. `claim`, `runTo(..., { allowOutside: true })` do punktu, w którym widać ~45% pupila, zwrócony twarzą do środka.
+3. `claim`, `runTo(..., { allowOutside: true })` do punktu, w którym widać ~60% pupila (lewa/prawa) albo ~65% (dolna), zwrócony twarzą do środka (proporcje dobrane na zrzutach: przy 45% obrazek zasłaniał prawie całego pupila).
 4. Obrazek (`<img alt="">`, ~72 px) wsuwa się przy pyszczku z lekkim kołysaniem, razem z przyciskiem „x".
    Pozostaje ~**6 s**, a potem pupil chowa się i wraca do spaceru. `release`.
 5. **„x"** w prawym górnym rogu obrazka: cel dotyku ≥ 44 px (przycisk ~28 px wizualnie, reszta to pole trafienia),
@@ -129,7 +130,7 @@ klasa jeszcze jest, wymusza `restoreCursor()`.
    dostaje znacznik czasu (TTL 7 dni; każdy dostęp w `try/catch`). Zamknięty obrazek nie jest losowany do końca TTL.
 6. Czas ekspozycji się **wstrzymuje**, gdy przycisk ma fokus klawiatury lub nad obrazkiem jest kursor/palec
    (wniosek z recenzji dymków: nie znikać spod fokusu).
-7. Pat pupila na czas wychylenia jest wyłączony (`pointer-events: none` na przycisku `hit`).
+7. Klik w pupila (także Enter/Spacja z klawiatury) i chwyt na czas żartu kończą żart i nie robią pata: przycisk `hit` zostaje klikalny, ale zajęcie (`claim`) przechwytuje zdarzenie (`breakClaim`). Dzięki temu klik nigdy nie trafia w element strony pod pupilem.
 
 ## 6. Dane i admin
 
@@ -188,7 +189,7 @@ Niezaznaczony checkbox zapisuje `false` (istniejąca konwencja walidatora).
 
 ### 6.8 Stan i zapis ustawienia
 
-- `state.companion.jokes = profil.jokes_enabled (True bez profilu) AND cfg.jokes_enabled`. W stanie lite i pełnym.
+- `state.companion.jokes = profil.jokes_enabled (True bez profilu) AND cfg.jokes_enabled` — flaga efektywna dla modułu żartów. Obok `state.companion.jokes_pref = profil.jokes_enabled (True bez profilu)` — sama preferencja użytkownika, którą pokazuje warsztat (wyłącznik admina nie może jej nadpisać ani „odwrócić" przełącznika po zapisie). W stanie lite i pełnym.
 - `POST /towarzysz` przyjmuje opcjonalne `jokes` (prawdziwy boolean, inaczej 400 `bad_request`; brak pola = bez zmiany).
   `set_companion(user, pet_id=None, enabled=True, jokes=None)`: `None` oznacza „nie zmieniaj".
 - Anonimizacja bez zmian (`companion_enabled = False` już wyłącza towarzysza).
@@ -198,7 +199,7 @@ Niezaznaczony checkbox zapisuje `false` (istniejąca konwencja walidatora).
 W ramce „Towarzysz" (`static/js/pet/world/workshop.js`), obok „Pokazuj towarzysza na stronach", drugi
 `switchRow('petsJokesToggle', 'Żarty pupila', 'Pupil czasem lubi coś wywinąć. Wyłącz, jeśli wolisz spokój.')`.
 Opis **nie wymienia** rodzajów żartów. Wiersz jest ukryty razem z pozostałymi, gdy nie ma pupila. `renderCompanion`
-ustawia stan z `companion.jokes !== false`, a `saveCompanion` dokłada `jokes` do tego samego `POST /towarzysz`.
+ustawia stan z `companion.jokes_pref` (nie z flagi efektywnej), a `saveCompanion` dokłada `jokes` do tego samego `POST /towarzysz`.
 Gdy towarzysz jest wyłączony, przełącznik żartów pozostaje aktywny (ustawienie się zapamiętuje), ale nic nie robi.
 „Zasady gry" w warsztacie bez wzmianki o żartach.
 

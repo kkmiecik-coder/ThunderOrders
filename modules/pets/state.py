@@ -91,8 +91,10 @@ def state_for_user(user, lite=False, now=None, cfg=None):
         'enabled': bool(profil.companion_enabled) if profil is not None else True,
         'pet_id': (wybrany or auto or {}).get('id'),
         'auto': wybrany is None,
-        # Żarty (spec v3.2 §6.8): przełącznik użytkownika ∧ wyłącznik admina — klient dostaje jedną liczbę
+        # Żarty (spec v3.2 §6.8): `jokes_pref` = przełącznik użytkownika (warsztat pokazuje go niezależnie od admina),
+        # `jokes` = flaga efektywna (preferencja ∧ wyłącznik admina) dla modułu żartów
         'jokes': (bool(profil.jokes_enabled) if profil is not None else True) and bool(cfg.jokes_enabled),
+        'jokes_pref': bool(profil.jokes_enabled) if profil is not None else True,
     }
     stan['needs_care'] = (
         any(min(p['bars']['hunger'], p['bars']['fun'], p['bars']['clean']) < rules.HUNGRY_BELOW for p in poza_szpitalem)
