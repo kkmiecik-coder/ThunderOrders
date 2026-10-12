@@ -628,20 +628,60 @@
             old.forEach(function (r) { if (r) r.destroy(); });
         }
 
-        // Arkusz (< 1024 px): recepcja jedzie w górę tak, żeby wybrane jajko zostało widoczne nad arkuszem
-        function setLift(px) {
-            lift = Math.max(0, Math.round(px));
+        // Arkusz (< 1024 px): „kamera” — hol jedzie w górę tak, żeby wybrane jajko zostało widoczne nad arkuszem,
+        // ale górna krawędź drzwi (z szyldem i znaczkiem) zostaje pod pigułką; resztę nadrabia oddalenie (--zoom
+        // wokół górnej krawędzi drzwi). Pomiar z offsetTop — bez wpływu obecnego przesunięcia i skali.
+        function setLift(px, zoom, originY) {
+            lift = Math.max(0, Math.round(px || 0));
             if (lift) host.style.setProperty('--lift', lift + 'px');
             else host.style.removeProperty('--lift');
+            if (zoom && zoom < 1) {
+                host.style.setProperty('--zoom', zoom.toFixed(3));
+                host.style.setProperty('--zoom-y', Math.round(originY) + 'px');
+            } else {
+                host.style.removeProperty('--zoom');
+                host.style.removeProperty('--zoom-y');
+            }
+        }
+
+        function offsetIn(node, root) {
+            var y = 0;
+            while (node && node !== root) {
+                y += node.offsetTop;
+                node = node.offsetParent;
+            }
+            return node === root ? y : null;
         }
 
         function liftFor(node) {
             if (!node || !win || !win.isOpen() || isDesktop()) { setLift(0); return; }
             var sheet = parseFloat(host.style.getPropertyValue('--window-h')) || 0;
-            var box = host.getBoundingClientRect();
-            var r = node.getBoundingClientRect();
-            var bottom = r.bottom + lift;                // pozycja bez obecnego uniesienia
-            setLift(Math.min(sheet, Math.max(0, bottom - (box.bottom - sheet - 12))));
+            var nodeTop = offsetIn(node, stage);
+            if (nodeTop == null || !sheet) { setLift(0); return; }
+            var limit = host.clientHeight - stage.offsetTop - sheet - 12;     // dół wybranego jajka (układ sceny)
+            var bottom = nodeTop + node.offsetHeight;
+            var need = bottom - limit;
+            if (need <= 0) { setLift(0); return; }
+            // Górna granica: pod pigułką (z marginesem); drzwi z szyldem i znaczkiem (−12 px) nie wchodzą wyżej
+            var pill = ctx.root.querySelector('.pets-pill');
+            var pillBottom = pill ? pill.getBoundingClientRect().bottom - host.getBoundingClientRect().top : 60;
+            var ceiling = pillBottom + 8 - stage.offsetTop;
+            var doors = [doorInc.a, doorWard.a].map(function (a) { return offsetIn(a, stage); })
+                .filter(function (y) { return y != null; });
+            var doorTop = doors.length ? Math.min.apply(null, doors) - 12 : ceiling;
+            var room = Math.max(0, doorTop - ceiling);
+            if (need <= room) { setLift(need); return; }
+            // Przesunięcie o `room` stawia drzwi tuż pod pigułką; jajko dochodzi nad arkusz przez oddalenie.
+            // Bardzo niski widok (telefon poziomo): oddalenie najwyżej do 0,7 — resztę nadrabia dalsze przesunięcie
+            // (jajko nad arkuszem ważniejsze niż szyldy drzwi pod pigułką)
+            var span = bottom - doorTop;
+            var zoom = span > 0 ? (limit - ceiling) / span : 1;
+            var extra = 0;
+            if (zoom < 0.7) {
+                zoom = 0.7;
+                extra = ceiling + zoom * span - limit;
+            }
+            setLift(room + extra, zoom, doorTop);
         }
 
         // --- odbiór jajka: lot do drzwi Inkubatorium -------------------------------------------------------

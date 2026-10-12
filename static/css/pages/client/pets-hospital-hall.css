@@ -17,6 +17,14 @@
 .pets-hall {
     --floor: 30%;                      /* linia podłogi: drzwi stoją na niej, recepcja przed nią */
     --top: 72px;                       /* miejsce na pigułkę u góry sceny */
+    /* Recepcja na dywanie (dywan cały nad dolną krawędzią, lada na jego środku) i miary do ustawienia dymka
+       pielęgniarki (tokeny cqh — liczą się w elementach sceny właściwej, które ich używają) */
+    --rug-b: max(14px, 2cqh);
+    --rug-h: clamp(30px, 8cqh, 92px);
+    --desk-b: calc(var(--rug-b) + var(--rug-h) * 0.5);
+    --nurse-w: clamp(76px, 25cqh, 170px);
+    --counter-h: calc(clamp(40px, 10cqh, 70px) + 16px);
+    --egg-w: clamp(50px, 8cqh, 76px);
     container-name: pets-hall;         /* typ kontenera (size) w pets-hospital.css; nazwa dla zapytań z wnętrza ozdób */
     transition: margin-right 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -101,8 +109,8 @@
     --desk-w: clamp(220px, 40cqw, 420px);                              /* jak .pets-hall__desk */
     --win-w: clamp(150px, 30cqw, 340px);
     --win-top: 166px;                                                  /* pigułka + zegar nad oknem */
-    --win-h: min(calc(var(--win-w) * 1.4), calc(100% - var(--floor) - 70px - var(--win-top)));
     --win-bottom: calc(var(--floor) + 70px);                           /* nad lamperią */
+    --win-h: min(calc(var(--win-w) * 1.4), calc(100% - var(--win-bottom) - var(--win-top)));
     --side-gap: calc(45% - var(--door-w) - var(--win-w) / 2);         /* ściana między drzwiami a oknem */
     --cooler-h: clamp(60px, min(17cqh, 16cqw), 170px);
     --plant-h: clamp(76px, min(21cqh, 20cqw), 210px);
@@ -530,9 +538,9 @@
 .pets-hall__rug {
     position: absolute;
     left: 50%;
-    bottom: 1.2%;
+    bottom: var(--rug-b);
     width: calc(var(--desk-w) + 110px);
-    height: clamp(30px, 8cqh, 92px);
+    height: var(--rug-h);
     margin-left: calc((var(--desk-w) + 110px) / -2);
     border-radius: 50%;
     background: radial-gradient(circle, #f6c4d6 1.6px, transparent 2.2px) 0 0 / 18px 18px, #fbe3ec;
@@ -747,6 +755,15 @@
 /* Bez zegara (niższa scena): okno zaczyna się tuż pod pigułką */
 @container (max-height: 700px) {
     .pets-hall__decor { --win-top: 84px; }
+}
+
+/* Średnio szeroka scena (tablet, hol obok karty okna): dymek stoi nad pielęgniarką — okno zaczyna się nad
+   nim (górna granica dymka w dwóch wierszach: dywan, lada, jajka, pielęgniarka, dymek 62 px + parapet) */
+@container (min-width: 600px) and (max-width: 999.98px) {
+    .pets-hall__decor,
+    .pets-hall__clock {
+        --win-bottom: max(calc(var(--floor) + 70px), calc(var(--desk-b) + var(--counter-h) + var(--egg-w) * 16 / 15 + var(--nurse-w) * 6 / 7 + 76px));
+    }
 }
 
 /* Bardzo nisko (telefon poziomo): na ścianie nie ma miejsca — zostają ozdoby podłogi */
@@ -990,6 +1007,7 @@
     position: absolute;
     left: 50%;
     bottom: 5%;
+    bottom: var(--desk-b);
     z-index: 3;
     display: flex;
     flex-direction: column;
@@ -1076,6 +1094,34 @@
 [data-theme="dark"] .pets-hall__talk-bubble::after { border-color: rgba(240, 147, 251, 0.3); }
 [data-theme="dark"] .pets-hall__talk-bubble.is-link { color: #f5c2fc; }
 [data-theme="dark"] .pets-hall__talk-bubble.is-link:hover { background: rgba(60, 40, 100, 0.95); }
+
+/* Szeroka scena (≥ 1000 px): dymek obok pielęgniarki, na prawo od niej, nad jajkami na ladzie — poniżej
+   parapetu okna (nad głową zasłaniał dół okna i parapet), przed prawymi drzwiami (szerokość z miejsca między
+   pielęgniarką a drzwiami). Ogonek wskazuje w lewo, na pielęgniarkę. */
+@container (min-width: 1000px) {
+    .pets-hall__talk {
+        --door-w: calc(clamp(96px, min(calc(70cqh - 108px), 40cqw), 330px) * 100 / 170);
+        position: absolute;
+        left: calc(50% + var(--nurse-w) * 0.42);
+        bottom: calc(var(--counter-h) + var(--egg-w) * 16 / 15 - 4px);
+        justify-content: flex-start;
+        width: max(150px, calc(45cqw - var(--nurse-w) * 0.42 - var(--door-w) - 24px));
+        margin-bottom: 0;
+        pointer-events: none;
+    }
+
+    .pets-hall__talk-bubble {
+        max-width: 100%;
+        text-align: left;
+        pointer-events: auto;
+    }
+
+    .pets-hall__talk-bubble::after {
+        left: 0;
+        top: 58%;
+        transform: translate(-50%, -50%) rotate(135deg);
+    }
+}
 
 /* Pielęgniarka (własna postać, nie gatunek pupila) — dół chowa się za ladą */
 .pets-hall__nurse {
@@ -1290,9 +1336,35 @@
 
 [data-theme="dark"] .pets-hall__flyer { filter: drop-shadow(0 0 6px rgba(255, 214, 120, 0.45)); }
 
-/* Arkusz okna (< 1024 px): recepcja jedzie w górę, żeby wybrane jajko było nad arkuszem (--lift z JS) */
+/* Arkusz okna (< 1024 px): „kamera” — hol jedzie w górę, żeby wybrane jajko było nad arkuszem (--lift z JS),
+   ale drzwi nie wjeżdżają pod pigułkę: gdy samo przesunięcie nie wystarcza, hol się oddala (--zoom wokół
+   górnej krawędzi drzwi --zoom-y; tło sceny sięga dalej, więc boki nie pustoszeją) */
 @media (max-width: 1023.98px) {
-    .pets-scene--szpital.has-window .pets-hall { transform: translateY(calc(-1 * var(--lift, 0px))); }
+    .pets-scene--szpital.has-window .pets-hall {
+        transform: translateY(calc(-1 * var(--lift, 0px))) scale(var(--zoom, 1));
+        transform-origin: 50% var(--zoom-y, 0px);
+    }
+}
+
+/* Karta okna (≥ 1024 px) zabiera prawe 376 px sceny: tablica ogłoszeń (z plakatem), ławka i krzaczek z prawej
+   strony holu przechodzą pod kartę, do prawej krawędzi sceny — pod krótką kartą nie zostaje pusta ściana.
+   Przesuwają się razem z rezerwą sceny (to samo przejście), więc na ekranie prawie stoją w miejscu. */
+.pets-hall__board,
+.pets-hall__bench,
+.pets-hall__plant--small { transition: right 0.25s ease; }
+
+@media (min-width: 1024px) {
+    .pets-scene--szpital.has-window .pets-hall__decor { --bench-w: clamp(150px, 19cqh, 210px); }
+    .pets-scene--szpital.has-window .pets-hall__bench { right: calc(40px - 376px); }
+    .pets-scene--szpital.has-window .pets-hall__plant--small { right: calc(40px - 376px + var(--bench-w) + 16px); }
+
+    /* Kolumna tablicy stoi nad lamperią (dołem do niej), nie na wysokości środka okna — niżej niż karta */
+    .pets-scene--szpital.has-window .pets-hall__board {
+        right: calc(188px - 376px);
+        bottom: calc(var(--floor) + 84px);
+        width: clamp(130px, 17cqh, 176px);
+        transform: translateX(50%);
+    }
 }
 
 /* Niski widok (laptop 1366×600, telefon poziomo): mniejsze jajka i lada, żeby recepcja nie sięgała pigułki */
@@ -1329,6 +1401,9 @@
 
 @media (prefers-reduced-motion: reduce) {
     .pets-hall,
+    .pets-hall__board,
+    .pets-hall__bench,
+    .pets-hall__plant--small,
     .pets-hall__frame,
     .pets-hall__mat,
     .pets-hall__talk-bubble { transition: none; }
@@ -1349,6 +1424,9 @@
 }
 
 html.pet-rig-rm .pets-hall,
+html.pet-rig-rm .pets-hall__board,
+html.pet-rig-rm .pets-hall__bench,
+html.pet-rig-rm .pets-hall__plant--small,
 html.pet-rig-rm .pets-hall__frame,
 html.pet-rig-rm .pets-hall__mat,
 html.pet-rig-rm .pets-hall__lamp-glow { transition: none; }
