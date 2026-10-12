@@ -649,6 +649,21 @@
 .pet-rig.pose-lie.is-sick .rig-fm,
 .pet-rig.pose-lie.is-critical .rig-fm { animation: none; }
 
+/* run: bieg na 4 łapach (towarzysz w ruchu, spec v3.2 §3) — korpus pochylony do przodu, głowa wysunięta,
+   ramiona jako przednie łapy i stopy pracują naprzemiennie */
+.pet-rig.pose-run { --rig-pose-dy: 6px; }
+.pet-rig.pose-run:not(.pose-off) .rig-fig { rotate: 26deg; translate: 6px 8px; }
+.pet-rig.pose-run:not(.pose-off) .rig-head { rotate: -12deg; translate: 4px 4px; }
+.pet-rig.pose-run:not(.pose-off) .rig-tail { rotate: 18deg; translate: -2px -6px; }
+.pet-rig.pose-run:not(.pose-off) .rig-arm-l { animation: rig-run-arm-l .3s ease-in-out infinite alternate; }
+.pet-rig.pose-run:not(.pose-off) .rig-arm-r { animation: rig-run-arm-r .3s ease-in-out infinite alternate; }
+.pet-rig.pose-run:not(.pose-off) .rig-feet { animation: rig-run-feet .3s ease-in-out infinite alternate; }
+.pet-rig.pose-run:not(.pose-off) .rig-shadow ellipse { scale: 1.2 1; }
+
+@keyframes rig-run-arm-l { from { rotate: -55deg; } to { rotate: 40deg; } }
+@keyframes rig-run-arm-r { from { rotate: 40deg; } to { rotate: -55deg; } }
+@keyframes rig-run-feet { from { scale: 1.12 .92; } to { scale: .92 1.08; } }
+
 /* bed: łóżeczko szpitalne, pupil z głową na poduszce pod kołderką */
 .pet-rig.pose-bed { --rig-pose-dy: var(--rig-bed-dy); }
 .pet-rig.pose-bed .rig-bed-back,

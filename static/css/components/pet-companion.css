@@ -92,6 +92,14 @@
     to { translate: 0 -3px; }
 }
 
+/* Bieg (spec v3.2 §3): szybszy i wyższy rytm kołysania niż w marszu */
+.pet-companion--running .pet-companion__scene { animation: pet-companion-bob-run 0.24s ease-in-out infinite alternate; }
+
+@keyframes pet-companion-bob-run {
+    from { translate: 0 0; }
+    to { translate: 0 -6px; }
+}
+
 /* Podniesiony (chwycony myszą / przytrzymany palcem): większy i nad ziemią, z cieniem pod sobą,
    macha łapkami (śpiący — nie). Własny cień rigu znika, bo jedzie w górę razem z postacią. */
 .pet-companion::before {
@@ -371,6 +379,7 @@
     .pet-companion__bubble { transition: none; }
 
     .pet-companion--walking .pet-companion__scene { animation: none; }
+    .pet-companion--running .pet-companion__scene { animation: none; }
 }
 
 .pet-rig-rm .pet-companion,
@@ -379,3 +388,4 @@
 .pet-rig-rm .pet-companion__bubble { transition: none; }
 
 .pet-rig-rm .pet-companion--walking .pet-companion__scene { animation: none; }
+.pet-rig-rm .pet-companion--running .pet-companion__scene { animation: none; }

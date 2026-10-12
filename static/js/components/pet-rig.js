@@ -11,7 +11,7 @@
  *       - z variant (PetRig.VARIANTS): 9 dłuższych sekwencji z własnymi rekwizytami (3,4–3,8 s;
  *         ograniczony ruch: ≤ 0,9 s i statyczne rekwizyty). Nieznany wariant = pierwszy z listy.
  *     rig.setNeed(need) — wygląd potrzeby (PetRig.NEEDS; null = jak dawniej, z mood/asleep)
- *     rig.setPose(pose) — PetRig.POSES: stand | sit | lie | bed (łóżeczko szpitalne z kołderką)
+ *     rig.setPose(pose) — PetRig.POSES: stand | sit | lie | bed (łóżeczko szpitalne z kołderką) | run (bieg na 4 łapach: towarzysz w ruchu)
  *     rig.pat() -> Promise — otwarta dłoń wjeżdża z boku i klepie po głowie 3 razy, przy każdym
  *       klepnięciu chmurka „PAT” (~1,5 s); kolejne wywołanie w trakcie
  *       odświeża animację i zwraca TEN SAM Promise.
@@ -53,7 +53,7 @@
     };
     // Potrzeby (wygląd w pokoju, spec v3 §6.1) i pozy — kontrakt dla świata i widgetu.
     var NEEDS = ['happy', 'hungry', 'dirty', 'sad', 'bored', 'sick', 'critical', 'sleep'];
-    var POSES = ['stand', 'sit', 'lie', 'bed'];
+    var POSES = ['stand', 'sit', 'lie', 'bed', 'run'];
     // need -> nastrój „wewnętrzny" (steruje istniejącymi stanami is-* i dymkami data-mood)
     var NEED_MOOD = {
         happy: 'szczesliwy', hungry: 'glodny', dirty: 'brudny', sad: 'smutny', bored: 'znudzony',
@@ -521,7 +521,7 @@
             }
             // Gesty tylko w spokojnym stanie (bez akcji, snu, choroby, leżenia) i bez ograniczenia ruchu.
             if (current || !el.classList.contains('is-idle') || reducedMotion()) return false;
-            if (o.pose === 'lie' || o.pose === 'bed') return false;
+            if (o.pose === 'lie' || o.pose === 'bed' || o.pose === 'run') return false;
             if (gestureName) el.classList.remove('g-' + gestureName);
             gestureName = name;
             restartClass(el, 'g-' + name);

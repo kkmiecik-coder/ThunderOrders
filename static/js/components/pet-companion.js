@@ -49,6 +49,9 @@
     var SELF_SRC = (document.currentScript && document.currentScript.src) || '';
 
     var WALK_SPEED = 40;               // px/s
+    var RUN_SPEED = 170;               // px/s — bieg na 4 łapach (spec v3.2 §3)
+    var RUN_CHANCE = 0.2;              // szansa, że dłuższy krok to bieg
+    var RUN_MIN_DIST = 200;            // krótsze przejścia zawsze marszem
     var EDGE = 8;                      // margines obszaru spaceru od boków i od górnego paska
     var BOTTOM_EDGE = 16;              // odstęp od dolnej krawędzi okna (jak `bottom: 16px` w CSS)
     var STEP_MIN = 60, STEP_MAX = 420; // długość jednego przejścia (px)
@@ -103,6 +106,7 @@
     var firstShow = true;
     var pos = null;                    // swobodna pozycja {x, y} (lewy górny róg, px w oknie); w marszu = cel
     var walking = false;
+    var running = false;               // walk: bieg na 4 łapach (poza `run` w rigu)
     var sitting = false;               // walk: odpoczywa na siedząco
     var curPose = 'stand';
     var held = false;                  // trzymany (przeciąganie)
@@ -459,6 +463,7 @@
     function syncPose() {
         if (mode !== 'walk' || !rig || typeof rig.setPose !== 'function') return;
         var want = pet && !pet.asleep && !held && (sitting || reducedMotion()) ? 'sit' : 'stand';
+        if (want === 'stand' && running) want = 'run';
         if (want === curPose) return;
         curPose = want;
         rig.setPose(want);
@@ -547,22 +552,45 @@
             scheduleWalk(rand(PAUSE_MIN, PAUSE_MAX));
             return;
         }
+        startMove(target, runsThisStep(Math.sqrt(Math.pow(target.x - pos.x, 2) + Math.pow(target.y - pos.y, 2))));
+    }
+
+    /** Czy ten krok to bieg: dłuższy dystans, pupil nie jest chory ani krytyczny, los poniżej RUN_CHANCE. */
+    function runsThisStep(dist) {
+        if (dist < RUN_MIN_DIST || !pet || pet.mood === 'chory' || pet.mood === 'krytyczny') return false;
+        return Math.random() < RUN_CHANCE;
+    }
+
+    /** Rusza do `target` marszem albo biegiem: zwrot, czas z prędkości, klasy ruchu, cel z przejściem CSS. */
+    function startMove(target, run) {
         var dx = target.x - pos.x, dy = target.y - pos.y;
-        var secs = Math.sqrt(dx * dx + dy * dy) / WALK_SPEED;
+        var secs = Math.sqrt(dx * dx + dy * dy) / (run ? RUN_SPEED : WALK_SPEED);
         // rAF w ukrytej karcie nie rusza — klasa odtworzenia nie może zablokować przejścia marszu
         el.classList.remove('pet-companion--restored');
-        if (Math.abs(dx) > 4) el.classList.toggle('pet-companion--flipped', dx < 0);   // patrzy w stronę marszu
+        if (Math.abs(dx) > 4) el.classList.toggle('pet-companion--flipped', dx < 0);   // patrzy w stronę ruchu
         el.style.setProperty('--pet-companion-walk', secs.toFixed(2) + 's');
         el.classList.add('pet-companion--walking');
+        el.classList.toggle('pet-companion--running', run);
+        running = run;
+        syncPose();
         walking = true;
         setPos(target.x, target.y, true);
         clearTimeout(timers.arrive);
         timers.arrive = setTimeout(arrived, secs * 1000 + 60);
     }
 
+    /** Koniec biegu: zdejmuje klasę i wraca do pozy stojącej. */
+    function endRun() {
+        if (!running) return;
+        running = false;
+        el.classList.remove('pet-companion--running');
+        syncPose();
+    }
+
     function arrived() {
         timers.arrive = 0;
         walking = false;
+        endRun();
         el.classList.remove('pet-companion--walking');
         el.style.removeProperty('--pet-companion-walk');
         savePos();
@@ -590,6 +618,7 @@
             setPos(Math.round(r.left), Math.round(r.top), false);
         }
         walking = false;
+        endRun();
         el.classList.remove('pet-companion--walking');
         el.style.removeProperty('--pet-companion-walk');
     }
