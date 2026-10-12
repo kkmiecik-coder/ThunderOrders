@@ -107,6 +107,8 @@
     var pos = null;                    // swobodna pozycja {x, y} (lewy górny róg, px w oknie); w marszu = cel
     var walking = false;
     var running = false;               // walk: bieg na 4 łapach (poza `run` w rigu)
+    var claim = null;                  // zajęty przez żart: {onBreak} (spec v3.2 §4)
+    var arriveHook = null;             // runTo: wołany po dotarciu (true) albo przerwaniu (false)
     var sitting = false;               // walk: odpoczywa na siedząco
     var curPose = 'stand';
     var held = false;                  // trzymany (przeciąganie)
@@ -206,6 +208,7 @@
     // --- widoczność -----------------------------------------------------------------------------
 
     function hide() {
+        breakClaim();
         cancelDrag();
         stopWalk();
         clearTimeout(timers.pat);
@@ -226,6 +229,7 @@
             return;
         }
         var samePet = rig && pet && pet.id === p.id;
+        if (claim && (!samePet || p.asleep)) breakClaim();   // inny towarzysz albo zasnął — żart się kończy
         pet = p;
         if (samePet) {
             rig.update(rigOpts(p));
@@ -436,7 +440,7 @@
 
     /** Swobodna pozycja z powrotem w obszarze (zmiana okna, nowy pasek przy dole, zwinięty sidebar). */
     function keepInArea() {
-        if (!isFree() || held || el.hidden || !pos) return;
+        if (!isFree() || held || claim || el.hidden || !pos) return;
         var a = area();
         var cur = currentPos();
         var c = clampTo(a, cur);
@@ -455,7 +459,7 @@
     // --- spacer ---------------------------------------------------------------------------------
 
     function walkAllowed() {
-        return mode === 'walk' && !!pet && !pet.asleep && !reducedMotion() && !el.hidden && !held &&
+        return mode === 'walk' && !!pet && !pet.asleep && !reducedMotion() && !el.hidden && !held && !claim &&
             document.visibilityState !== 'hidden';
     }
 
@@ -472,6 +476,7 @@
     function updateWalk() {
         if (mode !== 'walk' || el.hidden) return;
         syncPose();
+        if (claim) return;                 // zajęty przez żart — ruchem steruje claim
         if (!walkAllowed()) { stopWalk(); return; }
         if (!walking && !timers.walk) scheduleWalk(1000 + Math.random() * 2000);
     }
@@ -527,7 +532,7 @@
     /** Po przewinięciu/starcie: stojący pupil nie może zostać na kontrolce — idzie dalej (śpiący przeskakuje). */
     function checkStandingSpot() {
         scrollCheckTimer = 0;
-        if (mode !== 'walk' || el.hidden || held || walking || !pos || !pet) return;
+        if (mode !== 'walk' || el.hidden || held || claim || walking || !pos || !pet) return;
         if (!coversControl(pos.x, pos.y)) return;
         if (walkAllowed()) { scheduleWalk(300); return; }
         var t = pickTarget(area(), pos);
@@ -594,6 +599,9 @@
         el.classList.remove('pet-companion--walking');
         el.style.removeProperty('--pet-companion-walk');
         savePos();
+        var hook = arriveHook;               // runTo: cel żartu osiągnięty — dalszy ciąg w module żartów
+        arriveHook = null;
+        if (hook) { hook(true); return; }
         if (!walkAllowed()) return;
         var roll = Math.random();
         var pause = rand(PAUSE_MIN, PAUSE_MAX);
@@ -621,6 +629,79 @@
         endRun();
         el.classList.remove('pet-companion--walking');
         el.style.removeProperty('--pet-companion-walk');
+        var hook = arriveHook;               // przerwany marsz/bieg: runTo kończy się false
+        arriveHook = null;
+        if (hook) hook(false);
+    }
+
+    // --- API dla żartów (spec v3.2 §4) ----------------------------------------------------------
+    // Moduł żartów (pet-jokes.js) „zajmuje” towarzysza: spacer i dymki stoją, ruchem steruje runTo.
+
+    function setClaimed(on) { el.classList.toggle('pet-companion--claimed', on); }
+
+    function apiReady() {
+        return mode === 'walk' && !claim && !!pet && !!rig && !pet.asleep && !held && !el.hidden &&
+            bubble.hidden && document.visibilityState !== 'hidden' && !reducedMotion();
+    }
+
+    function rectNow() {
+        var r = el.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
+    }
+
+    function faceDir(dir) { el.classList.toggle('pet-companion--flipped', dir === 'left'); }
+
+    /** Zajmuje pupila (null, gdy zajęty albo nie pora); zwraca release(). onBreak: chwycenie, sen, ukrycie. */
+    function claimPet(onBreak) {
+        if (!apiReady()) return null;
+        var c = { onBreak: onBreak || null };
+        claim = c;
+        setClaimed(true);
+        stopWalk();
+        clearTimeout(timers.walk);
+        timers.walk = 0;
+        sitting = false;
+        syncPose();
+        return function release() {
+            if (claim !== c) return;
+            claim = null;
+            setClaimed(false);
+            stopWalk();
+            if (walkAllowed()) scheduleWalk(rand(PAUSE_MIN, PAUSE_MAX));
+        };
+    }
+
+    /** Przerwanie przez towarzysza (sen, ukrycie, inny pupil, karta w tle): runTo kończy się false, onBreak woła się raz. */
+    function breakClaim() {
+        if (!claim) return;
+        var c = claim;
+        claim = null;
+        setClaimed(false);
+        stopWalk();
+        if (c.onBreak) {
+            try { c.onBreak(); } catch (e) { /* żart sprząta po sobie sam */ }
+        }
+        updateWalk();
+    }
+
+    /** Biegnie do (x, y) — tylko podczas claim. allowOutside zdejmuje ograniczenie do obszaru spaceru. */
+    function runTo(x, y, opts) {
+        if (!claim || !pos || el.hidden) return Promise.resolve(false);
+        opts = opts || {};
+        stopWalk();
+        var target = opts.allowOutside ? { x: Math.round(x), y: Math.round(y) } : clampTo(area(), { x: x, y: y });
+        var dist = Math.sqrt(Math.pow(target.x - pos.x, 2) + Math.pow(target.y - pos.y, 2));
+        if (dist < 2) {
+            if (opts.face) faceDir(opts.face);
+            return Promise.resolve(true);
+        }
+        return new Promise(function (resolve) {
+            arriveHook = function (ok) {
+                if (ok && opts.face) faceDir(opts.face);
+                resolve(ok);
+            };
+            startMove(target, true);
+        });
     }
 
     // --- nie zasłaniaj CTA ----------------------------------------------------------------------
@@ -753,6 +834,7 @@
     }
 
     function showBubble(text, opts) {
+        if (claim) return;                   // żart trwa — dymki czekają
         clearTimeout(timers.bubble);
         clearTimeout(timers.bubbleFade);
         bubbleTopic = opts.topic || null;
@@ -1042,6 +1124,9 @@
         if (!userId || !window.PetsState || !window.PetsApi || !window.PetRig || !hit || !scene || !bubble) return;
         // Na stronie domku wszystkie pupile są na wierzchu — towarzysz z linkiem „Do świata" byłby dublem
         if (document.getElementById('petsApp')) return;
+        if (mode === 'walk') {
+            window.PetCompanionApi = { ready: apiReady, rect: rectNow, claim: claimPet, runTo: runTo, face: faceDir };
+        }
         window.PetsState.onChange(function (state) {
             if (started) apply(state);
         });
@@ -1074,6 +1159,7 @@
 
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'hidden') {
+                breakClaim();
                 cancelDrag();
                 flushPatOnExit();
                 savePos();
