@@ -293,11 +293,174 @@
             return true;
         }
 
-        // --- kradzież kursora (Zadanie 8 zastępuje ten blok) ----------------------------------------
-        var mouse = null;
-        function cursorAvailable() { return false; }
-        function startCursor() { return false; }
-        // --- koniec bloku kursora --------------------------------------------------------------------
+        // --- żart: kradzież kursora -----------------------------------------------------------------
+        // Pupil dobiega do kursora, prawdziwy kursor znika (cursor:none), pupil ciąga narysowany kursor 2–3 s
+        // i oddaje go. Klik w tym czasie nie dociera do strony. KAŻDA ścieżka końca idzie przez end() ->
+        // sweepCursor(): kursor wraca zawsze.
+
+        var CURSOR_GAP_MS = 10 * 60 * 1000, CURSOR_MAX = 2;   // najwyżej 2 razy na sesję karty, co 10 min
+        var MOUSE_FRESH_MS = 3000;                            // mysz musiała się ruszyć w ciągu 3 s
+        var CURSOR_HARD_MS = 3000;                            // twardy limit schowania kursora
+        var GRAB_MS = 220, DROP_MS = 350;
+        var cursorKey = 'pets_jokes_cursor_' + userId;
+        var mouse = null;                                     // {x, y, t}
+
+        function finePointer() {
+            return !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+        }
+
+        /** Usuwa wszystko, co żart kursora dodał do strony (idempotentne, niezależne od domknięć). */
+        function sweepCursor() {
+            html.classList.remove(NO_CURSOR);
+            var stray = document.querySelectorAll('.pet-jokes__shield, .pet-jokes__cursor');
+            for (var i = 0; i < stray.length; i++) {
+                if (stray[i].parentNode) stray[i].parentNode.removeChild(stray[i]);
+            }
+        }
+
+        function onMouseMove(e) {
+            mouse = { x: e.clientX, y: e.clientY, t: Date.now() };
+            // pas i szelki: klasa została po jakimś błędzie, a żadnego żartu kursora już nie ma
+            if (html.classList.contains(NO_CURSOR) && !(current && current.name === 'cursor')) sweepCursor();
+        }
+
+        if (finePointer()) {
+            window.addEventListener('mousemove', onMouseMove, { passive: true });
+            html.addEventListener('mouseleave', function () { mouse = null; });
+        }
+
+        function readCursorRec() {
+            var rec = null;
+            try { rec = JSON.parse(ssGet(cursorKey) || 'null'); } catch (e) { rec = null; }
+            return rec && typeof rec === 'object' ? { n: rec.n | 0, last: +rec.last || 0 } : { n: 0, last: 0 };
+        }
+
+        function cursorAvailable() {
+            if (!finePointer() || !mouse || Date.now() - mouse.t > MOUSE_FRESH_MS) return false;
+            var rec = readCursorRec();
+            if (rec.n >= CURSOR_MAX) return false;
+            return !rec.last || Date.now() - rec.last >= CURSOR_GAP_MS;
+        }
+
+        function buildCursorSprite() {
+            var wrap = document.createElement('div');
+            wrap.className = 'pet-jokes__cursor';
+            wrap.setAttribute('aria-hidden', 'true');
+            wrap.innerHTML = '<svg viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg"><path d="M1 1 L1 22 L6.5 17.2 L10.2 26 L13.4 24.6 L9.8 16 L17 16 Z"/></svg>';
+            return wrap;
+        }
+
+        function startCursor() {
+            var m = mouse;
+            if (!m) return false;
+            var r0 = api.rect();
+            var done = false, engaged = false, raf = 0, hardTimer = 0, dropTimer = 0, shield = null, sprite = null, release = null;
+            var job = { name: 'cursor', cancel: function () { end(); } };
+            var capt = { capture: true, passive: false };
+
+            function swallowNextClick() {
+                function eat(e) { e.preventDefault(); e.stopPropagation(); }
+                window.addEventListener('click', eat, { capture: true, once: true });
+                setTimeout(function () { window.removeEventListener('click', eat, true); }, 400);
+            }
+
+            // Przed schwytaniem klik użytkownika działa normalnie (żart tylko się kończy); po schwytaniu jest połykany
+            function onPointer(e) {
+                if (engaged) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    swallowNextClick();
+                }
+                end();
+            }
+            function onKey() { end(); }                          // klawisza nie połykamy (Tab dalej działa)
+            function onHidden() { if (document.visibilityState === 'hidden') end(); }
+
+            function listen() {
+                window.addEventListener('keydown', onKey, capt);
+                ['pointerdown', 'mousedown', 'touchstart'].forEach(function (t) { window.addEventListener(t, onPointer, capt); });
+                window.addEventListener('blur', end);
+                window.addEventListener('pagehide', end);
+                document.addEventListener('visibilitychange', onHidden);
+            }
+
+            function unlisten() {
+                window.removeEventListener('keydown', onKey, capt);
+                ['pointerdown', 'mousedown', 'touchstart'].forEach(function (t) { window.removeEventListener(t, onPointer, capt); });
+                window.removeEventListener('blur', end);
+                window.removeEventListener('pagehide', end);
+                document.removeEventListener('visibilitychange', onHidden);
+            }
+
+            // Idempotentne: WSZYSTKIE ścieżki końca kończą tutaj, a kursor wraca w finally
+            function end() {
+                if (done) return;
+                done = true;
+                try {
+                    cancelAnimationFrame(raf);
+                    clearTimeout(hardTimer);
+                    clearTimeout(dropTimer);
+                    unlisten();
+                } finally {
+                    sweepCursor();
+                    if (current === job) { current = null; scheduleNext(); }
+                    if (release) release();
+                }
+            }
+
+            function engage() {
+                engaged = true;
+                var from = mouse || { x: r0.x, y: r0.y };
+                html.classList.add(NO_CURSOR);
+                shield = document.createElement('div');
+                shield.className = 'pet-jokes__shield';
+                sprite = buildCursorSprite();
+                document.body.appendChild(shield);
+                document.body.appendChild(sprite);
+                hardTimer = setTimeout(end, CURSOR_HARD_MS);
+                var t0 = Date.now();
+                (function frame() {
+                    if (done) return;
+                    var r = api.rect();
+                    var right = !host.classList.contains('pet-companion--flipped');
+                    var px = r.x + r.w * (right ? 0.92 : 0.08), py = r.y + r.h * 0.72;
+                    var k = Math.min(1, (Date.now() - t0) / GRAB_MS);
+                    sprite.style.transform = 'translate(' + Math.round(from.x + (px - from.x) * k) + 'px,' +
+                        Math.round(from.y + (py - from.y) * k) + 'px)';
+                    raf = requestAnimationFrame(frame);
+                })();
+                // niesie kursor 150–250 px w stronę najbliższej krawędzi i upuszcza
+                var r = api.rect();
+                var dir = (r.x + r.w / 2) < vw() / 2 ? -1 : 1;
+                if ((dir < 0 && r.x < 200) || (dir > 0 && r.x > vw() - 280)) dir = -dir;
+                api.runTo(r.x + dir * rand(150, 250), r.y, { face: dir > 0 ? 'right' : 'left' }).then(function (ok) {
+                    if (!ok || done) return;
+                    sprite.classList.add('is-dropped');
+                    dropTimer = setTimeout(end, DROP_MS);
+                });
+            }
+
+            release = api.claim(function () { end(); });
+            if (!release) return false;
+            current = job;
+            var rec = readCursorRec();
+            ssSet(cursorKey, JSON.stringify({ n: rec.n + 1, last: Date.now() }));
+            try {
+                listen();
+                // dobiega do punktu obok kursora (nie na sam kursor), potem schwytanie
+                var side = m.x + 28 + r0.w < vw() ? 28 : -(28 + r0.w);
+                api.runTo(m.x + side, m.y - r0.h / 2).then(function (ok) {
+                    if (!ok || done) return;
+                    if (!mouse) { end(); return; }                   // mysz opuściła okno w trakcie dobiegania
+                    try { engage(); } catch (e) { end(); }
+                });
+            } catch (e) {
+                end();
+                return false;
+            }
+            return true;
+        }
+        // --- koniec żartu kursora -------------------------------------------------------------------
 
         // --- start ----------------------------------------------------------------------------------
 
