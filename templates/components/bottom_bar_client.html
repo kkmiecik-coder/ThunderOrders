@@ -88,6 +88,14 @@
                 <span class="pwa-sheet-badge pets-sheet-dot" id="pwaSheetPetsDot" style="display:none;">•</span>
             </a>
         </li>
+        {% else %}
+        {# Pupile jeszcze niedostępne dla tego klienta: wyszarzona pozycja „Wkrótce”, ikona ta sama #}
+        <li>
+            <span class="pwa-sheet-item pwa-sheet-item--disabled" aria-disabled="true">
+                <img src="{{ url_for('static', filename='img/icons/paw.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Wkrótce</span>
+            </span>
+        </li>
         {% endif %}
         <li class="pwa-sheet-accordion">
             <button class="pwa-sheet-item pwa-sheet-accordion-toggle">

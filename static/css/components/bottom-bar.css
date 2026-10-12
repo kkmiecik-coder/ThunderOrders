@@ -256,6 +256,16 @@
         background: var(--bg-hover);
     }
 
+    /* Pozycja „Wkrótce” (funkcja jeszcze niedostępna dla klienta): wyszarzona, nieklikalna; opacity działa w obu motywach */
+    .pwa-sheet-item--disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .pwa-sheet-item--disabled:active {
+        background: none;
+    }
+
     .pwa-sheet-item.active {
         color: #7c3aed;
         background: rgba(124, 58, 237, 0.08);

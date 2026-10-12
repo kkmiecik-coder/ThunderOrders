@@ -101,6 +101,14 @@
                     <span class="sidebar-dot" id="petsNavDot" hidden role="img" aria-label="Pupil potrzebuje opieki"></span>
                 </a>
             </li>
+            {% else %}
+            {# Pupile jeszcze niedostępne dla tego klienta (flaga wyłączona / poza rolloutem): wyszarzona zakładka „Wkrótce”, ikona ta sama #}
+            <li class="sidebar-item">
+                <span class="sidebar-link disabled" aria-disabled="true" data-tooltip="Wkrótce">
+                    <img src="{{ url_for('static', filename='img/icons/paw.svg') }}" alt="" class="sidebar-icon">
+                    <span class="sidebar-text">Wkrótce</span>
+                </span>
+            </li>
             {% endif %}
 
             <li class="sidebar-item">

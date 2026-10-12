@@ -521,6 +521,27 @@
   border-radius: 0 2px 2px 0;
 }
 
+/* Zakładka „Wkrótce” (funkcja jeszcze niedostępna dla klienta): wyszarzona, bez linku i bez efektów najechania.
+   Przyciemnienie przez opacity — działa tak samo w jasnym i ciemnym motywie. */
+.sidebar-link.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sidebar-link.disabled:hover {
+  background: none;
+  color: rgba(255, 255, 255, 0.7);
+  transform: none;
+}
+
+.sidebar-link.disabled:hover::before {
+  left: -100%;
+}
+
+.sidebar-link.disabled:hover .sidebar-icon {
+  filter: none;
+}
+
 /* Disabled link */
 .sidebar-sublink.disabled {
   color: rgba(255, 255, 255, 0.25);
