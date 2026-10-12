@@ -113,7 +113,7 @@
 .pets-inc__cord[hidden] { display: none; }
 .pets-inc__cord.is-free { opacity: 0.55; }
 
-[data-theme="dark"] .pets-inc__cord { background: #8a6247; }
+:is([data-theme="dark"], .pets-page--night) .pets-inc__cord { background: #8a6247; }
 
 /* --- Girlanda światełek pod sufitem: odcinki z żarówkami, liczba wg szerokości sceny --- */
 .pets-inc__garland {

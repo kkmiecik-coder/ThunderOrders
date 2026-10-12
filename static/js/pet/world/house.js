@@ -183,6 +183,13 @@
             ctx.flushPats();
             openId = id;
             setHintOpen(false);
+            if (!tipDone) {
+                // Panel otwarty bez kliku (np. z linku ?pupil= w dymku towarzysza): podpowiedź o klikaniu jest już
+                // zbędna — inaczej przycisk „Podpowiedź” rozwijałby pustą karteczkę (CSS chowa ją przy otwartym oknie)
+                tipDone = true;
+                markTipSeen();
+                renderNotes(state, !homePets(state).length);
+            }
             if (room) room.focus(id);
             var box = u.el('div', 'pets-house__panel');
             card = window.PetCard.render(box, pet, {

@@ -408,7 +408,7 @@
                     ui.badge.className = 'pet-hatch-badge pet-hatch-badge--new is-shown';
                     ui.badgeText.textContent = 'Nowy gatunek!';
                     ui.title.textContent = 'Odkryto: ' + name + '!';
-                    ui.text.textContent = 'To Twój nowy pupil. Jak go nazwiesz?';
+                    ui.text.textContent = name + ' to Twój nowy pupil. Jak go nazwiesz?';   // gatunek też w regionie live (czytnik ekranu)
                 } else {
                     var who = starred.name ? 'Twój pupil ' + starred.name : 'Twój pupil';
                     ui.badge.className = 'pet-hatch-badge pet-hatch-badge--star is-shown';

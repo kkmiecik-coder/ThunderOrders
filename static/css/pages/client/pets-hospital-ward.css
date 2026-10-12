@@ -220,7 +220,7 @@
     background: rgba(70, 100, 140, 0.16);
 }
 
-[data-theme="dark"] .pets-ward__plant::before { background: rgba(0, 0, 0, 0.35); }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__plant::before { background: rgba(0, 0, 0, 0.35); }
 .pets-ward__cart { aspect-ratio: 100 / 124; }
 
 .pets-ward__extras svg {
@@ -252,27 +252,27 @@
 .pets-ward__cart .wc-box { fill: #c9b8f5; }
 .pets-ward__cart .wc-tissue { fill: #ffffff; stroke: #d9cff3; stroke-width: 1; }
 
-[data-theme="dark"] .pets-ward__plant .wpl-leaf { fill: #4f9a62; }
-[data-theme="dark"] .pets-ward__plant .wpl-leaf--b { fill: #3f8253; }
-[data-theme="dark"] .pets-ward__plant .wpl-leaf--c { fill: #63ad73; }
-[data-theme="dark"] .pets-ward__plant .wpl-pot { fill: #5d7aa6; }
-[data-theme="dark"] .pets-ward__plant .wpl-rim { fill: #4f6a94; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__plant .wpl-leaf { fill: #4f9a62; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__plant .wpl-leaf--b { fill: #3f8253; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__plant .wpl-leaf--c { fill: #63ad73; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__plant .wpl-pot { fill: #5d7aa6; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__plant .wpl-rim { fill: #4f6a94; }
 
-[data-theme="dark"] .pets-ward__cart .wc-shadow { fill: rgba(0, 0, 0, 0.35); }
-[data-theme="dark"] .pets-ward__cart .wc-handle,
-[data-theme="dark"] .pets-ward__cart .wc-leg { stroke: #7c8fb0; }
-[data-theme="dark"] .pets-ward__cart .wc-tray { fill: #3b4670; stroke: #56638e; }
-[data-theme="dark"] .pets-ward__cart .wc-body { fill: #313a5e; stroke: #56638e; }
-[data-theme="dark"] .pets-ward__cart .wc-drawer { fill: #2a3354; stroke: #56638e; }
-[data-theme="dark"] .pets-ward__cart .wc-cross { fill: #f0657a; }
-[data-theme="dark"] .pets-ward__cart .wc-knob { fill: #8a98c0; }
-[data-theme="dark"] .pets-ward__cart .wc-wheel { fill: #b4bcd6; }
-[data-theme="dark"] .pets-ward__cart .wc-bottle { fill: #5fb39a; }
-[data-theme="dark"] .pets-ward__cart .wc-cap { fill: #e4e1f2; stroke: #5fb39a; }
-[data-theme="dark"] .pets-ward__cart .wc-jar { fill: #d8b456; }
-[data-theme="dark"] .pets-ward__cart .wc-jar-heart { fill: #f5ecd0; }
-[data-theme="dark"] .pets-ward__cart .wc-box { fill: #9a88d2; }
-[data-theme="dark"] .pets-ward__cart .wc-tissue { fill: #e4e1f2; stroke: #a9a5c8; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-shadow { fill: rgba(0, 0, 0, 0.35); }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-handle,
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-leg { stroke: #7c8fb0; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-tray { fill: #3b4670; stroke: #56638e; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-body { fill: #313a5e; stroke: #56638e; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-drawer { fill: #2a3354; stroke: #56638e; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-cross { fill: #f0657a; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-knob { fill: #8a98c0; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-wheel { fill: #b4bcd6; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-bottle { fill: #5fb39a; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-cap { fill: #e4e1f2; stroke: #5fb39a; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-jar { fill: #d8b456; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-jar-heart { fill: #f5ecd0; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-box { fill: #9a88d2; }
+:is([data-theme="dark"], .pets-page--night) .pets-ward__cart .wc-tissue { fill: #e4e1f2; stroke: #a9a5c8; }
 
 /* =====================================================================
    Ściana: duże okno z zasłonkami i parapetem, zegar, plakat, szafka z lekami
