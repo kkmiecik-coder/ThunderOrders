@@ -9,11 +9,15 @@
  *     kwatera — nagrobki (główny punkt) na jaśniejszej polanie;
  *     przód   — kamienna ścieżka do nagrobków z latarenkami, ławeczka z bukiecikiem, staw z liliami, polne kwiaty
  *               i niezapominajki, motyle i płatki w dzień, świetliki wieczorem i nocą.
+ *   Pod pasami drobne kwiatki na trawie (kropki rozsypane losowo, ale deterministycznie — wzory SVG).
+ *   Nagrobki, wierzba, staw i reszta rosną i maleją razem ze sceną (--pg-k w pets-garden.css); pusty ogród =
+ *   tabliczka u stóp wierzby.
  *   Ozdoby to statyczne SVG/CSS (aria-hidden, bez zdarzeń); ruch tylko w CSS (transform/opacity), wyłączany
  *   przy ograniczonym ruchu. Bez timerów i obserwatorów — scena ukryta (display: none) nie animuje się wcale.
  * - Nagrobki: pupile, które odeszły (wpisy albumu `memorial`), PetRig.mountMemorial + tabliczka z imieniem,
  *   znicz (zapalony = ciepłe światło wokół) i płomyk, gdy można dziś zapalić światełko. Klik w nagrobek = okno
- *   sceny ze szczegółami i „Zapal światełko” (POST /<id>/swiatelko, raz dziennie — jak dotąd).
+ *   sceny ze szczegółami i „Zapal światełko” (POST /<id>/swiatelko, raz dziennie — jak dotąd); nagrobek z otwartym
+ *   oknem świeci (.is-selected).
  * - Tabliczka „Album gatunków n/8” = okno sceny z albumem: 8 gatunków (żywy = mini-rig, odszedł = nagrobek,
  *   nieodkryty = sylwetka bez animacji). Rigi albumu żyją tylko przy otwartym oknie.
  * - Zmiana stanu przy otwartym oknie: nagrobek jest → treść odświeżona (win.replace), zniknął → okno się
@@ -316,6 +320,29 @@
         return out;
     }
 
+    /**
+     * Kropki na trawie (drobne kwiatki): rozsypane losowo, ale deterministycznie (te same miejsca przy każdym
+     * wejściu, bez migotania). Dwa wzory o różnych, dużych okresach (560×420 i 430×370) nakładają się, więc
+     * powtórzenia nie układają się w siatkę. Kolory wg pory (pets-garden.css).
+     */
+    function speckTile(id, w, h, seed, kinds) {
+        var r = seeded(seed);
+        var out = '';
+        kinds.forEach(function (k) {
+            for (var i = 0; i < k[1]; i++) {
+                out += '<circle class="pg-speck pg-speck--' + k[0] + '" cx="' + n(4 + r() * (w - 8)) + '" cy="' + n(4 + r() * (h - 8)) +
+                    '" r="' + n(1.3 + r() * 1.1) + '"/>';
+            }
+        });
+        return '<pattern id="' + id + '" width="' + w + '" height="' + h + '" patternUnits="userSpaceOnUse">' + out + '</pattern>';
+    }
+
+    var SPECKS_SVG =
+        '<svg class="pets-garden__specks"' + NS + '><defs>' +
+        speckTile('pgSpecksA', 560, 420, 41, [['white', 11], ['blue', 9]]) +
+        speckTile('pgSpecksB', 430, 370, 53, [['pink', 8], ['white', 3]]) +
+        '</defs><rect width="100%" height="100%" fill="url(#pgSpecksA)"/><rect width="100%" height="100%" fill="url(#pgSpecksB)"/></svg>';
+
     var SKY_HTML =
         starLayer('a', 11, 26) + starLayer('b', 23, 22) + starLayer('c', 37, 16) + SPARKLES +
         '<span class="pg-sun"></span>' +
@@ -406,6 +433,7 @@
         fore.setAttribute('aria-hidden', 'true');
         fore.innerHTML = FORE_HTML;
 
+        meadow.insertAdjacentHTML('beforeend', SPECKS_SVG);
         meadow.appendChild(graveTitle);
         meadow.appendChild(sky);
         meadow.appendChild(plot);
@@ -600,9 +628,17 @@
             sync([], slotViews, album, null, null);
         }
 
+        /** Nagrobek z otwartym oknem szczegółów — subtelna poświata (CSS .is-selected). */
+        function markGrave() {
+            graveViews.forEach(function (v) {
+                v.el.classList.toggle('is-selected', openGraveId != null && v.el.dataset.petId === String(openGraveId));
+            });
+        }
+
         function onWindowClosed() {
             openGraveId = null;
             openGraveSig = null;
+            markGrave();
             if (albumOpen) closeAlbumRigs();
         }
 
@@ -610,6 +646,7 @@
             if (!win || !lastState) return;
             openGraveId = null;
             openGraveSig = null;
+            markGrave();
             albumOpen = true;
             syncAlbum(lastState);
             win.open({ content: albumBox, labelledBy: albumTitle.id, returnFocus: sign, onClose: onWindowClosed, closeLabel: 'Zamknij album' });
@@ -621,6 +658,7 @@
             if (albumOpen) closeAlbumRigs();
             openGraveId = id;
             openGraveSig = graveSig(entry);
+            markGrave();
             win.open({
                 content: graveContent(entry), labelledBy: 'petsGraveWindowTitle', returnFocus: returnFocus || null,
                 onClose: onWindowClosed, closeLabel: 'Zamknij szczegóły nagrobka'
@@ -649,6 +687,7 @@
             }, graveView, updateGrave);
             graves.hidden = !memorials.length;
             gravesEmpty.hidden = !!memorials.length;
+            markGrave();
 
             var known = entries.filter(function (a) { return a.status !== 'unknown'; }).length;
             var countText = known + '/' + entries.length;
