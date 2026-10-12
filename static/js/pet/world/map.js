@@ -116,6 +116,8 @@
             '<linearGradient id="mapGrassX' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="' + grassEnd + '"><stop offset="0" stop-color="#bfe8a6"/><stop offset="1" stop-color="#8fd27a"/></linearGradient>' +
             '<linearGradient id="mapSkyDayX' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="60"><stop offset="0" stop-color="#bfe3ff"/><stop offset="1" stop-color="#e6f5ff"/></linearGradient>' +
             '<linearGradient id="mapSkyNightX' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="60"><stop offset="0" stop-color="#121a3d"/><stop offset="1" stop-color="#2b3470"/></linearGradient>' +
+            '<radialGradient id="mapLampGlow' + id + '"><stop offset="0" stop-color="#ffd36b" stop-opacity=".85"/>' +
+            '<stop offset=".45" stop-color="#ffcf6b" stop-opacity=".4"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient>' +
             '</defs>';
     }
 
@@ -142,19 +144,20 @@
             ' H' + (-BLEED) + ' Z"/>';
     }
 
-    // Zapalone okna nad cieniem (wieczór i noc): te same okna co w HOSPITAL / HOUSE, z ciepłą poświatą.
-    // `house` / `hospital` = przekształcenie budynku w układzie planszy (jak jego <g> w wariancie).
+    // Zapalone okna nad cieniem (wieczór i noc): te same okna co w HOSPITAL / HOUSE, z ciepłą poświatą (gradient
+    // z defs() wariantu `id`). `house` / `hospital` = przekształcenie budynku w układzie planszy (jak jego <g>).
     var HOUSE_LIGHTS =
-        '<circle cx="14" cy="46.5" r="13" class="map-lamp-glow"/><circle cx="56" cy="46.5" r="13" class="map-lamp-glow"/>' +
+        '<circle cx="14" cy="46.5" r="17" class="map-lamp-glow"/><circle cx="56" cy="46.5" r="17" class="map-lamp-glow"/>' +
         '<rect x="5" y="39" width="18" height="15" rx="2.5" class="map-lit" stroke="#e8c96b"/>' +
         '<rect x="47" y="39" width="18" height="15" rx="2.5" class="map-lit" stroke="#e8c96b"/>';
     var HOSPITAL_LIGHTS =
-        '<circle cx="11" cy="42.5" r="8" class="map-lamp-glow"/><circle cx="51" cy="42.5" r="8" class="map-lamp-glow"/>' +
+        '<circle cx="11" cy="42.5" r="11" class="map-lamp-glow"/><circle cx="51" cy="42.5" r="11" class="map-lamp-glow"/>' +
         '<rect x="6" y="38" width="10" height="9" rx="1.5" class="map-lit" stroke="#d9b45a"/>' +
         '<rect x="46" y="38" width="10" height="9" rx="1.5" class="map-lit" stroke="#d9b45a"/>';
-    function lights(house, hospital) {
-        return '<g class="map-lights"><g transform="' + hospital + '">' + HOSPITAL_LIGHTS + '</g>' +
-            '<g transform="' + house + '">' + HOUSE_LIGHTS + '</g></g>';
+    function lights(id, house, hospital) {
+        var glow = 'class="map-lamp-glow" fill="url(#mapLampGlow' + id + ')"';
+        return ('<g class="map-lights"><g transform="' + hospital + '">' + HOSPITAL_LIGHTS + '</g>' +
+            '<g transform="' + house + '">' + HOUSE_LIGHTS + '</g></g>').split('class="map-lamp-glow"').join(glow);
     }
 
     // Wariant poziomy 640×460: ilustracja ze szkicu ×2 pod pasem nieba
@@ -175,7 +178,7 @@
         sky(640, 60, 'W') +
         '<path d="M0 60 Q80 40 160 56 T320 50 T480 58 T640 48 V70 H0 Z" fill="#a9de8f"/>' +
         nightTint(640, 460, 60, 48, 'Q80 40 160 56 T320 50 T480 58 T640 48') +
-        lights('translate(252,104) scale(2)', 'translate(56,160) scale(2)') +
+        lights('W', 'translate(252,104) scale(2)', 'translate(56,160) scale(2)') +
         '</svg>';
 
     // Wariant pionowy 360×640 (telefon): miejsca jedno pod drugim przy krętej ścieżce
@@ -194,7 +197,7 @@
         sky(360, 60, 'T') +
         '<path d="M0 60 Q60 42 120 56 T240 50 T360 56 V70 H0 Z" fill="#a9de8f"/>' +
         nightTint(360, 640, 60, 56, 'Q60 42 120 56 T240 50 T360 56') +
-        lights('translate(110,72) scale(2)', 'translate(30,286) scale(1.8)') +
+        lights('T', 'translate(110,72) scale(2)', 'translate(30,286) scale(1.8)') +
         '</svg>';
 
     // --- pupil w oknie domku ------------------------------------------------------------------
