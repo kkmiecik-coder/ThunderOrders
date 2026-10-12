@@ -129,3 +129,13 @@
             .then(function () { btn.disabled = false; });
     });
 })();
+
+// Formularze z data-confirm (usuwanie obrazka wychylania): potwierdzenie bez inline JS
+(function () {
+    'use strict';
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        var msg = form && form.getAttribute && form.getAttribute('data-confirm');
+        if (msg && !window.confirm(msg)) e.preventDefault();
+    });
+})();

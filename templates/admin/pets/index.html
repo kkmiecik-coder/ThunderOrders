@@ -112,6 +112,47 @@
         </section>
     </form>
 
+    {# --- Obrazki wychylania (spec v3.2 §6.5) --- #}
+    <section class="pa-card" aria-labelledby="paPeekTitle">
+        <h2 id="paPeekTitle" class="pa-card__title">Obrazki wychylania</h2>
+        <p class="pa-hint">Ozdobne obrazki, które pupil czasem wychyla zza krawędzi ekranu. PNG, JPG, WebP lub GIF do 2 MB; zapisujemy je jako WebP (maks. 240 px, przezroczystość zostaje). Limit {{ peek_limit }} obrazków.</p>
+        <form method="post" action="{{ url_for('pets_admin.peek_upload') }}" enctype="multipart/form-data" class="pa-peek-upload">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="pa-field">
+                <label for="paPeekFile">plik obrazka</label>
+                <input type="file" id="paPeekFile" name="image" accept="image/png,image/jpeg,image/webp,image/gif" required>
+            </div>
+            <div class="pa-field">
+                <label for="paPeekLabel">nazwa (opcjonalnie)</label>
+                <input type="text" id="paPeekLabel" name="label" maxlength="60">
+            </div>
+            <button type="submit" class="pa-btn-primary">Dodaj obrazek</button>
+        </form>
+        {% if peek_items %}
+        <ul class="pa-peek-grid">
+            {% for o in peek_items %}
+            <li class="pa-peek {% if not o.is_active %}pa-peek--off{% endif %}">
+                <div class="pa-peek__thumb"><img src="{{ url_for('static', filename='uploads/pet_peeks/' ~ o.filename) }}" alt="" loading="lazy"></div>
+                <div class="pa-peek__label">{{ o.label or 'Bez nazwy' }}</div>
+                <div class="pa-peek__state">{{ 'Aktywny' if o.is_active else 'Wyłączony' }}</div>
+                <div class="pa-peek__actions">
+                    <form method="post" action="{{ url_for('pets_admin.peek_toggle', image_id=o.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="pa-btn-secondary">{{ 'Wyłącz' if o.is_active else 'Włącz' }}</button>
+                    </form>
+                    <form method="post" action="{{ url_for('pets_admin.peek_delete', image_id=o.id) }}" data-confirm="Usunąć ten obrazek?">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="pa-btn-danger">Usuń</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="pa-results__empty">Brak obrazków — wychylenie się nie zdarzy, dopóki nie dodasz pierwszego.</p>
+        {% endif %}
+    </section>
+
     {# --- Użytkownik: szukaj i przyznaj jajko --- #}
     <section class="pa-card" aria-labelledby="paUsersTitle">
         <h2 id="paUsersTitle" class="pa-card__title">Użytkownik</h2>

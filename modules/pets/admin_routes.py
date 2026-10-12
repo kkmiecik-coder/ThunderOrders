@@ -10,18 +10,18 @@ import json
 from collections import Counter
 from datetime import timedelta
 
-from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import func, or_
 
 from extensions import db
 from modules.auth.models import Settings, User, get_local_now
-from modules.pets import pets_admin_bp, rules, service
+from modules.pets import peek_images, pets_admin_bp, rules, service
 from modules.pets.common import CARE_ACTIONS, checkpoint_alive_pets, get_profile
 from modules.pets.config import (ADMIN_FIELDS, SWITCH_KEYS, PetConfig, admin_form_fields, admin_form_values,
                                  reset_feature_cache, validate_settings)
 from modules.pets.errors import PetError
-from modules.pets.models import Pet, PetEvent, PetProfile
+from modules.pets.models import Pet, PetEvent, PetPeekImage, PetProfile
 from modules.pets.report import build_report
 from modules.pets.species import SPECIES, SPECIES_BY_SLUG
 from utils.activity_logger import log_activity
@@ -98,6 +98,8 @@ def _render_index(form, errors, status=200):
         form=form,
         errors=errors,
         stats=admin_stats(),
+        peek_items=PetPeekImage.query.order_by(PetPeekImage.id.desc()).all(),
+        peek_limit=peek_images.MAX_IMAGES,
     ), status
 
 
@@ -185,3 +187,69 @@ def grant_egg():
     log_activity(user=current_user, action='pet_egg_granted', entity_type='user', entity_id=user.id,
                  new_value=str(profil.granted_eggs_pending))
     return jsonify({'ok': True, 'granted_pending': int(profil.granted_eggs_pending)})
+
+
+# ---------------------------------------------------------------------------
+# Obrazki wychylania towarzysza (spec v3.2 §6.5)
+# ---------------------------------------------------------------------------
+
+def _wroc_do_obrazkow():
+    return redirect(url_for('pets_admin.index', _anchor='paPeekTitle'))
+
+
+def _obrazek_or_404(image_id):
+    obrazek = db.session.get(PetPeekImage, image_id)
+    if obrazek is None:
+        abort(404)
+    return obrazek
+
+
+@pets_admin_bp.route('/obrazki', methods=['POST'])
+@role_required('admin', 'mod')
+def peek_upload():
+    plik = request.files.get('image')
+    if plik is None or not plik.filename:
+        flash('Wybierz plik obrazka.', 'error')
+        return _wroc_do_obrazkow()
+    if PetPeekImage.query.count() >= peek_images.MAX_IMAGES:
+        flash(f'Osiągnięto limit {peek_images.MAX_IMAGES} obrazków — usuń któryś, żeby dodać nowy.', 'error')
+        return _wroc_do_obrazkow()
+    try:
+        filename = peek_images.save_upload(plik)
+    except peek_images.PeekImageError as e:
+        flash(str(e), 'error')
+        return _wroc_do_obrazkow()
+    etykieta = (request.form.get('label') or '').strip()[:60] or None
+    obrazek = PetPeekImage(filename=filename, label=etykieta, created_by=current_user.id)
+    db.session.add(obrazek)
+    db.session.commit()
+    log_activity(user=current_user, action='pet_peek_image_added', entity_type='pet_peek_image',
+                 entity_id=obrazek.id, new_value=filename)
+    flash('Obrazek dodany.', 'success')
+    return _wroc_do_obrazkow()
+
+
+@pets_admin_bp.route('/obrazki/<int:image_id>/przelacz', methods=['POST'])
+@role_required('admin', 'mod')
+def peek_toggle(image_id):
+    obrazek = _obrazek_or_404(image_id)
+    obrazek.is_active = not obrazek.is_active
+    db.session.commit()
+    log_activity(user=current_user, action='pet_peek_image_toggled', entity_type='pet_peek_image',
+                 entity_id=obrazek.id, new_value='aktywny' if obrazek.is_active else 'wyłączony')
+    flash('Obrazek włączony.' if obrazek.is_active else 'Obrazek wyłączony.', 'success')
+    return _wroc_do_obrazkow()
+
+
+@pets_admin_bp.route('/obrazki/<int:image_id>/usun', methods=['POST'])
+@role_required('admin', 'mod')
+def peek_delete(image_id):
+    obrazek = _obrazek_or_404(image_id)
+    filename = obrazek.filename
+    db.session.delete(obrazek)
+    db.session.commit()
+    peek_images.remove_file(filename)
+    log_activity(user=current_user, action='pet_peek_image_deleted', entity_type='pet_peek_image',
+                 entity_id=image_id, old_value=filename)
+    flash('Obrazek usunięty.', 'success')
+    return _wroc_do_obrazkow()
