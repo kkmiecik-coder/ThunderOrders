@@ -3,13 +3,21 @@
 Spec §7. Kolejność ma znaczenie: kod i migracja wchodzą z flagą WYŁĄCZONĄ, włączenie to osobny krok
 z panelu admina. Instrukcja crona: `2026-10-11-pupile-cron-instrukcja.md`.
 
+**Co widzą klienci przed włączeniem:** w sidebarze i w arkuszu „Więcej” paska PWA zamiast „Moje pupile” jest wyszarzona,
+nieklikalna pozycja z łapką i napisem **„Wkrótce”**. Strona, API, widget i towarzysz są niewidoczne (404). Klienci zobaczą
+prawdziwą zakładkę dopiero, gdy włączysz funkcję i ich `user_id` wejdzie w rollout (sekcja 3). Przy WYŁĄCZONEJ fladze
+„Wkrótce” widzą wszyscy, także admin/mod — żeby testować na produkcji przed klientami, włącz flagę z rolloutem **0%**.
+
 ## 0. Przed pushem (lokalnie)
 - [ ] pełna suita zielona (`venv/bin/python -m pytest -q`; jedyny znany czerwony test: DST w `test_mobile_api_auth`, niezwiązany),
 - [ ] `git log main..feat/pupile` przejrzany, brak danych infrastruktury w diffie (repo jest publiczne),
-- [ ] `static/sw.js` ma podbity `CACHE_VERSION` względem `main`.
+- [ ] `static/sw.js` ma podbity `CACHE_VERSION` względem `main` (na gałęzi: `v39`),
+- [ ] `git fetch` i `git log HEAD..origin/main`: jeśli `origin/main` poszedł do przodu, najpierw scalić go do gałęzi i sprawdzić `flask db heads` (musi być JEDNA głowa),
+- [ ] w razie kolizji `CACHE_VERSION` z `main` — wziąć wyższą i podbić o 1.
 
 ## 1. Deploy (push do `main` → webhook → `flask db upgrade`)
-- [ ] migracja `f3e9a1c7b2d4` (pupile) wchodzi automatycznie; w logu deployu brak błędów,
+- [ ] trzy migracje wchodzą automatycznie, jeden liniowy łańcuch nad `dde1a45a7d87`: `f3e9a1c7b2d4` (pupile), `b5d8e2f4a917` (szpital, skórki jajek), `c7a4d1e9f2b6` (żarty: tabela `pet_peek_images` + kolumna `pet_profiles.jokes_enabled`); w logu deployu brak błędów, `flask db heads` = jedna głowa,
+- [ ] katalog `static/uploads/pet_peeks/` jest zapisywalny dla procesu aplikacji (powstaje przy pierwszym uploadzie obrazka; pliki nie idą do gitu),
 - [ ] `pets_enabled` nie istnieje w `settings` → domyślnie `false`, `pets_rollout_pct` → `0`:
       klienci nic nie widzą, cron milczy (`skipped_disabled`).
 
@@ -24,15 +32,18 @@ z panelu admina. Instrukcja crona: `2026-10-11-pupile-cron-instrukcja.md`.
 
 ## 3. Włączenie (panel `/admin/pupile`, sekcja „Włącznik i rollout”)
 - [ ] `pets_enabled` = ON, `pets_rollout_pct` = **10** → zapis; admin/mod widzą od razu, klienci wg `user_id % 100 < 10`,
-- [ ] po zapisie: strona `/client/pupile` jako admin — odbiór startowego, ogrzanie, akcja; dashboard — widget; towarzysz,
+- [ ] **najpierw rollout 0%:** `pets_enabled` = ON, `pets_rollout_pct` = **0** → prawdziwą zakładkę widzą tylko admin/mod, klienci nadal „Wkrótce”; tu przetestować na produkcji,
+- [ ] po zapisie: strona `/client/pupile` jako admin — odbiór startowego, ogrzanie, akcja; dashboard — widget; towarzysz (bieg, klik, przenoszenie),
+- [ ] żarty: w karcie „Obrazki wychylania” wgrać ozdobniki (bez nich wychylenie się nie zdarza; kradzież kursora działa bez obrazków); checkbox „Żarty pupili włączone” domyślnie ON (awaryjny wyłącznik bez deployu); klient ma własny przełącznik „Żarty pupila” w warsztacie,
 - [ ] po 1 h: `logs/cron-pets.log` ma wpis z `Użytkowników: N`; `flask pets report --days 1`,
 - [ ] po ~tygodniu: `pets_rollout_pct` = **50**, po kolejnym: **100**; po każdym kroku `flask pets report --days 7`,
 - [ ] e-mail: kill-switch `notify_pet_alert` w ustawieniach maili domyślnie włączony — wyłączyć tylko w razie problemu,
 - [ ] ogłoszenie dla klientów: popup `display_mode='once'` z `cta_url=/client/pupile` (decyzja Konrada; krok toura „Twój pupil” działa od razu).
 
 ## 4. Rollback
-- [ ] `pets_enabled` = OFF w panelu (natychmiast: strona/API 404, widget i towarzysz znikają, cron milczy; dane zostają),
-- [ ] bez cofania migracji — tabele `pet_profiles`/`pets`/`pet_events` są nieszkodliwe przy wyłączonej fladze.
+- [ ] `pets_enabled` = OFF w panelu (natychmiast: strona/API 404, widget i towarzysz znikają, klienci znowu widzą „Wkrótce”, cron milczy; dane zostają),
+- [ ] same żarty (kursor, wychylenie) można wyłączyć osobno: „Żarty pupili włączone” = OFF — bieg i reszta funkcji zostają,
+- [ ] bez cofania migracji — tabele `pet_profiles`/`pets`/`pet_events`/`pet_peek_images` są nieszkodliwe przy wyłączonej fladze.
 
 ## 5. Monitoring pierwszych dni
 - [ ] `flask pets report --days 1` codziennie przez tydzień (lejek: profile → odebrali → wyklucie; odejścia/100 żywych; reakcja na ostrzeżenie),
