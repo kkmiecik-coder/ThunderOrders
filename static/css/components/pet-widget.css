@@ -25,6 +25,13 @@
     margin-bottom: var(--space-3, 0.75rem);
 }
 
+/* Łapki w tytule: emoji 🐾 jest ciemnoszare — na ciemnej karcie znikało, więc w ciemnym motywie rysujemy jego
+   sylwetkę w akcencie palety (przezroczysty glif + cień bez rozmycia); w jasnym zostaje zwykłe emoji */
+[data-theme="dark"] .pets-widget__title-icon {
+    color: transparent;
+    text-shadow: 0 0 0 #f093fb;
+}
+
 /* Link „Do świata” w nagłówku: wygląd jak w innych widgetach, ale strefa dotyku ≥ 44 px */
 .pets-widget .widget-link {
     position: relative;

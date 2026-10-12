@@ -80,11 +80,28 @@
     padding: 6px 0;
 }
 
+/* Pora dnia (reguła: motyw = UI, noc gry = scena): ciemny motyw = wieczór — ciepłe, przygaszone drewno w świetle
+   lampy nad stołem; noc gry (w obu motywach) = ciemny blat w granatowym cieniu, tylko mała plama światła lampy.
+   Karty narzędzi to UI — zmieniają się z motywem, nie z nocą. */
 [data-theme="dark"] .pets-scene--warsztat {
     background:
-        repeating-linear-gradient(180deg, transparent 0 46px, rgba(0, 0, 0, 0.18) 46px 48px),
-        linear-gradient(180deg, rgba(201, 154, 107, 0.28) 0%, rgba(168, 123, 79, 0.22) 100%);
-    background-color: var(--bg-primary, #0f0c29);
+        radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255, 196, 120, 0.22), rgba(255, 196, 120, 0) 70%),
+        repeating-linear-gradient(180deg, transparent 0 46px, rgba(0, 0, 0, 0.2) 46px 48px),
+        linear-gradient(180deg, #7a5638 0%, #5e412a 100%);
+}
+
+.pets-page--night .pets-scene--warsztat {
+    background:
+        radial-gradient(ellipse 55% 40% at 50% 0%, rgba(255, 200, 120, 0.16), rgba(255, 200, 120, 0) 70%),
+        repeating-linear-gradient(180deg, transparent 0 46px, rgba(0, 0, 0, 0.24) 46px 48px),
+        linear-gradient(180deg, #3e3340 0%, #2c2534 100%);
+}
+
+[data-theme="dark"] .pets-page--night .pets-scene--warsztat {
+    background:
+        radial-gradient(ellipse 55% 40% at 50% 0%, rgba(255, 200, 120, 0.13), rgba(255, 200, 120, 0) 70%),
+        repeating-linear-gradient(180deg, transparent 0 46px, rgba(0, 0, 0, 0.26) 46px 48px),
+        linear-gradient(180deg, #352b37 0%, #241e2c 100%);
 }
 
 [data-theme="dark"] .pets-tool {

@@ -1,8 +1,9 @@
 /* ================================================
    Pet room — pokój pupili (spec v3 §6.1, §7): domek (pełny) i widget dashboardu (.pet-room--compact)
-   Markup i logika: static/js/pet/world/room.js. Pokój jest ilustracją (kolory dzienne/nocne);
-   dark mode zmienia ramkę i podpisy (paleta glassmorphism z CLAUDE.md), a meble domku dostają wieczorne
-   tony (--pf-*); wieczorną ścianę i podłogę domku rysuje pets-house.css. Widget (compact) mebli nie ma.
+   Markup i logika: static/js/pet/world/room.js. Pokój jest ilustracją z porą dnia (sekcja „Pora dnia” niżej):
+   jasny motyw = dzień, ciemny motyw = wieczór, noc gry (.is-night) = noc w obu motywach — tak samo w domku
+   i w mini-pokoju widgetu. Dark mode zmienia też ramkę i podpisy (paleta glassmorphism z CLAUDE.md).
+   Widget (compact) mebli nie ma.
    ================================================ */
 
 .pet-room {
@@ -390,7 +391,7 @@
     font-weight: 700;
 }
 
-/* === Dark mode: ilustracja bez zmian, ramka i podpisy wg palety === */
+/* === Dark mode: ramka i podpisy wg palety (UI — noc gry ich nie zmienia) === */
 [data-theme="dark"] .pet-room {
     border-color: rgba(240, 147, 251, 0.2);
     box-shadow: 0 6px 26px rgba(0, 0, 0, 0.35);
@@ -408,8 +409,15 @@
     color: #ffffff;
 }
 
-/* Meble wieczorem: głębsze, przygaszone pastele; lampka zapalona */
-[data-theme="dark"] .pet-room {
+/* === Pora dnia (reguła: motyw = UI, noc gry = scena) ===
+   Wieczór (ciemny motyw): przygaszona ściana i podłoga, zachód słońca za oknem, lekki zmierzch na całym pokoju
+   (.pet-room__dark), lampka na stoliku świeci; bez księżyca i gwiazd — pupile nie śpią.
+   Noc gry (.is-night — w OBU motywach): te same przygaszone tony, granatowy cień na całym pokoju, księżyc
+   i gwiazdy za oknem, lampka świeci mocniej. Pupile i podpisy są nad cieniem (zostają jasne). */
+
+/* Meble wieczorem i nocą: głębsze, przygaszone pastele */
+[data-theme="dark"] .pet-room,
+.pet-room.is-night {
     --pf-shadow: rgba(0, 0, 0, 0.24);
     --pf-sofa: #6eb3a4;
     --pf-sofa-l: #8ccbbd;
@@ -452,10 +460,40 @@
     --pf-paw: #9a82e0;
 }
 
+/* Ściana i podłoga wieczorem i nocą (domek rozciąga je do krawędzi sceny — pets-house.css) */
+[data-theme="dark"] .pet-room__wall,
+.pet-room.is-night .pet-room__wall {
+    background: repeating-linear-gradient(90deg, #6a4f63 0 30px, #714f68 30px 60px);
+}
+
+[data-theme="dark"] .pet-room__floor,
+.pet-room.is-night .pet-room__floor {
+    border-top-color: #7d5636;
+    background:
+        repeating-linear-gradient(180deg, transparent 0 22%, rgba(70, 42, 22, 0.4) 22% calc(22% + 2px)),
+        linear-gradient(180deg, #a97c55 0%, #9c7350 100%);
+}
+
+[data-theme="dark"] .pet-room__rug,
+.pet-room.is-night .pet-room__rug {
+    background: radial-gradient(closest-side, #eaa9c0 0 62%, #db94ae 63% 80%, #cf809e 81%);
+}
+
+/* Wieczór: zachód słońca za oknem (noc ma swoje niebo z księżycem — reguły okna wyżej) */
+[data-theme="dark"] .pet-room:not(.is-night) .pet-room__window .pr-sky { fill: #f6a98f; }
+[data-theme="dark"] .pet-room:not(.is-night) .pet-room__window .pr-day circle { fill: #ffc56b; }
+[data-theme="dark"] .pet-room:not(.is-night) .pet-room__window .pr-day ellipse { fill: #ffd9df; }
+[data-theme="dark"] .pet-room:not(.is-night) .pet-room__window .pr-day path { fill: #7fae73; }
+
+/* Zmierzch / noc na całym pokoju (pod pupilami); w ciemnym motywie noc jeszcze głębsza */
+[data-theme="dark"] .pet-room__dark { opacity: 0.45; }
+.pet-room.is-night .pet-room__dark { background: rgba(16, 22, 62, 0.48); }
+[data-theme="dark"] .pet-room.is-night .pet-room__dark { background: rgba(12, 16, 50, 0.54); }
+
+/* Lampka: wieczorem świeci, nocą mocniej */
 [data-theme="dark"] .pet-room__table .pr-lamp-glow { opacity: 0.4; }
 [data-theme="dark"] .pet-room__lamplight { opacity: 0.8; }
-[data-theme="dark"] .pet-room.is-night .pet-room__table .pr-lamp-glow { opacity: 0.6; }
-[data-theme="dark"] .pet-room.is-night .pet-room__lamplight { opacity: 1; }
+.pet-room.is-night .pet-room__table .pr-lamp-glow { opacity: 0.6; }
 
 /* === Wąski pokój (≤ 640 px szerokości albo proporcje węższe niż 3:2: telefon, domek na pełnym ekranie z oknem
    sceny z boku) — klasa .is-narrow z room.js, bo o układzie decyduje pokój, nie okno przeglądarki.

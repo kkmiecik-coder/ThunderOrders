@@ -9,31 +9,9 @@
 
 [data-theme="dark"] .pets-scene--domek { background: #9c7350; }
 
-/* Ciemny motyw = wieczór w domku: przygaszona ściana i podłoga, zachód słońca za oknem, lekki zmierzch na
-   całym pokoju (pupile zostają jasne — są nad sceną), lampka na stoliku świeci (pet-room.css). Noc (.is-night)
-   pokazuje dalej księżyc i gwiazdy. Widget na dashboardzie zostaje dzienny. */
-[data-theme="dark"] .pets-house .pet-room__wall {
-    background: repeating-linear-gradient(90deg, #6a4f63 0 30px, #714f68 30px 60px);
-}
-
-[data-theme="dark"] .pets-house .pet-room__floor {
-    border-top-color: #7d5636;
-    background:
-        repeating-linear-gradient(180deg, transparent 0 22%, rgba(70, 42, 22, 0.4) 22% calc(22% + 2px)),
-        linear-gradient(180deg, #a97c55 0%, #9c7350 100%);
-}
-
-[data-theme="dark"] .pets-house .pet-room__rug {
-    background: radial-gradient(closest-side, #eaa9c0 0 62%, #db94ae 63% 80%, #cf809e 81%);
-}
-
-[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-sky { fill: #f6a98f; }
-[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-day circle { fill: #ffc56b; }
-[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-day ellipse { fill: #ffd9df; }
-[data-theme="dark"] .pets-house .pet-room:not(.is-night) .pet-room__window .pr-day path { fill: #7fae73; }
-
-[data-theme="dark"] .pets-house .pet-room__dark { opacity: 0.45; }
-[data-theme="dark"] .pets-house .pet-room.is-night .pet-room__dark { opacity: 1; }
+/* Pora dnia pokoju (dzień / wieczór w ciemnym motywie / noc gry w obu motywach): components/pet-room.css,
+   wspólnie z mini-pokojem widgetu. Tu tylko tło sceny pod pokojem — w kolorze podłogi danej pory. */
+.pets-page--night .pets-scene--domek { background: #73594d; }
 
 .pets-house {
     position: absolute;

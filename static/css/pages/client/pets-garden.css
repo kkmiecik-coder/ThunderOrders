@@ -3,7 +3,8 @@
    Szczegóły nagrobka i album gatunków w oknie sceny (components/modals.css „Okna ogrodu (v3.1)”).
 
    Feedback: „ogród wygląda strasznie pusto” → nastrojowe, ciche miejsce pamięci: złota godzina (light), wieczór
-   (dark), noc w grze (.pets-page--night: gwiazdy, księżyc, świetliki, świeczki). Kompozycja = siatka trzech pasów
+   (dark: zachodzące słońce, zmierzch — bez księżyca i gwiazd, bo pupile nie śpią), noc w grze (.pets-page--night,
+   w obu motywach: gwiazdy, księżyc, świetliki, świeczki). Kompozycja = siatka trzech pasów
    na całą wysokość sceny: niebo (1.3fr) · kwatera z nagrobkami (auto) · przód (1fr). Pasy rosną z ekranem, więc
    ogród wypełnia scenę wysoką i niską, a ozdoby żyją tylko w swoim pasie — z definicji nie wchodzą na nagrobki,
    pigułkę (pas nieba zaczyna rysunki pod --pg-ui-top) ani tabliczkę albumu.
@@ -218,10 +219,10 @@
 }
 
 [data-theme="dark"] .pets-garden__sky {
-    background: linear-gradient(180deg, #1c1a48 0%, #2c2763 30%, #4a3a7c 56%, #7a5090 76%, #b06d92 92%, #cf8b8f 100%);
+    background: linear-gradient(180deg, #27245c 0%, #3a3175 30%, #5a4488 56%, #8a5894 76%, #be7692 92%, #dc958c 100%);
 }
 
-/* Gwiazdy: trzy warstwy migoczą osobno (wieczór i noc) */
+/* Gwiazdy: trzy warstwy migoczą osobno (tylko noc w grze — wieczór w ciemnym motywie jest bez gwiazd) */
 .pg-stars {
     inset: 0;
     width: 100%;
@@ -231,10 +232,6 @@
 }
 
 .pg-stars--big { fill: #fffbe6; }
-
-[data-theme="dark"] .pg-stars--a { opacity: 0.75; animation: pg-twinkle 3.6s ease-in-out infinite alternate; }
-[data-theme="dark"] .pg-stars--b { opacity: 0.5; animation: pg-twinkle 5.2s ease-in-out -2s infinite alternate; }
-[data-theme="dark"] .pg-stars--big { opacity: 0.6; animation: pg-twinkle 4.4s ease-in-out -1s infinite alternate; }
 
 /* Słońce złotej godziny nisko nad wzgórzami, z miękką poświatą */
 .pg-sun {
@@ -258,9 +255,18 @@
     animation: pg-breathe 7s ease-in-out infinite alternate;
 }
 
-[data-theme="dark"] .pg-sun { display: none; }
+/* Wieczór (ciemny motyw): słońce zachodzi — niżej, do połowy za wzgórzami, pomarańczowe */
+[data-theme="dark"] .pg-sun {
+    bottom: calc(var(--pg-hills-h) * 0.5);
+    background: radial-gradient(circle, #ffe2b0 0 30%, #ffb978 58%, #f58f6e 74%);
+    box-shadow: 0 0 0 calc(var(--sun) * 0.14) rgba(255, 170, 120, 0.3);
+}
 
-/* Księżyc: wieczorem mały sierp, nocą większy z poświatą */
+[data-theme="dark"] .pg-sun::before {
+    background: radial-gradient(circle, rgba(255, 168, 120, 0.5) 0%, rgba(240, 130, 140, 0.2) 38%, rgba(240, 130, 140, 0) 70%);
+}
+
+/* Księżyc: tylko noc w grze (większy, z poświatą) */
 .pg-moon {
     --moon: clamp(0px, calc(100cqh - var(--pg-ui-top) - var(--pg-hills-h) - 18px), 40px);
     top: calc(var(--pg-ui-top) + 6px);
@@ -286,8 +292,6 @@
 
 .pg-moon-body { fill: #fff4c2; }
 .pg-moon-dot { fill: #f1e2a4; }
-
-[data-theme="dark"] .pg-moon { display: block; opacity: 0.85; }
 
 /* Spadająca gwiazda (tylko noc) */
 .pg-shoot {
@@ -329,8 +333,8 @@
 .pg-cloud-body { fill: #fff6f2; }
 .pg-cloud-shade { fill: #f8d6df; }
 
-[data-theme="dark"] .pg-cloud-body { fill: rgba(196, 176, 255, 0.24); }
-[data-theme="dark"] .pg-cloud-shade { fill: rgba(150, 120, 220, 0.2); }
+[data-theme="dark"] .pg-cloud-body { fill: rgba(255, 190, 200, 0.34); }
+[data-theme="dark"] .pg-cloud-shade { fill: rgba(190, 130, 190, 0.26); }
 
 /* Ptaki w oddali (tylko w dzień) */
 .pg-birds {
@@ -893,7 +897,7 @@
 [data-theme="dark"] .pg-pd-w1 { stop-color: #33507e; }
 [data-theme="dark"] .pg-pd-w2 { stop-color: #233a62; }
 [data-theme="dark"] .pg-pd-hi { stroke: rgba(220, 210, 255, 0.3); }
-[data-theme="dark"] .pg-pd-moon { opacity: 0.55; }
+[data-theme="dark"] .pg-pd-moon { fill: rgba(255, 186, 150, 0.8); opacity: 0.5; }   /* odbicie zachodu */
 [data-theme="dark"] .pg-pd-pad { fill: #3f7a55; }
 [data-theme="dark"] .pg-pd-lily { fill: #d991b2; }
 [data-theme="dark"] .pg-pd-lily-c { fill: #e8c86a; }
@@ -1043,7 +1047,7 @@
 [data-theme="dark"] .pg-petal,
 [data-theme="dark"] .pg-seed { display: none; }
 
-/* Świetliki (wieczór i noc): ukryte (display: none — bez animacji) w dzień */
+/* Świetliki (tylko noc w grze): ukryte (display: none — bez animacji) w dzień i wieczorem */
 .pg-fly {
     width: 12px;
     height: 12px;
@@ -1054,9 +1058,6 @@
 
 .pets-garden__sky > .pg-fly,
 .pets-garden__fore > .pg-fly { display: none; }
-
-[data-theme="dark"] .pets-garden__sky > .pg-fly,
-[data-theme="dark"] .pets-garden__fore > .pg-fly { display: block; }
 
 .pg-fly--sky.pg-fly--1 { left: 12%; bottom: 18%; }
 .pg-fly--sky.pg-fly--2 { left: 27%; bottom: 36%; animation-delay: -4s, -1.2s; }
@@ -1163,7 +1164,7 @@
 .pets-page--night .pg-pd-w1 { stop-color: #2c4880; }
 .pets-page--night .pg-pd-w2 { stop-color: #1d3262; }
 .pets-page--night .pg-pd-hi { stroke: rgba(210, 220, 255, 0.3); }
-.pets-page--night .pg-pd-moon { opacity: 1; }
+.pets-page--night .pg-pd-moon { fill: rgba(255, 244, 194, 0.85); opacity: 1; }
 .pets-page--night .pg-pd-pad { fill: #356e58; }
 .pets-page--night .pg-pd-rock { fill: #5f6680; }
 .pets-page--night .pg-pd-reed { stroke: #3f735e; }
@@ -1275,12 +1276,11 @@
     .pets-grave__name { font-size: 14px; }
 }
 
-/* Szeroka scena z niskim niebem (np. 1366×600): księżyc (wieczór, noc) nie mieści się pod pigułką — świeci
+/* Szeroka scena z niskim niebem (np. 1366×600): księżyc (noc) nie mieści się pod pigułką — świeci
    w pierwszym rzędzie, w przerwie między pigułką (z lewej) a tabliczką albumu. Przy otwartej karcie okna
    tabliczka przesuwa się w lewo, więc wtedy księżyc wraca pod pigułkę (mniejszy albo wcale). */
 @container pets-garden (min-width: 900px) {
     @container pg-sky (max-height: 279.98px) {
-        [data-theme="dark"] .pets-scene--ogrod:not(.has-window) .pg-moon,
         .pets-page--night .pets-scene--ogrod:not(.has-window) .pg-moon {
             --moon: clamp(0px, calc(100cqh - 24px - var(--pg-hills-h)), 46px);
             top: 14px;
