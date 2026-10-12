@@ -1,5 +1,5 @@
 /**
- * PetHatch — pełnoekranowa nakładka wyklucia pupila (spec v3 §6.3).
+ * PetHatch — pełnoekranowa scena wyklucia pupila (spec v3 §6.3).
  *
  * Wymaga: pet-rig.js (window.PetRig) + species.js + style „Pet hatch overlay (v3)" w modals.css.
  *
@@ -14,10 +14,14 @@
  *   Drugie run() w trakcie → odrzucenie {error: 'hatch_busy'} (guard podwójnego kliknięcia).
  *   PetHatch.isOpen() -> bool
  *
- * Sekwencja „new" (~4,5 s): nakładka → jajko kołysze się → pęknięcia → ciepłe światło → skorupka
- * odskakuje → pupil (maluch) się przeciąga → serduszka i gwiazdki → pole imienia.
- * „dupe" (~2,5 s): szybsze pękanie → istniejący pupil + nowa gwiazdka, „Znowu {gatunek}!".
- * Ograniczony ruch: bez kołysania i konfetti — po odpowiedzi od razu odsłonięcie.
+ * Scena: nocne niebo (zmierzch w jasnym motywie) z gwiazdkami, poświatą i księżycem; duża karta z pupilem.
+ * Do odsłonięcia teksty są neutralne dla obu wyników (bez spoilera); wynik (plakietka, tytuł, opis)
+ * pojawia się dopiero, gdy pupil już wyskoczył ze skorupki.
+ * „new" (~4,1 s do pola imienia): kołysanie → pęknięcia → ciepłe światło → skorupka odskakuje → maluch
+ *   wyskakuje → plakietka „Nowy gatunek!", promienie, konfetti (wybuch + deszcz) → serduszka i gwiazdki → pole imienia.
+ * „dupe" (~3,5 s): te same pęknięcia → istniejący pupil, duża gwiazdka, złote konfetti (mniej),
+ *   plakietka „+1 gwiazdka", „Znowu {gatunek}!" — spokojniej niż nowy gatunek.
+ * Ograniczony ruch: bez kołysania, konfetti i długich animacji — po odpowiedzi od razu odsłonięcie.
  * ESC / klik w tło nie zamykają w trakcie animacji i żądań; focus trap; fokus wraca na wywołujący element.
  */
 (function () {
@@ -31,6 +35,15 @@
 
     var HEART = 'M12 21c-1-1-9-6-9-12a5 5 0 0 1 9-3a5 5 0 0 1 9 3c0 6-8 11-9 12z';
     var STAR = 'M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z';
+    var SPARKLE = 'M12 1.5c.7 6 3.5 8.8 9.5 10.5-6 1.7-8.8 4.5-9.5 10.5-.7-6-3.5-8.8-9.5-10.5 6-1.7 8.8-4.5 9.5-10.5z';
+
+    // Konfetti: lekkie, bez bibliotek — ≤ 60 elementów, animowane tylko transform/opacity, sprzątane po końcu.
+    // Nowy gatunek: wybuch z jajka + deszcz z góry ekranu; duplikat: mały złoty wybuch.
+    var CONFETTI = {
+        'new': { burst: 40, rain: 16, colors: [0, 1, 2, 3, 4, 5], spread: 80, reach: [0.22, 0.32] },
+        dupe: { burst: 16, rain: 0, colors: [2, 6, 7], spread: 55, reach: [0.12, 0.14] }
+    };
+    var SHAPES = ['rect', 'strip', 'dot'];
 
     function reducedMotion() {
         if (window.PetRig && window.PetRig.reducedMotion) return window.PetRig.reducedMotion();
@@ -48,16 +61,30 @@
         return '<svg class="' + cls + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="' + path + '"/></svg>';
     }
 
+    function restartClass(node, cls) {
+        node.classList.remove(cls);
+        void node.offsetWidth;
+        node.classList.add(cls);
+    }
+
     function build() {
         ov = el('div', 'pet-hatch-ov', { hidden: '', 'aria-hidden': 'true' });
         var party = '';
         for (var i = 0; i < 10; i++) party += svgIcon(i % 2 ? STAR : HEART, 'pet-hatch-bit ' + (i % 2 ? 'pet-hatch-bit--star' : 'pet-hatch-bit--heart'));
+        var sparkles = '';
+        for (var j = 0; j < 6; j++) sparkles += svgIcon(SPARKLE, 'pet-hatch-sparkle');
         ov.innerHTML =
+            '<div class="pet-hatch-sky" aria-hidden="true"><div class="pet-hatch-moon"></div>' + sparkles + '</div>' +
             '<div class="pet-hatch-dialog" role="dialog" aria-modal="true" aria-labelledby="petHatchOvTitle" aria-describedby="petHatchOvText" tabindex="-1">' +
             '<div class="pet-hatch-stage">' +
+            '<div class="pet-hatch-halo" aria-hidden="true"></div>' +
             '<div class="pet-hatch-rays" aria-hidden="true"></div><div class="pet-hatch-glow" aria-hidden="true"></div>' +
-            '<div class="pet-hatch-slot"></div><div class="pet-hatch-party" aria-hidden="true">' + party + '</div>' +
+            '<div class="pet-hatch-ground" aria-hidden="true"></div>' +
+            '<div class="pet-hatch-slot"></div>' + svgIcon(STAR, 'pet-hatch-bigstar') +
+            '<div class="pet-hatch-party" aria-hidden="true">' + party + '</div>' +
             '</div>' +
+            '<p class="pet-hatch-badge"><span class="pet-hatch-badge-in">' + svgIcon(STAR, 'pet-hatch-badge-ico') +
+            '<span class="pet-hatch-badge-txt"></span>' + svgIcon(STAR, 'pet-hatch-badge-ico') + '</span></p>' +
             '<h2 class="pet-hatch-title" id="petHatchOvTitle"></h2>' +
             '<p class="pet-hatch-text" id="petHatchOvText" aria-live="polite"></p>' +
             '<form class="pet-hatch-form" hidden novalidate>' +
@@ -70,19 +97,23 @@
             '</div></form>' +
             '<div class="pet-hatch-buttons pet-hatch-done" hidden>' +
             '<button type="button" class="pet-hatch-btn pet-hatch-btn--primary" data-hatch-ok>Super!</button></div>' +
-            '</div>';
+            '</div>' +
+            '<div class="pet-hatch-confetti" aria-hidden="true"></div>';
         document.body.appendChild(ov);
         ui = {
             dialog: ov.querySelector('.pet-hatch-dialog'),
             stage: ov.querySelector('.pet-hatch-stage'),
             slot: ov.querySelector('.pet-hatch-slot'),
+            badge: ov.querySelector('.pet-hatch-badge'),
+            badgeText: ov.querySelector('.pet-hatch-badge-txt'),
             title: ov.querySelector('.pet-hatch-title'),
             text: ov.querySelector('.pet-hatch-text'),
             form: ov.querySelector('.pet-hatch-form'),
             input: ov.querySelector('.pet-hatch-input'),
             error: ov.querySelector('.pet-hatch-error'),
             done: ov.querySelector('.pet-hatch-done'),
-            ok: ov.querySelector('[data-hatch-ok]')
+            ok: ov.querySelector('[data-hatch-ok]'),
+            confetti: ov.querySelector('.pet-hatch-confetti')
         };
 
         ui.form.addEventListener('submit', onSubmit);
@@ -118,6 +149,18 @@
         ui.slot.innerHTML = '';
     }
 
+    function clearConfetti() {
+        if (ui && ui.confetti) ui.confetti.textContent = '';
+    }
+
+    function resetDialog() {
+        var d = ui.dialog;
+        d.classList.remove('is-result', 'is-flip', 'is-settle');
+        d.style.transform = '';
+        ui.badge.className = 'pet-hatch-badge';
+        ui.badgeText.textContent = '';
+    }
+
     function findPet(list, id) {
         for (var i = 0; i < (list || []).length; i++) if (list[i] && list[i].id === id) return list[i];
         return null;
@@ -133,6 +176,98 @@
         ui.error.hidden = false;
         ui.input.setAttribute('aria-invalid', 'true');
         ui.input.focus();
+    }
+
+    /**
+     * Zmiana treści karty bez skoku: karta jest wyśrodkowana, więc gdy rośnie (pole imienia), przesuwa się
+     * w górę — przesunięcie odgrywamy płynnie (FLIP: pomiar przed/po, odwrócenie transformem, powrót do zera).
+     */
+    function relayout(s, fn) {
+        var d = ui.dialog;
+        if (s.rm) {
+            fn();
+            return;
+        }
+        var before = d.getBoundingClientRect().top;
+        fn();
+        d.classList.remove('is-settle');
+        d.classList.add('is-flip');
+        d.style.transform = '';
+        var delta = before - d.getBoundingClientRect().top;
+        if (Math.abs(delta) < 1) {
+            d.classList.remove('is-flip');
+            return;
+        }
+        d.style.transform = 'translateY(' + Math.round(delta) + 'px)';
+        void d.offsetWidth;
+        d.classList.remove('is-flip');
+        d.classList.add('is-settle');
+        d.style.transform = '';
+    }
+
+    function rand(a, b) {
+        return a + Math.random() * (b - a);
+    }
+
+    function px(n) {
+        return n.toFixed(1) + 'px';
+    }
+
+    function confettoPiece(kind, i, cfg) {
+        var shape = SHAPES[i % SHAPES.length];
+        var color = cfg.colors[Math.floor(Math.random() * cfg.colors.length)];
+        return el('i', 'pet-hatch-confetto pet-hatch-confetto--' + shape + ' pet-hatch-confetto--c' + color +
+            (kind === 'rain' ? ' is-rain' : ''));
+    }
+
+    function setVars(p, vars) {
+        Object.keys(vars).forEach(function (k) { p.style.setProperty('--' + k, vars[k]); });
+    }
+
+    /** Konfetti z jajka (i deszcz z góry dla nowego gatunku). Wartości losowe = dynamiczne zmienne CSS. */
+    function confetti(s, kind) {
+        if (s.rm || !ui.confetti) return;
+        var cfg = CONFETTI[kind];
+        var W = window.innerWidth || document.documentElement.clientWidth || 800;
+        var H = window.innerHeight || document.documentElement.clientHeight || 600;
+        var r = ui.slot.getBoundingClientRect();
+        var ox = r.left + r.width / 2;
+        var oy = r.top + r.height * 0.55;
+        var reach = Math.min(Math.max(W, H), 1100);
+        var frag = document.createDocumentFragment();
+        var end = 0;
+        var i, p, a, d, delay, dur;
+        clearConfetti();
+        for (i = 0; i < cfg.burst; i++) {
+            a = (-90 + rand(-1, 1) * cfg.spread) * Math.PI / 180;
+            d = reach * (cfg.reach[0] + Math.random() * cfg.reach[1]);
+            delay = rand(0, 0.14);
+            dur = (kind === 'new' ? 1.9 : 1.6) + Math.random() * 0.8;
+            end = Math.max(end, delay + dur);
+            p = confettoPiece('burst', i, cfg);
+            setVars(p, {
+                px: px(ox), py: px(oy),
+                x1: px(Math.cos(a) * d), y1: px(Math.sin(a) * d),
+                x2: px(Math.cos(a) * d * 1.35), y2: px(Math.sin(a) * d + H * rand(0.3, 0.55)),
+                r: Math.round(rand(-1, 1) * 720) + 'deg', d: delay.toFixed(2) + 's', t: dur.toFixed(2) + 's'
+            });
+            frag.appendChild(p);
+        }
+        for (i = 0; i < cfg.rain; i++) {
+            delay = rand(0.2, 0.9);
+            dur = rand(2.4, 3.4);
+            end = Math.max(end, delay + dur);
+            p = confettoPiece('rain', i, cfg);
+            setVars(p, {
+                px: px(rand(0.04, 0.96) * W), py: '-24px',
+                x1: px(rand(-40, 40)), y1: px(H * 0.5),
+                x2: px(rand(-80, 80)), y2: px(H + 48),
+                r: Math.round(rand(-1, 1) * 540) + 'deg', d: delay.toFixed(2) + 's', t: dur.toFixed(2) + 's'
+            });
+            frag.appendChild(p);
+        }
+        ui.confetti.appendChild(frag);
+        later(clearConfetti, Math.ceil(end * 1000) + 150);
     }
 
     // --- Sekwencja -----------------------------------------------------------------------
@@ -156,6 +291,9 @@
         s.promise = new Promise(function (res, rej) { s.resolve = res; s.reject = rej; });
 
         clearSlot();
+        clearConfetti();
+        resetDialog();
+        ov.classList.toggle('is-rm', s.rm);
         setPhase(s.rm ? 'is-rm' : '');
         ui.title.textContent = 'Coś się dzieje…';
         ui.text.textContent = 'Jajko zaczyna pękać!';
@@ -215,23 +353,23 @@
         finish(s, err);
     }
 
-    // Po fazie A (≥ 0,9 s) i odpowiedzi: pęknięcie i odsłonięcie, krótsze dla duplikatu.
+    // Po fazie A (≥ 0,9 s) i odpowiedzi: pęknięcie i odsłonięcie. Ten sam przebieg i tekst dla obu wyników —
+    // krótsze pękanie albo „Coś znajomego…" zdradzałyby duplikat, zanim pupil się pokaże.
     function crack(s) {
         if (s.phase !== 'wait') return;
         s.phase = 'crack';
-        var dupe = s.resp.result === 'dupe';
         if (s.rm) {
             reveal(s);
             return;
         }
         s.egg.update({ pct: 100 });
         setPhase('is-rock is-glow');
-        ui.text.textContent = dupe ? 'Coś znajomego…' : 'Ciepło, coraz cieplej…';
+        ui.text.textContent = 'Ciepło, coraz cieplej…';
         later(function () {
             setPhase('is-glow is-shake');
             s.egg.hatch();
             later(function () { reveal(s); }, 950);   // = moment „burst" w egg.hatch()
-        }, dupe ? 0 : 700);
+        }, 700);
     }
 
     function reveal(s) {
@@ -249,23 +387,39 @@
             else later(function () { egg.destroy(); }, 700);
         }
         s.phase = 'reveal-anim';
-        setPhase((s.rm ? 'is-rm ' : '') + 'is-open-egg' + (s.rm ? '' : ' is-glow'));
+        setPhase(s.rm ? 'is-rm is-open-egg' : 'is-open-egg is-glow');
 
-        var pet = {}, starred = {}, stars = 0, prevStars = 0;
+        var starred = {}, stars = 0, prevStars = 0;
         if (!dupe) {
-            pet = findPet(pets, resp.pet_id) || {};
+            var pet = findPet(pets, resp.pet_id) || {};
             s.defaultName = pet.name || name;
-            ui.title.textContent = 'Masz nowego pupila!';
-            ui.text.textContent = 'To ' + name + '! Jak go nazwiesz?';
         } else {
             starred = findPet(pets, resp.starred_pet_id) || {};
             var before = findPet(s.opts.prevPets, resp.starred_pet_id);
             stars = parseInt(starred.stars, 10) || 0;
             prevStars = before ? (parseInt(before.stars, 10) || 0) : Math.max(0, stars - 1);
-            var who = starred.name ? 'Twój pupil ' + starred.name : 'Twój pupil';
-            // „Znowu …!" — bez rodzaju gramatycznego (jak w v2)
-            ui.title.textContent = 'Znowu ' + name + '!';
-            ui.text.textContent = stars > prevStars ? who + ' dostaje gwiazdkę ⭐' : who + ' ma już komplet gwiazdek ⭐';
+        }
+        var gained = dupe && stars > prevStars;
+
+        // Wynik dopiero po odsłonięciu pupila — w trakcie pękania tytuł i opis zostają neutralne.
+        function showResult() {
+            relayout(s, function () {
+                if (!dupe) {
+                    ui.badge.className = 'pet-hatch-badge pet-hatch-badge--new is-shown';
+                    ui.badgeText.textContent = 'Nowy gatunek!';
+                    ui.title.textContent = 'Odkryto: ' + name + '!';
+                    ui.text.textContent = 'To Twój nowy pupil. Jak go nazwiesz?';
+                } else {
+                    var who = starred.name ? 'Twój pupil ' + starred.name : 'Twój pupil';
+                    ui.badge.className = 'pet-hatch-badge pet-hatch-badge--star is-shown';
+                    ui.badgeText.textContent = gained ? '+1 gwiazdka' : 'Komplet gwiazdek';
+                    // „Znowu …!" — bez rodzaju gramatycznego (jak w v2)
+                    ui.title.textContent = 'Znowu ' + name + '!';
+                    ui.text.textContent = gained ? who + ' dostaje gwiazdkę ⭐' : who + ' ma już komplet gwiazdek ⭐';
+                }
+            });
+            if (s.rm) ui.dialog.classList.add('is-result');
+            else restartClass(ui.dialog, 'is-result');
         }
 
         function mountPet() {
@@ -275,10 +429,13 @@
 
         if (s.rm) {
             mountPet();
+            showResult();
             if (dupe) {
                 s.rig.setStars(stars);
+                setPhase('is-rm is-open-egg is-star');
                 showDone(s);
             } else {
+                setPhase('is-rm is-open-egg is-new');
                 showForm(s);
             }
             return;
@@ -288,19 +445,27 @@
             mountPet();
             var rig = s.rig;
             if (!dupe) {
+                setPhase('is-open-egg is-glow is-new');
                 rig.playAction('hatch').then(function () {
                     if (active !== s || s.rig !== rig) return;
-                    setPhase('is-open-egg is-party');
+                    setPhase('is-open-egg is-party is-new');
                     return rig.playAction('wake');   // przeciągnięcie i ziewnięcie „po drzemce w jajku"
                 });
+                // Maluch wyskoczył (szczyt „hatch-pop" rigu) → plakietka, tytuł i konfetti
+                later(function () {
+                    showResult();
+                    confetti(s, 'new');
+                }, 380);
                 later(function () { showForm(s); }, 1300);
             } else {
                 rig.playAction('hatch');
                 later(function () {
                     rig.setStars(stars);
-                    setPhase('is-open-egg is-party is-star');
+                    setPhase('is-open-egg is-party is-star' + (gained ? ' is-star-gain' : ''));
+                    showResult();
+                    confetti(s, 'dupe');
                 }, 320);
-                later(function () { showDone(s); }, 480);
+                later(function () { showDone(s); }, 760);
             }
         }, dupe ? 150 : 250);
     }
@@ -311,14 +476,14 @@
         ui.input.removeAttribute('aria-invalid');
         ui.error.hidden = true;
         setFormBusy(false);
-        ui.form.hidden = false;
+        relayout(s, function () { ui.form.hidden = false; });
         ui.input.focus();
         try { ui.input.select(); } catch (e) { /* nic */ }
     }
 
     function showDone(s) {
         s.phase = 'reveal';
-        ui.done.hidden = false;
+        relayout(s, function () { ui.done.hidden = false; });
         ui.ok.focus();
     }
 
@@ -371,10 +536,14 @@
         s.phase = 'closing';
         s.timers.forEach(clearTimeout);
         s.timers = [];
+        ui.dialog.classList.remove('is-flip', 'is-settle');
+        ui.dialog.style.transform = '';
         ov.classList.remove('is-open');
         var delay = s.rm ? 0 : 280;
         setTimeout(function () {
             clearSlot();
+            clearConfetti();
+            resetDialog();
             setPhase('');
             ov.hidden = true;
             ov.setAttribute('aria-hidden', 'true');
