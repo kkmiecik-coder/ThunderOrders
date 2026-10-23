@@ -141,10 +141,12 @@ def test_zadanie_termin_round_trip(db, client, make_user, login):
     db.session.commit()
 
     dane = client.get(f'/admin/tasks/{t.id}').get_json()
-    assert dane['task']['due_date'] == LATO_PL
+    # Pole formularza dostaje polski zegar, wyświetlanie - chwilę z `Z`
+    assert dane['task']['due_date_input'] == LATO_PL
+    assert dane['task']['due_date'] == '2026-07-01T18:00:00Z'
 
     resp = client.post(f'/admin/tasks/{t.id}/update', data={
-        'name': 'Zadanie', 'due_date': dane['task']['due_date']})
+        'name': 'Zadanie', 'due_date': dane['task']['due_date_input']})
     assert resp.status_code == 200
     db.session.refresh(t)
     assert t.due_date == LATO_UTC
@@ -323,7 +325,8 @@ def test_zadanie_bez_terminu_round_trip(db, client, make_user, login):
     db.session.add(t)
     db.session.commit()
     dane = client.get(f'/admin/tasks/{t.id}').get_json()
-    assert dane['task']['due_date'] == ''
+    assert dane['task']['due_date_input'] == ''
+    assert dane['task']['due_date'] is None
     client.post(f'/admin/tasks/{t.id}/update', data={'name': 'Bez terminu', 'due_date': ''})
     db.session.refresh(t)
     assert t.due_date is None

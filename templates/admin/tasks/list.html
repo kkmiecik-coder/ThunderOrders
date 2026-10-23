@@ -1882,7 +1882,7 @@ function renderTaskView(task) {
                 <div class="task-view-details">
                     <div class="detail-row">
                         <span class="detail-label">Termin:</span>
-                        <span class="detail-value">${task.due_date ? new Date(task.due_date).toLocaleString('pl-PL') : 'Nie ustawiono'}</span>
+                        <span class="detail-value">${task.due_date ? formatPlDateTime(task.due_date) : 'Nie ustawiono'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Przypisani użytkownicy:</span>
@@ -1917,7 +1917,7 @@ function renderTaskView(task) {
                             <div class="comment-item">
                                 <div class="comment-header">
                                     <span class="comment-author">${comment.user_name}</span>
-                                    <span class="comment-date">${new Date(comment.created_at).toLocaleString('pl-PL')}</span>
+                                    <span class="comment-date">${formatPlDateTime(comment.created_at)}</span>
                                 </div>
                                 <div class="comment-text">${comment.comment}</div>
                             </div>
@@ -1960,7 +1960,7 @@ async function loadTaskData(taskId) {
             document.getElementById('taskName').value = task.name;
             quill.root.innerHTML = task.description;
             document.getElementById('taskPriority').value = task.priority;
-            document.getElementById('taskDueDate').value = task.due_date;
+            document.getElementById('taskDueDate').value = task.due_date_input;
 
             // Zaznacz przypisanych użytkowników
             const checkboxes = document.querySelectorAll('input[name="assigned_users"]');

@@ -60,6 +60,9 @@
     </main>
     {% endblock %}
 
+    <!-- Czas polski w JS (formatPlDateTime, plWallToEpoch) — poza blokiem scripts, bo strony go nadpisują -->
+    <script src="{{ url_for('static', filename='js/utils/pl-time.js') }}"></script>
+
     {% block scripts %}
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/core/app.js') }}"></script>

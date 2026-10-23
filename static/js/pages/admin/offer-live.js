@@ -205,7 +205,9 @@ function buildChart(canvas) {
 function bucketTimestamps(timestamps, granularity) {
     var buckets = {};
     for (var i = 0; i < timestamps.length; i++) {
-        var dt = new Date(timestamps[i]);
+        // Kubełki i oś wykresu wg polskiego zegara (lokalne pola tej daty = czas polski)
+        var dt = plWallClockDate(timestamps[i]);
+        if (!dt) continue;
         var key;
         if (granularity === 'day') {
             key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toISOString();
@@ -279,6 +281,7 @@ function updateChartTheme() {
     ordersChart.update('none');
 }
 
+// `dt` pochodzi z kubełków (plWallClockDate) — lokalne pola to już czas polski
 function formatChartDate(dt) {
     var dd = String(dt.getDate()).padStart(2, '0');
     var mm = String(dt.getMonth() + 1).padStart(2, '0');
@@ -763,6 +766,11 @@ function initializeSocketIO() {
 
     // New order notification
     socket.on('new_order', function (data) {
+        // created_at przychodzi jako chwila ISO z `Z` — wykres bierze chwilę, lista
+        // pokazuje tekst w czasie polskim (jak zamówienia wyrenderowane przez serwer)
+        var createdAtIso = data.created_at;
+        data.created_at = formatPlDateTime(createdAtIso);
+
         // Add to orders array
         window.LIVE_ORDERS.unshift(data);
         filteredOrders = window.LIVE_ORDERS.slice();
@@ -782,8 +790,8 @@ function initializeSocketIO() {
         }
 
         // Update chart with new timestamp
-        if (data.created_at) {
-            window.ORDER_TIMESTAMPS.push(data.created_at);
+        if (createdAtIso) {
+            window.ORDER_TIMESTAMPS.push(createdAtIso);
             rebuildChart();
         }
     });
@@ -998,13 +1006,8 @@ function updateSingleCountdown(elementId, isoString, now, label) {
     var diff = target - now;
 
     if (diff <= 0) {
-        // Already passed — show date/time
-        var dd = String(target.getDate()).padStart(2, '0');
-        var mm = String(target.getMonth() + 1).padStart(2, '0');
-        var yyyy = target.getFullYear();
-        var hh = String(target.getHours()).padStart(2, '0');
-        var min = String(target.getMinutes()).padStart(2, '0');
-        el.textContent = dd + '.' + mm + '.' + yyyy + ' ' + hh + ':' + min;
+        // Already passed — show date/time (czas polski)
+        el.textContent = formatPlDateTime(target);
         el.classList.remove('meta-value-countdown');
     } else {
         // Show countdown hh:mm:ss

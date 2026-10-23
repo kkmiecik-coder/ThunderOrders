@@ -327,7 +327,7 @@
         if (totalCost(id) <= 0) issues.push('cost');
 
         if (sr.status !== 'oplacone') {   // opłacone zlecenie nie potrzebuje już terminu
-            const past = edits.deadline && new Date(edits.deadline) <= new Date();
+            const past = edits.deadline && plWallToEpoch(edits.deadline) <= Date.now();  // pole = polski zegar
             if (!edits.deadline || past) issues.push('deadline');
         }
         return issues;

@@ -11,7 +11,7 @@ from modules.admin.models import AdminTask, AdminTaskAssignment, AdminTaskCommen
 from modules.auth.models import User
 from extensions import db
 from utils.decorators import role_required
-from utils.timeutil import format_pl_input, parse_pl_input
+from utils.timeutil import format_pl_input, iso_utc, parse_pl_input
 
 
 @admin_bp.route('/tasks')
@@ -147,7 +147,7 @@ def task_get(id):
         'user_id': c.user_id,
         'user_name': f"{c.user.first_name} {c.user.last_name}",
         'comment': c.comment,
-        'created_at': c.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        'created_at': iso_utc(c.created_at)
     } for c in task.comments]
 
     return jsonify({
@@ -158,7 +158,9 @@ def task_get(id):
             'description': task.description or '',
             'priority': task.priority,
             'status': task.status,
-            'due_date': format_pl_input(task.due_date),
+            # Chwila do wyświetlenia (formatPlDateTime) i polski zegar do pola datetime-local
+            'due_date': iso_utc(task.due_date),
+            'due_date_input': format_pl_input(task.due_date),
             'assigned_users': assigned_users,
             'comments': comments
         }
