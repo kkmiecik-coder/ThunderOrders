@@ -8,7 +8,6 @@ Zawiera logikę całkowitego zamykania stron Offer:
 - Wysyłka emaili do klientów
 """
 
-from datetime import datetime
 from collections import defaultdict
 from decimal import Decimal
 from flask import current_app, url_for
@@ -18,6 +17,7 @@ from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirm
 from modules.auth.models import User
 from utils.transfer_title import render_transfer_title
 from utils.closure_settings import get_closure_statuses
+from utils.timeutil import utcnow
 
 
 def calculate_set_fulfillment(page_id):
@@ -369,7 +369,7 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
             old_status = order.status
             old_status_name = order.status_display_name
             order.status = new_status
-            order.updated_at = datetime.now()
+            order.updated_at = utcnow()
 
             counts[fulfillment_type] += 1
             counts['updated_order_ids'].append(order.id)
@@ -511,7 +511,7 @@ def close_offer_page(page_id, user_id, send_emails=True):
 
         # 4. Ustaw flagę zamknięcia
         page.is_fully_closed = True
-        page.closed_at = datetime.now()
+        page.closed_at = utcnow()
         page.closed_by_id = user_id
 
         # 5. COMMIT - atomowa transakcja
@@ -1556,7 +1556,7 @@ def cancel_offer_orders(page_id, order_ids, reason, admin_user_id, notify=True):
         new_status = 'do_zwrotu' if order_has_payment(order) else 'anulowane'
 
         order.status = new_status
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
 
         from modules.orders.consolidation import (
             STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)

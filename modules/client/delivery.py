@@ -17,10 +17,11 @@ from flask_login import current_user, login_required
 from extensions import db
 from modules.client import client_bp
 from modules.orders.delivery_config import pobierz_konfig_dostawy
-from modules.orders.models import ShippingRequest, get_local_now
+from modules.orders.models import ShippingRequest
 from modules.orders.review_models import DeliveryReview
 from modules.orders.wms_utils import (
     ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
+from utils.timeutil import utcnow
 
 
 def zlecenie_do_potwierdzenia(user_id, request_id):
@@ -87,7 +88,7 @@ def _okno_oceny_otwarte(sr):
         # shipped_at). Nie ma od czego liczyć okna, więc go nie zamykamy.
         return True
     dni = pobierz_konfig_dostawy()['review_window_days']
-    return get_local_now() - sr.delivered_at <= timedelta(days=dni)
+    return utcnow() - sr.delivered_at <= timedelta(days=dni)
 
 
 def zapisz_ocene(sr, dane):

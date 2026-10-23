@@ -1,6 +1,7 @@
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from utils.timeutil import utcnow
 
 
 def export_visits_xlsx(campaign, visits):
@@ -27,7 +28,7 @@ def export_visits_xlsx(campaign, visits):
     ws['A2'] = f'URL: https://thunderorders.cloud/qr/{campaign.slug}'
 
     ws.merge_cells('A3:I3')
-    ws['A3'] = f'Eksport: {__import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")}'
+    ws['A3'] = f'Eksport: {utcnow().strftime("%Y-%m-%d %H:%M")}'
 
     headers = [
         'Data/Godzina', 'Typ urz.', 'Przeglądarka', 'System',

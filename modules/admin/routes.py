@@ -17,6 +17,7 @@ from sqlalchemy import func, desc, cast, Date, extract, or_, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 from calendar import month_name
+from utils.timeutil import pl_today
 
 
 def get_shipping_alert_counts():
@@ -75,8 +76,7 @@ def dashboard():
     # Real Data from Database
     # ========================================
 
-    today = datetime.now().date()
-    today_start = datetime.combine(today, datetime.min.time())
+    today = pl_today()
     week_ago = today - timedelta(days=7)
     month_start = today.replace(day=1)
 
@@ -356,7 +356,7 @@ def get_sales_data():
     """
 
     range_param = request.args.get('range', '7d')
-    today = datetime.now().date()
+    today = pl_today()
 
     labels = []
     values = []

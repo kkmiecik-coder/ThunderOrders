@@ -10,7 +10,7 @@ w trasie webowej.
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import and_
@@ -19,10 +19,11 @@ from sqlalchemy import func as sql_func
 from extensions import db
 from modules.orders.models import Order, ShippingRequestOrder
 from modules.auth.models import Settings
+from utils.timeutil import pl_today
 
 
 def get_client_dashboard_stats(user):
-    today = datetime.now().date()
+    today = pl_today()
     thirty_days_ago = today - timedelta(days=30)
 
     # 1. Liczniki zamówień

@@ -16,8 +16,9 @@ from modules.orders.wms_utils import COURIER_NAMES
 from modules.products.models import Product, ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem
 from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, asc, case
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
+from utils.timeutil import pl_today
 
 
 # ========================================
@@ -26,7 +27,7 @@ from decimal import Decimal
 
 def _parse_range(range_param):
     """Zwraca (start_date, end_date) na podstawie parametru zakresu."""
-    today = datetime.now().date()
+    today = pl_today()
     end_date = today
 
     if range_param == '7d':
@@ -93,7 +94,7 @@ def statistics_revenue():
     """Dane dla zakładki Przychody."""
     range_param = request.args.get('range', '30d')
     start_date, end_date = _parse_range(range_param)
-    today = datetime.now().date()
+    today = pl_today()
     week_ago = today - timedelta(days=6)
     month_start = today.replace(day=1)
 
@@ -415,7 +416,7 @@ def statistics_clients():
     """Dane dla zakładki Klienci."""
     range_param = request.args.get('range', '30d')
     start_date, end_date = _parse_range(range_param)
-    today = datetime.now().date()
+    today = pl_today()
     month_start = today.replace(day=1)
 
     # KPI

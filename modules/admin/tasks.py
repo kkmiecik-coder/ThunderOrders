@@ -12,6 +12,7 @@ from modules.auth.models import User
 from extensions import db
 from utils.decorators import role_required
 from datetime import datetime
+from utils.timeutil import pl_input_to_utc
 
 
 @admin_bp.route('/tasks')
@@ -82,7 +83,7 @@ def task_create():
     due_date = None
     if due_date_str:
         try:
-            due_date = datetime.strptime(due_date_str, '%Y-%m-%dT%H:%M')
+            due_date = pl_input_to_utc(datetime.strptime(due_date_str, '%Y-%m-%dT%H:%M'))
         except ValueError:
             return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
 
@@ -194,7 +195,7 @@ def task_update(id):
     # Parse due_date
     if due_date_str:
         try:
-            task.due_date = datetime.strptime(due_date_str, '%Y-%m-%dT%H:%M')
+            task.due_date = pl_input_to_utc(datetime.strptime(due_date_str, '%Y-%m-%dT%H:%M'))
         except ValueError:
             return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
     else:

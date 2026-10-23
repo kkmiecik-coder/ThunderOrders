@@ -3,8 +3,9 @@
 from decimal import Decimal
 
 from extensions import db
-from modules.orders.models import Order, PaymentConfirmation, get_local_now
+from modules.orders.models import Order, PaymentConfirmation
 from utils.activity_logger import log_activity
+from utils.timeutil import utcnow
 
 VALID_STAGES = {'product', 'korean_shipping', 'customs_vat', 'domestic_shipping'}
 _CAN_UPLOAD = {
@@ -92,7 +93,7 @@ def record_bulk_payment_proofs(user, order_stages, saved_filename, payment_metho
     Jeden saved_filename współdzielony przez wszystkie wiersze. Zwraca listę utworzonych/
     nadpisanych wpisów: [{'confirmation': pc, 'order': order, 'stage': str, 'action': str}].
     """
-    now = get_local_now()
+    now = utcnow()
     all_ids = [e['order_id'] for e in order_stages]
     orders_by_id = {o.id: o for o in Order.query.filter(
         Order.id.in_(all_ids), Order.user_id == user.id).all()}
@@ -189,7 +190,7 @@ def get_confirmation_orders(user_id):
     from datetime import timedelta
     from sqlalchemy import func
 
-    archive_cutoff = get_local_now() - timedelta(days=3)
+    archive_cutoff = utcnow() - timedelta(days=3)
 
     # Dozwolone statusy (te same co w Order.can_upload_product_payment)
     allowed_statuses = [

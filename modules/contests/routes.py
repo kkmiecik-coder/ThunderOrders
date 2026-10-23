@@ -13,6 +13,7 @@ from modules.contests import contests_bp
 from modules.contests.models import Contest, ContestPrize, ContestPrizeItem, ContestSpin, ContestWinner
 from modules.contests.forms import ContestForm
 from modules.contests import utils as cu
+from utils.timeutil import pl_input_to_utc
 
 
 def _display_name(user):
@@ -93,7 +94,10 @@ def _apply_form(form, contest):
     for f in ['name', 'description', 'image_path', 'num_winners',
               'ticket_min', 'ticket_max', 'cooldown_minutes', 'eligibility_min_orders',
               'eligibility_min_total_value', 'eligibility_active_within_days', 'ends_at']:
-        setattr(contest, f, getattr(form, f).data)
+        value = getattr(form, f).data
+        if f == 'ends_at':
+            value = pl_input_to_utc(value)  # pole datetime-local = czas polski
+        setattr(contest, f, value)
 
 
 def _apply_prizes(contest):

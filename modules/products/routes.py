@@ -28,6 +28,7 @@ from modules.products.forms import (
 from extensions import db
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
+from utils.timeutil import pl_input_to_utc
 
 
 # ==========================================
@@ -2480,14 +2481,14 @@ def _apply_stock_order_filters(query, model, filters):
     if filters['date_from']:
         try:
             query = query.filter(
-                model.created_at >= datetime.strptime(filters['date_from'], '%Y-%m-%d'))
+                model.created_at >= pl_input_to_utc(datetime.strptime(filters['date_from'], '%Y-%m-%d')))
         except ValueError:
             pass  # śmieci w URL ignorujemy zamiast wywracać stronę
 
     if filters['date_to']:
         try:
             # Data „do" ma obejmować cały dzień, a created_at trzyma godzinę.
-            end = datetime.strptime(filters['date_to'], '%Y-%m-%d') + timedelta(days=1)
+            end = pl_input_to_utc(datetime.strptime(filters['date_to'], '%Y-%m-%d') + timedelta(days=1))
             query = query.filter(model.created_at < end)
         except ValueError:
             pass
@@ -4616,7 +4617,7 @@ def create_poland_order():
 
         from datetime import datetime
         try:
-            payment_deadline = datetime.fromisoformat(payment_deadline_str)
+            payment_deadline = pl_input_to_utc(datetime.fromisoformat(payment_deadline_str))
         except (ValueError, TypeError):
             return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
 
@@ -5013,7 +5014,7 @@ def update_poland_customs_vat():
             if not customs_deadline_str:
                 return jsonify({'success': False, 'error': 'Termin płatności za Cło/VAT jest wymagany.'}), 400
             try:
-                customs_deadline = datetime.fromisoformat(customs_deadline_str)
+                customs_deadline = pl_input_to_utc(datetime.fromisoformat(customs_deadline_str))
             except (ValueError, TypeError):
                 return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
 

@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify, current_app
 from werkzeug.middleware.proxy_fix import ProxyFix
+from utils.timeutil import utcnow
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Sentry - error tracking (inicjalizacja przed create_app)
@@ -565,7 +566,7 @@ def _przetworz_dostawy(dry_run=False):
 
     from modules.orders.delivery_backfill import odtworz_shipped_at
     from modules.orders.delivery_config import pobierz_konfig_dostawy
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     from modules.orders.wms_utils import (
         ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
     from utils.email_manager import EmailManager
@@ -582,7 +583,7 @@ def _przetworz_dostawy(dry_run=False):
     backfill = odtworz_shipped_at(dry_run=dry_run)
 
     konfig = pobierz_konfig_dostawy()
-    teraz = get_local_now()
+    teraz = utcnow()
     wynik = {'backfill': backfill, 'przypomnienia': 0, 'domkniete': 0}
 
     def _wyslane_wczesniej_niz(dni):
@@ -947,7 +948,7 @@ def register_cli_commands(app):
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl, nie wysyłaj')
     def check_payment_reminders(dry_run):
         """Sprawdza i wysyła przypomnienia o płatnościach (uruchamiany co godzinę przez cron)."""
-        from modules.orders.models import Order, get_local_now
+        from modules.orders.models import Order
         from modules.offers.models import OfferPage
         from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
         from modules.orders.payment_overdue_service import STAGE_DEFINITIONS
@@ -957,7 +958,7 @@ def register_cli_commands(app):
         from utils.activity_logger import log_activity
         from datetime import timedelta
 
-        now = get_local_now()
+        now = utcnow()
         sent_count = 0
         pending_reminders = []
 
@@ -1511,7 +1512,7 @@ def register_cli_commands(app):
         from modules.auth.models import User
         from datetime import datetime, timedelta
 
-        cutoff = datetime.now() - timedelta(days=30)
+        cutoff = utcnow() - timedelta(days=30)
 
         pending = User.query.filter(
             User.deletion_requested_at.isnot(None),
@@ -1545,11 +1546,11 @@ def register_cli_commands(app):
     @click.option('--hours', default=24, help='Wyślij po N godzinach od rejestracji (domyślnie 24)')
     def send_registration_reminders(dry_run, hours):
         """Wysyła jednorazowe przypomnienie do użytkowników, którzy nie dokończyli rejestracji."""
-        from modules.auth.models import User, get_local_now
+        from modules.auth.models import User
         from utils.email_sender import send_email
         from datetime import timedelta
 
-        now = get_local_now()
+        now = utcnow()
         cutoff = now - timedelta(hours=hours)
 
         # Użytkownicy z niekompletnym profilem, zarejestrowani > N godzin temu, bez wysłanego przypomnienia
@@ -1613,10 +1614,10 @@ def register_cli_commands(app):
     def cleanup_payment_proofs(days, dry_run):
         """Usuwa pliki potwierdzeń płatności zatwierdzonych ponad N dni temu (domyślnie 30)."""
         import os
-        from modules.orders.models import PaymentConfirmation, get_local_now
+        from modules.orders.models import PaymentConfirmation
         from datetime import timedelta
 
-        cutoff = get_local_now() - timedelta(days=days)
+        cutoff = utcnow() - timedelta(days=days)
         upload_folder = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'uploads', 'payment_confirmations'
@@ -1672,7 +1673,7 @@ def register_cli_commands(app):
     def reprocess_ocr(dry_run, reprocess_all):
         """Ponownie przetwarza OCR dla potwierdzeń płatności z wynikiem 0% lub NULL."""
         import json as _json
-        from modules.orders.models import PaymentConfirmation, Order, get_local_now
+        from modules.orders.models import PaymentConfirmation, Order
         from modules.payments.models import PaymentMethod
         from utils.ocr_verifier import verify_payment_proof, TESSERACT_AVAILABLE
 

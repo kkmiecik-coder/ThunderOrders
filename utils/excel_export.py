@@ -6,10 +6,10 @@ Funkcje do generowania plików Excel z danymi zamówień.
 """
 
 from io import BytesIO
-from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, numbers
 from openpyxl.utils import get_column_letter
+from utils.timeutil import utcnow
 
 
 # ============================================
@@ -786,7 +786,7 @@ def _build_live_overview_sheet(wb, page, summary, s):
     meta_items = [
         ("Status:", summary.get('status', '-')),
         ("Okres:", _format_period(summary.get('starts_at'), summary.get('ends_at'))),
-        ("Eksport:", datetime.now().strftime('%d.%m.%Y %H:%M')),
+        ("Eksport:", utcnow().strftime('%d.%m.%Y %H:%M')),
     ]
     for label, value in meta_items:
         ws.cell(row=row, column=1, value=label).font = s['bold']

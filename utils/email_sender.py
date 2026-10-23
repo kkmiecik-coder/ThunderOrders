@@ -10,6 +10,7 @@ from threading import Thread
 import os
 import time
 import logging
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ def _zapisz_wynik_logu(log_id, status, attempts, error=None, duration_ms=None):
     try:
         from sqlalchemy.orm import Session
         from extensions import db
-        from modules.admin.models import EmailLog, get_local_now
+        from modules.admin.models import EmailLog
 
         with Session(bind=db.engine) as sesja:
             wpis = sesja.get(EmailLog, log_id)
@@ -99,7 +100,7 @@ def _zapisz_wynik_logu(log_id, status, attempts, error=None, duration_ms=None):
             wpis.attempts = attempts
             wpis.error = (f"{type(error).__name__}: {error}")[:2000] if error else None
             wpis.duration_ms = int(duration_ms) if duration_ms is not None else None
-            wpis.sent_at = get_local_now() if status == 'sent' else None
+            wpis.sent_at = utcnow() if status == 'sent' else None
             sesja.commit()
     except Exception as e:
         logger.error(f"[EMAIL-LOG] Nie udało się domknąć wpisu id={log_id}: "

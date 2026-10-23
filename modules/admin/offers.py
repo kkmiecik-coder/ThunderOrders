@@ -13,6 +13,7 @@ from modules.offers.models import OfferPage, OfferSection, OfferSectionImage, Of
 from modules.products.models import Product, ProductType, VariantGroup
 from datetime import datetime
 import json
+from utils.timeutil import pl_input_to_utc, utcnow
 
 
 # Kolejność statusów w zakładce „Bieżące" (od góry).
@@ -143,12 +144,11 @@ def offers_selection_rows(query):
 def offers_list():
     """Lista stron sprzedaży — filtrowanie, sortowanie i paginacja po stronie serwera."""
     from sqlalchemy import func
-    from modules.offers.models import get_local_now
     from utils.pagination import resolve_per_page, paginate_with_choice
 
     # Automatyczna aktualizacja statusów (scheduled->active, active->ended, ended->active)
     # PRZED zapytaniami listy — status decyduje o zakładce i kolejności.
-    for page in offers_status_refresh_candidates(get_local_now()).all():
+    for page in offers_status_refresh_candidates(utcnow()).all():
         page.check_and_update_status()
 
     search_query = (request.args.get('search') or '').strip()
@@ -276,14 +276,14 @@ def offers_create():
 
     if starts_at_str:
         try:
-            starts_at = datetime.strptime(starts_at_str, '%Y-%m-%dT%H:%M')
+            starts_at = pl_input_to_utc(datetime.strptime(starts_at_str, '%Y-%m-%dT%H:%M'))
         except ValueError:
             flash('Nieprawidłowy format daty rozpoczęcia.', 'error')
             return redirect(url_for('admin.offers_list'))
 
     if ends_at_str:
         try:
-            ends_at = datetime.strptime(ends_at_str, '%Y-%m-%dT%H:%M')
+            ends_at = pl_input_to_utc(datetime.strptime(ends_at_str, '%Y-%m-%dT%H:%M'))
         except ValueError:
             flash('Nieprawidłowy format daty zakończenia.', 'error')
             return redirect(url_for('admin.offers_list'))
@@ -407,17 +407,17 @@ def offers_save(page_id):
 
         if 'starts_at' in data:
             if data['starts_at']:
-                new_starts_at = datetime.strptime(data['starts_at'], '%Y-%m-%dT%H:%M')
+                new_starts_at = pl_input_to_utc(datetime.strptime(data['starts_at'], '%Y-%m-%dT%H:%M'))
                 page.starts_at = new_starts_at
 
-                if page.status == 'active' and new_starts_at > datetime.now():
+                if page.status == 'active' and new_starts_at > utcnow():
                     page.status = 'scheduled'
             else:
                 page.starts_at = None
 
         if 'ends_at' in data:
             if data['ends_at']:
-                page.ends_at = datetime.strptime(data['ends_at'], '%Y-%m-%dT%H:%M')
+                page.ends_at = pl_input_to_utc(datetime.strptime(data['ends_at'], '%Y-%m-%dT%H:%M'))
             else:
                 page.ends_at = None
 
@@ -456,7 +456,7 @@ def offers_save(page_id):
         if 'sections' in data:
             limit_changes = _update_sections(page, data['sections'])
 
-        page.updated_at = datetime.now()
+        page.updated_at = utcnow()
 
         db.session.commit()
 
@@ -1147,7 +1147,7 @@ def offers_bulk_set_dates():
         return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
 
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = pl_input_to_utc(datetime.fromisoformat(value))
     except (ValueError, TypeError):
         return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
 
@@ -1268,7 +1268,7 @@ def offers_bulk_report():
 
     try:
         excel_buffer = generate_offers_bulk_report(pages)
-        filename = f'raport_zbiorczy_ofert_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'raport_zbiorczy_ofert_{utcnow().strftime("%Y%m%d_%H%M")}.xlsx'
         return Response(
             excel_buffer.getvalue(),
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -1835,15 +1835,14 @@ def offers_close_complete(page_id):
 
     from datetime import datetime
     try:
-        payment_deadline = datetime.fromisoformat(payment_deadline_str)
+        payment_deadline = pl_input_to_utc(datetime.fromisoformat(payment_deadline_str))
     except (ValueError, TypeError):
         return jsonify({
             'success': False,
             'error': 'Nieprawidłowy format daty terminu płatności.'
         }), 400
 
-    from modules.offers.models import get_local_now
-    if payment_deadline <= get_local_now():
+    if payment_deadline <= utcnow():
         return jsonify({
             'success': False,
             'error': 'Termin płatności musi być w przyszłości.'
@@ -1856,7 +1855,7 @@ def offers_close_complete(page_id):
     if page.page_type == 'preorder':
         from utils.activity_logger import log_activity
         page.is_fully_closed = True
-        page.closed_at = get_local_now()
+        page.closed_at = utcnow()
         page.closed_by_id = current_user.id
         db.session.commit()
 
@@ -2344,7 +2343,7 @@ def offers_live_export_excel(page_id):
 
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_name = safe_name.replace(' ', '_')[:50]
-        filename = f'offers_LIVE_{safe_name}_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'offers_LIVE_{safe_name}_{utcnow().strftime("%Y%m%d_%H%M")}.xlsx'
 
         return Response(
             excel_buffer.getvalue(),

@@ -10,11 +10,12 @@ from flask import (
 from flask_login import login_required, current_user
 
 from . import tracking_bp
-from .models import QRCampaign, QRVisit, get_local_now
+from .models import QRCampaign, QRVisit
 from .qr_generator import generate_qr_png, generate_qr_svg
 from .export import export_visits_xlsx
 from extensions import db
 from utils.decorators import role_required
+from utils.timeutil import pl_input_to_utc
 
 
 # ---------------------------------------------------------------------------
@@ -325,14 +326,14 @@ def qr_campaign_api_stats(campaign_id):
 
     if date_from_str:
         try:
-            date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
+            date_from = pl_input_to_utc(datetime.strptime(date_from_str, '%Y-%m-%d'))
             query = query.filter(QRVisit.visited_at >= date_from - query_pad_before)
         except ValueError:
             pass
 
     if date_to_str:
         try:
-            date_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+            date_to = pl_input_to_utc(datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1))
             query = query.filter(QRVisit.visited_at < date_to + query_pad_after)
         except ValueError:
             pass

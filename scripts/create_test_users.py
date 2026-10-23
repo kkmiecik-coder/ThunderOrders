@@ -12,7 +12,7 @@ from app import create_app
 from extensions import db
 from modules.auth.models import User
 from werkzeug.security import generate_password_hash
-from datetime import datetime
+from utils.timeutil import utcnow
 
 app = create_app()
 
@@ -52,7 +52,7 @@ with app.app_context():
         role='admin',
         is_active=True,
         email_verified=True,
-        created_at=datetime.now(),
+        created_at=utcnow(),
     )
     db.session.add(admin)
 
@@ -66,7 +66,7 @@ with app.app_context():
             role='client',
             is_active=True,
             email_verified=True,
-            created_at=datetime.now(),
+            created_at=utcnow(),
         )
         db.session.add(u)
 

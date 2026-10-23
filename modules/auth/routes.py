@@ -5,7 +5,7 @@ Endpointy autentykacji: login, register, logout, password reset
 
 from flask import render_template, redirect, url_for, flash, request, current_app, jsonify, session
 from flask_login import login_user, logout_user, current_user, login_required
-from datetime import datetime, timedelta
+from datetime import timedelta
 from collections import defaultdict
 import secrets
 import threading
@@ -22,6 +22,7 @@ from modules.auth.forms import (
     ResetPasswordForm,
     VerificationCodeForm
 )
+from utils.timeutil import utcnow
 
 
 # =============================================
@@ -40,7 +41,7 @@ ATTEMPT_WINDOW_MINUTES = 15  # Okno czasowe liczenia prób
 
 def _cleanup_old_attempts(key):
     """Usuwa próby starsze niż okno czasowe."""
-    cutoff = datetime.now() - timedelta(minutes=ATTEMPT_WINDOW_MINUTES)
+    cutoff = utcnow() - timedelta(minutes=ATTEMPT_WINDOW_MINUTES)
     _login_attempts[key] = [t for t in _login_attempts[key] if t > cutoff]
     if not _login_attempts[key]:
         del _login_attempts[key]
@@ -60,7 +61,7 @@ def check_login_attempts(email, ip_address):
             if len(attempts) >= MAX_ATTEMPTS:
                 oldest = attempts[0]
                 unlock_at = oldest + timedelta(minutes=LOCKOUT_MINUTES)
-                remaining = (unlock_at - datetime.now()).total_seconds() / 60
+                remaining = (unlock_at - utcnow()).total_seconds() / 60
                 if remaining > 0:
                     return True, int(remaining) + 1
     return False, 0
@@ -76,7 +77,7 @@ def record_login_attempt(email, ip_address, success):
             _login_attempts.pop(email.lower(), None)
             _login_attempts.pop(ip_address, None)
         else:
-            now = datetime.now()
+            now = utcnow()
             _login_attempts[email.lower()].append(now)
             _login_attempts[ip_address].append(now)
 
@@ -184,7 +185,7 @@ def login():
         if not user.email_verified:
             # Jeśli nie ma tokena sesji lub kod wygasł, wygeneruj nowy
             if not user.verification_session_token or not user.email_verification_code_expires or \
-               datetime.now() > user.email_verification_code_expires:
+               utcnow() > user.email_verification_code_expires:
                 code, session_token = user.generate_verification_code()
                 db.session.commit()
                 # Wyślij nowy kod
@@ -252,7 +253,7 @@ def login():
         if not user.email_verified:
             # Jeśli nie ma tokena sesji lub kod wygasł, wygeneruj nowy
             if not user.verification_session_token or not user.email_verification_code_expires or \
-               datetime.now() > user.email_verification_code_expires:
+               utcnow() > user.email_verification_code_expires:
                 code, session_token = user.generate_verification_code()
                 db.session.commit()
                 # Wyślij nowy kod

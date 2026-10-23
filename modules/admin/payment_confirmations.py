@@ -10,10 +10,10 @@ from utils.decorators import role_required
 # Lazy import log_activity inside functions to avoid circular import
 from extensions import db
 from modules.orders.models import PaymentConfirmation, Order
-from modules.orders.models import get_local_now
 from decimal import Decimal, InvalidOperation
 
 import logging
+from utils.timeutil import utcnow
 logger = logging.getLogger(__name__)
 
 
@@ -172,7 +172,7 @@ def payment_confirmations_list():
     search_query = request.args.get('search', '').strip()
 
     # Granica archiwum: 3 dni od teraz
-    archive_cutoff = get_local_now() - timedelta(days=3)
+    archive_cutoff = utcnow() - timedelta(days=3)
 
     # Warunki filtrowania — wspólne dla paginacji grup i pobrania potwierdzeń.
     conditions = []
@@ -370,7 +370,7 @@ def payment_confirmation_approve(confirmation_id):
 
     # Zmień status
     confirmation.status = 'approved'
-    confirmation.updated_at = get_local_now()
+    confirmation.updated_at = utcnow()
 
     # Auto-update paid_amount na zamówieniu
     current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
@@ -435,7 +435,7 @@ def payment_confirmation_bulk_approve():
     for confirmation in confirmations:
         order = confirmation.order
         confirmation.status = 'approved'
-        confirmation.updated_at = get_local_now()
+        confirmation.updated_at = utcnow()
 
         current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
         order.paid_amount = current_paid + Decimal(str(confirmation.amount))
@@ -528,7 +528,7 @@ def payment_confirmation_bulk_reject():
 
         confirmation.status = 'rejected'
         confirmation.rejection_reason = rejection_reason
-        confirmation.updated_at = get_local_now()
+        confirmation.updated_at = utcnow()
         rejected_orders.append(order.order_number)
 
         log_activity(
@@ -607,7 +607,7 @@ def payment_confirmation_reject(confirmation_id):
     # Zmień status
     confirmation.status = 'rejected'
     confirmation.rejection_reason = rejection_reason
-    confirmation.updated_at = get_local_now()
+    confirmation.updated_at = utcnow()
 
     db.session.commit()
 
@@ -689,7 +689,7 @@ def payment_confirmation_register(order_id):
         }), 400
 
     note = (data.get('note') or '').strip() or None
-    now = get_local_now()
+    now = utcnow()
 
     existing = PaymentConfirmation.query.filter_by(
         order_id=order.id, payment_stage=stage
@@ -786,7 +786,7 @@ def payment_confirmation_register_request(sr_id):
     sr = ShippingRequest.query.get_or_404(sr_id)
     data = request.get_json() or {}
     note = (data.get('note') or '').strip() or None
-    now = get_local_now()
+    now = utcnow()
 
     # Zamówienia uczestnika, nie surowe request_orders: dla zlecenia źródłowego
     # wiersze junction wiszą przy paczce zbiorczej.

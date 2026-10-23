@@ -1,7 +1,7 @@
 """Wspólne klocki serwisu pupili.
 
 - czas (`now`), konfiguracja (`cfg`) i losowość (`rng`) są wstrzykiwalne — testy nie
-  monkeypatchują get_local_now;
+  monkeypatchują utcnow;
 - `lock_profile()` = mutex użytkownika (FOR UPDATE na pet_profiles): każda operacja zapisu
   zaczyna się od niego, zanim przeczyta żywe gatunki / dostępne jajka (spec §6);
 - MariaDB (REPEATABLE READ) robi snapshot przy pierwszym SELECT w żądaniu — Flask-Login
@@ -18,11 +18,11 @@ from flask import current_app
 from sqlalchemy import update
 
 from extensions import db
-from modules.auth.models import get_local_now
 from modules.pets import rules
 from modules.pets.config import PetConfig
 from modules.pets.errors import PetError
 from modules.pets.models import Pet, PetEvent, PetProfile
+from utils.timeutil import utcnow
 
 CARE_ACTIONS = ('feed', 'play', 'wash', 'pat')
 MILESTONE_CARE_DAYS = (7, 14, 30, 50, 100)
@@ -34,7 +34,7 @@ PAT_MAX_PER_REQUEST = 50
 
 
 def now_or(now):
-    return now if now is not None else get_local_now()
+    return now if now is not None else utcnow()
 
 
 def cfg_or(cfg):

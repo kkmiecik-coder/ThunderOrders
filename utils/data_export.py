@@ -5,6 +5,7 @@ Używa WeasyPrint (HTML → PDF) dla ładnego renderingu
 
 import os
 import platform
+from utils.timeutil import utcnow
 
 # WeasyPrint wymaga systemowych bibliotek (pango/gobject)
 # Na macOS z Homebrew trzeba wskazać ścieżkę
@@ -27,7 +28,6 @@ def generate_user_data_pdf(user):
     from modules.notifications.models import NotificationPreference
     from modules.achievements.models import UserAchievement, Achievement
     from modules.auth.models import ShippingAddress
-    from datetime import datetime
 
     # Pobierz dane
     orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
@@ -51,7 +51,7 @@ def generate_user_data_pdf(user):
         notif_prefs=notif_prefs,
         comments=comments,
         shipping_requests=shipping_requests,
-        export_date=datetime.now()
+        export_date=utcnow()
     )
 
     # Generuj PDF

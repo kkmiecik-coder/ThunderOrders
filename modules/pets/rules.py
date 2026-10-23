@@ -3,7 +3,7 @@
 Spec: docs/superpowers/specs/2026-10-10-pupile-tamagotchi-design.md §2.4–2.7, §3.1
 
 Stan „na teraz" = simulate(stan_z_bazy, cfg, state_at, teraz). Czas jest zawsze parametrem
-(naiwny czas polski, jak w całej aplikacji) — tu nie ma datetime.now().
+(aware UTC, jak w całej aplikacji) — tu nie odczytujemy zegara.
 """
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta

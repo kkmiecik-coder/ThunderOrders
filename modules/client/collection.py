@@ -10,6 +10,7 @@ from flask_login import login_required, current_user
 from modules.client import client_bp
 from modules.client import collection_service
 from extensions import db
+from utils.timeutil import utcnow
 
 
 @client_bp.route('/collection')
@@ -485,7 +486,7 @@ def collection_qr_session_create():
     import io
     import base64
     import qrcode
-    from modules.client.models import CollectionUploadSession, get_local_now
+    from modules.client.models import CollectionUploadSession
     from datetime import timedelta
 
     data = request.get_json() or {}
@@ -502,7 +503,7 @@ def collection_qr_session_create():
 
     try:
         # Wyczyść stare wygasłe sesje tego użytkownika
-        now = get_local_now()
+        now = utcnow()
         expired = CollectionUploadSession.query.filter(
             CollectionUploadSession.user_id == current_user.id,
             CollectionUploadSession.expires_at < now

@@ -8,8 +8,8 @@ from extensions import db
 from modules.offers.models import OfferProductNotificationSubscription, OfferPage
 from modules.products.models import Product
 from utils.email_manager import EmailManager
-from modules.auth.models import get_local_now
 import logging
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
                 except Exception:
                     pass
             subscription.notified = True
-            subscription.notified_at = get_local_now()
+            subscription.notified_at = utcnow()
             continue
 
         try:
@@ -124,7 +124,7 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
                         pass
                 # Oznacz jako wysłane
                 subscription.notified = True
-                subscription.notified_at = get_local_now()
+                subscription.notified_at = utcnow()
                 sent_count += 1
                 logger.info(f"Sent back-in-stock notification to {email} for product {product_id} on page {page_id}")
         except Exception as e:

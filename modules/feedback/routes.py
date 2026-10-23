@@ -8,8 +8,9 @@ from flask_login import login_required, current_user
 from functools import wraps
 
 from . import feedback_bp
-from .models import FeedbackSurvey, FeedbackQuestion, FeedbackResponse, FeedbackAnswer, get_local_now
+from .models import FeedbackSurvey, FeedbackQuestion, FeedbackResponse, FeedbackAnswer
 from extensions import db
+from utils.timeutil import pl_input_to_utc, utcnow
 
 
 # ============================================
@@ -93,7 +94,7 @@ def admin_save(survey_id):
         closes_at = data.get('closes_at')
         if closes_at:
             from datetime import datetime
-            survey.closes_at = datetime.fromisoformat(closes_at.replace('Z', '+00:00').replace('+00:00', ''))
+            survey.closes_at = pl_input_to_utc(datetime.fromisoformat(closes_at.replace('Z', '+00:00').replace('+00:00', '')))
         else:
             survey.closes_at = None
 
@@ -104,7 +105,7 @@ def admin_save(survey_id):
         questions_data = data.get('questions', [])
         _update_questions(survey, questions_data)
 
-        survey.updated_at = get_local_now()
+        survey.updated_at = utcnow()
         db.session.commit()
 
         return jsonify({

@@ -12,7 +12,8 @@ from sqlalchemy.orm import joinedload
 from extensions import db
 from modules.admin.models import ActivityLog
 from modules.client.shipping_service import unclaimed_orders_query
-from modules.orders.models import Order, OrderItem, get_local_now
+from modules.orders.models import Order, OrderItem
+from utils.timeutil import utcnow
 
 
 def wiek_zaleglosci(orders):
@@ -30,7 +31,7 @@ def wiek_zaleglosci(orders):
     if not orders:
         return {}
 
-    teraz = get_local_now()
+    teraz = utcnow()
     wynik = {}
     bez_kolumny = {}
 
@@ -259,7 +260,7 @@ def wyslij_przypomnienia(user_ids):
     # a commit padł, klient dostałby wiadomość bez zapisanego stempla — przy
     # następnym kliknięciu ostrzeżenie o 7 dniach by nie zadziałało i ta sama
     # osoba dostałaby drugie przypomnienie.
-    teraz = get_local_now()
+    teraz = utcnow()
     for w in wg_klienta.values():
         for o in w['zamowienia']:
             o.pickup_reminder_sent_at = teraz

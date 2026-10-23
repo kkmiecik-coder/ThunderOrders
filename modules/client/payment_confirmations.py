@@ -7,7 +7,6 @@ import os
 import uuid
 import json
 from datetime import datetime
-from modules.orders.models import get_local_now
 from flask import render_template, request, jsonify, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -24,6 +23,7 @@ from modules.client.payment_confirmation_service import (
     record_bulk_payment_proofs,
     get_confirmation_orders,
 )
+from utils.timeutil import utcnow
 
 
 # === HELPER FUNCTIONS ===
@@ -113,7 +113,7 @@ def payment_confirmations():
         active_total=active_total,
         archive_count=archive_count,
         title='Potwierdzenia płatności',
-        now=get_local_now()
+        now=utcnow()
     )
 
 

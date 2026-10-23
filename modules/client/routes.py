@@ -12,11 +12,12 @@ from modules.auth.models import Settings, User
 from modules.offers.models import OfferPage, OfferSection
 from modules.offers.access import user_can_access_offer_page
 from sqlalchemy import func as sql_func, and_
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from modules.client import client_bp
 from modules.client.dashboard_service import get_client_dashboard_stats
+from utils.timeutil import pl_today
 
 
 def sort_offer_pages(pages, filter_type):
@@ -173,7 +174,7 @@ def get_chart_data():
     if period not in allowed_periods:
         period = 30
 
-    today = datetime.now().date()
+    today = pl_today()
     start_date = today - timedelta(days=period - 1)
 
     chart_data = {
