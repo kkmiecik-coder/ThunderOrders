@@ -18,7 +18,7 @@ from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, asc, case
 from datetime import timedelta
 from decimal import Decimal
-from utils.timeutil import pl_today
+from utils.timeutil import bucket_by_pl_day, pl_day_bounds_utc, pl_today
 
 
 # ========================================
@@ -58,6 +58,13 @@ def _format_currency(value):
     return f"{val:.2f} PLN"
 
 
+def _pl_days_filter(column, start_date, end_date):
+    """Warunki SQL: chwila w polskich dobach od `start_date` do `end_date` włącznie."""
+    range_start, _ = pl_day_bounds_utc(start_date)
+    _, range_end = pl_day_bounds_utc(end_date)
+    return column >= range_start, column < range_end
+
+
 def _generate_date_labels(start_date, end_date):
     """Generuje listę dat (labels) i dat do filtrowania."""
     dates = []
@@ -95,14 +102,17 @@ def statistics_revenue():
     range_param = request.args.get('range', '30d')
     start_date, end_date = _parse_range(range_param)
     today = pl_today()
-    week_ago = today - timedelta(days=6)
-    month_start = today.replace(day=1)
+    # Doby polskie jako zakresy UTC (w bazie leży UTC)
+    today_start, today_end = pl_day_bounds_utc(today)
+    week_start, _ = pl_day_bounds_utc(today - timedelta(days=6))
+    month_start, _ = pl_day_bounds_utc(today.replace(day=1))
 
     # KPI: Przychód dziś
     revenue_today = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) == today,
+        Order.created_at >= today_start,
+        Order.created_at < today_end,
         Order.status != 'anulowane'
     ).scalar() or Decimal('0')
 
@@ -110,7 +120,7 @@ def statistics_revenue():
     revenue_week = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) >= week_ago,
+        Order.created_at >= week_start,
         Order.status != 'anulowane'
     ).scalar() or Decimal('0')
 
@@ -118,7 +128,7 @@ def statistics_revenue():
     revenue_month = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) >= month_start,
+        Order.created_at >= month_start,
         Order.status != 'anulowane'
     ).scalar() or Decimal('0')
 
@@ -127,39 +137,32 @@ def statistics_revenue():
     chart_labels = []
     chart_values = []
 
-    # Pobierz dane grupowane po dacie za jednym razem
-    daily_revenue = db.session.query(
-        func.date(Order.created_at).label('day'),
-        func.coalesce(func.sum(Order.total_amount), 0).label('revenue')
+    # Kwoty z zakresu za jednym razem, dni liczone po polsku w Pythonie
+    revenue_by_day = bucket_by_pl_day(db.session.query(
+        Order.created_at, Order.total_amount
     ).filter(
-        func.date(Order.created_at) >= start_date,
-        func.date(Order.created_at) <= end_date,
+        *_pl_days_filter(Order.created_at, start_date, end_date),
         Order.status != 'anulowane'
-    ).group_by(func.date(Order.created_at)).all()
-
-    revenue_map = {str(row.day): float(row.revenue) for row in daily_revenue}
+    ).all())
 
     for d in dates:
         chart_labels.append(d.strftime('%d.%m'))
-        chart_values.append(revenue_map.get(str(d), 0))
+        chart_values.append(float(sum(revenue_by_day.get(d, []))))
 
-    # Tabela: Top 10 dni z najwyższym przychodem
-    top_days = db.session.query(
-        func.date(Order.created_at).label('day'),
-        func.sum(Order.total_amount).label('revenue'),
-        func.count(Order.id).label('orders_count')
+    # Tabela: Top 10 dni z najwyższym przychodem (cała historia - kubełki po polsku w Pythonie)
+    all_days = bucket_by_pl_day(db.session.query(
+        Order.created_at, Order.total_amount
     ).filter(
         Order.status != 'anulowane'
-    ).group_by(
-        func.date(Order.created_at)
-    ).order_by(desc('revenue')).limit(10).all()
+    ).all())
+    top_days = sorted(all_days.items(), key=lambda day: sum(day[1]), reverse=True)[:10]
 
     top_days_rows = []
-    for row in top_days:
+    for day, amounts in top_days:
         top_days_rows.append([
-            str(row.day),
-            _format_currency(row.revenue),
-            row.orders_count
+            str(day),
+            _format_currency(sum(amounts)),
+            len(amounts)
         ])
 
     # Metryki dodatkowe
@@ -218,17 +221,14 @@ def statistics_orders():
 
     # Wykres słupkowy: zamówienia per dzień
     dates = _generate_date_labels(start_date, end_date)
-    daily_orders = db.session.query(
-        func.date(Order.created_at).label('day'),
-        func.count(Order.id).label('count')
+    orders_by_day = bucket_by_pl_day(db.session.query(
+        Order.created_at, Order.id
     ).filter(
-        func.date(Order.created_at) >= start_date,
-        func.date(Order.created_at) <= end_date
-    ).group_by(func.date(Order.created_at)).all()
+        *_pl_days_filter(Order.created_at, start_date, end_date)
+    ).all())
 
-    orders_map = {str(row.day): row.count for row in daily_orders}
     bar_labels = [d.strftime('%d.%m') for d in dates]
-    bar_values = [orders_map.get(str(d), 0) for d in dates]
+    bar_values = [len(orders_by_day.get(d, [])) for d in dates]
 
     # Wykres kołowy: podział po typach
     type_counts = db.session.query(
@@ -417,30 +417,27 @@ def statistics_clients():
     range_param = request.args.get('range', '30d')
     start_date, end_date = _parse_range(range_param)
     today = pl_today()
-    month_start = today.replace(day=1)
+    month_start, _ = pl_day_bounds_utc(today.replace(day=1))
 
     # KPI
     total_clients = User.query.filter_by(role='client').count()
     active_clients = User.query.filter_by(role='client', is_active=True).count()
     new_this_month = User.query.filter(
         User.role == 'client',
-        func.date(User.created_at) >= month_start
+        User.created_at >= month_start
     ).count()
 
     # Wykres liniowy: rejestracje w czasie
     dates = _generate_date_labels(start_date, end_date)
-    daily_regs = db.session.query(
-        func.date(User.created_at).label('day'),
-        func.count(User.id).label('count')
+    regs_by_day = bucket_by_pl_day(db.session.query(
+        User.created_at, User.id
     ).filter(
         User.role == 'client',
-        func.date(User.created_at) >= start_date,
-        func.date(User.created_at) <= end_date
-    ).group_by(func.date(User.created_at)).all()
+        *_pl_days_filter(User.created_at, start_date, end_date)
+    ).all())
 
-    regs_map = {str(row.day): row.count for row in daily_regs}
     chart_labels = [d.strftime('%d.%m') for d in dates]
-    chart_values = [regs_map.get(str(d), 0) for d in dates]
+    chart_values = [len(regs_by_day.get(d, [])) for d in dates]
 
     # Tabela: Top 10 klientów per wydana kwota
     top_clients = db.session.query(

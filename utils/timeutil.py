@@ -5,13 +5,16 @@ Czas w ThunderOrders: w bazie i w kodzie zawsze UTC, w Polsce tylko na brzegach.
 Zasady:
     - w bazie leży naiwny UTC (kolumny `UTCDateTime`), w kodzie aware UTC (`utcnow()`),
     - czas polski (`Europe/Warsaw`) pojawia się wyłącznie przy wyświetlaniu, wczytaniu
-      formularza i liczeniu granic polskiej doby,
+      formularza i liczeniu granic polskiej doby (statystyki: filtr w SQL zakresem z
+      `pl_day_bounds_utc`, kubełki dni w Pythonie przez `bucket_by_pl_day`),
     - stała strefa nigdy nie jest stałym offsetem (zmiana czasu: 23 h / 25 h doby).
 
 Naiwny datetime w miejscu, gdzie oczekujemy czasu, to błąd — rzucamy `ValueError`,
 zamiast zgadywać strefę.
 """
+from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta, timezone
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.types import DateTime, TypeDecorator
@@ -80,6 +83,20 @@ def pl_day_bounds_utc(d: date) -> tuple[datetime, datetime]:
 def pl_date(dt: datetime) -> date:
     """Data polska dla aware chwili (np. do kubełkowania po dniach)."""
     return to_pl(dt).date()
+
+
+def bucket_by_pl_day(rows: Iterable[tuple[datetime | None, Any]]) -> dict[date, list]:
+    """Pary `(chwila, wartość)` -> `{polska data: [wartości]}` w kolejności wejścia.
+
+    Zamiast `func.date(kolumna)` w SQL: baza zna tylko dobę UTC, a dzień w statystykach
+    to doba polska. Wiersze bez chwili są pomijane, naiwna chwila to błąd (jak w `to_pl`).
+    """
+    kubelki = {}
+    for chwila, wartosc in rows:
+        if chwila is None:
+            continue
+        kubelki.setdefault(pl_date(chwila), []).append(wartosc)
+    return kubelki
 
 
 def iso_utc(dt: datetime | None) -> str | None:

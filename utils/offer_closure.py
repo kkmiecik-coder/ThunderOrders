@@ -17,7 +17,7 @@ from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirm
 from modules.auth.models import User
 from utils.transfer_title import render_transfer_title
 from utils.closure_settings import get_closure_statuses
-from utils.timeutil import utcnow
+from utils.timeutil import pl_date, utcnow
 
 
 def calculate_set_fulfillment(page_id):
@@ -864,7 +864,7 @@ def get_page_summary(page_id, include_financials=True):
     orders_by_date = Counter()
     for order in orders:
         if order.created_at:
-            date_key = order.created_at.strftime('%Y-%m-%d')
+            date_key = pl_date(order.created_at).strftime('%Y-%m-%d')  # doba polska
             orders_by_date[date_key] += 1
 
     sorted_dates = sorted(orders_by_date.items())

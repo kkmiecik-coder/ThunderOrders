@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from extensions import db
-from utils.timeutil import utcnow
+from utils.timeutil import pl_day_bounds_utc, to_pl, utcnow
 
 
 def get_metric_value(user, metric, config, context=None):
@@ -88,8 +88,8 @@ def _single_order_items(user, config, context):
 
 
 def _order_hour_range(user, config, context):
-    now = utcnow()
-    hour = now.hour
+    # Godzina na zegarze w Polsce - „nocny marek" to noc polska, nie UTC
+    hour = to_pl(utcnow()).hour
     start, end = config['start'], config['end']
     in_range = start <= hour < end
     return (hour, in_range)
@@ -107,12 +107,13 @@ def _orders_in_window(user, config, context):
 
 def _orders_in_weekend(user, config, context):
     from modules.orders.models import Order
-    now = utcnow()
-    weekday = now.weekday()  # 0=Mon, 5=Sat, 6=Sun
+    # Weekend według kalendarza polskiego: od soboty 00:00 czasu polskiego
+    today = to_pl(utcnow()).date()
+    weekday = today.weekday()  # 0=Mon, 5=Sat, 6=Sun
     if weekday == 5:  # Saturday
-        weekend_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        weekend_start, _ = pl_day_bounds_utc(today)
     elif weekday == 6:  # Sunday
-        weekend_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        weekend_start, _ = pl_day_bounds_utc(today - timedelta(days=1))
     else:
         return (0, False)  # Not a weekend
 
