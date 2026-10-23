@@ -446,10 +446,10 @@
         }
 
         // --- wystrój: tablica, termometr, roślina i kosz po bokach -----------------------------------
-        /** Ilu żyjących pupili wykluło się w tym miesiącu (czas serwera; age_days = pełne doby od wyklucia). */
+        /** Ilu żyjących pupili wykluło się w tym miesiącu (polskim, czas serwera; age_days = pełne doby od wyklucia). */
         function hatchedThisMonth(state) {
-            var now = new Date(u.serverNow());
-            var sinceStart = (now.getTime() - new Date(now.getFullYear(), now.getMonth(), 1).getTime()) / 1000;
+            var p = u.plParts(u.serverNow());
+            var sinceStart = (p.day - 1) * 86400 + p.hour * 3600 + p.minute * 60 + p.second;
             return ((state && state.pets) || []).filter(function (p) {
                 var age = Number(p.age_days);
                 return age >= 0 && age * 86400 < sinceStart;

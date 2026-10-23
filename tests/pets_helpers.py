@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from extensions import db
 from modules.pets.models import Pet, PetProfile
 
-T0 = datetime(2026, 10, 12, 8, 0, tzinfo=timezone.utc)      # poniedziałek, dzień
-NOC = datetime(2026, 10, 12, 23, 30, tzinfo=timezone.utc)   # noc 23–07
+T0 = datetime(2026, 10, 12, 8, 0, tzinfo=timezone.utc)      # poniedziałek, 10:00 PL — dzień
+NOC = datetime(2026, 10, 12, 23, 30, tzinfo=timezone.utc)   # 01:30 PL — noc 23–07 (czas polski)
 
 
 def zaloz_profil(user, now=T0):

@@ -19,6 +19,7 @@ from modules.pets.common import (
 )
 from modules.pets.errors import PetError
 from modules.pets.models import Pet, PetEvent, PetProfile
+from utils.timeutil import pl_date
 
 
 def pats_last_hour_query(pet, since):
@@ -93,9 +94,10 @@ def perform_action(user, pet_id, action, count=1, now=None, cfg=None, variant=No
 
     pierwsza_dzis = False
     liczy_sie = action in CARE_ACTIONS and (action != 'pat' or zaliczone > 0)
-    if liczy_sie and pet.last_care_date != now.date():
+    dzis = pl_date(now)   # dzień opieki = doba polska
+    if liczy_sie and pet.last_care_date != dzis:
         pet.care_days += 1
-        pet.last_care_date = now.date()
+        pet.last_care_date = dzis
         pierwsza_dzis = True
         if pet.care_days in MILESTONE_CARE_DAYS:
             add_milestone(pet, pet.care_days, now)
@@ -174,10 +176,11 @@ def light_candle(user, pet_id, now=None):
     now = now_or(now)
     lock_profile(user)
     pet = own_pet(user, pet_id, ('dead',))
-    if pet.last_light_date == now.date():
+    dzis = pl_date(now)   # „raz na dobę" = doba polska
+    if pet.last_light_date == dzis:
         raise PetError('already_lit', 'Światełko już dziś zapalone.', 409)
     pet.lights_count += 1
-    pet.last_light_date = now.date()
+    pet.last_light_date = dzis
     add_event(user.id, 'light', now, pet_id=pet.id)
     db.session.commit()
     return pet

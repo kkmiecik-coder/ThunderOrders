@@ -78,12 +78,31 @@
         try { return JSON.parse(json); } catch (e) { return null; }
     }
 
-    /** Naiwny czas lokalny z API ("2026-10-11T21:15:00") → ms. Bez strefy = czas lokalny przeglądarki. */
+    /** Chwila z API w UTC ("2026-10-11T19:15:00Z") → ms; Date.parse honoruje `Z`/offset. */
     function parseLocal(iso) {
-        if (!iso) return NaN;
-        var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(iso);
-        if (!m) return NaN;
-        return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
+        return iso ? Date.parse(iso) : NaN;
+    }
+
+    // Zegar polski niezależnie od strefy przeglądarki: noc, godziny i daty w grze są polskie (jak na serwerze)
+    var PL_CLOCK = null;
+    try {
+        PL_CLOCK = new Intl.DateTimeFormat('pl-PL', {
+            timeZone: 'Europe/Warsaw', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric',
+            hour: 'numeric', minute: 'numeric', second: 'numeric'
+        });
+    } catch (e) { /* stara przeglądarka bez stref — niżej zegar lokalny */ }
+
+    /** ms → {year, month (1–12), day, hour, minute, second} wg czasu polskiego (Europe/Warsaw). */
+    function plParts(ms) {
+        var d = new Date(ms);
+        if (PL_CLOCK && PL_CLOCK.formatToParts) {
+            var out = {};
+            PL_CLOCK.formatToParts(d).forEach(function (p) { if (p.type !== 'literal') out[p.type] = +p.value; });
+            if (out.hour === 24) out.hour = 0;   // starsze silniki: północ jako „24”
+            return out;
+        }
+        return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(),
+            hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds() };
     }
 
     function plural(n, one, few, many) {
@@ -112,7 +131,14 @@
         return 'chwilę';
     }
 
+    /** „2026-10-12” (data polska z API) albo chwila „…T…Z” (UTC) → „12.10.2026” wg czasu polskiego. */
     function formatDate(iso) {
+        if (/T/.test(iso || '')) {
+            var t = Date.parse(iso);
+            if (isNaN(t)) return '?';
+            var p = plParts(t);
+            return (p.day < 10 ? '0' : '') + p.day + '.' + (p.month < 10 ? '0' : '') + p.month + '.' + p.year;
+        }
         var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
         return m ? m[3] + '.' + m[2] + '.' + m[1] : '?';
     }
@@ -542,7 +568,7 @@
         u: {
             el: el, escapeHtml: escapeHtml, toast: toast, setBusy: setBusy, button: button, icon: icon,
             plural: plural, formatDuration: formatDuration, roughDuration: roughDuration, formatDate: formatDate,
-            daysText: daysText, parseLocal: parseLocal, secondsUntil: secondsUntil, serverNow: serverNow,
+            daysText: daysText, parseLocal: parseLocal, secondsUntil: secondsUntil, serverNow: serverNow, plParts: plParts,
             speciesName: speciesName, reducedMotion: reducedMotion
         },
         species: speciesInfo,

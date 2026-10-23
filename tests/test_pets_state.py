@@ -15,7 +15,7 @@ def test_bez_profilu_wirtualne_startowe_i_zero_zapisow(db, make_user):
     from modules.pets.models import PetProfile, Pet
     user = make_user()
     s = state_for_user(user, now=T0, cfg=_cfg())
-    assert s['ok'] is True and s['now'] == '2026-10-12T08:00:00+00:00'
+    assert s['ok'] is True and s['now'] == '2026-10-12T08:00:00Z'
     assert s['night'] == {'start': 23, 'end': 7, 'is_night': False}
     assert s['eggs_available'] == [{'source': 'start'}] and s['next_monthly_at'] is None
     assert s['eggs'] == [] and s['pets'] == []
@@ -35,7 +35,7 @@ def test_pelny_stan_z_jajkiem_pupilem_i_pamiecia(db, make_user):
     profil.companion_pet_id = pet.id
     db.session.commit()
     s = state_for_user(user, now=T0, cfg=_cfg())
-    assert s['next_monthly_at'] == '2026-11-01T08:00:00+00:00'   # profil z 2.10 + 30 dni
+    assert s['next_monthly_at'] == '2026-11-01T08:00:00Z'   # profil z 2.10 + 30 dni
     assert [d['source'] for d in s['eggs_available']] == ['rescue']
     assert s['eggs'][0]['id'] == jajko.id and s['eggs'][0]['progress_pct'] == round(100 * 18 / 168, 1)
     p = s['pets'][0]

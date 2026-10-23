@@ -22,7 +22,7 @@ from modules.pets import rules
 from modules.pets.config import PetConfig
 from modules.pets.errors import PetError
 from modules.pets.models import Pet, PetEvent, PetProfile
-from utils.timeutil import utcnow
+from utils.timeutil import iso_utc, pl_date, utcnow
 
 CARE_ACTIONS = ('feed', 'play', 'wash', 'pat')
 MILESTONE_CARE_DAYS = (7, 14, 30, 50, 100)
@@ -46,7 +46,8 @@ def rng_or(rng):
 
 
 def iso(dt):
-    return dt.isoformat(timespec='seconds') if dt is not None else None
+    """Chwila do API: UTC z sufiksem `Z` (JS parsuje przez `Date.parse`, godziny pokazuje w Europe/Warsaw)."""
+    return iso_utc(dt)
 
 
 # ---------------------------------------------------------------------------
@@ -348,10 +349,10 @@ def memorial_dict(pet, now):
         'status': 'memorial',
         'pet_id': pet.id,
         'name': pet.name,
-        'hatched_at': pet.hatched_at.date().isoformat() if pet.hatched_at else None,
-        'died_at': pet.died_at.date().isoformat() if pet.died_at else None,
+        'hatched_at': pl_date(pet.hatched_at).isoformat() if pet.hatched_at else None,
+        'died_at': pl_date(pet.died_at).isoformat() if pet.died_at else None,
         'age_days': rules.age_days(pet.hatched_at, pet.died_at) if pet.hatched_at and pet.died_at else 0,
         'care_days': int(pet.care_days),
         'lights_count': int(pet.lights_count),
-        'can_light': pet.last_light_date != now.date(),
+        'can_light': pet.last_light_date != pl_date(now),
     }

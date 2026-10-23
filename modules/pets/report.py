@@ -16,6 +16,7 @@ from statistics import median
 from extensions import db
 from modules.pets.common import CARE_ACTIONS, DEATH_CAUSE, now_or
 from modules.pets.models import Pet, PetEvent, PetProfile
+from utils.timeutil import bucket_by_pl_day, pl_date, to_pl
 
 CAUSE_NAMES = {kod: nazwa for nazwa, kod in DEATH_CAUSE.items()}
 
@@ -68,14 +69,13 @@ def build_report(days, now=None):
                 aktywni += 1
         retention[f'd{n}'] = {'cohort': len(kohorta), 'active': aktywni, 'pct': _pct(aktywni, len(kohorta))}
 
-    # --- aktywni opiekunowie dziennie ---
-    per_dzien = defaultdict(set)
-    for e in opieka_w_oknie:
-        per_dzien[e.created_at.date()].add(e.user_id)
+    # --- aktywni opiekunowie dziennie (doba polska; kolejne dni z daty, nie co −24 h — doby 23/25 h) ---
+    per_dzien = bucket_by_pl_day((e.created_at, e.user_id) for e in opieka_w_oknie)
+    dzis = pl_date(now)
     caretakers_daily = []
     for i in range(days, -1, -1):
-        d = (now - timedelta(days=i)).date()
-        caretakers_daily.append((d.isoformat(), len(per_dzien.get(d, ()))))
+        d = dzis - timedelta(days=i)
+        caretakers_daily.append((d.isoformat(), len(set(per_dzien.get(d, ())))))
 
     # --- odejścia ---
     odejscia = [e for e in w_oknie if e.type == 'die']
@@ -120,7 +120,9 @@ def build_report(days, now=None):
     rescue_claimed_7d = {'deaths': len(zmarli), 'claimed': odebrane, 'pct': _pct(odebrane, len(zmarli))}
 
     return {
-        'window': {'days': days, 'since': since.isoformat(timespec='minutes'), 'until': now.isoformat(timespec='minutes')},
+        # okno w czasie polskim (z offsetem) — dni w caretakers_daily też są polskie
+        'window': {'days': days, 'since': to_pl(since).isoformat(timespec='minutes'),
+                   'until': to_pl(now).isoformat(timespec='minutes')},
         'funnel': funnel,
         'retention': retention,
         'caretakers_daily': caretakers_daily,

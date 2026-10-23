@@ -1,6 +1,6 @@
 """Czysta matematyka stanu pupila (modules/pets/rules.py) — bez Flaska i bazy.
 
-Czasy: poniedziałek 2026-10-12. Dzień = 08:00–20:00 (daleko od nocy 23–07).
+Czasy: poniedziałek 2026-10-12, aware UTC. Noc 23–07 to godziny polskie (`_pl`); dzień = 10:00–22:00 PL.
 
 Testy reguł CELOWO nie importują PetConfig: rules.py ma być niezależne od reszty
 modułu (i od sesji, która równolegle pisze config.py). Konfiguracja to obiekt
@@ -14,7 +14,7 @@ import pytest
 
 from modules.pets import rules
 from modules.pets.rules import PetState
-from utils.timeutil import utcnow
+from utils.timeutil import PL_TZ, utcnow
 
 
 def _cfg(**nadpisania):
@@ -34,10 +34,15 @@ def _cfg(**nadpisania):
     return SimpleNamespace(**bazowe)
 
 
+def _pl(*czesci):
+    """Godzina polska (noc w konfiguracji to godziny polskie) → aware UTC, jak czas w aplikacji."""
+    return datetime(*czesci, tzinfo=PL_TZ).astimezone(timezone.utc)
+
+
 CFG = _cfg()
-PON_08 = datetime(2026, 10, 12, 8, 0, tzinfo=timezone.utc)
-PON_23 = datetime(2026, 10, 12, 23, 0, tzinfo=timezone.utc)
-WT_07 = datetime(2026, 10, 13, 7, 0, tzinfo=timezone.utc)
+PON_08 = datetime(2026, 10, 12, 8, 0, tzinfo=timezone.utc)   # 10:00 PL — dzień
+PON_23 = _pl(2026, 10, 12, 23, 0)
+WT_07 = _pl(2026, 10, 13, 7, 0)
 PELNY = PetState()
 
 
@@ -51,20 +56,20 @@ def blisko(a, b, eps=0.05):
     (22, 59, False), (23, 0, True), (2, 30, True), (6, 59, True), (7, 0, False), (12, 0, False),
 ])
 def test_is_night_granice(godzina, minuta, noc):
-    assert rules.is_night(datetime(2026, 10, 12, godzina, minuta), CFG) is noc
+    assert rules.is_night(_pl(2026, 10, 12, godzina, minuta), CFG) is noc
 
 
 def test_is_night_bez_nocy_gdy_start_rowny_end():
     """Review Focus 2: start == end oznacza brak nocy, nie noc całą dobę."""
     cfg = _cfg(night={'start': 7, 'end': 7, 'factor': 0.25})
     for h in range(24):
-        assert rules.is_night(datetime(2026, 10, 12, h, 0), cfg) is False
+        assert rules.is_night(_pl(2026, 10, 12, h, 0), cfg) is False
 
 
 def test_is_night_okno_niewychodzace_poza_polnoc():
     cfg = _cfg(night={'start': 1, 'end': 5, 'factor': 0.25})
-    assert rules.is_night(datetime(2026, 10, 12, 3, 0, tzinfo=timezone.utc), cfg) is True
-    assert rules.is_night(datetime(2026, 10, 12, 23, 0, tzinfo=timezone.utc), cfg) is False
+    assert rules.is_night(_pl(2026, 10, 12, 3, 0), cfg) is True
+    assert rules.is_night(_pl(2026, 10, 12, 23, 0), cfg) is False
 
 
 def test_wake_reasons():

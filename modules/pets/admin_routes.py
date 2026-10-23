@@ -26,7 +26,7 @@ from modules.pets.report import build_report
 from modules.pets.species import SPECIES, SPECIES_BY_SLUG
 from utils.activity_logger import log_activity
 from utils.decorators import role_required
-from utils.timeutil import utcnow
+from utils.timeutil import pl_date, pl_day_bounds_utc, utcnow
 
 OPISY = {klucz: etykieta for klucz, _typ, _pola, etykieta in ADMIN_FIELDS}
 
@@ -57,7 +57,7 @@ def admin_stats(now=None, cfg=None):
     do_odebrania = (sum(int(p.granted_eggs_pending or 0) for p in profile)
                     + sum(1 for p in profile if p.last_monthly_egg_at <= prog_miesieczny)
                     + Pet.query.filter(Pet.status == 'dead', Pet.rescue_egg_claimed_at.is_(None)).count())
-    dzis = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    dzis, _koniec = pl_day_bounds_utc(pl_date(now))   # „dziś" = od północy polskiej
 
     def aktywni_od(od):
         return (db.session.query(func.count(func.distinct(PetEvent.user_id)))
