@@ -1,5 +1,5 @@
 """Etap 1 pupili: szkielet modułu, gatunki, modele."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def test_blueprinty_pupili_sa_zarejestrowane(app):
@@ -63,7 +63,7 @@ def test_profil_moze_wskazywac_towarzysza(db, make_user):
     from modules.pets.models import PetProfile, Pet
     user = make_user()
     pupil = Pet(user_id=user.id, egg_source='monthly', status='alive', species='kotek',
-                name='Mruczek', hatched_at=datetime(2026, 10, 1, 12, 0))
+                name='Mruczek', hatched_at=datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc))
     db.session.add(pupil)
     db.session.commit()
     profil = PetProfile(user_id=user.id, companion_pet_id=pupil.id)

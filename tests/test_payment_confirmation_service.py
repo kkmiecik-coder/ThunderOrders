@@ -3,6 +3,7 @@ import os
 from decimal import Decimal
 
 import pytest
+from utils.timeutil import utcnow
 
 
 @pytest.fixture(autouse=True)
@@ -175,10 +176,9 @@ def test_confirmation_orders_base_set_and_owner(db, make_user, make_order):
 def test_confirmation_orders_archive_split(db, make_user, make_order):
     from modules.client.payment_confirmation_service import get_confirmation_orders
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from tests.test_mobile_api_payments import _add_payment
     u = make_user()
-    old = get_local_now() - timedelta(days=5)
+    old = utcnow() - timedelta(days=5)
     o_arch = make_order(u, order_type='on_hand', status='dostarczone_gom',
                         shipping_cost=Decimal('10.00'))
     _add_payment(db, o_arch, 'product', status='approved', updated_at=old)

@@ -4,7 +4,7 @@ Model: przy pozycji zamówienia klienta siedzi `incl_only_quantity` (ile sztuk
 klient bierze jako samo incl), a przy pozycji partii do Polski dwie stawki za
 sztukę. Podział FIFO bez zmian — zmienia się tylko cena sztuki, zależna od typu.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -115,7 +115,7 @@ def test_bez_incl_podzial_jak_dotad(db, make_user, make_order, make_product):
     from modules.products.routes import _allocate_product_shipping_fifo
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     _partia(db, produkt.id, qty=4, shipping='200', created_at=baza)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2, baza - timedelta(days=2))
     b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2, baza - timedelta(days=1))
@@ -131,7 +131,7 @@ def test_partia_bez_stawek_stara_logika(db, make_user, make_order, make_product)
     from modules.products.routes import _allocate_product_shipping_fifo
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     _partia(db, produkt.id, qty=2, shipping='100', created_at=baza)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
                             baza - timedelta(days=2), incl=1)
@@ -149,7 +149,7 @@ def test_klient_w_calosci_na_incl(db, make_user, make_order, make_product):
     from modules.products.routes import _allocate_product_shipping_fifo
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     _partia(db, produkt.id, qty=4, shipping='81', created_at=baza,
             album_rate='45.00', incl_rate='12.00')
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
@@ -178,7 +178,7 @@ def test_klient_mieszany_album_i_incl(db, make_user, make_order, make_product):
     from modules.products.routes import _allocate_product_shipping_fifo
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     _partia(db, produkt.id, qty=3, shipping='102', created_at=baza,
             album_rate='45.00', incl_rate='12.00')
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
@@ -200,7 +200,7 @@ def test_dwie_partie_rozne_stawki_bez_dublowania(db, make_user, make_order, make
     from modules.orders.models import Order
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     _partia(db, produkt.id, qty=2, shipping='57', created_at=baza,
             album_rate='45.00', incl_rate='12.00')
     _partia(db, produkt.id, qty=2, shipping='40', created_at=baza + timedelta(days=1),
@@ -244,7 +244,7 @@ def test_incl_przyciete_per_pozycje_a_nie_na_sumie(db, make_user, make_order, ma
     from modules.products.routes import _allocate_product_shipping_fifo
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     _partia(db, produkt.id, qty=3, shipping='102', created_at=baza,
             album_rate='45.00', incl_rate='12.00')
     zam = make_order(make_user(), offer_page_id=1, created_at=baza - timedelta(days=2))
@@ -271,7 +271,7 @@ def test_podglad_przydziela_klientow_do_tworzonej_partii(db, make_user, make_ord
     from modules.products.routes import _preview_batch_allocation
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     _partia(db, produkt.id, qty=2, shipping='90', created_at=baza)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
                             baza - timedelta(days=3))
@@ -290,7 +290,7 @@ def test_podglad_z_offsetem_dla_dwoch_pozycji_tego_samego_produktu(
     from modules.products.routes import _preview_batch_allocation
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
                             baza - timedelta(days=3))
     b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
@@ -309,7 +309,7 @@ def test_endpoint_szczegolow_zwraca_klientow(db, client, login, make_user, make_
     from modules.products.models import ProxyOrder, ProxyOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     klient = make_user(first_name='Jan', last_name='Kowalski')
     zam = make_order(klient, offer_page_id=1, created_at=baza - timedelta(days=2))
     from modules.orders.models import OrderItem
@@ -365,7 +365,7 @@ def test_endpoint_offset_dla_dwoch_pozycji_tego_samego_produktu_w_dwoch_zamowien
     from modules.products.models import ProxyOrder, ProxyOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
                             baza - timedelta(days=3))
     b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
@@ -432,7 +432,7 @@ def test_tworzenie_partii_zapisuje_stawki_i_incl(db, client, login, make_user,
     from modules.products.models import PolandOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
                             baza - timedelta(days=3))
     b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
@@ -444,7 +444,7 @@ def test_tworzenie_partii_zapisuje_stawki_i_incl(db, client, login, make_user,
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 57,
         'tracking_number': 'KB88900-RS1',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -478,7 +478,7 @@ def test_tworzenie_partii_bez_stawek_dziala_jak_dotad(db, client, login, make_us
     from modules.products.models import PolandOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
                             baza - timedelta(days=3))
     proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T51')
@@ -488,7 +488,7 @@ def test_tworzenie_partii_bez_stawek_dziala_jak_dotad(db, client, login, make_us
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 100,
         'tracking_number': 'KB88900-RS2',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{'proxy_order_item_id': poz.id, 'shipping_cost': 100}],
     })
@@ -516,7 +516,7 @@ def test_niedomkniety_set_zachowuje_incl_only_quantity_po_utworzeniu_partii(
     from modules.orders.models import Order, OrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     zam = make_order(make_user(), offer_page_id=1, created_at=baza - timedelta(days=3))
     poz1 = OrderItem(
         order_id=zam.id, product_id=produkt.id, quantity=2,
@@ -538,7 +538,7 @@ def test_niedomkniety_set_zachowuje_incl_only_quantity_po_utworzeniu_partii(
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 45,
         'tracking_number': 'KB88900-RS11',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -560,7 +560,7 @@ def test_odrzuca_incl_wieksze_niz_ilosc(db, client, login, make_user, make_order
     from modules.products.models import PolandOrder
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
                             baza - timedelta(days=3))
     proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T52')
@@ -570,7 +570,7 @@ def test_odrzuca_incl_wieksze_niz_ilosc(db, client, login, make_user, make_order
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 12,
         'tracking_number': 'KB88900-RS3',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -615,7 +615,7 @@ def test_ten_sam_klient_w_dwoch_pozycjach_nie_podwaja_incl(db, client, login, ma
     from modules.products.models import PolandOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 4,
                             baza - timedelta(days=3))
     proxy1, poz1 = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T60')
@@ -626,7 +626,7 @@ def test_ten_sam_klient_w_dwoch_pozycjach_nie_podwaja_incl(db, client, login, ma
         'proxy_order_ids': [proxy1.id, proxy2.id],
         'shipping_cost_total': 114,
         'tracking_number': 'KB88900-RS4',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [
             {
@@ -678,7 +678,7 @@ def test_stawki_podane_wszyscy_bez_incl_liczy_po_albumowej(db, client, login,
     from modules.products.models import PolandOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
                             baza - timedelta(days=3))
     proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T62')
@@ -688,7 +688,7 @@ def test_stawki_podane_wszyscy_bez_incl_liczy_po_albumowej(db, client, login,
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 90,
         'tracking_number': 'KB88900-RS5',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -713,7 +713,7 @@ def test_ujemna_stawka_odrzucana_polskim_komunikatem(db, client, login, make_use
     from modules.products.models import PolandOrder
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
                             baza - timedelta(days=3))
     proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T63')
@@ -723,7 +723,7 @@ def test_ujemna_stawka_odrzucana_polskim_komunikatem(db, client, login, make_use
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': -5,
         'tracking_number': 'KB88900-RS6',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -746,7 +746,7 @@ def test_endpoint_podaje_laczna_ilosc_zamowienia(db, client, login, make_user,
     from modules.products.models import ProxyOrder, ProxyOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
                             baza - timedelta(days=3))
 
@@ -778,7 +778,7 @@ def test_rozjechany_klient_dostaje_pelne_incl_a_nie_przyciete_do_partii(
     from modules.products.models import ProxyOrder, ProxyOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
                             baza - timedelta(days=3), incl=2)
 
@@ -816,7 +816,7 @@ def test_rozjechany_klient_incl_w_partii_nie_blokuje_tworzenia(
     from modules.products.models import PolandOrder, PolandOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
                             baza - timedelta(days=3), incl=2)
     proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T80')
@@ -826,7 +826,7 @@ def test_rozjechany_klient_incl_w_partii_nie_blokuje_tworzenia(
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 12,
         'tracking_number': 'KB88900-RS7',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -871,7 +871,7 @@ def test_dwaj_klienci_na_jednej_pozycji_incl_w_partii_a_nie_pelne(
     from modules.products.models import PolandOrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 3,
                             baza - timedelta(days=3))
     b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
@@ -883,7 +883,7 @@ def test_dwaj_klienci_na_jednej_pozycji_incl_w_partii_a_nie_pelne(
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 69,
         'tracking_number': 'KB88900-RS8',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -923,7 +923,7 @@ def test_incl_w_partii_wieksze_niz_incl_only_quantity_odrzucane(
     from modules.products.models import PolandOrder
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
                             baza - timedelta(days=3), incl=0)
     proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=2, numer='PRX/T82')
@@ -933,7 +933,7 @@ def test_incl_w_partii_wieksze_niz_incl_only_quantity_odrzucane(
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 24,
         'tracking_number': 'KB88900-RS9',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -966,7 +966,7 @@ def test_incl_w_partii_wieksze_niz_ilosc_w_tej_partii_odrzucane(
     from modules.products.models import PolandOrder
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 5,
                             baza - timedelta(days=3), incl=0)
     proxy, poz = _proxy_z_pozycja(db, produkt.id, qty=1, numer='PRX/T83')
@@ -976,7 +976,7 @@ def test_incl_w_partii_wieksze_niz_ilosc_w_tej_partii_odrzucane(
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 12,
         'tracking_number': 'KB88900-RS10',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -1013,7 +1013,7 @@ def test_api_mobilne_zwraca_incl_only_quantity(app, db, make_user, make_order, m
 
     produkt = make_product()
     zam = _zamowienie_klienta(db, make_user, make_order, produkt.id, 2,
-                              datetime(2026, 8, 1, 10, 0), incl=1)
+                              datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc), incl=1)
     pozycja = OrderItem.query.filter_by(order_id=zam.id).one()
 
     with app.test_request_context():
@@ -1032,7 +1032,7 @@ def test_plakietka_samo_incl_w_panelu_klienta(db, client, login, make_user,
 
     produkt = make_product(name='Album Testowy')
     wlasciciel = make_user()
-    zam = make_order(wlasciciel, offer_page_id=1, created_at=datetime(2026, 8, 1, 10, 0))
+    zam = make_order(wlasciciel, offer_page_id=1, created_at=datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc))
     pozycja = OrderItem(
         order_id=zam.id, product_id=produkt.id, quantity=2,
         price=Decimal('130'), total=Decimal('260'), incl_only_quantity=1,
@@ -1082,7 +1082,7 @@ def test_jeden_klient_dwa_produkty_incl_nie_rozlewa_sie_na_drugi_produkt(
 
     produkt1 = make_product(name='Album A')
     produkt2 = make_product(name='Album B')
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
 
     zam = make_order(make_user(), offer_page_id=1, created_at=baza - timedelta(days=3))
     poz1 = OrderItem(
@@ -1116,7 +1116,7 @@ def test_jeden_klient_dwa_produkty_incl_nie_rozlewa_sie_na_drugi_produkt(
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 294,
         'tracking_number': 'KB88900-RS5',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [
             {
@@ -1173,7 +1173,7 @@ def test_dziennik_zapisuje_stawki_partii(db, client, login, make_user, make_orde
     from modules.admin.models import ActivityLog
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     a = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
                             baza - timedelta(days=3))
     b = _zamowienie_klienta(db, make_user, make_order, produkt.id, 1,
@@ -1185,7 +1185,7 @@ def test_dziennik_zapisuje_stawki_partii(db, client, login, make_user, make_orde
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 57,
         'tracking_number': 'KB88900-RS9',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -1228,7 +1228,7 @@ def test_endpoint_preorder_bez_incl_a_exclusive_z_incl(db, client, login, make_u
     from modules.orders.models import OrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     pre = make_order(make_user(), offer_page_id=1, order_type='pre_order',
                      created_at=baza - timedelta(days=3))
     exc = make_order(make_user(), offer_page_id=1, order_type='exclusive',
@@ -1259,7 +1259,7 @@ def test_odrzuca_samo_incl_dla_preorderu(db, client, login, make_user, make_orde
     from modules.products.models import PolandOrder
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     pre = make_order(make_user(), offer_page_id=1, order_type='pre_order',
                      created_at=baza - timedelta(days=3))
     db.session.add(OrderItem(
@@ -1274,7 +1274,7 @@ def test_odrzuca_samo_incl_dla_preorderu(db, client, login, make_user, make_orde
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 12,
         'tracking_number': 'KB88900-RS71',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,
@@ -1298,7 +1298,7 @@ def test_preorder_z_zerowym_incl_tworzy_partie_jak_dotad(db, client, login, make
     from modules.orders.models import Order, OrderItem
 
     produkt = make_product()
-    baza = datetime(2026, 8, 1, 10, 0)
+    baza = datetime(2026, 8, 1, 10, 0, tzinfo=timezone.utc)
     pre = make_order(make_user(), offer_page_id=1, order_type='pre_order',
                      created_at=baza - timedelta(days=3))
     db.session.add(OrderItem(
@@ -1313,7 +1313,7 @@ def test_preorder_z_zerowym_incl_tworzy_partie_jak_dotad(db, client, login, make
         'proxy_order_ids': [proxy.id],
         'shipping_cost_total': 28.76,
         'tracking_number': 'KB88900-RS72',
-        'payment_deadline': (baza + timedelta(days=7)).isoformat(),
+        'payment_deadline': (baza + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M'),  # pole datetime-local
         'note': '',
         'items': [{
             'proxy_order_item_id': poz.id,

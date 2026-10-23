@@ -1,10 +1,10 @@
 from datetime import timedelta
+from utils.timeutil import utcnow
 
 
 # Lazy wrapper — odracza import, by uniknąć circular import podczas kolekcji pytest.
 def _get_local_now():
-    from modules.orders.models import get_local_now
-    return get_local_now()
+    return utcnow()
 
 
 def _contest(db, make_product, make_user, **kw):

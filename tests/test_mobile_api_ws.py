@@ -12,6 +12,7 @@ from datetime import timedelta
 import pytest
 
 from extensions import socketio
+from utils.timeutil import utcnow
 
 
 # Import odłożony do czasu wykonania testu — `modules.api_mobile` ładuje się poprawnie
@@ -165,14 +166,13 @@ def test_ws_connect_refresh_token_rejected(app, db, make_user):
 
 def test_ws_connect_blocklisted_token_rejected(app, db, make_user):
     from modules.api_mobile.models import MobileTokenBlocklist
-    from modules.orders.models import get_local_now
 
     u = make_user()
     token = _access_token(app, u)
     jti = _jti_of(app, token)
     db.session.add(MobileTokenBlocklist(
         jti=jti, token_type='access', user_id=u.id,
-        expires_at=get_local_now() + timedelta(hours=1),
+        expires_at=utcnow() + timedelta(hours=1),
     ))
     db.session.commit()
 

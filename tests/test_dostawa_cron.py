@@ -2,13 +2,14 @@
 from datetime import timedelta
 
 import pytest
+from utils.timeutil import utcnow
 
 
 def _wyslane(db, user, numer, dni_temu):
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     sr = ShippingRequest(
         request_number=numer, user_id=user.id, status='wyslane',
-        shipped_at=get_local_now() - timedelta(days=dni_temu))
+        shipped_at=utcnow() - timedelta(days=dni_temu))
     db.session.add(sr)
     db.session.commit()
     return sr
@@ -269,7 +270,7 @@ def test_dry_run_widzi_zaleglosc_ktora_wymaga_backfillu(app, db, make_user, monk
     woła rollback().
     """
     from modules.admin.models import ActivityLog
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     from app import _przetworz_dostawy
     from utils.email_manager import EmailManager
 
@@ -288,7 +289,7 @@ def test_dry_run_widzi_zaleglosc_ktora_wymaga_backfillu(app, db, make_user, monk
         db.session.commit()
         db.session.add(ActivityLog(
             action='shipping_request_shipped', entity_type='shipping_request',
-            entity_id=sr.id, created_at=get_local_now() - timedelta(days=dni)))
+            entity_id=sr.id, created_at=utcnow() - timedelta(days=dni)))
         db.session.commit()
         zlecenia.append(sr)
 
@@ -313,7 +314,7 @@ def test_faza1_nie_wymaga_user_id_na_zleceniu(app, db, make_user, monkeypatch):
     zlecenia z usuniętym kontem ta warstwa i tak schodzi na e-mail z zamówienia —
     SQL wykluczał więc kandydatów, którym mail i tak by poszedł."""
     from app import _przetworz_dostawy
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     from utils.email_manager import EmailManager
 
     monkeypatch.setattr(
@@ -326,7 +327,7 @@ def test_faza1_nie_wymaga_user_id_na_zleceniu(app, db, make_user, monkeypatch):
     # zlecenia (albo lidera paczki zbiorczej) zostaje skasowane.
     sr = ShippingRequest(
         request_number='WYS/000580', user_id=None, status='wyslane',
-        shipped_at=get_local_now() - timedelta(days=5))
+        shipped_at=utcnow() - timedelta(days=5))
     db.session.add(sr)
     db.session.commit()
 
@@ -349,12 +350,12 @@ def test_kandydat_bez_odbiorcy_nie_wraca_bezterminowo(app, db, make_user, monkey
     (wyłączony przełącznik, błąd renderu) znacznika stawiać nie wolno — patrz dwa
     testy niżej."""
     from app import _przetworz_dostawy
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     from utils.email_manager import EmailManager
 
     sr = ShippingRequest(
         request_number='WYS/000581', user_id=None, status='wyslane',
-        shipped_at=get_local_now() - timedelta(days=5))
+        shipped_at=utcnow() - timedelta(days=5))
     db.session.add(sr)
     db.session.commit()
 
@@ -461,7 +462,7 @@ def test_dry_run_rollback_gwarantowany_mimo_wyjatku_w_fazie(app, db, make_user, 
     _przetworz_dostawy() bez takiego kontekstu i wymusza wyjątek W TRAKCIE fazy 1,
     więc jedyne, co może cofnąć flush z backfillu, to gwarancja w samej funkcji."""
     from app import _przetworz_dostawy
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     from utils.email_manager import EmailManager
 
     user = make_user()
@@ -471,7 +472,7 @@ def test_dry_run_rollback_gwarantowany_mimo_wyjatku_w_fazie(app, db, make_user, 
     sr = ShippingRequest(request_number='WYS/000590', user_id=user.id, status='wyslane')
     db.session.add(sr)
     db.session.commit()
-    sr.updated_at = get_local_now() - timedelta(days=5)
+    sr.updated_at = utcnow() - timedelta(days=5)
     db.session.commit()
     assert sr.shipped_at is None
 
@@ -539,11 +540,11 @@ def _paczka_zbiorcza_wyslana(db, make_user, numer_paczki, numery_zrodel, dni_tem
     Zwraca (zbiorcze, [zrodla]); pierwsze źródło jest wiodące, tak jak ustawia to
     konsolidacja w WMS.
     """
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
 
     zbiorcze = ShippingRequest(
         request_number=numer_paczki, status='wyslane',
-        shipped_at=get_local_now() - timedelta(days=dni_temu))
+        shipped_at=utcnow() - timedelta(days=dni_temu))
     db.session.add(zbiorcze)
     db.session.commit()
 
@@ -552,7 +553,7 @@ def _paczka_zbiorcza_wyslana(db, make_user, numer_paczki, numery_zrodel, dni_tem
         user = make_user(email=f'uczestnik{i}-{numer[-6:]}@example.com')
         zrodlo = ShippingRequest(
             request_number=numer, user_id=user.id, status='wyslane',
-            shipped_at=get_local_now() - timedelta(days=dni_temu),
+            shipped_at=utcnow() - timedelta(days=dni_temu),
             consolidated_into_id=zbiorcze.id)
         db.session.add(zrodlo)
         db.session.commit()
@@ -695,7 +696,6 @@ def test_porcja_fazy2_nie_zakleszcza_sie_na_zleceniach_z_delivered_at(
     zleceniu przez PUT."""
     from modules.auth.models import Settings
     from app import _przetworz_dostawy
-    from modules.orders.models import get_local_now
 
     Settings.set_value('delivery_reminder_enabled', False, type='boolean')
     Settings.set_value('delivery_autocomplete_batch', 2, type='integer')
@@ -707,7 +707,7 @@ def test_porcja_fazy2_nie_zakleszcza_sie_na_zleceniach_z_delivered_at(
     # Dwa blokery na CZELE kolejki (najstarsze) — dokładnie tyle, ile wynosi porcja.
     blokery = [_wyslane(db, user, f'WYS/00064{i}', dni_temu=40 - i) for i in range(2)]
     for bloker in blokery:
-        bloker.delivered_at = get_local_now() - timedelta(days=30)
+        bloker.delivered_at = utcnow() - timedelta(days=30)
     db.session.commit()
     # Prawdziwy kandydat stoi ZA nimi (młodszy o dwa dni).
     kandydat = _wyslane(db, user, 'WYS/000642', dni_temu=38)

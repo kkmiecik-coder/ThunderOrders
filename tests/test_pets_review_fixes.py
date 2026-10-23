@@ -4,6 +4,7 @@ from datetime import timedelta
 from tests.pets_helpers import zaloz_profil, zaloz_pupila
 from tests.test_pets_admin import PELNY_FORMULARZ, _admin
 from tests.test_pets_routes import _wlacz
+from utils.timeutil import utcnow
 
 
 def test_odznaki_pupili_niewidoczne_bez_funkcji(db, make_user):
@@ -75,13 +76,12 @@ def test_dashboard_nie_pada_gdy_widget_pupila_rzuca(client, login, make_user, db
 def test_zapis_konfiguracji_przelicza_pupile_stara_konfiguracja(client, login, make_user, db):
     """Important 5: obniżenie tempa nie działa wstecz — stan każdego żywego pupila jest domykany
     starą konfiguracją w chwili zapisu (checkpoint), nowa liczy się od teraz."""
-    from modules.auth.models import get_local_now
     from modules.pets.models import Pet
     from modules.pets.service import state_for_user
     _admin(make_user, login)
     gracz = make_user()
     zaloz_profil(gracz)
-    teraz = get_local_now()
+    teraz = utcnow()
     pet = zaloz_pupila(gracz, fun=0.0, health=100.0, now=teraz - timedelta(hours=40))   # 40 h z paskiem na zerze
     r = client.post('/admin/pupile/ustawienia', data=dict(PELNY_FORMULARZ, pets_health_drop_hours='24', pets_night_start='0', pets_night_end='0'))
     assert r.status_code == 302

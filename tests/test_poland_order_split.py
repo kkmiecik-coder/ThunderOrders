@@ -2,7 +2,7 @@
 
 Projekt: docs/superpowers/specs/2026-09-09-podzial-partii-polska-design.md
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -164,11 +164,11 @@ def test_podzial_dziedziczy_status_date_i_terminy(db, client, login, make_user, 
 
     p1 = make_product(purchase_price_pln=Decimal('25.00'))
     p2 = make_product(purchase_price_pln=Decimal('10.00'))
-    data_zalozenia = datetime(2026, 7, 11, 18, 55, 0)
+    data_zalozenia = datetime(2026, 7, 11, 18, 55, 0, tzinfo=timezone.utc)
     partia, pozycje = _zbuduj_partie(db, [(p1.id, 4), (p2.id, 6)], numer='PL/S4',
                                      created_at=data_zalozenia, status='urzad_celny')
-    partia.payment_deadline = datetime(2026, 7, 20, 23, 59, 0)
-    partia.customs_payment_deadline = datetime(2026, 7, 25, 23, 59, 0)
+    partia.payment_deadline = datetime(2026, 7, 20, 23, 59, 0, tzinfo=timezone.utc)
+    partia.customs_payment_deadline = datetime(2026, 7, 25, 23, 59, 0, tzinfo=timezone.utc)
     partia.tracking_number = 'ABC123'
     partia.notes = 'notatka oryginalu'
     db.session.commit()
@@ -182,8 +182,8 @@ def test_podzial_dziedziczy_status_date_i_terminy(db, client, login, make_user, 
     nowa = db.session.get(PolandOrder, odpowiedz.get_json()['nowa_partia_id'])
     assert nowa.status == 'urzad_celny'
     assert nowa.created_at == data_zalozenia
-    assert nowa.payment_deadline == datetime(2026, 7, 20, 23, 59, 0)
-    assert nowa.customs_payment_deadline == datetime(2026, 7, 25, 23, 59, 0)
+    assert nowa.payment_deadline == datetime(2026, 7, 20, 23, 59, 0, tzinfo=timezone.utc)
+    assert nowa.customs_payment_deadline == datetime(2026, 7, 25, 23, 59, 0, tzinfo=timezone.utc)
     assert not nowa.tracking_number
     assert not nowa.notes
     assert nowa.is_archived is False
@@ -338,7 +338,7 @@ def test_podzial_nie_zmienia_kwot_klientow_i_nie_wysyla_powiadomien(
 
     p1 = make_product(purchase_price_pln=Decimal('25.00'))
     p2 = make_product(purchase_price_pln=Decimal('10.00'))
-    baza = datetime(2026, 6, 1, 10, 0, 0)
+    baza = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     z1 = _zamowienie_klienta(db, make_user, make_order, p1.id, 2, baza)
     z2 = _zamowienie_klienta(db, make_user, make_order, p2.id, 3, baza + timedelta(minutes=1))
 
@@ -382,7 +382,7 @@ def test_podzial_nie_rusza_kolejki_fifo(db, client, login, make_user, make_order
 
     p1 = make_product(purchase_price_pln=Decimal('25.00'))
     p2 = make_product(purchase_price_pln=Decimal('10.00'))
-    baza = datetime(2026, 6, 1, 10, 0, 0)
+    baza = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     starszy = _zamowienie_klienta(db, make_user, make_order, p2.id, 2, baza)
     nowszy = _zamowienie_klienta(db, make_user, make_order, p2.id, 2, baza + timedelta(days=1))
 
@@ -427,13 +427,13 @@ def test_podzial_zachowuje_terminy_i_przypisania_sztuk(
 
     p1 = make_product(purchase_price_pln=Decimal('25.00'))
     p2 = make_product(purchase_price_pln=Decimal('10.00'))
-    baza = datetime(2026, 6, 1, 10, 0, 0)
+    baza = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     z1 = _zamowienie_klienta(db, make_user, make_order, p1.id, 2, baza)
     z2 = _zamowienie_klienta(db, make_user, make_order, p2.id, 3, baza + timedelta(minutes=1))
 
     partia, pozycje = _zbuduj_partie(db, [(p1.id, 2), (p2.id, 3)], numer='PL/G3', created_at=baza)
-    partia.payment_deadline = datetime(2026, 6, 20, 23, 59, 0)
-    partia.customs_payment_deadline = datetime(2026, 6, 25, 23, 59, 0)
+    partia.payment_deadline = datetime(2026, 6, 20, 23, 59, 0, tzinfo=timezone.utc)
+    partia.customs_payment_deadline = datetime(2026, 6, 25, 23, 59, 0, tzinfo=timezone.utc)
     db.session.add(PolandOrderItemOrder(poland_order_item_id=pozycje[0].id, order_id=z1.id, quantity=2))
     db.session.add(PolandOrderItemOrder(poland_order_item_id=pozycje[1].id, order_id=z2.id, quantity=3))
     db.session.commit()
@@ -464,7 +464,7 @@ def test_podzial_nie_zmienia_listy_do_zamowienia(
 
     p1 = make_product(purchase_price_pln=Decimal('25.00'))
     p2 = make_product(purchase_price_pln=Decimal('10.00'))
-    baza = datetime(2026, 6, 1, 10, 0, 0)
+    baza = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     _zamowienie_klienta(db, make_user, make_order, p1.id, 4, baza)
     _zamowienie_klienta(db, make_user, make_order, p2.id, 6, baza + timedelta(minutes=1))
 

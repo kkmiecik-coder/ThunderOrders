@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
+from utils.timeutil import utcnow
 
-from modules.orders.models import get_local_now
 
 
 def _seed_poland_order_with_deadline(db, order, deadline):
@@ -119,7 +119,7 @@ def test_cron_skips_shipping_kr_stage_with_zero_amount(app, db, make_user, make_
     """
     from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(
         make_user(email='klient5@example.com'),
         total_amount=Decimal('100.00'),
@@ -148,7 +148,7 @@ def test_cron_skips_shipping_kr_stage_with_zero_amount(app, db, make_user, make_
 def test_cron_sends_reminder_for_customs_vat_stage(app, db, make_user, make_order, monkeypatch):
     from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(
         make_user(email='klient3@example.com'),
         total_amount=Decimal('100.00'),
@@ -187,7 +187,7 @@ def test_cron_dry_run_does_not_write_log(app, db, make_user, make_order):
     """
     from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(
         make_user(email='klient4@example.com'),
         total_amount=Decimal('100.00'),
@@ -215,7 +215,7 @@ def test_cron_after_order_placed_skips_exclusive_order_with_open_sale(app, db, m
     """
     from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(
         make_user(email='klient5@example.com'),
         total_amount=Decimal('100.00'),
@@ -249,7 +249,7 @@ def test_cron_pomija_zamowienia_zamkniete(app, db, make_user, make_order, monkey
     """
     from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(
         make_user(email=f'klient-{status}@example.com'),
         total_amount=Decimal('100.00'),

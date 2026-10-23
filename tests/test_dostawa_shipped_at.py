@@ -1,6 +1,7 @@
 """shipped_at — moment wysyłki jako punkt odniesienia dla przypomnień i automatu."""
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import timedelta
+from utils.timeutil import utcnow
 
 
 @contextmanager
@@ -50,7 +51,7 @@ def test_wysylka_zapisuje_shipped_at(app, db, make_user, make_order):
         shipping_request_id=sr.id, order_id=zamowienie.id))
     db.session.commit()
 
-    przed = datetime.now() - timedelta(seconds=5)
+    przed = utcnow() - timedelta(seconds=5)
     ship_shipping_request(sr, courier='inpost', tracking_number='123456789')
 
     assert sr.status == 'wyslane'
@@ -73,7 +74,7 @@ def test_backfill_bierze_date_z_logu_aktywnosci(app, db, make_user):
 
     user = make_user()
     sr = _zlecenie(db, user, status='wyslane')
-    kiedy = datetime.now() - timedelta(days=20)
+    kiedy = utcnow() - timedelta(days=20)
     db.session.add(ActivityLog(
         action='shipping_request_shipped', entity_type='shipping_request',
         entity_id=sr.id, created_at=kiedy))
@@ -93,7 +94,7 @@ def test_backfill_schodzi_na_date_przesylki(app, db, make_user, make_order):
     sr = _zlecenie(db, user, status='wyslane')
     order = make_order(user, status='wyslane')
     db.session.add(ShippingRequestOrder(shipping_request_id=sr.id, order_id=order.id))
-    kiedy = datetime.now() - timedelta(days=15)
+    kiedy = utcnow() - timedelta(days=15)
     db.session.add(OrderShipment(
         order_id=order.id, tracking_number='X1', courier='inpost', created_at=kiedy))
     db.session.commit()
@@ -120,7 +121,7 @@ def test_backfill_jest_idempotentny(app, db, make_user):
 
     user = make_user()
     sr = _zlecenie(db, user, status='wyslane')
-    sr.updated_at = datetime.now() - timedelta(days=30)
+    sr.updated_at = utcnow() - timedelta(days=30)
     db.session.commit()
 
     pierwszy = odtworz_shipped_at()
@@ -149,19 +150,19 @@ def test_backfill_wielu_kandydatow_nie_miesza_zrodel(app, db, make_user, make_or
     db.session.add_all([sr_log, sr_przesylka, sr_updated])
     db.session.commit()
 
-    kiedy_log = datetime.now() - timedelta(days=25)
+    kiedy_log = utcnow() - timedelta(days=25)
     db.session.add(ActivityLog(
         action='shipping_request_shipped', entity_type='shipping_request',
         entity_id=sr_log.id, created_at=kiedy_log))
 
     order = make_order(user_b, status='wyslane')
     db.session.add(ShippingRequestOrder(shipping_request_id=sr_przesylka.id, order_id=order.id))
-    kiedy_przesylka = datetime.now() - timedelta(days=18)
+    kiedy_przesylka = utcnow() - timedelta(days=18)
     db.session.add(OrderShipment(
         order_id=order.id, tracking_number='X9', courier='inpost', created_at=kiedy_przesylka))
     db.session.commit()
 
-    kiedy_updated = datetime.now() - timedelta(days=12)
+    kiedy_updated = utcnow() - timedelta(days=12)
     sr_updated.updated_at = kiedy_updated
     db.session.commit()
 
@@ -170,7 +171,7 @@ def test_backfill_wielu_kandydatow_nie_miesza_zrodel(app, db, make_user, make_or
 
     # sr_updated.updated_at NIE nadaje się tu jako punkt odniesienia po fakcie:
     # backfill sam robi UPDATE na tym wierszu (ustawia shipped_at), więc kolumna z
-    # onupdate=get_local_now przestawia się na „teraz" przy TYM SAMYM commicie —
+    # onupdate=utcnow przestawia się na „teraz" przy TYM SAMYM commicie —
     # porównujemy więc do wartości złapanej PRZED wywołaniem odtworz_shipped_at().
     assert wynik == {'z_logu': 1, 'z_przesylek': 1, 'z_updated_at': 1}
     assert abs((sr_log.shipped_at - kiedy_log).total_seconds()) < 1

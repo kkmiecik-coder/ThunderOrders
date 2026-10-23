@@ -1,5 +1,6 @@
 """API mobilne — potwierdzenie odbioru i ocena dostawy (parytet z webem)."""
 from datetime import timedelta
+from utils.timeutil import utcnow
 
 
 def _auth(client, db, make_user):
@@ -12,10 +13,10 @@ def _auth(client, db, make_user):
 
 
 def _wyslane(db, user, numer, dni_temu=4):
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     sr = ShippingRequest(
         request_number=numer, user_id=user.id, status='wyslane',
-        shipped_at=get_local_now() - timedelta(days=dni_temu))
+        shipped_at=utcnow() - timedelta(days=dni_temu))
     db.session.add(sr)
     db.session.commit()
     return sr
@@ -101,14 +102,13 @@ def test_powtorzony_idempotency_key_nie_dubluje(client, db, make_user):
 
 
 def test_edycja_oceny_po_oknie_zwraca_409(client, db, make_user):
-    from modules.orders.models import get_local_now
 
     h, u = _auth(client, db, make_user)
     sr = _wyslane(db, u, 'WYS/000730')
     client.post(f'/api/mobile/v1/shipping/requests/{sr.id}/confirm-delivery',
                 json={'rating': 3}, headers=h)
 
-    sr.review.created_at = get_local_now() - timedelta(days=4)
+    sr.review.created_at = utcnow() - timedelta(days=4)
     db.session.commit()
 
     r = client.put(f'/api/mobile/v1/shipping/requests/{sr.id}/review',

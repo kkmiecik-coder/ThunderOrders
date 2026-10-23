@@ -1,11 +1,12 @@
 """Panel klienta — potwierdzenie odbioru i ocena dostawy."""
 from datetime import timedelta
+from utils.timeutil import utcnow
 
 
 def _zlecenie(db, user, numer, status='wyslane'):
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     sr = ShippingRequest(request_number=numer, user_id=user.id, status=status,
-                         shipped_at=get_local_now() - timedelta(days=4))
+                         shipped_at=utcnow() - timedelta(days=4))
     db.session.add(sr)
     db.session.commit()
     return sr
@@ -55,12 +56,11 @@ def test_get_dostarczonego_z_ocena_pokazuje_strone(app, db, client, login, make_
     """Druga gałąź kontekstu: zlecenie już dostarczone, z wystawioną opinią
     (review nie jest None). Tania dodatkowa asercja, że render_template nie
     wywala się przy niepustym `review`."""
-    from modules.orders.models import get_local_now
     from modules.orders.review_models import DeliveryReview
 
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000404', status='dostarczone')
-    sr.delivered_at = get_local_now() - timedelta(days=1)
+    sr.delivered_at = utcnow() - timedelta(days=1)
     sr.delivered_source = 'klient'
     db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=user.id,
                                    rating=5, comment='Super'))
@@ -314,14 +314,13 @@ def test_druga_ocena_aktualizuje_pierwsza(app, db, client, login, make_user):
 
 
 def test_edycja_po_oknie_odrzucona(app, db, client, login, make_user):
-    from modules.orders.models import get_local_now
 
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000450')
     login(user)
     client.post(f'/client/shipping/requests/{sr.id}/potwierdz', json={'rating': 3})
 
-    sr.review.created_at = get_local_now() - timedelta(days=4)
+    sr.review.created_at = utcnow() - timedelta(days=4)
     db.session.commit()
 
     odp = client.post(f'/client/shipping/requests/{sr.id}/ocena', json={'rating': 1})
@@ -331,11 +330,10 @@ def test_edycja_po_oknie_odrzucona(app, db, client, login, make_user):
 
 
 def test_ocena_po_oknie_wystawienia_odrzucona(app, db, client, login, make_user):
-    from modules.orders.models import get_local_now
 
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000460', status='dostarczone')
-    sr.delivered_at = get_local_now() - timedelta(days=31)
+    sr.delivered_at = utcnow() - timedelta(days=31)
     sr.delivered_source = 'auto'
     db.session.commit()
     login(user)
@@ -347,11 +345,10 @@ def test_ocena_po_oknie_wystawienia_odrzucona(app, db, client, login, make_user)
 
 
 def test_ocena_po_domknieciu_automatem_dziala(app, db, client, login, make_user):
-    from modules.orders.models import get_local_now
 
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000470', status='dostarczone')
-    sr.delivered_at = get_local_now() - timedelta(days=2)
+    sr.delivered_at = utcnow() - timedelta(days=2)
     sr.delivered_source = 'auto'
     db.session.commit()
     login(user)
@@ -402,12 +399,11 @@ def test_opinia_zostaje_widoczna_po_zmianie_statusu_poza_ocenialne(
     zachowanie, nie komentarz: intencja komentarza jest słuszna, kod jej nie
     realizował. Ten test jest jedyną osłoną przed „przywróceniem brakującego
     strażnika" po statusie w widoku GET."""
-    from modules.orders.models import get_local_now
     from modules.orders.review_models import DeliveryReview
 
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000496', status='dostarczone')
-    sr.delivered_at = get_local_now() - timedelta(days=1)
+    sr.delivered_at = utcnow() - timedelta(days=1)
     db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=user.id,
                                    rating=5, comment='Super szybko'))
     db.session.commit()
@@ -429,12 +425,11 @@ def test_zablokowana_sekcja_nie_obiecuje_edycji_oceny(app, db, client, login, ma
     edycji otwarte) dostawała `data-editable="false"`, czyli martwe gwiazdki
     i zablokowany przycisk, a nad nimi zdanie „Ocenę możesz zmieniać przez 3 dni".
     Ten sam rozjazd daje status cofnięty poza STATUSY_Z_OCENA."""
-    from modules.orders.models import get_local_now
     from modules.orders.review_models import DeliveryReview
 
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000498', status='dostarczone')
-    sr.delivered_at = get_local_now() - timedelta(days=31)
+    sr.delivered_at = utcnow() - timedelta(days=31)
     db.session.add(DeliveryReview(shipping_request_id=sr.id, user_id=user.id,
                                    rating=4, comment='Dotarło z opóźnieniem'))
     db.session.commit()
@@ -467,11 +462,10 @@ def test_potwierdzenie_juz_dostarczonego_zlecenia_zwraca_409(app, db, client, lo
     w statusie 'wyslane', ZANIM cokolwiek zapisze — inaczej klient mógłby POST-em
     domknąć paczkę już dostarczoną (strona GET tylko ukrywa przycisk, to nie jest
     zabezpieczeniem samo w sobie)."""
-    from modules.orders.models import get_local_now
 
     user = make_user(profile_completed=True)
     sr = _zlecenie(db, user, 'WYS/000480', status='dostarczone')
-    sr.delivered_at = get_local_now() - timedelta(days=1)
+    sr.delivered_at = utcnow() - timedelta(days=1)
     sr.delivered_source = 'auto'
     db.session.commit()
     login(user)

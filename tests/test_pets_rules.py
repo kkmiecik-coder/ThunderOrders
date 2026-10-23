@@ -7,13 +7,14 @@ modułu (i od sesji, która równolegle pisze config.py). Konfiguracja to obiekt
 o kształcie PetConfig z liczbami ze specu §3.4; zgodność z prawdziwym PetConfig
 sprawdza test dopisywany przy integracji etapu (Task 7).
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 
 from modules.pets import rules
 from modules.pets.rules import PetState
+from utils.timeutil import utcnow
 
 
 def _cfg(**nadpisania):
@@ -34,9 +35,9 @@ def _cfg(**nadpisania):
 
 
 CFG = _cfg()
-PON_08 = datetime(2026, 10, 12, 8, 0)
-PON_23 = datetime(2026, 10, 12, 23, 0)
-WT_07 = datetime(2026, 10, 13, 7, 0)
+PON_08 = datetime(2026, 10, 12, 8, 0, tzinfo=timezone.utc)
+PON_23 = datetime(2026, 10, 12, 23, 0, tzinfo=timezone.utc)
+WT_07 = datetime(2026, 10, 13, 7, 0, tzinfo=timezone.utc)
 PELNY = PetState()
 
 
@@ -62,8 +63,8 @@ def test_is_night_bez_nocy_gdy_start_rowny_end():
 
 def test_is_night_okno_niewychodzace_poza_polnoc():
     cfg = _cfg(night={'start': 1, 'end': 5, 'factor': 0.25})
-    assert rules.is_night(datetime(2026, 10, 12, 3, 0), cfg) is True
-    assert rules.is_night(datetime(2026, 10, 12, 23, 0), cfg) is False
+    assert rules.is_night(datetime(2026, 10, 12, 3, 0, tzinfo=timezone.utc), cfg) is True
+    assert rules.is_night(datetime(2026, 10, 12, 23, 0, tzinfo=timezone.utc), cfg) is False
 
 
 def test_wake_reasons():
@@ -222,9 +223,9 @@ def test_determinizm_siatki():
 
 
 def test_czas_wstecz_nie_zmienia_stanu():
-    """Zmiana czasu 25.10: get_local_now() cofa się o godzinę → T < state_at."""
+    """Zmiana czasu 25.10: dawny naiwny czas polski cofał się o godzinę → T < state_at."""
     stan = PetState(hunger=70)
-    wynik = rules.simulate(stan, CFG, datetime(2026, 10, 25, 3, 0), datetime(2026, 10, 25, 2, 0))
+    wynik = rules.simulate(stan, CFG, datetime(2026, 10, 25, 3, 0, tzinfo=timezone.utc), datetime(2026, 10, 25, 2, 0, tzinfo=timezone.utc))
     assert wynik.state == stan and wynik.died_at is None
 
 

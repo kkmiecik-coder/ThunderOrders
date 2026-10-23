@@ -1,13 +1,15 @@
+from utils.timeutil import utcnow
+
+
 def test_blocklist_contains(db, make_user):
     from modules.api_mobile.models import MobileTokenBlocklist
-    from modules.orders.models import get_local_now
     from datetime import timedelta
 
     u = make_user()
     assert MobileTokenBlocklist.contains('abc') is False
     db.session.add(MobileTokenBlocklist(
         jti='abc', token_type='refresh', user_id=u.id,
-        expires_at=get_local_now() + timedelta(days=1),
+        expires_at=utcnow() + timedelta(days=1),
     ))
     db.session.commit()
     assert MobileTokenBlocklist.contains('abc') is True
@@ -159,14 +161,13 @@ def test_verify_email_wrong_code(client, db, make_user):
 
 def test_verify_email_locked_with_expired_code_reports_invalid_code(client, db, make_user):
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     u = make_user(email='lock@example.com')
     u.email_verified = False
     db.session.commit()
     u.generate_verification_code()
     # symuluj lockout + wygasły kod
-    u.email_verification_locked_until = get_local_now() + timedelta(minutes=15)
-    u.email_verification_code_expires = get_local_now() - timedelta(minutes=1)
+    u.email_verification_locked_until = utcnow() + timedelta(minutes=15)
+    u.email_verification_code_expires = utcnow() - timedelta(minutes=1)
     db.session.commit()
     r = client.post('/api/mobile/v1/auth/verify-email',
                     json={'email': 'lock@example.com', 'code': '123456'})
@@ -482,12 +483,11 @@ def test_rate_limit_returns_envelope_for_mobile_api(app, db):
 def test_logout_stores_expiry_in_local_time_and_purges_expired(client, db, make_user):
     from datetime import timedelta
     from modules.api_mobile.models import MobileTokenBlocklist
-    from modules.orders.models import get_local_now
 
     # wpis dawno wygasły — powinien zostać sprzątnięty przy logout (lazy cleanup)
     db.session.add(MobileTokenBlocklist(
         jti='stale-jti', token_type='refresh', user_id=None,
-        expires_at=get_local_now() - timedelta(hours=2),
+        expires_at=utcnow() - timedelta(hours=2),
     ))
     db.session.commit()
 
@@ -499,7 +499,7 @@ def test_logout_stores_expiry_in_local_time_and_purges_expired(client, db, make_
     assert MobileTokenBlocklist.contains('stale-jti') is False  # sprzątnięte
     entry = MobileTokenBlocklist.query.one()
     # expires_at w czasie lokalnym PL (spójnie z created_at): ~30 dni od teraz
-    delta = entry.expires_at - get_local_now()
+    delta = entry.expires_at - utcnow()
     assert timedelta(days=29, hours=23) < delta < timedelta(days=30, hours=1)
 
 
@@ -644,10 +644,9 @@ def test_reset_password_wrong_code(client, db, make_user, monkeypatch):
 
 
 def test_reset_password_expired_code(client, db, make_user, monkeypatch):
-    from modules.orders.models import get_local_now
     from datetime import timedelta
     u, code = _request_reset_code(client, db, make_user, monkeypatch)
-    u.password_reset_code_expires = get_local_now() - timedelta(minutes=1)
+    u.password_reset_code_expires = utcnow() - timedelta(minutes=1)
     db.session.commit()
 
     r = client.post('/api/mobile/v1/auth/reset-password',
@@ -810,10 +809,9 @@ def test_verify_reset_code_lockout_after_five_attempts(client, db, make_user, mo
 
 
 def test_verify_reset_code_expired(client, db, make_user, monkeypatch):
-    from modules.orders.models import get_local_now
     from datetime import timedelta
     u, code = _request_reset_code(client, db, make_user, monkeypatch)
-    u.password_reset_code_expires = get_local_now() - timedelta(minutes=1)
+    u.password_reset_code_expires = utcnow() - timedelta(minutes=1)
     db.session.commit()
 
     r = client.post('/api/mobile/v1/auth/verify-reset-code',

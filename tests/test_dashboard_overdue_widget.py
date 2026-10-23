@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
+from utils.timeutil import utcnow
 
-from modules.orders.models import get_local_now
 
 
 def test_dashboard_shows_overdue_count(app, db, make_user, make_order, client, login):
@@ -11,7 +11,7 @@ def test_dashboard_shows_overdue_count(app, db, make_user, make_order, client, l
     admin = make_user(role='admin', profile_completed=True)
     login(admin)
 
-    now = get_local_now()
+    now = utcnow()
     user = make_user()
 
     # Create an offer page with a past payment deadline

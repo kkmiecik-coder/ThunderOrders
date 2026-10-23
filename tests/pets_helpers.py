@@ -1,12 +1,12 @@
 """Wspólne klocki testów serwisu pupili (etap 2). Import: `from tests.pets_helpers import …`
 (działa, bo `python -m pytest` dodaje katalog repo do sys.path)."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from extensions import db
 from modules.pets.models import Pet, PetProfile
 
-T0 = datetime(2026, 10, 12, 8, 0)      # poniedziałek, dzień
-NOC = datetime(2026, 10, 12, 23, 30)   # noc 23–07
+T0 = datetime(2026, 10, 12, 8, 0, tzinfo=timezone.utc)      # poniedziałek, dzień
+NOC = datetime(2026, 10, 12, 23, 30, tzinfo=timezone.utc)   # noc 23–07
 
 
 def zaloz_profil(user, now=T0):

@@ -4,7 +4,7 @@ Lista stron sprzedaży: podział na zakładki, kolejność, filtr i paginacja.
 Podział/sortowanie/filtrowanie robi baza (build_offers_query), bo lista jest
 paginowana — dawna wersja układała strony w Pythonie na pełnym zbiorze.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -58,10 +58,10 @@ def test_default_order_follows_status_priority(app, make_page):
 
 def test_default_order_dates_desc_and_nulls_last(app, make_page):
     from modules.admin.offers import build_offers_query
-    make_page('old', 'paused', starts_at=datetime(2026, 1, 1, 10, 0))
+    make_page('old', 'paused', starts_at=datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc))
     make_page('nodate', 'paused')
-    make_page('new', 'paused', starts_at=datetime(2026, 6, 1, 10, 0))
-    make_page('mid', 'paused', starts_at=datetime(2026, 3, 1, 10, 0))
+    make_page('new', 'paused', starts_at=datetime(2026, 6, 1, 10, 0, tzinfo=timezone.utc))
+    make_page('mid', 'paused', starts_at=datetime(2026, 3, 1, 10, 0, tzinfo=timezone.utc))
 
     assert _names(build_offers_query(False)) == ['new', 'mid', 'old', 'nodate']
 

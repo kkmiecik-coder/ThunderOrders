@@ -1,14 +1,14 @@
 from datetime import timedelta
 from decimal import Decimal
+from utils.timeutil import utcnow
 
-from modules.orders.models import get_local_now
 
 
 def test_overdue_payments_page_lists_order(app, db, make_user, make_order, client, login):
     admin = make_user(role='admin', profile_completed=True)
     login(admin)
 
-    now = get_local_now()
+    now = utcnow()
     customer = make_user(email='klient@example.com')
     order = make_order(customer, total_amount=Decimal('150.00'))
     order.get_product_deadline = lambda: now - timedelta(days=4)

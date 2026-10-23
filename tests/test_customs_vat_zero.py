@@ -1,5 +1,6 @@
 """Testy rozróżnienia NULL (cło nieustalone) od 0 (cło ustalone na zero)."""
 from decimal import Decimal
+from datetime import timezone
 
 
 def test_new_order_has_null_customs_by_default(db, make_user, make_order):
@@ -444,7 +445,7 @@ def test_no_customs_clears_payment_deadline(client, db, make_user, make_order,
                                       price=Decimal('100.00'), qty=10)
     po, item = _poland_setup(db, o, p, Decimal('23'))
     from datetime import datetime
-    po.customs_payment_deadline = datetime(2026, 12, 31, 23, 59)
+    po.customs_payment_deadline = datetime(2026, 12, 31, 23, 59, tzinfo=timezone.utc)
     db.session.commit()
 
     client.put('/admin/products/api/update-poland-customs-vat',

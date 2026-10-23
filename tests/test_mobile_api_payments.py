@@ -8,6 +8,7 @@ import os
 from decimal import Decimal
 
 import pytest
+from utils.timeutil import utcnow
 
 
 @pytest.fixture(autouse=True)
@@ -334,9 +335,8 @@ def test_confirmations_active_shape(client, db, make_user, make_order):
 
 def test_confirmations_archive_tab(client, db, make_user, make_order):
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     h, u = _auth(client, db, make_user)
-    old = get_local_now() - timedelta(days=5)
+    old = utcnow() - timedelta(days=5)
     o = make_order(u, order_type='on_hand', status='dostarczone_gom',
                    shipping_cost=Decimal('10.00'))
     _add_payment(db, o, 'product', status='approved', updated_at=old)

@@ -1,3 +1,6 @@
+from utils.timeutil import utcnow
+
+
 def _admin(make_user):
     return make_user(role='admin')
 
@@ -94,11 +97,10 @@ def test_draw_endpoint(client, db, make_user, make_product, login):
 
 def test_draw_blocked_when_spins_open(client, db, make_user, make_product, login):
     from datetime import timedelta
-    from modules.auth.models import get_local_now
     from modules.contests.models import Contest, ContestSpin
     login(make_user(role='admin')); prod = make_product()
     c = Contest(name='A', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
-                status='aktywny', ends_at=get_local_now() + timedelta(hours=1))
+                status='aktywny', ends_at=utcnow() + timedelta(hours=1))
     db.session.add(c); db.session.commit()
     db.session.add(ContestSpin(contest_id=c.id, user_id=make_user().id, tickets_won=5))
     db.session.commit()

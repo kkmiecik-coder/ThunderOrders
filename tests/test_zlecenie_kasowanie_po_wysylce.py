@@ -15,6 +15,7 @@ w statusach „wyslane"/„dostarczone".
 """
 
 import pytest
+from utils.timeutil import utcnow
 
 
 def _seed_sr_statuses(db):
@@ -148,8 +149,7 @@ def test_cofniecie_wysylki_czysci_slady_nadania(db, client, login, make_user, ma
 
     _seed_sr_statuses(db)
     sr, zamowienie = _zlecenie(db, make_user, make_order, 'wyslane')
-    from modules.orders.models import get_local_now
-    sr.shipped_at = get_local_now()
+    sr.shipped_at = utcnow()
     db.session.add(OrderShipment(
         order_id=zamowienie.id, tracking_number=sr.tracking_number, courier='inpost'))
     db.session.commit()
