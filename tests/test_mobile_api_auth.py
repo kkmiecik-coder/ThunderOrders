@@ -480,7 +480,7 @@ def test_rate_limit_returns_envelope_for_mobile_api(app, db):
     assert last.get_json()['error']['code'] == 'rate_limited'
 
 
-def test_logout_stores_expiry_in_local_time_and_purges_expired(client, db, make_user):
+def test_logout_stores_expiry_in_utc_and_purges_expired(client, db, make_user):
     from datetime import timedelta
     from modules.api_mobile.models import MobileTokenBlocklist
 
@@ -498,7 +498,7 @@ def test_logout_stores_expiry_in_local_time_and_purges_expired(client, db, make_
 
     assert MobileTokenBlocklist.contains('stale-jti') is False  # sprzątnięte
     entry = MobileTokenBlocklist.query.one()
-    # expires_at w czasie lokalnym PL (spójnie z created_at): ~30 dni od teraz
+    # expires_at w UTC (jak created_at): ~30 dni od teraz
     delta = entry.expires_at - utcnow()
     assert timedelta(days=29, hours=23) < delta < timedelta(days=30, hours=1)
 

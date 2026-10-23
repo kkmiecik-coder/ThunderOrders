@@ -11,7 +11,7 @@ class MobileTokenBlocklist(db.Model):
     jti = db.Column(db.String(36), nullable=False, index=True, unique=True)
     token_type = db.Column(db.String(16), nullable=False)  # 'access' | 'refresh'
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True)
-    expires_at = db.Column(UTCDateTime, nullable=False)  # czas lokalny PL (spójnie z created_at)
+    expires_at = db.Column(UTCDateTime, nullable=False)  # UTC, jak created_at
     created_at = db.Column(UTCDateTime, default=utcnow)
 
     @classmethod

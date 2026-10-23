@@ -6,6 +6,7 @@ from extensions import db
 
 from modules.orders.models import Order
 from modules.client.payment_confirmation_service import order_stage_keys
+from utils.timeutil import iso_utc
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze
 from .validators import parse_int, ValidationError
@@ -32,7 +33,7 @@ def _serialize_order_brief(order):
         'status_badge_color': order.status_badge_color,
         'total': to_grosze(order.effective_grand_total),     # parytet z webową listą
         'items_count': order.items_count,
-        'created_at': order.created_at.isoformat() if order.created_at else None,
+        'created_at': iso_utc(order.created_at),
         'offer_page_name': order.offer_page_name,
     }
 
@@ -82,7 +83,7 @@ def _stage_entry(stage, stage_index, name, amount, status, can_upload, deadline,
         'amount': to_grosze(amount),
         'status': status,                                 # 'none'|'pending'|'approved'|'rejected'
         'can_upload': bool(can_upload),
-        'deadline': deadline.isoformat() if deadline else None,
+        'deadline': iso_utc(deadline),
         'has_proof': bool(conf.has_proof) if conf else False,
         'proof_url': _proof_url(conf.proof_file) if (conf and conf.proof_file) else None,  # [D1=a]
         'rejection_reason': conf.rejection_reason if conf else None,
@@ -151,7 +152,7 @@ def _serialize_order_detail(order):
         'status': order.status,
         'status_display_name': order.status_display_name,
         'status_badge_color': order.status_badge_color,
-        'created_at': order.created_at.isoformat() if order.created_at else None,
+        'created_at': iso_utc(order.created_at),
         'offer_page_name': order.offer_page_name,
         'custom_name': order.custom_name,
         'notes': order.notes,

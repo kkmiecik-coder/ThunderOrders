@@ -8,6 +8,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db, limiter
 from modules.auth.models import User
 from modules.client import collection_service as svc
+from utils.timeutil import iso_utc
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze
 from .validators import parse_int, ValidationError
@@ -34,7 +35,7 @@ def _serialize_item_brief(item):
         'is_public': bool(item.is_public),
         'images_count': item.images_count,
         'image_url': _abs(item.image_url),                    # primary/produkt/placeholder
-        'created_at': item.created_at.isoformat() if item.created_at else None,
+        'created_at': iso_utc(item.created_at),
     }
 
 
@@ -59,7 +60,7 @@ def _serialize_item_detail(item):
         'notes': item.notes,
         'can_add_image': item.can_add_image,
         'images': _serialize_item_images(item),
-        'updated_at': item.updated_at.isoformat() if item.updated_at else None,
+        'updated_at': iso_utc(item.updated_at),
     })
     return d
 

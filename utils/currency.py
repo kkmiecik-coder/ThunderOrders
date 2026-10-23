@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from flask import current_app
 from extensions import db
+from utils.timeutil import iso_utc
 
 POLAND_TZ = ZoneInfo('Europe/Warsaw')
 
@@ -165,6 +166,7 @@ def get_cached_rate(currency_code, allow_stale=False):
                 'date': cached_at.strftime('%Y-%m-%d'),
                 'cached': True,
                 'cached_at': last_update,
+                'cached_at_iso': iso_utc(cached_at),  # chwila ze strefą (API mobilne)
                 'cache_age_hours': int(age.total_seconds() / 3600)
             }
 
@@ -197,6 +199,7 @@ def get_cached_rate(currency_code, allow_stale=False):
             'date': cached_at.strftime('%Y-%m-%d'),
             'cached': True,
             'cached_at': timestamp_setting.value,
+            'cached_at_iso': iso_utc(cached_at),  # chwila ze strefą (API mobilne)
             'cache_age_hours': int(age.total_seconds() / 3600)
         }
 

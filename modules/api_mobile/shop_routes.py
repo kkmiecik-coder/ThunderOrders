@@ -132,5 +132,5 @@ def exchange_rate():
         'rate': rate_data['rate'],
         'date': rate_data.get('date'),
         'cached': rate_data.get('cached', False),
-        'cached_at': rate_data.get('cached_at'),
+        'cached_at': rate_data.get('cached_at_iso'),
     })

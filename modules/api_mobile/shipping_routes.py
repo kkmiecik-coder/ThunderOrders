@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db, limiter
 from modules.auth.models import User
 from modules.client import shipping_service as svc
+from utils.timeutil import iso_utc
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, to_grosze
 from .validators import parse_int
@@ -23,7 +24,7 @@ def _serialize_address(a):
         'pickup_courier': a.pickup_courier, 'pickup_point_id': a.pickup_point_id,
         'pickup_address': a.pickup_address, 'pickup_postal_code': a.pickup_postal_code,
         'pickup_city': a.pickup_city,
-        'created_at': a.created_at.isoformat() if a.created_at else None,
+        'created_at': iso_utc(a.created_at),
     }
 
 
@@ -88,7 +89,7 @@ def _serialize_available_order(order):
     return {
         'id': order.id, 'order_number': order.order_number,
         'total_amount': to_grosze(order.total_amount),
-        'created_at': order.created_at.isoformat() if order.created_at else None,
+        'created_at': iso_utc(order.created_at),
         'items_count': order.items_count,
         # Gate Cło/VAT (task 869e674fd): False → zablokowane do zlecenia wysyłki
         'customs_vat_paid': order.is_customs_vat_settled,
@@ -140,10 +141,10 @@ def _serialize_request(req):
         # display_orders, nie orders — dla zlecenia źródłowego w paczce zbiorczej
         # request_orders wisi już przy paczce, nie tutaj (parytet z webem).
         'orders': [{'id': o.id, 'order_number': o.order_number} for o in req.display_orders],
-        'created_at': req.created_at.isoformat() if req.created_at else None,
+        'created_at': iso_utc(req.created_at),
         # Dostawa (task 869efhwph) — parytet z panelem webowym.
-        'shipped_at': req.shipped_at.isoformat() if req.shipped_at else None,
-        'delivered_at': req.delivered_at.isoformat() if req.delivered_at else None,
+        'shipped_at': iso_utc(req.shipped_at),
+        'delivered_at': iso_utc(req.delivered_at),
         'delivered_source': req.delivered_source,
         'can_confirm_delivery': _moze_potwierdzic(req),
         'review': ({
