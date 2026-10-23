@@ -11,8 +11,9 @@ from flask_login import current_user
 from flask_socketio import join_room, emit
 
 from extensions import socketio, db
-from modules.orders.models import Order, OrderItem, get_local_now
+from modules.orders.models import Order, OrderItem
 from modules.orders.wms_models import WmsSession, WmsSessionOrder
+from utils.timeutil import iso_utc, utcnow
 
 # Mapping: SocketIO sid → {session_id, role}
 connected_clients = {}
@@ -35,7 +36,7 @@ def _build_item_data(item):
         'wms_status_name': item.wms_status_name,
         'wms_status_color': item.wms_status_color,
         'is_picked': (item.picked_quantity or 0) >= item.quantity,
-        'picked_at': item.picked_at.isoformat() if item.picked_at else None,
+        'picked_at': iso_utc(item.picked_at),
     }
 
 
@@ -108,7 +109,7 @@ def handle_join_session(data):
             return
 
         # Mark phone as connected
-        now = get_local_now()
+        now = utcnow()
         wms_session.phone_connected = True
         wms_session.phone_connected_at = now
         db.session.commit()
@@ -141,8 +142,7 @@ def handle_join_session(data):
     # Notify room if mobile joined
     if role == 'mobile':
         emit('phone_connected', {
-            'connected_at': wms_session.phone_connected_at.isoformat()
-            if wms_session.phone_connected_at else None,
+            'connected_at': iso_utc(wms_session.phone_connected_at),
         }, to=room)
 
     # Send full session state to the joining client
@@ -192,7 +192,7 @@ def handle_update_item_status(data):
         emit('error', {'message': 'Sesja WMS nie jest aktywna'})
         return
 
-    now = get_local_now()
+    now = utcnow()
     current_qty = item.picked_quantity or 0
 
     # Apply action

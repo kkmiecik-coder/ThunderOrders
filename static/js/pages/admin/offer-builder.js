@@ -1168,7 +1168,7 @@ function openEndDateChangeModal(oldEndsAt, newEndsAt, pageName) {
         newValueEl.textContent = formatEndsAtForDisplay(newEndsAt);
 
         // Past-date warning
-        const isPast = newEndsAt && new Date(newEndsAt) < new Date();
+        const isPast = newEndsAt && plWallToEpoch(newEndsAt) < Date.now();  // pole = polski zegar
         warningEl.hidden = !isPast;
 
         // Reset checkboxy do domyślnych (oba zaznaczone)

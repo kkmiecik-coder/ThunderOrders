@@ -10,11 +10,12 @@ from flask import (
 from flask_login import login_required, current_user
 
 from . import tracking_bp
-from .models import QRCampaign, QRVisit, get_local_now
+from .models import QRCampaign, QRVisit
 from .qr_generator import generate_qr_png, generate_qr_svg
 from .export import export_visits_xlsx
 from extensions import db
 from utils.decorators import role_required
+from utils.timeutil import pl_day_bounds_utc, to_pl
 
 
 # ---------------------------------------------------------------------------
@@ -323,38 +324,40 @@ def qr_campaign_api_stats(campaign_id):
     # Bazowe zapytanie - extended range to include padding data
     query = QRVisit.query.filter_by(campaign_id=campaign.id)
 
+    # Zakres dat = polskie doby (granice przeliczone na UTC)
     if date_from_str:
         try:
-            date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
+            date_from, _ = pl_day_bounds_utc(datetime.strptime(date_from_str, '%Y-%m-%d').date())
             query = query.filter(QRVisit.visited_at >= date_from - query_pad_before)
         except ValueError:
             pass
 
     if date_to_str:
         try:
-            date_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+            _, date_to = pl_day_bounds_utc(datetime.strptime(date_to_str, '%Y-%m-%d').date())
             query = query.filter(QRVisit.visited_at < date_to + query_pad_after)
         except ValueError:
             pass
 
     visits = query.order_by(QRVisit.visited_at.asc()).all()
 
-    # --- Timeline ---
+    # --- Timeline (kubełki na zegarze polskim; w bazie leży UTC) ---
     timeline = {}
     for v in visits:
         if not v.visited_at:
             continue
+        visited_pl = to_pl(v.visited_at)
         if granularity == 'minutely':
-            key = v.visited_at.strftime('%Y-%m-%d %H:%M')
+            key = visited_pl.strftime('%Y-%m-%d %H:%M')
         elif granularity == 'hourly':
-            key = v.visited_at.strftime('%Y-%m-%d %H:00')
+            key = visited_pl.strftime('%Y-%m-%d %H:00')
         elif granularity == 'monthly':
-            key = v.visited_at.strftime('%Y-%m')
+            key = visited_pl.strftime('%Y-%m')
         elif granularity == 'weekly':
-            monday = v.visited_at - timedelta(days=v.visited_at.weekday())
+            monday = visited_pl.date() - timedelta(days=visited_pl.weekday())
             key = monday.strftime('%Y-%m-%d')
         else:  # daily
-            key = v.visited_at.strftime('%Y-%m-%d')
+            key = visited_pl.strftime('%Y-%m-%d')
 
         if key not in timeline:
             timeline[key] = {'total': 0, 'unique': 0}
@@ -362,7 +365,10 @@ def qr_campaign_api_stats(campaign_id):
         if v.is_unique:
             timeline[key]['unique'] += 1
 
-    # Fill missing slots so chart shows full continuous range
+    # Fill missing slots so chart shows full continuous range.
+    # Kursory są naiwne celowo: to etykiety na zegarze polskim, jak klucze wyżej (nie chwile).
+    # W dniu zmiany czasu oś godzinowa ma 24 sloty: wiosną pusty slot 02:00, jesienią obie
+    # godziny 02:00 lądują w jednym kubełku.
     if date_from_str and date_to_str:
         try:
             fill_start = datetime.strptime(date_from_str, '%Y-%m-%d')
@@ -518,7 +524,7 @@ def qr_campaign_api_visits(campaign_id):
     for v in pagination.items:
         visits_data.append({
             'id': v.id,
-            'visited_at': v.visited_at.strftime('%Y-%m-%d %H:%M:%S') if v.visited_at else None,
+            'visited_at': to_pl(v.visited_at).strftime('%Y-%m-%d %H:%M:%S') if v.visited_at else None,
             'device_type': v.device_type,
             'browser': v.browser,
             'os': v.os,

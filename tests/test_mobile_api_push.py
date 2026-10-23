@@ -5,6 +5,7 @@ _auth jak w orders/payments/collection (login → Bearer).
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+from datetime import timezone
 
 
 def _auth(client, db, make_user):
@@ -74,7 +75,7 @@ def test_register_same_token_same_user_no_dup(client, db, make_user):
                        headers=h).status_code == 201
     # Postarz last_used_at, by udowodnić odświeżenie przy ponownym POST.
     dev = MobileDevice.query.filter_by(fcm_token='t1').first()
-    dev.last_used_at = datetime(2000, 1, 1)
+    dev.last_used_at = datetime(2000, 1, 1, tzinfo=timezone.utc)
     db.session.commit()
     old = dev.last_used_at
 

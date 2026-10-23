@@ -17,9 +17,9 @@ import json
 from flask import current_app
 
 from extensions import db
-from modules.orders.models import get_local_now
 from modules.orders.wms_models import PackagingMaterial, WmsSessionOrder
 from utils.activity_logger import log_activity
+from utils.timeutil import iso_utc, utcnow
 
 
 class PackingGroupError(Exception):
@@ -170,7 +170,7 @@ def pack_shipping_request_group(session, shipping_request, packaging_material_id
             'Nie wszystkie zamówienia są zebrane: ' + ', '.join(not_picked)
         )
 
-    now = get_local_now()
+    now = utcnow()
     old_statuses = {o.id: o.status for o in group}
 
     # Waga paczki — jedna na całą grupę.
@@ -258,11 +258,11 @@ def pack_shipping_request_group(session, shipping_request, packaging_material_id
             'order_number': o.order_number,
             'status': o.status,
             'status_display_name': o.status_display_name,
-            'packed_at': now.isoformat(),
+            'packed_at': iso_utc(now),
             'packaging_material_name': material.name if material else None,
             'total_package_weight': weight_value,
         } for o in group],
         'low_stock_warning': low_stock_warning,
         'shipping_request': sr_info,
-        'packed_at': now.isoformat(),
+        'packed_at': iso_utc(now),
     }

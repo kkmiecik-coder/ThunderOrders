@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import pytest
 from sqlalchemy.exc import IntegrityError
+from utils.timeutil import utcnow
 
 
 def _zlecenie(db, user, numer='WYS/000100'):
@@ -99,7 +100,6 @@ def test_ocena_calkowita_jako_float_lub_string_akceptowana(app, db, make_user):
 
 
 def test_okno_edycji_trwa_trzy_dni(app, db, make_user):
-    from modules.orders.models import get_local_now
     from modules.orders.review_models import DeliveryReview
 
     user = make_user()
@@ -110,10 +110,10 @@ def test_okno_edycji_trwa_trzy_dni(app, db, make_user):
 
     assert opinia.mozna_edytowac is True
 
-    opinia.created_at = get_local_now() - timedelta(days=2, hours=23)
+    opinia.created_at = utcnow() - timedelta(days=2, hours=23)
     assert opinia.mozna_edytowac is True
 
-    opinia.created_at = get_local_now() - timedelta(days=3, hours=1)
+    opinia.created_at = utcnow() - timedelta(days=3, hours=1)
     assert opinia.mozna_edytowac is False
 
 

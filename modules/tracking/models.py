@@ -1,22 +1,5 @@
 from extensions import db
-from datetime import datetime, timezone, timedelta
-
-
-def get_local_now():
-    """Zwraca aktualny czas polski (Europe/Warsaw)"""
-    utc_now = datetime.now(timezone.utc)
-    year = utc_now.year
-    march_last_sunday = 31 - ((datetime(year, 3, 31).weekday() + 1) % 7)
-    dst_start = datetime(year, 3, march_last_sunday, 1, tzinfo=timezone.utc)
-    october_last_sunday = 31 - ((datetime(year, 10, 31).weekday() + 1) % 7)
-    dst_end = datetime(year, 10, october_last_sunday, 1, tzinfo=timezone.utc)
-
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)
-    else:
-        offset = timedelta(hours=1)
-
-    return (utc_now + offset).replace(tzinfo=None)
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class QRCampaign(db.Model):
@@ -28,8 +11,8 @@ class QRCampaign(db.Model):
     target_url = db.Column(db.String(500), nullable=False, default='https://thunderorders.cloud')
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     creator = db.relationship('User', backref='qr_campaigns', foreign_keys=[created_by])
@@ -76,7 +59,7 @@ class QRVisit(db.Model):
     country = db.Column(db.String(100))
     city = db.Column(db.String(100))
     referer = db.Column(db.String(500))
-    visited_at = db.Column(db.DateTime, default=get_local_now, nullable=False, index=True)
+    visited_at = db.Column(UTCDateTime, default=utcnow, nullable=False, index=True)
 
     campaign = db.relationship('QRCampaign', back_populates='visits')
 

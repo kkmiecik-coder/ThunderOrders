@@ -5,13 +5,13 @@ Functions for parsing, validating, and importing products from CSV files
 import csv
 import os
 import chardet
-from datetime import datetime
 from flask import current_app
 from werkzeug.utils import secure_filename
 from extensions import db
 from modules.products.models import Product
 from modules.imports.models import CsvImport
 from modules.imports.validators import validate_product_data
+from utils.timeutil import utcnow
 
 
 # Column mapping dictionary (CSV column name → Product field name)
@@ -359,7 +359,7 @@ def update_product(product, data, skip_empty_values=True):
             # Replace existing variant groups
             product.variant_groups = [variant_group]
 
-    product.updated_at = datetime.now()
+    product.updated_at = utcnow()
 
     return product
 
@@ -498,7 +498,7 @@ def _process_csv_import_internal(import_id):
         else:
             csv_import.status = 'partial'
 
-        csv_import.completed_at = datetime.now()
+        csv_import.completed_at = utcnow()
         db.session.commit()
 
         print(f"[CSV Import] Import {import_id} finished: {csv_import.status}")
@@ -512,7 +512,7 @@ def _process_csv_import_internal(import_id):
     except Exception as e:
         print(f"[CSV Import] Fatal error: {str(e)}")
         csv_import.status = 'failed'
-        csv_import.completed_at = datetime.now()
+        csv_import.completed_at = utcnow()
 
         if csv_import.error_log is None:
             csv_import.error_log = []

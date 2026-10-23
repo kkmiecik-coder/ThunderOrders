@@ -205,7 +205,9 @@ function buildChart(canvas) {
 function bucketTimestamps(timestamps, granularity) {
     var buckets = {};
     for (var i = 0; i < timestamps.length; i++) {
-        var dt = new Date(timestamps[i]);
+        // Kubełki i oś wykresu wg polskiego zegara (lokalne pola tej daty = czas polski)
+        var dt = plWallClockDate(timestamps[i]);
+        if (!dt) continue;
         var key;
         if (granularity === 'day') {
             key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toISOString();
@@ -279,6 +281,7 @@ function updateChartTheme() {
     ordersChart.update('none');
 }
 
+// `dt` pochodzi z kubełków (plWallClockDate) — lokalne pola to już czas polski
 function formatChartDate(dt) {
     var dd = String(dt.getDate()).padStart(2, '0');
     var mm = String(dt.getMonth() + 1).padStart(2, '0');

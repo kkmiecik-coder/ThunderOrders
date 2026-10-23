@@ -93,7 +93,8 @@ def get_exchange_rate_api():
             'currency': str,
             'date': str,
             'cached': bool,
-            'cached_at': str or None,
+            'cached_at': str or None,       # tekst czasu polskiego (legacy)
+            'cached_at_iso': str or None,   # ta sama chwila jako ISO UTC z 'Z' (do liczenia wieku)
             'cache_age_hours': int or None,
             'warning': str or None
         }

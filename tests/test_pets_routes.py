@@ -6,6 +6,7 @@ import pytest
 from flask import url_for
 
 from tests.pets_helpers import zaloz_profil, zaloz_pupila, zaloz_zmarlego, zaloz_jajko
+from utils.timeutil import utcnow
 
 
 def _wlacz(db, pct=100):
@@ -21,8 +22,7 @@ def _wlacz(db, pct=100):
 
 
 def _teraz():
-    from modules.auth.models import get_local_now
-    return get_local_now()
+    return utcnow()
 
 
 @pytest.fixture

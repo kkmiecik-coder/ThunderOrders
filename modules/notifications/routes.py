@@ -6,6 +6,7 @@ from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
 
 from extensions import db, csrf
+from utils.timeutil import iso_utc
 from . import notifications_bp
 from .models import PushSubscription, NotificationPreference, Notification
 
@@ -97,8 +98,8 @@ def list_subscriptions():
         'subscriptions': [{
             'id': s.id,
             'device_name': s.device_name or 'Nieznane urządzenie',
-            'created_at': s.created_at.isoformat() if s.created_at else None,
-            'last_used_at': s.last_used_at.isoformat() if s.last_used_at else None,
+            'created_at': iso_utc(s.created_at),
+            'last_used_at': iso_utc(s.last_used_at),
         } for s in subs]
     })
 

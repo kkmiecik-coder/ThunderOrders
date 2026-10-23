@@ -419,7 +419,7 @@
                                 {% endif %}
                                 <span class="sr-meta-item sr-meta-date">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                    {{ sr.created_at.strftime('%d.%m.%Y, %H:%M') }}
+                                    {{ sr.created_at|pl_time('%d.%m.%Y, %H:%M') }}
                                 </span>
                             </div>
                         </div>
@@ -512,7 +512,7 @@
                             </div>
                             <div class="session-meta">
                                 <span>{{ session.user.full_name if session.user else 'Nieznany' }}</span>
-                                <span>{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                                <span>{{ session.created_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                                 <span>{{ session.orders_count }} zamówień</span>
                             </div>
                         </div>
@@ -556,7 +556,7 @@
                             </div>
                             <div>{{ session.packed_orders_count }}/{{ session.orders_count }}</div>
                             <div>{{ session.user.full_name if session.user else 'Nieznany' }}</div>
-                            <div>{{ session.completed_at.strftime('%d.%m.%Y %H:%M') if session.completed_at else session.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                            <div>{{ session.completed_at|pl_time('%d.%m.%Y %H:%M') if session.completed_at else session.created_at|pl_time('%d.%m.%Y %H:%M') }}</div>
                         </a>
                     {% endfor %}
                 </div>
@@ -569,7 +569,7 @@
                         <div class="session-card-center">
                             <span class="session-card-orders">{{ session.packed_orders_count }}/{{ session.orders_count }} zamówień</span>
                             <span class="session-card-user">{{ session.user.full_name if session.user else 'Nieznany' }}</span>
-                            <span class="session-card-date">{{ session.completed_at.strftime('%d.%m.%Y %H:%M') if session.completed_at else session.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="session-card-date">{{ session.completed_at|pl_time('%d.%m.%Y %H:%M') if session.completed_at else session.created_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                         </div>
                         <div class="session-card-right">
                             {% if session.status == 'completed' %}

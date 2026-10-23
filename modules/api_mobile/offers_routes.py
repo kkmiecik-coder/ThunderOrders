@@ -11,6 +11,7 @@ from modules.offers.models import OfferPage, offer_page_users, offer_page_groups
 from modules.auth.models import User, user_group_members
 from modules.offers.access import user_can_access_offer_page
 from modules.client import shop_service  # slugify
+from utils.timeutil import iso_utc
 
 # Mapowanie kontrakt → enum bazy (D1: live obejmuje active + paused)
 _STATUS_MAP = {
@@ -35,8 +36,8 @@ def _serialize_page_summary(page):
         'page_type': page.page_type,
         'status': _public_status(page),
         'can_order': page.can_order,
-        'starts_at': page.starts_at.isoformat() if page.starts_at else None,
-        'ends_at': page.ends_at.isoformat() if page.ends_at else None,
+        'starts_at': iso_utc(page.starts_at),
+        'ends_at': iso_utc(page.ends_at),
         'payment_stages': page.payment_stages,
     }
 
@@ -191,7 +192,7 @@ def offer_page_detail(token):
         **_serialize_page_summary(page),
         'description': page.description,
         'footer_content': page.footer_content,
-        'payment_deadline': page.payment_deadline.isoformat() if page.payment_deadline else None,
+        'payment_deadline': iso_utc(page.payment_deadline),
         # Parytet z webem (modules/offers/routes.py): sekcje ukryte nie są eksponowane
         'sections': [
             _serialize_section(s) for s in page.get_sections_ordered() if s.is_visible

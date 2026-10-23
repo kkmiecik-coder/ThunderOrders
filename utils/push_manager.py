@@ -19,9 +19,9 @@ NOTIFICATION TYPES (mapped to NotificationPreference fields):
 import json
 import time
 import threading
-from datetime import datetime
 
 from flask import current_app
+from utils.timeutil import to_pl, utcnow
 
 
 # Retry config dla aktualizacji push_subscriptions po webpush.
@@ -136,8 +136,8 @@ class PushManager:
             _db.session.add(notif)
             _db.session.commit()
 
-            from datetime import datetime, timedelta
-            cutoff = datetime.utcnow() - timedelta(days=30)
+            from datetime import timedelta
+            cutoff = utcnow() - timedelta(days=30)
             Notification.query.filter(
                 Notification.user_id == user_id,
                 Notification.created_at < cutoff
@@ -253,7 +253,7 @@ class PushManager:
                 sub = db.session.get(PushSubscription, sub_id)
                 if not sub:
                     return
-                sub.last_used_at = datetime.utcnow()
+                sub.last_used_at = utcnow()
                 sub.failed_count = 0
                 db.session.commit()
                 return
@@ -540,7 +540,7 @@ class PushManager:
                 dev = db.session.get(MobileDevice, device_id)
                 if not dev:
                     return
-                dev.last_used_at = datetime.utcnow()
+                dev.last_used_at = utcnow()
                 db.session.commit()
                 return
             except Exception as e:
@@ -1243,7 +1243,7 @@ class PushManager:
         from flask import url_for
 
         if payment_deadline:
-            deadline_str = payment_deadline.strftime('%d.%m %H:%M')
+            deadline_str = to_pl(payment_deadline).strftime('%d.%m %H:%M')
             body = f'Termin płatności upływa {deadline_str}. Prześlij potwierdzenie.'
         else:
             body = 'Masz oczekującą płatność do potwierdzenia.'
@@ -1447,7 +1447,7 @@ class PushManager:
         if new_ends_at is None:
             body = 'Sprzedaż przedłużona bez limitu czasowego'
         else:
-            body = f'Nowa data zakończenia: {new_ends_at.strftime("%d.%m.%Y, %H:%M")}'
+            body = f'Nowa data zakończenia: {to_pl(new_ends_at).strftime("%d.%m.%Y, %H:%M")}'
 
         title = f'{page.name} — zmiana daty zakończenia'
 

@@ -44,6 +44,14 @@
                 </svg>
                 <span class="tab-label">Przypomnienia płatności</span>
             </button>
+            <button class="settings-tab" data-tab="display-timezones">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="10" cy="10" r="8"/>
+                    <line x1="2" y1="10" x2="18" y2="10"/>
+                    <path d="M10 2a12 12 0 010 16a12 12 0 010-16z"/>
+                </svg>
+                <span class="tab-label">Strefy czasowe</span>
+            </button>
         </div>
 
         <!-- Right Content Panel -->
@@ -345,6 +353,53 @@
                                 {% endfor %}
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Strefy czasowe w podpowiedzi -->
+            <div class="tab-panel" id="tab-display-timezones">
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Strefy czasowe w podpowiedzi</h3>
+                        <p class="settings-description">
+                            Godziny w panelu i na stronach klientów są zawsze w czasie polskim. Po najechaniu
+                            (na telefonie: dotknięciu) godzina pokazuje się też w miastach z tej listy.
+                            Pusta lista wyłącza podpowiedź.
+                        </p>
+                    </div>
+
+                    <div class="reminder-add-row timezone-add-row">
+                        <input type="text" id="displayTimezoneLabel" maxlength="{{ display_timezone_label_max }}"
+                               placeholder="Nazwa miasta, np. Londyn" class="reminder-hours-input timezone-label-input"
+                               aria-label="Nazwa miasta">
+                        <select id="displayTimezoneTz" class="timezone-select" aria-label="Strefa czasowa">
+                            <optgroup label="Popularne">
+                                {% for tz in popular_timezones %}
+                                <option value="{{ tz }}">{{ tz }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            <optgroup label="Wszystkie strefy">
+                                {% for tz in other_timezones %}
+                                <option value="{{ tz }}">{{ tz }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline" id="addDisplayTimezoneBtn">+ Dodaj miasto</button>
+                    </div>
+
+                    <div class="reminder-rules-label">Miasta w podpowiedzi (najwyżej {{ display_timezones_max }})</div>
+                    <div class="reminder-rules-list" id="displayTimezonesList">
+                        {% for strefa in display_timezones %}
+                        <div class="reminder-rule-row" data-tz="{{ strefa.tz }}">
+                            <span class="reminder-rule-text">{{ strefa.label }} <span class="timezone-id">{{ strefa.tz }}</span></span>
+                            <button type="button" class="btn-remove-rule btn-remove-timezone" data-tz="{{ strefa.tz }}" title="Usuń">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>

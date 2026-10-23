@@ -407,17 +407,17 @@
             window.addEventListener('resize', queueFloor);
         }
 
-        // Zegar na ścianie: czas serwera (ten sam co noc pupili), wskazówki przestawiane co minutę
+        // Zegar na ścianie: czas serwera po polsku (ten sam co noc pupili), wskazówki przestawiane co minutę
         var clockMin = -1;
 
         function tickClock() {
             if (!clock) return;
-            var now = new Date(u.serverNow ? u.serverNow() : Date.now());
-            var m = now.getHours() * 60 + now.getMinutes();
+            var now = u.plParts(u.serverNow ? u.serverNow() : Date.now());
+            var m = now.hour * 60 + now.minute;
             if (m === clockMin) return;
             clockMin = m;
             clock.style.setProperty('--wk-h', (m % 720) / 2 + 'deg');
-            clock.style.setProperty('--wk-m', now.getMinutes() * 6 + 'deg');
+            clock.style.setProperty('--wk-m', now.minute * 6 + 'deg');
         }
 
         // --- łóżka ----------------------------------------------------------------------------

@@ -17,6 +17,7 @@ from sqlalchemy import func, desc, cast, Date, extract, or_, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 from calendar import month_name
+from utils.timeutil import pl_day_bounds_utc, pl_today, to_pl
 
 
 def get_shipping_alert_counts():
@@ -75,21 +76,23 @@ def dashboard():
     # Real Data from Database
     # ========================================
 
-    today = datetime.now().date()
-    today_start = datetime.combine(today, datetime.min.time())
-    week_ago = today - timedelta(days=7)
-    month_start = today.replace(day=1)
+    today = pl_today()
+    # Doby polskie jako zakresy UTC (w bazie leży UTC)
+    today_start, today_end = pl_day_bounds_utc(today)
+    week_start, _ = pl_day_bounds_utc(today - timedelta(days=7))
+    month_start, _ = pl_day_bounds_utc(today.replace(day=1))
 
     # 1. Orders stats (real data)
     orders_all = Order.query.count()
     orders_today = Order.query.filter(
-        func.date(Order.created_at) == today
+        Order.created_at >= today_start,
+        Order.created_at < today_end
     ).count()
     orders_week = Order.query.filter(
-        func.date(Order.created_at) >= week_ago
+        Order.created_at >= week_start
     ).count()
     orders_month = Order.query.filter(
-        func.date(Order.created_at) >= month_start
+        Order.created_at >= month_start
     ).count()
     # Pending = zamowienia ze statusem 'nowe' lub 'oczekujace'
     orders_pending = Order.query.filter(
@@ -109,7 +112,8 @@ def dashboard():
     revenue_today = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) == today,
+        Order.created_at >= today_start,
+        Order.created_at < today_end,
         Order.status != 'anulowane'  # Exclude cancelled orders
     ).scalar() or Decimal('0.00')
 
@@ -117,7 +121,7 @@ def dashboard():
     revenue_week = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) >= week_ago,
+        Order.created_at >= week_start,
         Order.status != 'anulowane'  # Exclude cancelled orders
     ).scalar() or Decimal('0.00')
 
@@ -125,7 +129,7 @@ def dashboard():
     revenue_month = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) >= month_start,
+        Order.created_at >= month_start,
         Order.status != 'anulowane'  # Exclude cancelled orders
     ).scalar() or Decimal('0.00')
 
@@ -176,11 +180,11 @@ def dashboard():
     clients_active = User.query.filter_by(role='client', is_active=True).count()
     clients_new = User.query\
         .filter_by(role='client')\
-        .filter(func.date(User.created_at) >= month_start)\
+        .filter(User.created_at >= month_start)\
         .count()
     clients_new_week = User.query\
         .filter_by(role='client')\
-        .filter(func.date(User.created_at) >= week_ago)\
+        .filter(User.created_at >= week_start)\
         .count()
 
     clients = {
@@ -208,10 +212,12 @@ def dashboard():
     sales_chart = []
     for i in range(6, -1, -1):
         date = today - timedelta(days=i)
+        day_start, day_end = pl_day_bounds_utc(date)
         daily_revenue = db.session.query(
             func.coalesce(func.sum(Order.total_amount), 0)
         ).filter(
-            func.date(Order.created_at) == date
+            Order.created_at >= day_start,
+            Order.created_at < day_end
         ).scalar() or Decimal('0.00')
 
         sales_chart.append({
@@ -356,7 +362,7 @@ def get_sales_data():
     """
 
     range_param = request.args.get('range', '7d')
-    today = datetime.now().date()
+    today = pl_today()
 
     labels = []
     values = []
@@ -366,10 +372,12 @@ def get_sales_data():
         # 7 dni - rozbicie dzienne
         for i in range(6, -1, -1):
             date = today - timedelta(days=i)
+            day_start, day_end = pl_day_bounds_utc(date)
             daily_revenue = db.session.query(
                 func.coalesce(func.sum(Order.total_amount), 0)
             ).filter(
-                func.date(Order.created_at) == date,
+                Order.created_at >= day_start,
+                Order.created_at < day_end,
                 Order.status != 'anulowane'
             ).scalar() or Decimal('0.00')
 
@@ -380,10 +388,12 @@ def get_sales_data():
         # 14 dni - rozbicie dzienne
         for i in range(13, -1, -1):
             date = today - timedelta(days=i)
+            day_start, day_end = pl_day_bounds_utc(date)
             daily_revenue = db.session.query(
                 func.coalesce(func.sum(Order.total_amount), 0)
             ).filter(
-                func.date(Order.created_at) == date,
+                Order.created_at >= day_start,
+                Order.created_at < day_end,
                 Order.status != 'anulowane'
             ).scalar() or Decimal('0.00')
 
@@ -394,10 +404,12 @@ def get_sales_data():
         # 30 dni - rozbicie dzienne
         for i in range(29, -1, -1):
             date = today - timedelta(days=i)
+            day_start, day_end = pl_day_bounds_utc(date)
             daily_revenue = db.session.query(
                 func.coalesce(func.sum(Order.total_amount), 0)
             ).filter(
-                func.date(Order.created_at) == date,
+                Order.created_at >= day_start,
+                Order.created_at < day_end,
                 Order.status != 'anulowane'
             ).scalar() or Decimal('0.00')
 
@@ -426,11 +438,14 @@ def get_sales_data():
                 next_month = month_start.replace(day=28) + timedelta(days=4)
                 month_end = next_month - timedelta(days=next_month.day)
 
+            # Miesiąc w dobach polskich: od północy 1. dnia do końca doby month_end
+            range_start, _ = pl_day_bounds_utc(month_start)
+            _, range_end = pl_day_bounds_utc(month_end)
             monthly_revenue = db.session.query(
                 func.coalesce(func.sum(Order.total_amount), 0)
             ).filter(
-                func.date(Order.created_at) >= month_start,
-                func.date(Order.created_at) <= month_end,
+                Order.created_at >= range_start,
+                Order.created_at < range_end,
                 Order.status != 'anulowane'
             ).scalar() or Decimal('0.00')
 
@@ -463,11 +478,14 @@ def get_sales_data():
                 next_month = month_start.replace(day=28) + timedelta(days=4)
                 month_end = next_month - timedelta(days=next_month.day)
 
+            # Miesiąc w dobach polskich: od północy 1. dnia do końca doby month_end
+            range_start, _ = pl_day_bounds_utc(month_start)
+            _, range_end = pl_day_bounds_utc(month_end)
             monthly_revenue = db.session.query(
                 func.coalesce(func.sum(Order.total_amount), 0)
             ).filter(
-                func.date(Order.created_at) >= month_start,
-                func.date(Order.created_at) <= month_end,
+                Order.created_at >= range_start,
+                Order.created_at < range_end,
                 Order.status != 'anulowane'
             ).scalar() or Decimal('0.00')
 
@@ -493,11 +511,14 @@ def get_sales_data():
                 next_month = month_start.replace(day=28) + timedelta(days=4)
                 month_end = next_month - timedelta(days=next_month.day)
 
+            # Miesiąc w dobach polskich: od północy 1. dnia do końca doby month_end
+            range_start, _ = pl_day_bounds_utc(month_start)
+            _, range_end = pl_day_bounds_utc(month_end)
             monthly_revenue = db.session.query(
                 func.coalesce(func.sum(Order.total_amount), 0)
             ).filter(
-                func.date(Order.created_at) >= month_start,
-                func.date(Order.created_at) <= month_end,
+                Order.created_at >= range_start,
+                Order.created_at < range_end,
                 Order.status != 'anulowane'
             ).scalar() or Decimal('0.00')
 
@@ -627,8 +648,8 @@ def get_offer_pages():
             'status': page.status,
             'status_class': status_class,
             'status_text': status_text,
-            'starts_at': page.starts_at.strftime('%d.%m.%Y %H:%M') if page.starts_at else None,
-            'ends_at': page.ends_at.strftime('%d.%m.%Y %H:%M') if page.ends_at else None,
+            'starts_at': to_pl(page.starts_at).strftime('%d.%m.%Y %H:%M') if page.starts_at else None,
+            'ends_at': to_pl(page.ends_at).strftime('%d.%m.%Y %H:%M') if page.ends_at else None,
             'edit_url': url_for('admin.offers_edit', page_id=page.id)
         })
 

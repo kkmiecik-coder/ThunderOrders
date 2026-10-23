@@ -50,7 +50,7 @@
         </div>
 
         <!-- Timer -->
-        <div class="countdown-timer" id="countdownTimer" data-target="{{ page.starts_at.isoformat() }}" data-order-url="{{ url_for('offers.order_page', token=page.token) }}">
+        <div class="countdown-timer" id="countdownTimer" data-target="{{ page.starts_at|iso_utc }}" data-order-url="{{ url_for('offers.order_page', token=page.token) }}">
             <div class="countdown-unit">
                 <div class="countdown-value-wrapper">
                     <div class="countdown-value" id="hours">
@@ -99,7 +99,7 @@
                 </svg>
                 <div class="start-date-text">
                     <span class="start-date-label">Data startu</span>
-                    <span class="start-date-value">{{ page.starts_at|format_datetime('%d.%m.%Y, godz. %H:%M') }}</span>
+                    <span class="start-date-value">{{ page.starts_at|pl_time('%d.%m.%Y, godz. %H:%M') }}</span>
                 </div>
             </div>
         </div>

@@ -6,10 +6,10 @@ Funkcje do generowania plików Excel z danymi zamówień.
 """
 
 from io import BytesIO
-from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, numbers
 from openpyxl.utils import get_column_letter
+from utils.timeutil import pl_date, to_pl, utcnow
 
 
 # ============================================
@@ -157,7 +157,7 @@ def _build_overview_sheet(wb, page, summary, s):
     # --- Meta info ---
     row = 3
     meta_items = [
-        ("Zamknięto:", summary.get('closed_at').strftime('%d.%m.%Y %H:%M') if summary.get('closed_at') else '-'),
+        ("Zamknięto:", to_pl(summary.get('closed_at')).strftime('%d.%m.%Y %H:%M') if summary.get('closed_at') else '-'),
         ("Przez:", summary.get('closed_by', '-')),
         ("Okres:", _format_period(summary.get('starts_at'), summary.get('ends_at'))),
     ]
@@ -488,7 +488,7 @@ def _build_orders_sheet(wb, summary, s):
 
                 created_at = order.get('created_at')
                 if created_at and hasattr(created_at, 'strftime'):
-                    date_str = created_at.strftime('%d.%m.%Y %H:%M')
+                    date_str = to_pl(created_at).strftime('%d.%m.%Y %H:%M')
                 else:
                     date_str = str(created_at) if created_at else '-'
                 _write_cell(ws, row, 3, date_str, s, align='center')
@@ -786,7 +786,7 @@ def _build_live_overview_sheet(wb, page, summary, s):
     meta_items = [
         ("Status:", summary.get('status', '-')),
         ("Okres:", _format_period(summary.get('starts_at'), summary.get('ends_at'))),
-        ("Eksport:", datetime.now().strftime('%d.%m.%Y %H:%M')),
+        ("Eksport:", to_pl(utcnow()).strftime('%d.%m.%Y %H:%M')),
     ]
     for label, value in meta_items:
         ws.cell(row=row, column=1, value=label).font = s['bold']
@@ -1026,7 +1026,7 @@ def _build_live_orders_sheet(wb, summary, s):
 
                 created_at = order.get('created_at')
                 if created_at and hasattr(created_at, 'strftime'):
-                    date_str = created_at.strftime('%d.%m.%Y %H:%M')
+                    date_str = to_pl(created_at).strftime('%d.%m.%Y %H:%M')
                 else:
                     date_str = str(created_at) if created_at else '-'
                 _write_cell(ws, row, 3, date_str, s, align='center')
@@ -1611,11 +1611,11 @@ def _build_preorder_quantities_sheet(wb, page, s):
 def _format_period(starts_at, ends_at):
     """Format date period string."""
     if starts_at and ends_at:
-        return f"{starts_at.strftime('%d.%m.%Y')} - {ends_at.strftime('%d.%m.%Y')}"
+        return f"{pl_date(starts_at).strftime('%d.%m.%Y')} - {pl_date(ends_at).strftime('%d.%m.%Y')}"
     elif starts_at:
-        return f"od {starts_at.strftime('%d.%m.%Y')}"
+        return f"od {pl_date(starts_at).strftime('%d.%m.%Y')}"
     elif ends_at:
-        return f"do {ends_at.strftime('%d.%m.%Y')}"
+        return f"do {pl_date(ends_at).strftime('%d.%m.%Y')}"
     return "-"
 
 
@@ -1694,7 +1694,7 @@ def generate_orders_excel(orders, filename_prefix="zamowienia"):
 
         ws.cell(row=idx + 1, column=6, value=order.status_display)
         ws.cell(row=idx + 1, column=7, value="Exclusive" if order.offer_page_id else "Standard")
-        ws.cell(row=idx + 1, column=8, value=order.created_at.strftime('%d.%m.%Y %H:%M'))
+        ws.cell(row=idx + 1, column=8, value=to_pl(order.created_at).strftime('%d.%m.%Y %H:%M'))
         ws.cell(row=idx + 1, column=9, value=float(order.total_amount) if order.total_amount else 0)
 
     # Dostosuj szerokość kolumn

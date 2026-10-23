@@ -5,37 +5,8 @@ Push Notification Models
 - Notification: stored notification record for the notification center
 """
 
-from datetime import datetime, timedelta, timezone
 from extensions import db
-
-
-def get_local_now():
-    """
-    Zwraca aktualny czas polski (Europe/Warsaw).
-    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
-    Zwraca naive datetime dla porównań z naive datetime w bazie.
-    """
-    utc_now = datetime.now(timezone.utc)
-    year = utc_now.year
-
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_switch = march_last - timedelta(days=march_last.weekday() + 1 % 7)
-    march_switch = march_switch.replace(hour=1, minute=0, second=0, microsecond=0)
-    if march_last.weekday() == 6:
-        march_switch = march_last.replace(hour=1, minute=0, second=0, microsecond=0)
-
-    october_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    october_switch = october_last - timedelta(days=october_last.weekday() + 1 % 7)
-    october_switch = october_switch.replace(hour=1, minute=0, second=0, microsecond=0)
-    if october_last.weekday() == 6:
-        october_switch = october_last.replace(hour=1, minute=0, second=0, microsecond=0)
-
-    if march_switch <= utc_now < october_switch:
-        offset = timedelta(hours=2)
-    else:
-        offset = timedelta(hours=1)
-
-    return (utc_now + offset).replace(tzinfo=None)
+from utils.timeutil import UTCDateTime, iso_utc, utcnow
 
 
 class Notification(db.Model):
@@ -50,7 +21,7 @@ class Notification(db.Model):
     notification_type = db.Column(db.String(50), nullable=True)
     tag = db.Column(db.String(100), nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False, index=True)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False, index=True)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False, index=True)
 
     user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))
 
@@ -66,7 +37,7 @@ class Notification(db.Model):
             'notification_type': self.notification_type,
             'tag': self.tag,
             'is_read': self.is_read,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': iso_utc(self.created_at),
         }
 
 
@@ -81,8 +52,8 @@ class PushSubscription(db.Model):
     device_name = db.Column(db.String(255), default='')
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     failed_count = db.Column(db.Integer, default=0, nullable=False)
-    last_used_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_used_at = db.Column(UTCDateTime, nullable=True)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
 
     user = db.relationship('User', backref=db.backref('push_subscriptions', lazy='dynamic'))
 

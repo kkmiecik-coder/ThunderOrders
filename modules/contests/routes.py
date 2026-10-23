@@ -13,6 +13,7 @@ from modules.contests import contests_bp
 from modules.contests.models import Contest, ContestPrize, ContestPrizeItem, ContestSpin, ContestWinner
 from modules.contests.forms import ContestForm
 from modules.contests import utils as cu
+from utils.timeutil import iso_utc, pl_input_to_utc, to_pl
 
 
 def _display_name(user):
@@ -84,7 +85,7 @@ def admin_user_spins(cid, uid):
         name=_display_name(user),
         spin_count=len(spins),
         total_tickets=sum(s.tickets_won for s in spins),
-        spins=[{'tickets': s.tickets_won, 'at': s.created_at.isoformat()} for s in spins],
+        spins=[{'tickets': s.tickets_won, 'at': iso_utc(s.created_at)} for s in spins],
     )
 
 
@@ -93,7 +94,10 @@ def _apply_form(form, contest):
     for f in ['name', 'description', 'image_path', 'num_winners',
               'ticket_min', 'ticket_max', 'cooldown_minutes', 'eligibility_min_orders',
               'eligibility_min_total_value', 'eligibility_active_within_days', 'ends_at']:
-        setattr(contest, f, getattr(form, f).data)
+        value = getattr(form, f).data
+        if f == 'ends_at':
+            value = pl_input_to_utc(value)  # pole datetime-local = czas polski
+        setattr(contest, f, value)
 
 
 def _apply_prizes(contest):
@@ -248,6 +252,10 @@ def admin_edit(cid):
     # GET: prefill z obiektu. POST: TYLKO z danych formularza — bez obj, aby odznaczone
     # (disabled, niewysłane) kryteria stały się None, a nie zachowywały starej wartości z obj.
     form = ContestForm(obj=c) if request.method == 'GET' else ContestForm()
+    if request.method == 'GET' and c.ends_at:
+        # Pole datetime-local pokazuje czas polski — _apply_form czyta je jako czas polski;
+        # pole z zegarem UTC przesuwałoby koniec przy każdym zapisie.
+        form.ends_at.data = to_pl(c.ends_at).replace(tzinfo=None)
     if form.validate_on_submit():
         _apply_form(form, c)
         _apply_prizes(c)
@@ -373,7 +381,7 @@ def client_spin():
     if not cu.can_spin(c, current_user):
         nxt = cu.get_next_spin_at(c, current_user)
         return jsonify(success=False, error='Następny los dostępny później.',
-                       next_spin_at=nxt.isoformat() if nxt else None), 200
+                       next_spin_at=iso_utc(nxt)), 200
 
     # TODO: przy większym ruchu rozważyć blokadę DB na podwójny spin w oknie cooldownu (TOCTOU)
     tickets = cu.draw_ticket_count(c)  # rozkład skośny ku ticket_min (wyższe rzadsze)
@@ -382,4 +390,4 @@ def client_spin():
     nxt = cu.get_next_spin_at(c, current_user)
     return jsonify(success=True, tickets_won=tickets,
                    my_total=cu.get_user_tickets(c, current_user),
-                   next_spin_at=nxt.isoformat() if nxt else None)
+                   next_spin_at=iso_utc(nxt))

@@ -1,10 +1,5 @@
 from datetime import timedelta
-
-
-# Lazy wrapper — odracza import, by uniknąć circular import podczas kolekcji pytest.
-def _get_local_now():
-    from modules.orders.models import get_local_now
-    return get_local_now()
+from utils.timeutil import utcnow
 
 
 def _contest(db, make_product, make_user, **kw):
@@ -53,9 +48,9 @@ def test_active_within_days(db, make_product, make_user, make_order):
     from modules.contests.utils import is_eligible
     c = _contest(db, make_product, make_user, eligibility_active_within_days=30)
     u = make_user()
-    make_order(u, created_at=_get_local_now() - timedelta(days=60))
+    make_order(u, created_at=utcnow() - timedelta(days=60))
     assert is_eligible(c, u) is False
-    make_order(u, created_at=_get_local_now() - timedelta(days=5))
+    make_order(u, created_at=utcnow() - timedelta(days=5))
     assert is_eligible(c, u) is True
 
 
@@ -64,9 +59,9 @@ def test_and_combination(db, make_product, make_user, make_order):
     c = _contest(db, make_product, make_user,
                  eligibility_min_orders=2, eligibility_active_within_days=30)
     u = make_user()
-    make_order(u, created_at=_get_local_now() - timedelta(days=5))  # 1 zamówienie, świeże
+    make_order(u, created_at=utcnow() - timedelta(days=5))  # 1 zamówienie, świeże
     assert is_eligible(c, u) is False   # brak progu 2
-    make_order(u, created_at=_get_local_now() - timedelta(days=5))
+    make_order(u, created_at=utcnow() - timedelta(days=5))
     assert is_eligible(c, u) is True
 
 

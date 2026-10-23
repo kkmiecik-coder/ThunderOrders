@@ -1,9 +1,9 @@
 from datetime import timedelta
+from utils.timeutil import utcnow
 
 
 def _now():
-    from modules.orders.models import get_local_now
-    return get_local_now()
+    return utcnow()
 
 
 def _active_contest(db, make_product, make_user, **kw):

@@ -464,7 +464,7 @@
                 </div>
                 <div class="admin-card-row">
                     <span class="admin-card-label">Data:</span>
-                    <span class="admin-card-value">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                    <span class="admin-card-value">{{ order.created_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                 </div>
                 <div class="admin-card-row">
                     <span class="admin-card-label">Status:</span>
@@ -759,8 +759,8 @@
                     <!-- Data złożenia -->
                     <td class="col-date">
                         <div class="date-cell-new">
-                            <span class="date-created">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
-                            <span class="date-updated" title="Ostatnia zmiana statusu">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="date-created">{{ order.created_at|pl_time('%d.%m.%Y %H:%M') }}</span>
+                            <span class="date-updated" title="Ostatnia zmiana statusu">{{ order.updated_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                         </div>
                     </td>
                 </tr>

@@ -118,7 +118,7 @@
 <body>
     <h1>Eksport danych osobowych</h1>
     <p class="subtitle">
-        ThunderOrders &mdash; wygenerowano {{ export_date.strftime('%d.%m.%Y o %H:%M') }}<br>
+        ThunderOrders &mdash; wygenerowano {{ export_date|format_datetime('%d.%m.%Y o %H:%M') }}<br>
         Zgodnie z art. 20 RODO (prawo do przenoszenia danych)
     </p>
 
@@ -156,10 +156,10 @@
         <dd>{{ 'Połączone' if user.facebook_id else 'Nie' }}</dd>
 
         <dt>Data rejestracji</dt>
-        <dd>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else '—' }}</dd>
+        <dd>{{ user.created_at|format_datetime('%d.%m.%Y %H:%M') if user.created_at else '—' }}</dd>
 
         <dt>Ostatnie logowanie</dt>
-        <dd>{{ user.last_login.strftime('%d.%m.%Y %H:%M') if user.last_login else '—' }}</dd>
+        <dd>{{ user.last_login|format_datetime('%d.%m.%Y %H:%M') if user.last_login else '—' }}</dd>
 
         <dt>Liczba logowań</dt>
         <dd>{{ user.login_count or 0 }}</dd>
@@ -180,7 +180,7 @@
             {% else %}
                 <span class="consent-no">Odrzucona</span>
                 {% if user.analytics_consent_date %}
-                    ({{ user.analytics_consent_date.strftime('%d.%m.%Y') }})
+                    ({{ user.analytics_consent_date|format_date('%d.%m.%Y') }})
                 {% endif %}
             {% endif %}
         </dd>
@@ -263,7 +263,7 @@
             {% for order in orders %}
             <tr>
                 <td>{{ order.order_number }}</td>
-                <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else '—' }}</td>
+                <td>{{ order.created_at|format_date('%d.%m.%Y') if order.created_at else '—' }}</td>
                 <td>{{ order.status_display_name if order.status_display_name else order.status }}</td>
                 <td>
                     {% for item in order.items %}
@@ -295,7 +295,7 @@
             {% for sr in shipping_requests %}
             <tr>
                 <td>{{ sr.request_number }}</td>
-                <td>{{ sr.created_at.strftime('%d.%m.%Y') if sr.created_at else '—' }}</td>
+                <td>{{ sr.created_at|format_date('%d.%m.%Y') if sr.created_at else '—' }}</td>
                 <td>{{ sr.status }}</td>
                 <td>{{ sr.address_type or '—' }}</td>
             </tr>
@@ -326,7 +326,7 @@
                 <td>{{ '%.2f PLN'|format(item.market_price) if item.market_price else '—' }}</td>
                 <td>{{ item.source or '—' }}</td>
                 <td>{{ 'Tak' if item.is_public else 'Nie' }}</td>
-                <td>{{ item.created_at.strftime('%d.%m.%Y') if item.created_at else '—' }}</td>
+                <td>{{ item.created_at|format_date('%d.%m.%Y') if item.created_at else '—' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -353,7 +353,7 @@
                 <td>{{ achievement.name }}</td>
                 <td>{{ achievement.category or '—' }}</td>
                 <td>{{ achievement.rarity or '—' }}</td>
-                <td>{{ ua.unlocked_at.strftime('%d.%m.%Y') if ua.unlocked_at else '—' }}</td>
+                <td>{{ ua.unlocked_at|format_date('%d.%m.%Y') if ua.unlocked_at else '—' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -378,7 +378,7 @@
             <tr>
                 <td>{{ comment.order.order_number if comment.order else '—' }}</td>
                 <td>{{ comment.body }}</td>
-                <td>{{ comment.created_at.strftime('%d.%m.%Y %H:%M') if comment.created_at else '—' }}</td>
+                <td>{{ comment.created_at|format_datetime('%d.%m.%Y %H:%M') if comment.created_at else '—' }}</td>
             </tr>
             {% endfor %}
         </tbody>

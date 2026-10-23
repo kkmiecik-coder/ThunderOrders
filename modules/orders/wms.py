@@ -22,7 +22,6 @@ from modules.orders import orders_bp
 from modules.orders.models import (
     Order, OrderItem, OrderStatus, WmsStatus,
     ShippingRequest, ShippingRequestOrder, ShippingRequestStatus,
-    get_local_now
 )
 from modules.orders.wms_models import (
     WmsSession, WmsSessionOrder, WmsSessionShippingRequest, PackagingMaterial
@@ -39,6 +38,7 @@ from modules.orders.wms_packing import (
 from extensions import db, socketio
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
+from utils.timeutil import iso_utc, pl_day_bounds_utc, pl_today, to_pl, utcnow
 
 
 # Lock timeout in minutes — orders locked longer than this are considered abandoned
@@ -59,7 +59,7 @@ def _validate_orders_for_wms(order_ids, allow_packed=False):
     """
     errors = []
     valid_orders = []
-    now = get_local_now()
+    now = utcnow()
     lock_cutoff = now - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
 
     allowed_statuses = {'dostarczone_gom'}
@@ -87,7 +87,7 @@ def _validate_orders_for_wms(order_ids, allow_packed=False):
         if order.wms_locked_at and order.wms_locked_at > lock_cutoff:
             errors.append(
                 f'{order.order_number}: zamówienie jest w trakcie pakowania '
-                f'(zablokowane {order.wms_locked_at.strftime("%H:%M")})'
+                f'(zablokowane {to_pl(order.wms_locked_at).strftime("%H:%M")})'
             )
             continue
 
@@ -149,7 +149,7 @@ def _build_session_data(session):
                 'wms_status_name': item.wms_status_name,
                 'wms_status_color': item.wms_status_color,
                 'is_picked': (item.picked_quantity or 0) >= item.quantity,
-                'picked_at': item.picked_at.isoformat() if item.picked_at else None,
+                'picked_at': iso_utc(item.picked_at),
             })
 
         # Quantity-based progress
@@ -172,9 +172,9 @@ def _build_session_data(session):
             'picked_percentage': picked_pct,
             'delivery_method': order.delivery_method_display,
             'sort_order': so.sort_order,
-            'picking_started_at': so.picking_started_at.isoformat() if so.picking_started_at else None,
-            'picking_completed_at': so.picking_completed_at.isoformat() if so.picking_completed_at else None,
-            'packing_completed_at': so.packing_completed_at.isoformat() if so.packing_completed_at else None,
+            'picking_started_at': iso_utc(so.picking_started_at),
+            'picking_completed_at': iso_utc(so.picking_completed_at),
+            'packing_completed_at': iso_utc(so.packing_completed_at),
             'packaging_material_id': order.packaging_material_id,
             'packaging_material_name': order.packaging_material.name if order.packaging_material else None,
             'total_package_weight': float(order.total_package_weight) if order.total_package_weight else None,
@@ -226,8 +226,8 @@ def _build_session_data(session):
             'session_token': session.session_token,
             'status': session.status,
             'is_active': session.is_active,
-            'created_at': session.created_at.isoformat() if session.created_at else None,
-            'completed_at': session.completed_at.isoformat() if session.completed_at else None,
+            'created_at': iso_utc(session.created_at),
+            'completed_at': iso_utc(session.completed_at),
             'current_order_index': session.current_order_index,
             'orders_count': session.orders_count,
             'picked_orders_count': session.picked_orders_count,
@@ -236,8 +236,7 @@ def _build_session_data(session):
             'created_by': session.user.full_name if session.user else 'Nieznany',
             'notes': session.notes,
             'phone_connected': bool(getattr(session, 'phone_connected', False)),
-            'phone_connected_at': session.phone_connected_at.isoformat()
-                if getattr(session, 'phone_connected_at', None) else None,
+            'phone_connected_at': iso_utc(getattr(session, 'phone_connected_at', None)),
         },
         'orders': orders_data,
         'wms_statuses': statuses_data,
@@ -360,12 +359,10 @@ WMS_SR_FILTER_KEYS = ('status', 'order_type', 'consolidation')
 @role_required('admin', 'mod')
 def wms_dashboard():
     """WMS Dashboard — shipping requests + sessions + packaging materials."""
-    from datetime import datetime, time as dt_time
     from sqlalchemy import case, or_, func
     from modules.auth.models import User
 
-    now = get_local_now()
-    today_start = datetime.combine(now.date(), dt_time.min)
+    today_start, _ = pl_day_bounds_utc(pl_today())
 
     active_tab = request.args.get('tab', 'shipping')
 
@@ -563,7 +560,7 @@ def wms_create_session():
             reopen_orders_for_wms(valid_orders, reopen_mode, reopen_sr_objects)
 
         # Create session
-        now = get_local_now()
+        now = utcnow()
         session = WmsSession(
             session_token=secrets.token_urlsafe(32),
             user_id=current_user.id,
@@ -723,7 +720,7 @@ def wms_update_item_status():
                 'message': 'Sesja WMS nie jest aktywna'
             }), 400
 
-        now = get_local_now()
+        now = utcnow()
         current_qty = item.picked_quantity or 0
 
         # Apply action
@@ -787,7 +784,7 @@ def wms_update_item_status():
                 'wms_status_name': item.wms_status_name,
                 'wms_status_color': item.wms_status_color,
                 'is_picked': item.picked_quantity >= item.quantity,
-                'picked_at': item.picked_at.isoformat() if item.picked_at else None,
+                'picked_at': iso_utc(item.picked_at),
             },
             'order': {
                 'id': order.id,
@@ -936,7 +933,7 @@ def _wms_lock_blocking_session(sr):
     if sr.is_consolidated_source and sr.consolidated_into:
         sr = sr.consolidated_into
 
-    lock_cutoff = get_local_now() - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
+    lock_cutoff = utcnow() - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
     for order in sr.orders:
         if order.wms_locked_at and order.wms_locked_at > lock_cutoff:
             return order.wms_session_id
@@ -1028,7 +1025,7 @@ def wms_complete_session(session_id):
                 'message': 'Sesja jest już zakończona'
             }), 400
 
-        now = get_local_now()
+        now = utcnow()
         session.status = 'completed'
         session.completed_at = now
 
@@ -1092,7 +1089,7 @@ def wms_cancel_session(session_id):
             }), 400
 
         session.status = 'cancelled'
-        session.completed_at = get_local_now()
+        session.completed_at = utcnow()
 
         # Release all locks
         for so in session.session_orders:
@@ -1402,8 +1399,8 @@ def wms_upload_packing_photo():
         upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'packing_photos')
         os.makedirs(upload_dir, exist_ok=True)
 
-        now = get_local_now()
-        timestamp = now.strftime('%Y%m%d_%H%M%S')
+        now = utcnow()
+        timestamp = to_pl(now).strftime('%Y%m%d_%H%M%S')
         save_filename = f'{order_id}_{timestamp}.jpg'
         save_path = os.path.join(upload_dir, save_filename)
         photo.save(save_path)

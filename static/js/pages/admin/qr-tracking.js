@@ -246,12 +246,11 @@
         if (uniqueEl) uniqueEl.textContent = data.unique_visits || 0;
 
         // Calculate today and this week from timeline
-        var today = new Date().toISOString().split('T')[0];
+        // Dni z serwera to doby polskie — „dzisiaj" też liczymy po polsku, nie w UTC
+        var today = plDateKey(Date.now());
         var todayCount = 0;
         var weekCount = 0;
-        var now = new Date();
-        var weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        var weekAgoStr = weekAgo.toISOString().split('T')[0];
+        var weekAgoStr = plDateKey(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
         if (data.timeline) {
             data.timeline.forEach(function (entry) {

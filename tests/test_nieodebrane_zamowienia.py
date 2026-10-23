@@ -7,6 +7,8 @@ testy pilnują, żeby oba widoki nie zaczęły pokazywać czegoś innego.
 import re
 
 import pytest
+from utils.timeutil import utcnow
+from datetime import timezone
 
 
 @pytest.fixture
@@ -145,7 +147,7 @@ def test_migracja_statusu_celowo_nie_rusza_daty(app, db, make_user, make_order):
     from datetime import datetime
 
     o = make_order(make_user(), status='oczekujace')
-    stary_stempel = datetime(2026, 1, 1, 12, 0, 0)
+    stary_stempel = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     o.status_changed_at = stary_stempel
     db.session.commit()
 
@@ -167,11 +169,10 @@ def test_migracja_statusu_celowo_nie_rusza_daty(app, db, make_user, make_order):
 
 def test_wiek_z_kolumny_jest_dokladny(app, db, make_user, make_order):
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import wiek_zaleglosci
 
     o = make_order(make_user(), status='dostarczone_gom')
-    o.status_changed_at = get_local_now() - timedelta(days=47)
+    o.status_changed_at = utcnow() - timedelta(days=47)
     db.session.commit()
 
     assert wiek_zaleglosci([o]) == {o.id: (47, True)}
@@ -182,7 +183,6 @@ def test_wiek_z_dziennika_jest_przyblizony(app, db, make_user, make_order):
     import json
     from datetime import timedelta
     from modules.admin.models import ActivityLog
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import wiek_zaleglosci
 
     o = make_order(make_user(), status='dostarczone_gom')
@@ -190,7 +190,7 @@ def test_wiek_z_dziennika_jest_przyblizony(app, db, make_user, make_order):
     db.session.add(ActivityLog(
         action='order_status_change', entity_type='order', entity_id=o.id,
         new_value=json.dumps({'status': 'dostarczone_gom'}),
-        created_at=get_local_now() - timedelta(days=120),
+        created_at=utcnow() - timedelta(days=120),
     ))
     db.session.commit()
 
@@ -206,7 +206,6 @@ def test_wiek_z_dziennika_automatu_jest_przyblizony(app, db, make_user, make_ord
     import json
     from datetime import timedelta
     from modules.admin.models import ActivityLog
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import wiek_zaleglosci
 
     o = make_order(make_user(), status='dostarczone_gom')
@@ -214,7 +213,7 @@ def test_wiek_z_dziennika_automatu_jest_przyblizony(app, db, make_user, make_ord
     db.session.add(ActivityLog(
         action='order_status_auto_updated', entity_type='order', entity_id=o.id,
         new_value=json.dumps({'status': 'dostarczone_gom'}),
-        created_at=get_local_now() - timedelta(days=75),
+        created_at=utcnow() - timedelta(days=75),
     ))
     db.session.commit()
 
@@ -226,7 +225,6 @@ def test_dziennik_o_innym_statusie_jest_ignorowany(app, db, make_user, make_orde
     import json
     from datetime import timedelta
     from modules.admin.models import ActivityLog
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import wiek_zaleglosci
 
     o = make_order(make_user(), status='dostarczone_gom')
@@ -234,7 +232,7 @@ def test_dziennik_o_innym_statusie_jest_ignorowany(app, db, make_user, make_orde
     db.session.add(ActivityLog(
         action='order_status_change', entity_type='order', entity_id=o.id,
         new_value=json.dumps({'status': 'urzad_celny'}),
-        created_at=get_local_now() - timedelta(days=200),
+        created_at=utcnow() - timedelta(days=200),
     ))
     db.session.commit()
 
@@ -263,7 +261,6 @@ def test_uszkodzony_wpis_dziennika_nie_wywraca_reszty(app, db, make_user, make_o
     import json
     from datetime import timedelta
     from modules.admin.models import ActivityLog
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import wiek_zaleglosci
 
     uszkodzone = make_order(make_user(), status='dostarczone_gom')
@@ -271,7 +268,7 @@ def test_uszkodzony_wpis_dziennika_nie_wywraca_reszty(app, db, make_user, make_o
     db.session.add(ActivityLog(
         action='order_status_change', entity_type='order', entity_id=uszkodzone.id,
         new_value='[1,2,3]',  # poprawny JSON, ale nie słownik — .get() by tu wybuchło
-        created_at=get_local_now() - timedelta(days=10),
+        created_at=utcnow() - timedelta(days=10),
     ))
 
     zdrowe = make_order(make_user(), status='dostarczone_gom')
@@ -279,7 +276,7 @@ def test_uszkodzony_wpis_dziennika_nie_wywraca_reszty(app, db, make_user, make_o
     db.session.add(ActivityLog(
         action='order_status_change', entity_type='order', entity_id=zdrowe.id,
         new_value=json.dumps({'status': 'dostarczone_gom'}),
-        created_at=get_local_now() - timedelta(days=5),
+        created_at=utcnow() - timedelta(days=5),
     ))
     db.session.commit()
 
@@ -312,10 +309,9 @@ def test_wiek_liczony_jednym_zapytaniem_dla_wielu(app, db, make_user, make_order
     from sqlalchemy import event
 
     from modules.admin.models import ActivityLog
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import wiek_zaleglosci
 
-    teraz = get_local_now()
+    teraz = utcnow()
     z_kolumny = []
     z_dziennika = []
 
@@ -398,15 +394,14 @@ def test_klient_z_trzema_zamowieniami_to_jeden_wiersz(app, db, make_user, make_o
 
 def test_klienci_sortowani_od_najstarszej_zaleglosci(app, db, make_user, make_order):
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     swiezy = make_user(email='swiezy@example.com')
     stary = make_user(email='stary@example.com')
     o1 = make_order(swiezy, status='dostarczone_gom')
     o2 = make_order(stary, status='dostarczone_gom')
-    o1.status_changed_at = get_local_now() - timedelta(days=3)
-    o2.status_changed_at = get_local_now() - timedelta(days=90)
+    o1.status_changed_at = utcnow() - timedelta(days=3)
+    o2.status_changed_at = utcnow() - timedelta(days=90)
     db.session.commit()
 
     dane = zbierz_nieodebrane()
@@ -530,7 +525,6 @@ def test_klient_bez_wieku_jest_pierwszy(app, db, make_user, make_order):
     dwie policzalne liczby dni.
     """
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     bez_wieku = make_user(email='bez-wieku@example.com')
@@ -541,7 +535,7 @@ def test_klient_bez_wieku_jest_pierwszy(app, db, make_user, make_order):
     db.session.commit()
 
     o_z_wiekiem = make_order(z_wiekiem, status='dostarczone_gom')
-    o_z_wiekiem.status_changed_at = get_local_now() - timedelta(days=90)
+    o_z_wiekiem.status_changed_at = utcnow() - timedelta(days=90)
     db.session.commit()
 
     dane = zbierz_nieodebrane()
@@ -562,14 +556,13 @@ def test_klient_z_mieszanym_wiekiem_jest_pierwszy(app, db, make_user, make_order
     ma to naprawić niezależnie od tego, co pokazuje `dni`.
     """
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     mieszany = make_user(email='mieszany@example.com')
     duzy_znany = make_user(email='duzy-znany@example.com')
 
     o_znane_10 = make_order(mieszany, status='dostarczone_gom')
-    o_znane_10.status_changed_at = get_local_now() - timedelta(days=10)
+    o_znane_10.status_changed_at = utcnow() - timedelta(days=10)
     db.session.commit()
 
     o_nieznane = make_order(mieszany, status='dostarczone_gom')
@@ -577,7 +570,7 @@ def test_klient_z_mieszanym_wiekiem_jest_pierwszy(app, db, make_user, make_order
     db.session.commit()
 
     o_duzy = make_order(duzy_znany, status='dostarczone_gom')
-    o_duzy.status_changed_at = get_local_now() - timedelta(days=90)
+    o_duzy.status_changed_at = utcnow() - timedelta(days=90)
     db.session.commit()
 
     dane = zbierz_nieodebrane()
@@ -604,13 +597,12 @@ def test_dokladne_false_gdy_jedno_zamowienie_ma_wiek_przyblizony(
     import json
     from datetime import timedelta
     from modules.admin.models import ActivityLog
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     u = make_user()
 
     dokladne_zam = make_order(u, status='dostarczone_gom')
-    dokladne_zam.status_changed_at = get_local_now() - timedelta(days=10)
+    dokladne_zam.status_changed_at = utcnow() - timedelta(days=10)
     db.session.commit()
 
     przyblizone_zam = make_order(u, status='dostarczone_gom')
@@ -619,7 +611,7 @@ def test_dokladne_false_gdy_jedno_zamowienie_ma_wiek_przyblizony(
         action='order_status_change', entity_type='order',
         entity_id=przyblizone_zam.id,
         new_value=json.dumps({'status': 'dostarczone_gom'}),
-        created_at=get_local_now() - timedelta(days=5),
+        created_at=utcnow() - timedelta(days=5),
     ))
     db.session.commit()
 
@@ -639,13 +631,12 @@ def test_dokladne_true_gdy_wszystkie_zamowienia_maja_wiek_z_kolumny(
     wersji, która ustawia `dokladne=False` zawsze, niezależnie od danych.
     """
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     u = make_user()
     for dni in (10, 20):
         o = make_order(u, status='dostarczone_gom')
-        o.status_changed_at = get_local_now() - timedelta(days=dni)
+        o.status_changed_at = utcnow() - timedelta(days=dni)
         db.session.commit()
 
     dane = zbierz_nieodebrane()
@@ -671,13 +662,12 @@ def test_dokladne_true_gdy_znany_wiek_z_kolumny_i_jedno_zamowienie_bez_daty(
     powinno być, samo „+?" wystarczy.
     """
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     u = make_user()
 
     dokladny = make_order(u, status='dostarczone_gom')
-    dokladny.status_changed_at = get_local_now() - timedelta(days=10)
+    dokladny.status_changed_at = utcnow() - timedelta(days=10)
     db.session.commit()
 
     bez_daty = make_order(u, status='dostarczone_gom')
@@ -702,11 +692,10 @@ def test_ostatnie_przypomnienie_to_najnowsza_data(app, db, make_user, make_order
     faktycznie na tym łapał regresję, a nie tylko sprawdzał obecność wartości.
     """
     from datetime import timedelta
-    from modules.orders.models import get_local_now
     from modules.orders.unclaimed_service import zbierz_nieodebrane
 
     u = make_user()
-    teraz = get_local_now()
+    teraz = utcnow()
 
     make_order(u, status='dostarczone_gom', pickup_reminder_sent_at=None)
     make_order(u, status='dostarczone_gom',

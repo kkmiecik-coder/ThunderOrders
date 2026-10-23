@@ -51,7 +51,7 @@
                             <circle cx="12" cy="12" r="10"></circle>
                             <polyline points="12 6 12 12 16 14"></polyline>
                         </svg>
-                        {{ wms_session.created_at.strftime('%d.%m.%Y, %H:%M') if wms_session.created_at else '-' }}
+                        {{ wms_session.created_at|format_datetime('%d.%m.%Y, %H:%M') if wms_session.created_at else '-' }}
                     </span>
                     <span class="wms-meta-item" title="Liczba zamówień">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

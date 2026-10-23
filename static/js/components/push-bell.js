@@ -126,7 +126,7 @@
         if (diffHour < 24) return diffHour + ' godz. temu';
         if (diffDay === 1) return 'wczoraj';
         if (diffDay < 30) return diffDay + ' dni temu';
-        return date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+        return formatPlDateTime(date, { day: 'numeric', month: 'short' });
     }
 
     // === Render single notification ===

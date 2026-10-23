@@ -8,8 +8,9 @@ from flask_login import login_required, current_user
 from functools import wraps
 
 from . import feedback_bp
-from .models import FeedbackSurvey, FeedbackQuestion, FeedbackResponse, FeedbackAnswer, get_local_now
+from .models import FeedbackSurvey, FeedbackQuestion, FeedbackResponse, FeedbackAnswer
 from extensions import db
+from utils.timeutil import parse_pl_input, to_pl, utcnow
 
 
 # ============================================
@@ -90,12 +91,8 @@ def admin_save(survey_id):
         survey.name = data.get('name', survey.name)
         survey.description = data.get('description')
 
-        closes_at = data.get('closes_at')
-        if closes_at:
-            from datetime import datetime
-            survey.closes_at = datetime.fromisoformat(closes_at.replace('Z', '+00:00').replace('+00:00', ''))
-        else:
-            survey.closes_at = None
+        # Pole datetime-local = czas polski; puste = bez daty zamknięcia
+        survey.closes_at = parse_pl_input(data.get('closes_at'))
 
         survey.is_anonymous = data.get('is_anonymous', False)
         survey.allow_multiple_responses = data.get('allow_multiple_responses', False)
@@ -104,12 +101,12 @@ def admin_save(survey_id):
         questions_data = data.get('questions', [])
         _update_questions(survey, questions_data)
 
-        survey.updated_at = get_local_now()
+        survey.updated_at = utcnow()
         db.session.commit()
 
         return jsonify({
             'success': True,
-            'updated_at': survey.updated_at.strftime('%H:%M:%S')
+            'updated_at': to_pl(survey.updated_at).strftime('%H:%M:%S')
         })
 
     except Exception as e:
@@ -251,7 +248,7 @@ def admin_export(survey_id):
     # Dane
     for response in responses:
         row = [
-            response.submitted_at.strftime('%Y-%m-%d %H:%M'),
+            to_pl(response.submitted_at).strftime('%Y-%m-%d %H:%M'),
             response.respondent_name if not survey.is_anonymous else 'Anonimowy'
         ]
 

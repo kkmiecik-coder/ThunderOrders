@@ -11,12 +11,13 @@ from modules.orders.models import Order, OrderItem, ShippingRequestOrder
 from modules.auth.models import Settings, User
 from modules.offers.models import OfferPage, OfferSection
 from modules.offers.access import user_can_access_offer_page
-from sqlalchemy import func as sql_func, and_
-from datetime import datetime, timedelta
+from sqlalchemy import and_
+from datetime import timedelta
 from decimal import Decimal
 
 from modules.client import client_bp
 from modules.client.dashboard_service import get_client_dashboard_stats
+from utils.timeutil import bucket_by_pl_day, iso_utc, pl_day_bounds_utc, pl_today
 
 
 def sort_offer_pages(pages, filter_type):
@@ -173,7 +174,7 @@ def get_chart_data():
     if period not in allowed_periods:
         period = 30
 
-    today = datetime.now().date()
+    today = pl_today()
     start_date = today - timedelta(days=period - 1)
 
     chart_data = {
@@ -181,36 +182,32 @@ def get_chart_data():
         'values': []
     }
 
+    # Zamówienia z okresu, dni liczone po polsku w Pythonie (w bazie leży UTC)
+    range_start, _ = pl_day_bounds_utc(start_date)
+    orders_by_day = bucket_by_pl_day(db.session.query(
+        Order.created_at, Order.id
+    ).filter(
+        Order.user_id == current_user.id,
+        Order.created_at >= range_start
+    ).all())
+
     # Grupowanie po dniach (7, 14, 30 dni)
     if period <= 30:
-        orders_by_day = db.session.query(
-            sql_func.date(Order.created_at).label('order_date'),
-            sql_func.count(Order.id).label('count')
-        ).filter(
-            Order.user_id == current_user.id,
-            sql_func.date(Order.created_at) >= start_date
-        ).group_by(sql_func.date(Order.created_at)).all()
-
         # Wypełnij puste dni zerami
         all_dates = [(start_date + timedelta(days=i)) for i in range(period)]
-        orders_dict = {str(row[0]): row[1] for row in orders_by_day}
 
         for date in all_dates:
-            date_str = date.strftime('%Y-%m-%d')
             # Format label: "22.12" (dzień.miesiąc)
             label = date.strftime('%d.%m')
             chart_data['labels'].append(label)
-            chart_data['values'].append(orders_dict.get(date_str, 0))
+            chart_data['values'].append(len(orders_by_day.get(date, [])))
 
     # Grupowanie po miesiącach (90, 180, 365 dni)
     else:
-        orders_by_month = db.session.query(
-            sql_func.date_format(Order.created_at, '%Y-%m').label('month'),
-            sql_func.count(Order.id).label('count')
-        ).filter(
-            Order.user_id == current_user.id,
-            sql_func.date(Order.created_at) >= start_date
-        ).group_by(sql_func.date_format(Order.created_at, '%Y-%m')).all()
+        orders_dict = {}
+        for day, order_ids in orders_by_day.items():
+            month_key = day.strftime('%Y-%m')
+            orders_dict[month_key] = orders_dict.get(month_key, 0) + len(order_ids)
 
         # Wygeneruj wszystkie miesiące w okresie
         current_date = start_date.replace(day=1)
@@ -224,8 +221,6 @@ def get_chart_data():
                 current_date = current_date.replace(year=current_date.year + 1, month=1)
             else:
                 current_date = current_date.replace(month=current_date.month + 1)
-
-        orders_dict = {str(row[0]): row[1] for row in orders_by_month}
 
         for month_str in months:
             # Format label: "12/2024" (miesiąc/rok) lub "Gru 2024"
@@ -366,8 +361,8 @@ def get_offer_pages():
             'status_text': status_text,
             'is_live': is_live,
             'is_important': page.status in ['active', 'scheduled'],
-            'starts_at': page.starts_at.isoformat() if page.starts_at else None,
-            'ends_at': page.ends_at.isoformat() if page.ends_at else None,
+            'starts_at': iso_utc(page.starts_at),
+            'ends_at': iso_utc(page.ends_at),
             'has_sets': len(page.get_set_sections()) > 0,
             'page_url': url_for('offers.order_page', token=page.token)
         })

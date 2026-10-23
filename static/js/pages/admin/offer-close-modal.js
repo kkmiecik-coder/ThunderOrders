@@ -55,8 +55,8 @@
             showDeadlineError('Termin płatności jest wymagany.');
             return null;
         }
-        const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
-        if (deadlineDatetime <= new Date()) {
+        // Pola to polski zegar ścienny — porównujemy chwile, nie strefę przeglądarki
+        if (plWallToEpoch(`${deadlineDate}T${deadlineTime}`) <= Date.now()) {
             showDeadlineError('Termin płatności musi być w przyszłości.');
             return null;
         }

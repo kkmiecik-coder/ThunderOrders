@@ -153,12 +153,9 @@
 
     var DEFAULT_BOOST = 2;   // spec §2.2: ogrzanie = tempo ×2 — tylko gdy stan nie niesie config
 
-    /** Naiwny czas lokalny z API ("2026-10-11T21:15:00") → ms. */
+    /** Chwila z API w UTC ("2026-10-11T19:15:00Z") → ms; Date.parse honoruje `Z`/offset. */
     function parseLocal(iso) {
-        if (!iso) return NaN;
-        var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(iso);
-        if (!m) return NaN;
-        return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
+        return iso ? Date.parse(iso) : NaN;
     }
 
     /** Mnożnik ogrzania z config stanu (ten sam, którym liczy serwer). */

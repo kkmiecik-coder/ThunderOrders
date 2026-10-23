@@ -9,7 +9,7 @@ Models for WMS session management:
 """
 
 from extensions import db
-from modules.orders.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 # ====================
@@ -29,11 +29,11 @@ class WmsSession(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='active')  # active, paused, completed, cancelled
     phone_connected = db.Column(db.Boolean, default=False)
-    phone_connected_at = db.Column(db.DateTime, nullable=True)
-    desktop_connected_at = db.Column(db.DateTime, nullable=True)
+    phone_connected_at = db.Column(UTCDateTime, nullable=True)
+    desktop_connected_at = db.Column(UTCDateTime, nullable=True)
     current_order_index = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    completed_at = db.Column(UTCDateTime, nullable=True)
     notes = db.Column(db.Text, nullable=True)
 
     # Relationships
@@ -105,9 +105,9 @@ class WmsSessionOrder(db.Model):
     session_id = db.Column(db.Integer, db.ForeignKey('wms_sessions.id'), nullable=False)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     sort_order = db.Column(db.Integer, default=0)
-    picking_started_at = db.Column(db.DateTime, nullable=True)
-    picking_completed_at = db.Column(db.DateTime, nullable=True)
-    packing_completed_at = db.Column(db.DateTime, nullable=True)
+    picking_started_at = db.Column(UTCDateTime, nullable=True)
+    picking_completed_at = db.Column(UTCDateTime, nullable=True)
+    packing_completed_at = db.Column(UTCDateTime, nullable=True)
 
     # Relationships
     session = db.relationship('WmsSession', back_populates='session_orders')
@@ -164,8 +164,8 @@ class PackagingMaterial(db.Model):
     size_category = db.Column(db.String(10), nullable=True)  # gabaryt: mini, A, B, C
     is_active = db.Column(db.Boolean, default=True)
     sort_order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     def __repr__(self):
         return f'<PackagingMaterial {self.id}: {self.name}>'

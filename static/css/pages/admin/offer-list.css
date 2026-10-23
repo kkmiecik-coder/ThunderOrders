@@ -2700,6 +2700,58 @@
     color: #1a1a2e;
 }
 
+/* ===== Strefy czasowe w podpowiedzi (wiersze i przyciski jak w przypomnieniach) ===== */
+.timezone-add-row {
+    flex-wrap: wrap;
+}
+
+.timezone-label-input {
+    width: 220px;
+    max-width: 100%;
+}
+
+.timezone-select {
+    min-width: 220px;
+    max-width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #ffffff;
+    color: #334155;
+}
+
+.timezone-id {
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .timezone-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #fff;
+}
+
+[data-theme="dark"] .timezone-select option,
+[data-theme="dark"] .timezone-select optgroup {
+    background: #1a1a2e;
+    color: #fff;
+}
+
+[data-theme="dark"] .timezone-id {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 768px) {
+    .timezone-label-input,
+    .timezone-select {
+        width: 100%;
+        min-height: 44px;
+    }
+}
+
 /* ===== Toolbar: szukajka + dodaj stronę ===== */
 .offer-toolbar {
     display: flex;

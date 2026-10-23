@@ -1,6 +1,7 @@
 """WMS: wysyłka zlecenia (w sesji i z listy) oraz powrót spakowanego zlecenia do WMS."""
 
 import pytest
+from utils.timeutil import utcnow
 
 
 # ---------- pomocnicze ----------
@@ -175,13 +176,12 @@ def test_ship_from_list_rejects_already_shipped(client, db, make_user, make_orde
 
 def test_ship_from_list_rejects_order_locked_in_session(client, db, make_user, make_order, login,
                                                         notifications):
-    from modules.orders.models import get_local_now
     admin = make_user(role='admin')
     login(admin)
     _seed_statuses(db)
     sr, orders = _sr_packed(db, make_user, make_order)
     session = _wms_session(db, admin)
-    orders[0].wms_locked_at = get_local_now()
+    orders[0].wms_locked_at = utcnow()
     orders[0].wms_session_id = session.id
     db.session.commit()
 

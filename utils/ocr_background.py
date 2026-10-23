@@ -11,6 +11,7 @@ import time
 import json
 import logging
 from decimal import Decimal
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ def process_ocr_verification(task_data):
 def _process_ocr_internal(task_data):
     """Internal OCR processing within app context."""
     from extensions import db
-    from modules.orders.models import PaymentConfirmation, get_local_now
+    from modules.orders.models import PaymentConfirmation
     from modules.payments.models import PaymentMethod
     from modules.auth.models import Settings
     from utils.ocr_verifier import TESSERACT_AVAILABLE
@@ -150,7 +151,7 @@ def _process_ocr_internal(task_data):
         return
 
     auto_threshold = Settings.get_value('ocr_auto_approve_threshold', 90)
-    now = get_local_now()
+    now = utcnow()
     auto_approved_confs = []
 
     for conf in confirmations:

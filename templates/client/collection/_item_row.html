@@ -23,7 +23,7 @@
         <span class="text-muted">-</span>
         {% endif %}
     </span>
-    <span class="list-col col-date">{{ item.created_at.strftime('%d.%m.%Y') }}</span>
+    <span class="list-col col-date">{{ item.created_at|format_date('%d.%m.%Y') }}</span>
     <span class="list-col col-actions">
         {% if item.is_virtual %}
         <a class="btn-icon btn-order-link" href="{{ url_for('orders.client_detail', order_id=item.order.id) }}"

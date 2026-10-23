@@ -485,11 +485,11 @@
             nurse.classList.toggle('is-calling', H.eggsToClaimCount(state) > 0);
         }
 
-        // --- zegar na ścianie (czas serwera) -----------------------------------------------------------
+        // --- zegar na ścianie (czas serwera po polsku) --------------------------------------------------
         function renderClock() {
-            var d = new Date(u.serverNow());
-            var m = d.getMinutes();
-            var h = d.getHours() % 12 + m / 60;
+            var d = u.plParts(u.serverNow());
+            var m = d.minute;
+            var h = d.hour % 12 + m / 60;
             handH.setAttribute('transform', 'rotate(' + (h * 30).toFixed(1) + ' 30 30)');
             handM.setAttribute('transform', 'rotate(' + (m * 6) + ' 30 30)');
         }

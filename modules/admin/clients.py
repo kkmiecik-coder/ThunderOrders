@@ -28,6 +28,7 @@ from modules.products.models import CartItem, ProductInteraction
 from extensions import db
 from utils.decorators import role_required
 from utils.email_sender import send_account_deactivated_email
+from utils.timeutil import to_pl
 
 
 @admin_bp.route('/clients')
@@ -277,7 +278,7 @@ def client_stat_detail(id, stat_type):
             html += f'<div class="stat-detail-row"><span>Numer:</span><span>{order.order_number}</span></div>'
             html += f'<div class="stat-detail-row"><span>Status:</span><span>{order.status_display_name}</span></div>'
             html += f'<div class="stat-detail-row"><span>Kwota:</span><span>{order.total_amount:.2f} zł</span></div>'
-            html += f'<div class="stat-detail-row"><span>Data:</span><span>{order.created_at.strftime("%d.%m.%Y %H:%M")}</span></div>'
+            html += f'<div class="stat-detail-row"><span>Data:</span><span>{to_pl(order.created_at).strftime("%d.%m.%Y %H:%M")}</span></div>'
             detail_url = url_for("orders.admin_detail", order_id=order.id)
             html += f'<a href="{detail_url}" class="btn btn-primary btn-sm" style="margin-top:12px;display:block;text-align:center;">Przejdź do zamówienia</a>'
             html += '</div>'
@@ -289,8 +290,8 @@ def client_stat_detail(id, stat_type):
         html = '<div class="stat-detail-list">'
         html += f'<div class="stat-detail-row"><span>Liczba logowań:</span><span>{client.login_count or 0}</span></div>'
         html += f'<div class="stat-detail-row"><span>Seria logowań:</span><span>{client.login_streak or 0} dni</span></div>'
-        html += f'<div class="stat-detail-row"><span>Ostatnie logowanie:</span><span>{client.last_login.strftime("%d.%m.%Y %H:%M") if client.last_login else "Nigdy"}</span></div>'
-        html += f'<div class="stat-detail-row"><span>Rejestracja:</span><span>{client.created_at.strftime("%d.%m.%Y %H:%M") if client.created_at else "-"}</span></div>'
+        html += f'<div class="stat-detail-row"><span>Ostatnie logowanie:</span><span>{to_pl(client.last_login).strftime("%d.%m.%Y %H:%M") if client.last_login else "Nigdy"}</span></div>'
+        html += f'<div class="stat-detail-row"><span>Rejestracja:</span><span>{to_pl(client.created_at).strftime("%d.%m.%Y %H:%M") if client.created_at else "-"}</span></div>'
         html += '</div>'
         return html
 
@@ -300,7 +301,7 @@ def client_stat_detail(id, stat_type):
         if items:
             for item in items:
                 name = item.name or (item.product.name if item.product else 'Bez nazwy')
-                date = item.created_at.strftime('%d.%m.%Y') if item.created_at else ''
+                date = to_pl(item.created_at).strftime('%d.%m.%Y') if item.created_at else ''
                 html += f'<div class="stat-detail-row"><span>{name}</span><span class="text-muted">{date}</span></div>'
         else:
             html += '<p class="text-muted">Pusta kolekcja</p>'
@@ -315,7 +316,7 @@ def client_stat_detail(id, stat_type):
         html = '<div class="stat-detail-list">'
         if user_achievements:
             for ua, ach in user_achievements:
-                date = ua.unlocked_at.strftime('%d.%m.%Y') if ua.unlocked_at else ''
+                date = to_pl(ua.unlocked_at).strftime('%d.%m.%Y') if ua.unlocked_at else ''
                 html += f'<div class="stat-detail-row"><span>{ach.name}</span><span class="text-muted">{date}</span></div>'
         else:
             html += '<p class="text-muted">Brak osiągnięć</p>'
@@ -347,7 +348,7 @@ def client_stat_detail(id, stat_type):
         if subs:
             for sub in subs:
                 device = sub.device_name or 'Nieznane urządzenie'
-                date = sub.created_at.strftime('%d.%m.%Y') if sub.created_at else ''
+                date = to_pl(sub.created_at).strftime('%d.%m.%Y') if sub.created_at else ''
                 html += f'<div class="stat-detail-row"><span>{device[:50]}</span><span class="text-muted">{date}</span></div>'
         else:
             html += '<p class="text-muted">Brak subskrypcji push</p>'

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -14,7 +14,7 @@ def test_get_product_deadline_from_offer_page(db, make_user, make_order):
 
     user = make_user()
     admin = make_user(role='admin')
-    deadline = datetime(2026, 8, 1, 12, 0)
+    deadline = datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc)
     page = OfferPage(name='Test Page', token=OfferPage.generate_token(), payment_deadline=deadline, created_by=admin.id)
     db.session.add(page)
     db.session.commit()
@@ -59,7 +59,7 @@ def test_get_shipping_kr_deadline_finds_batch_customer_belongs_to(db, make_user,
     db.session.add(proxy_item)
     db.session.flush()
 
-    deadline = datetime(2026, 8, 15, 23, 59)
+    deadline = datetime(2026, 8, 15, 23, 59, tzinfo=timezone.utc)
     poland_order = PolandOrder(order_number='PRX/PL/T1', proxy_order_id=proxy.id,
                                 status='zamowione', payment_deadline=deadline)
     db.session.add(poland_order)
@@ -101,7 +101,7 @@ def test_get_customs_vat_deadline_finds_batch_customer_belongs_to(db, make_user,
     db.session.add(proxy_item)
     db.session.flush()
 
-    customs_deadline = datetime(2026, 8, 20, 23, 59)
+    customs_deadline = datetime(2026, 8, 20, 23, 59, tzinfo=timezone.utc)
     poland_order = PolandOrder(order_number='PRX/PL/T2', proxy_order_id=proxy.id,
                                 status='urzad_celny', customs_payment_deadline=customs_deadline)
     db.session.add(poland_order)
@@ -158,10 +158,10 @@ def test_get_shipping_kr_deadline_returns_earliest_across_batches(db, make_user,
         db.session.add(PolandOrderItemOrder(poland_order_item_id=poland_item.id, order_id=order.id, quantity=1))
         db.session.commit()
 
-    _batch(product_a, datetime(2026, 9, 10, 23, 59))
-    _batch(product_b, datetime(2026, 8, 20, 23, 59))  # wcześniejszy
+    _batch(product_a, datetime(2026, 9, 10, 23, 59, tzinfo=timezone.utc))
+    _batch(product_b, datetime(2026, 8, 20, 23, 59, tzinfo=timezone.utc))  # wcześniejszy
 
-    assert order.get_shipping_kr_deadline() == datetime(2026, 8, 20, 23, 59)
+    assert order.get_shipping_kr_deadline() == datetime(2026, 8, 20, 23, 59, tzinfo=timezone.utc)
 
 
 def test_get_shipping_kr_deadline_ignores_cancelled_batch(db, make_user, make_product, make_order):
@@ -203,7 +203,7 @@ def test_get_shipping_kr_deadline_ignores_cancelled_batch(db, make_user, make_pr
         db.session.commit()
 
     # Anulowana partia ma WCZEŚNIEJSZY termin — nie powinna wygrać.
-    _batch(product_a, datetime(2026, 8, 10, 23, 59), status='anulowane')
-    _batch(product_b, datetime(2026, 9, 5, 23, 59), status='zamowione')
+    _batch(product_a, datetime(2026, 8, 10, 23, 59, tzinfo=timezone.utc), status='anulowane')
+    _batch(product_b, datetime(2026, 9, 5, 23, 59, tzinfo=timezone.utc), status='zamowione')
 
-    assert order.get_shipping_kr_deadline() == datetime(2026, 9, 5, 23, 59)
+    assert order.get_shipping_kr_deadline() == datetime(2026, 9, 5, 23, 59, tzinfo=timezone.utc)

@@ -1,7 +1,7 @@
 """Model blocklisty refresh tokenów dla mobilnego API (realny logout / unieważnianie)."""
 
 from extensions import db
-from modules.orders.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class MobileTokenBlocklist(db.Model):
@@ -11,8 +11,8 @@ class MobileTokenBlocklist(db.Model):
     jti = db.Column(db.String(36), nullable=False, index=True, unique=True)
     token_type = db.Column(db.String(16), nullable=False)  # 'access' | 'refresh'
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True)
-    expires_at = db.Column(db.DateTime, nullable=False)  # czas lokalny PL (spójnie z created_at)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    expires_at = db.Column(UTCDateTime, nullable=False)  # UTC, jak created_at
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     @classmethod
     def contains(cls, jti):
@@ -21,7 +21,7 @@ class MobileTokenBlocklist(db.Model):
     @classmethod
     def purge_expired(cls):
         """Lazy cleanup wygasłych wpisów (wołane przy logout). Commit po stronie wołającego."""
-        cls.query.filter(cls.expires_at < get_local_now()).delete(synchronize_session=False)
+        cls.query.filter(cls.expires_at < utcnow()).delete(synchronize_session=False)
 
 
 class MobileIdempotencyKey(db.Model):
@@ -39,7 +39,7 @@ class MobileIdempotencyKey(db.Model):
     endpoint = db.Column(db.String(64), nullable=False)
     status_code = db.Column(db.Integer, nullable=True)      # NULL = processing (claim)
     response_body = db.Column(db.Text, nullable=True)       # JSON serializowana odpowiedź
-    created_at = db.Column(db.DateTime, default=get_local_now, index=True)
+    created_at = db.Column(UTCDateTime, default=utcnow, index=True)
 
     __table_args__ = (
         db.UniqueConstraint('user_id', 'idempotency_key', name='uq_idem_user_key'),
@@ -49,7 +49,7 @@ class MobileIdempotencyKey(db.Model):
     def purge_expired(cls, ttl_hours=48):
         """Lazy cleanup wpisów starszych niż TTL. Commit po stronie wołającego."""
         from datetime import timedelta
-        cutoff = get_local_now() - timedelta(hours=ttl_hours)
+        cutoff = utcnow() - timedelta(hours=ttl_hours)
         cls.query.filter(cls.created_at < cutoff).delete(synchronize_session=False)
 
 
@@ -63,5 +63,5 @@ class MobileDevice(db.Model):
                         nullable=False, index=True)
     fcm_token = db.Column(db.String(512), nullable=False, unique=True)
     platform = db.Column(db.String(16), nullable=False)   # android | ios | web
-    last_used_at = db.Column(db.DateTime, default=get_local_now)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    last_used_at = db.Column(UTCDateTime, default=utcnow)
+    created_at = db.Column(UTCDateTime, default=utcnow)

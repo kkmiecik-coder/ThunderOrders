@@ -211,7 +211,7 @@
                             <span class="info-label">Data dezaktywacji:</span>
                             <span class="info-value">
                                 {% if client.deactivated_at %}
-                                {{ client.deactivated_at|format_datetime('%d.%m.%Y %H:%M') }}
+                                {{ client.deactivated_at|pl_time('%d.%m.%Y %H:%M') }}
                                 {% else %}
                                 <span class="text-muted">Brak danych</span>
                                 {% endif %}
@@ -422,7 +422,7 @@
                             <div class="special-badge-info">
                                 <strong>{{ ua.achievement.name }}</strong>
                                 <br>
-                                <small>{{ ua.achievement.description }} · {{ ua.unlocked_at.strftime('%Y-%m-%d') }}</small>
+                                <small>{{ ua.achievement.description }} · {{ ua.unlocked_at|format_date('%Y-%m-%d') }}</small>
                             </div>
                             {% if current_user.is_admin() %}
                             <form method="POST"
@@ -492,13 +492,13 @@
                     <div class="info-grid">
                         <div class="info-row">
                             <span class="info-label">Rejestracja:</span>
-                            <span class="info-value">{{ client.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="info-value">{{ client.created_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Ostatnie logowanie:</span>
                             <span class="info-value">
                                 {% if client.last_login %}
-                                {{ client.last_login|format_datetime('%d.%m.%Y %H:%M') }}
+                                {{ client.last_login|pl_time('%d.%m.%Y %H:%M') }}
                                 {% else %}
                                 <span class="text-muted">Nigdy</span>
                                 {% endif %}
@@ -508,7 +508,7 @@
                             <span class="info-label">Ostatnia aktualizacja:</span>
                             <span class="info-value">
                                 {% if client.updated_at %}
-                                {{ client.updated_at|format_datetime('%d.%m.%Y %H:%M') }}
+                                {{ client.updated_at|pl_time('%d.%m.%Y %H:%M') }}
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
@@ -517,13 +517,13 @@
                         {% if client.registration_reminder_sent_at %}
                         <div class="info-row">
                             <span class="info-label">Przypomnienie wysłane:</span>
-                            <span class="info-value">{{ client.registration_reminder_sent_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="info-value">{{ client.registration_reminder_sent_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                         </div>
                         {% endif %}
                         {% if client.deletion_requested_at %}
                         <div class="info-row">
                             <span class="info-label">Żądanie usunięcia:</span>
-                            <span class="info-value">{{ client.deletion_requested_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="info-value">{{ client.deletion_requested_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                         </div>
                         {% endif %}
                     </div>

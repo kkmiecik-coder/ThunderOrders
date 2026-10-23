@@ -5,9 +5,10 @@ from datetime import timedelta
 from sqlalchemy import func
 
 from extensions import db
-from modules.orders.models import Order, get_local_now
+from modules.orders.models import Order
 from flask import url_for
 from utils.email_sender import send_contest_win_email
+from utils.timeutil import iso_utc, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def is_eligible(contest, user):
             return False
 
     if contest.eligibility_active_within_days:
-        cutoff = get_local_now() - timedelta(days=contest.eligibility_active_within_days)
+        cutoff = utcnow() - timedelta(days=contest.eligibility_active_within_days)
         recent = _orders_base(uid).filter(Order.created_at >= cutoff).count()
         if recent == 0:
             return False
@@ -73,7 +74,7 @@ def get_next_spin_at(contest, user):
 def spins_open(contest):
     if contest.status != 'aktywny':
         return False
-    if contest.ends_at is not None and get_local_now() >= contest.ends_at:
+    if contest.ends_at is not None and utcnow() >= contest.ends_at:
         return False
     return True
 
@@ -84,7 +85,7 @@ def can_spin(contest, user):
     if not is_eligible(contest, user):
         return False
     nxt = get_next_spin_at(contest, user)
-    if nxt is not None and get_local_now() < nxt:
+    if nxt is not None and utcnow() < nxt:
         return False
     return True
 
@@ -112,7 +113,7 @@ def get_display_contest():
     active = Contest.query.filter_by(status='aktywny').first()
     if active:
         return active
-    cutoff = get_local_now() - timedelta(days=14)
+    cutoff = utcnow() - timedelta(days=14)
     return Contest.query.filter(Contest.status == 'rozlosowany', Contest.updated_at >= cutoff) \
         .order_by(Contest.id.desc()).first()
 
@@ -177,7 +178,7 @@ def draw_winners(contest, rng=None):
         w = ContestWinner(
             contest_id=contest.id, user_id=user.id, place=place,
             tickets_at_draw=tickets, chance_pct=chance,
-            prize_product_id=contest.prize_product_id, drawn_at=get_local_now(),
+            prize_product_id=contest.prize_product_id, drawn_at=utcnow(),
         )
         db.session.add(w)
         winners.append(w)
@@ -242,7 +243,7 @@ def widget_context(contest, user):
     nxt = get_next_spin_at(contest, user)
     is_open = spins_open(contest)
     eligible = is_eligible(contest, user)
-    cooldown_ok = (nxt is None or get_local_now() >= nxt)
+    cooldown_ok = (nxt is None or utcnow() >= nxt)
 
     # Determine display state
     if contest.status == 'rozlosowany':
@@ -258,7 +259,7 @@ def widget_context(contest, user):
         'participants': count_participants(contest),
         'eligible': eligible,
         'can_spin': is_open and eligible and cooldown_ok,
-        'next_spin_at': nxt.isoformat() if nxt else None,
+        'next_spin_at': iso_utc(nxt),
         'spins_open': is_open,
         'state': state,
     }
@@ -279,7 +280,7 @@ def draw_locked(contest):
     """
     return (contest.status == 'aktywny'
             and contest.ends_at is not None
-            and get_local_now() < contest.ends_at)
+            and utcnow() < contest.ends_at)
 
 
 def spin_histogram(contest, bins=10):

@@ -5,7 +5,7 @@ System wyświetlania modalnych ogłoszeń dla użytkowników
 
 import json
 from extensions import db
-from modules.auth.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class Popup(db.Model):
@@ -55,8 +55,8 @@ class Popup(db.Model):
 
     # Metadane
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relacje
     creator = db.relationship('User', foreign_keys=[created_by], backref='created_popups')
@@ -150,7 +150,7 @@ class PopupView(db.Model):
         nullable=False
     )
     duration_ms = db.Column(db.Integer, nullable=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relacja do usera
     user = db.relationship('User', foreign_keys=[user_id])

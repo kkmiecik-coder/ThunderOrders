@@ -2,20 +2,19 @@
 
 import hashlib
 import re
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 from flask import current_app, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, jwt_required, get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 from extensions import db, limiter
 from modules.auth.models import User
-from modules.orders.models import get_local_now
 from utils.email_manager import EmailManager
 from . import api_mobile_bp
 from .google_auth import verify_google_id_token
 from .helpers import json_ok, json_err, serialize_user
 from .models import MobileTokenBlocklist
+from utils.timeutil import utcnow
 
 
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -161,7 +160,7 @@ def verify_email_code():
         if user.is_verification_locked():
             slug = 'invalid_code'  # lockout świadomie mapowany na invalid_code (komunikat niesie szczegóły)
         elif (not user.email_verification_code_expires
-              or get_local_now() > user.email_verification_code_expires):
+              or utcnow() > user.email_verification_code_expires):
             slug = 'code_expired'
         else:
             slug = 'invalid_code'
@@ -235,8 +234,8 @@ def refresh():
 @jwt_required(refresh=True)
 def logout():
     token = get_jwt()
-    # exp (unix ts, UTC) -> naive czas lokalny PL, spójnie z resztą bazy (get_local_now)
-    exp = datetime.fromtimestamp(token['exp'], tz=ZoneInfo('Europe/Warsaw')).replace(tzinfo=None)
+    # exp (unix ts) -> aware UTC, jak każda chwila w bazie
+    exp = datetime.fromtimestamp(token['exp'], tz=timezone.utc)
     MobileTokenBlocklist.purge_expired()
     db.session.add(MobileTokenBlocklist(
         jti=token['jti'],

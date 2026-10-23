@@ -5,7 +5,7 @@ Endpointy do zarządzania zgodami użytkownika (cookies analityczne, marketing) 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import db
-from datetime import datetime
+from utils.timeutil import utcnow
 
 analytics_bp = Blueprint('analytics_api', __name__, url_prefix='/api')
 
@@ -64,7 +64,7 @@ def update_analytics_consent():
 
         # Zapisz zgodę i datę
         current_user.analytics_consent = consent
-        current_user.analytics_consent_date = datetime.now()
+        current_user.analytics_consent_date = utcnow()
         db.session.commit()
 
         message = 'Zgoda na cookies została zapisana' if consent else 'Zgoda na cookies została wycofana'

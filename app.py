@@ -10,10 +10,12 @@ import sys
 
 import os
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify, current_app
+from markupsafe import Markup
 from werkzeug.middleware.proxy_fix import ProxyFix
+from utils.timeutil import format_pl_input, get_display_timezones, iso_utc, parse_pl_input, to_pl, utcnow
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Sentry - error tracking (inicjalizacja przed create_app)
@@ -565,7 +567,7 @@ def _przetworz_dostawy(dry_run=False):
 
     from modules.orders.delivery_backfill import odtworz_shipped_at
     from modules.orders.delivery_config import pobierz_konfig_dostawy
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     from modules.orders.wms_utils import (
         ZlecenieJuzDostarczone, ZlecenieZrodloweNieDomykane, dostarcz_zlecenie)
     from utils.email_manager import EmailManager
@@ -582,7 +584,7 @@ def _przetworz_dostawy(dry_run=False):
     backfill = odtworz_shipped_at(dry_run=dry_run)
 
     konfig = pobierz_konfig_dostawy()
-    teraz = get_local_now()
+    teraz = utcnow()
     wynik = {'backfill': backfill, 'przypomnienia': 0, 'domkniete': 0}
 
     def _wyslane_wczesniej_niz(dni):
@@ -947,7 +949,7 @@ def register_cli_commands(app):
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl, nie wysyłaj')
     def check_payment_reminders(dry_run):
         """Sprawdza i wysyła przypomnienia o płatnościach (uruchamiany co godzinę przez cron)."""
-        from modules.orders.models import Order, get_local_now
+        from modules.orders.models import Order
         from modules.offers.models import OfferPage
         from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
         from modules.orders.payment_overdue_service import STAGE_DEFINITIONS
@@ -957,7 +959,7 @@ def register_cli_commands(app):
         from utils.activity_logger import log_activity
         from datetime import timedelta
 
-        now = get_local_now()
+        now = utcnow()
         sent_count = 0
         pending_reminders = []
 
@@ -1128,7 +1130,7 @@ def register_cli_commands(app):
                     setting = Settings(key=key, value=str(value), type='string')
                     db.session.add(setting)
 
-            set_setting('payment_reminder_last_check', now.strftime('%d/%m/%Y %H:%M'))
+            set_setting('payment_reminder_last_check', to_pl(now).strftime('%d/%m/%Y %H:%M'))
             set_setting('payment_reminder_last_count', str(sent_count))
             db.session.commit()
 
@@ -1275,10 +1277,19 @@ def register_cli_commands(app):
         for number, old, new in changed:
             click.echo(f"  {number}: {old} -> {new}")
 
+    def _czas_pl_z_cli(ctx, param, value):
+        """Opcja CLI z czasem polskim 'RRRR-MM-DD GG:MM:SS' -> aware UTC (kolumny UTCDateTime)."""
+        try:
+            return parse_pl_input(value, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            raise click.BadParameter(f'oczekiwano czasu polskiego "RRRR-MM-DD GG:MM:SS", jest {value!r}')
+
     @app.cli.command('resend-reconcile-notifications')
     @click.option('--dry-run', is_flag=True, help='Tylko wyswietl, bez wysylki')
-    @click.option('--since', default=None, help='Dolna granica czasu ActivityLog, np. "2026-09-19 15:39:00"')
-    @click.option('--until', default=None, help='Gorna granica czasu ActivityLog, np. "2026-09-19 15:41:00"')
+    @click.option('--since', default=None, callback=_czas_pl_z_cli,
+                  help='Dolna granica czasu ActivityLog (czas polski), np. "2026-09-19 15:39:00"')
+    @click.option('--until', default=None, callback=_czas_pl_z_cli,
+                  help='Gorna granica czasu ActivityLog (czas polski), np. "2026-09-19 15:41:00"')
     @click.option('--only-orders', default=None, help='Numery zamowien po przecinku (np. EX/1631,EX/1637) - do ponowienia tylko tych, ktore wczesniej sie nie udaly')
     @click.option('--delay', default=0.0, type=float, help='Sekundy odstepu miedzy wysylkami (unika rate-limitu SMTP przy duzej paczce)')
     def resend_reconcile_notifications(dry_run, since, until, only_orders, delay):
@@ -1511,7 +1522,7 @@ def register_cli_commands(app):
         from modules.auth.models import User
         from datetime import datetime, timedelta
 
-        cutoff = datetime.now() - timedelta(days=30)
+        cutoff = utcnow() - timedelta(days=30)
 
         pending = User.query.filter(
             User.deletion_requested_at.isnot(None),
@@ -1526,7 +1537,7 @@ def register_cli_commands(app):
             return
 
         for user in pending:
-            click.echo(f'  #{user.id} — żądanie z {user.deletion_requested_at.strftime("%d.%m.%Y")}', nl=False)
+            click.echo(f'  #{user.id} — żądanie z {to_pl(user.deletion_requested_at).strftime("%d.%m.%Y")}', nl=False)
             if dry_run:
                 click.echo(' [DRY RUN — pominięto]')
             else:
@@ -1545,11 +1556,11 @@ def register_cli_commands(app):
     @click.option('--hours', default=24, help='Wyślij po N godzinach od rejestracji (domyślnie 24)')
     def send_registration_reminders(dry_run, hours):
         """Wysyła jednorazowe przypomnienie do użytkowników, którzy nie dokończyli rejestracji."""
-        from modules.auth.models import User, get_local_now
+        from modules.auth.models import User
         from utils.email_sender import send_email
         from datetime import timedelta
 
-        now = get_local_now()
+        now = utcnow()
         cutoff = now - timedelta(hours=hours)
 
         # Użytkownicy z niekompletnym profilem, zarejestrowani > N godzin temu, bez wysłanego przypomnienia
@@ -1613,10 +1624,10 @@ def register_cli_commands(app):
     def cleanup_payment_proofs(days, dry_run):
         """Usuwa pliki potwierdzeń płatności zatwierdzonych ponad N dni temu (domyślnie 30)."""
         import os
-        from modules.orders.models import PaymentConfirmation, get_local_now
+        from modules.orders.models import PaymentConfirmation
         from datetime import timedelta
 
-        cutoff = get_local_now() - timedelta(days=days)
+        cutoff = utcnow() - timedelta(days=days)
         upload_folder = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'uploads', 'payment_confirmations'
@@ -1672,7 +1683,7 @@ def register_cli_commands(app):
     def reprocess_ocr(dry_run, reprocess_all):
         """Ponownie przetwarza OCR dla potwierdzeń płatności z wynikiem 0% lub NULL."""
         import json as _json
-        from modules.orders.models import PaymentConfirmation, Order, get_local_now
+        from modules.orders.models import PaymentConfirmation, Order
         from modules.payments.models import PaymentMethod
         from utils.ocr_verifier import verify_payment_proof, TESSERACT_AVAILABLE
 
@@ -1950,6 +1961,9 @@ def register_context_processors(app):
             'get_active_payment_methods': get_active_payment_methods,
             'maintenance_mode': getattr(g, 'maintenance_mode', False),
             'pets_enabled': _pets_enabled(),
+            # Miasta z podpowiedzi przy godzinach (tz-tooltip.js) — funkcja, żeby zapytanie
+            # szło tylko tam, gdzie szablon bazowy wypisuje listę na <body>
+            'get_display_timezones': get_display_timezones,
         }
 
     # Opcje selektora „ile na stronie" — jedno źródło prawdy z backendem.
@@ -1999,75 +2013,74 @@ def register_template_filters(app):
         return bleach.clean(value, tags=allowed_tags, attributes=allowed_attrs,
                             css_sanitizer=css_sanitizer, strip=True)
 
-    @app.template_filter('to_poland_tz')
-    def to_poland_tz_filter(dt):
-        """
-        Konwertuje datetime UTC na czas polski (Europe/Warsaw).
-        Użycie w template: {{ date|to_poland_tz }}
+    def _strftime_pl(dt, fmt):
+        """Chwila -> tekst w czasie polskim. Sama data (`date`) bez zmian - nie ma strefy.
+
+        Naiwny datetime to błąd (`ValueError` z `to_pl`) - w kodzie czas jest zawsze aware UTC.
         """
         if dt is None:
-            return None
-        # Jeśli datetime nie ma timezone, zakładamy że jest UTC
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(POLAND_TZ)
+            return ''
+        if isinstance(dt, datetime):
+            dt = to_pl(dt)
+        return dt.strftime(fmt)
 
     @app.template_filter('format_datetime')
     def format_datetime_filter(dt, fmt='%Y-%m-%d %H:%M'):
         """
-        Formatuje datetime.
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
-        Aware datetime konwertowany na czas polski.
+        Formatuje chwilę (aware UTC) w czasie polskim.
         Użycie: {{ date|format_datetime }} lub {{ date|format_datetime('%d.%m.%Y %H:%M') }}
         """
-        if dt is None:
-            return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime(fmt)
+        return _strftime_pl(dt, fmt)
 
     @app.template_filter('format_date')
     def format_date_filter(dt, fmt='%Y-%m-%d'):
         """
-        Formatuje tylko datę.
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
+        Formatuje tylko datę - dla chwili datę polską, dla `date` samą datę.
         Użycie: {{ date|format_date }} lub {{ date|format_date('%d.%m.%Y') }}
         """
-        if dt is None:
-            return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime(fmt)
+        return _strftime_pl(dt, fmt)
 
     @app.template_filter('format_time')
     def format_time_filter(dt, fmt='%H:%M'):
         """
-        Formatuje tylko godzinę.
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
+        Formatuje tylko godzinę w czasie polskim.
         Użycie: {{ date|format_time }} lub {{ date|format_time('%H:%M:%S') }}
+        """
+        return _strftime_pl(dt, fmt)
+
+    @app.template_filter('pl_time')
+    def pl_time_filter(dt, fmt='%d.%m.%Y, %H:%M'):
+        """
+        Godzina w czasie polskim w `<time>` z chwilą UTC — tz-tooltip.js dokleja do niej
+        podpowiedź z godziną w miastach z ustawień (`display_timezones`). Bez JS zostaje
+        sam czas polski. Tylko dla wartości z godziną; same daty idą przez format_date.
+        Użycie: {{ order.created_at|pl_time }} lub {{ page.ends_at|pl_time('%H:%M') }}
         """
         if dt is None:
             return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime(fmt)
+        if not isinstance(dt, datetime):    # sama data nie ma godziny ani strefy
+            return _strftime_pl(dt, fmt)
+        return Markup('<time datetime="{}" class="tz-time">{}</time>').format(
+            iso_utc(dt), _strftime_pl(dt, fmt))
+
+    @app.template_filter('iso_utc')
+    def iso_utc_filter(dt):
+        """
+        Chwila dla JS: ISO w UTC z `Z` (np. 2026-10-30T19:00:00Z). Przeglądarka w każdej
+        strefie odczyta ją poprawnie (`Date.parse`); wyświetlanie przez `formatPlDateTime`.
+        Użycie: data-target="{{ page.starts_at|iso_utc }}" lub {{ page.ends_at|iso_utc|tojson }}
+        """
+        return iso_utc(dt)
 
     @app.template_filter('format_datetime_local')
     def format_datetime_local_filter(dt):
         """
-        Formatuje datetime dla input type="datetime-local".
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
+        Formatuje datetime dla input type="datetime-local" — w czasie polskim,
+        bo admin zawsze wpisuje czas polski (zapis czyta pole przez parse_pl_input).
+        Naiwny datetime to błąd (ValueError).
         Użycie: {{ date|format_datetime_local }}
         """
-        if dt is None:
-            return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime('%Y-%m-%dT%H:%M')
+        return format_pl_input(dt)
 
     @app.template_filter('format_currency')
     def format_currency_filter(value, currency='PLN', decimals=2):

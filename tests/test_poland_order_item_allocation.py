@@ -2,7 +2,7 @@
 _allocate_batch_units_to_orders() — naprawa terminów E2/E3 (patrz
 docs/superpowers/plans/2026-08-06-terminy-e2-e3-poland-order-link.md).
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -130,7 +130,7 @@ def test_single_order_single_batch(db, make_user, make_product, make_order):
     from modules.products.routes import _allocate_batch_units_to_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     o = _client_order(db, make_user, make_order, p.id, 2, base + timedelta(minutes=1))
     poland_item = _make_batch_item(db, p.id, 2, base + timedelta(hours=1))
 
@@ -142,7 +142,7 @@ def test_aggregated_batch_splits_across_orders_fifo(db, make_user, make_product,
     from modules.products.routes import _allocate_batch_units_to_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     o1 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=1))
     o2 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=2))
     poland_item = _make_batch_item(db, p.id, 2, base + timedelta(hours=1))
@@ -155,7 +155,7 @@ def test_order_split_across_two_batches(db, make_user, make_product, make_order)
     from modules.products.routes import _allocate_batch_units_to_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     o = _client_order(db, make_user, make_order, p.id, 3, base + timedelta(minutes=1))
     batch1 = _make_batch_item(db, p.id, 2, base + timedelta(hours=1))
     batch2 = _make_batch_item(db, p.id, 1, base + timedelta(hours=2))
@@ -169,7 +169,7 @@ def test_cancelled_batch_ignored_in_offset(db, make_user, make_product, make_ord
     from modules.products.routes import _allocate_batch_units_to_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     o = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=1))
     _make_batch_item(db, p.id, 1, base + timedelta(hours=1), status='anulowane')
     poland_item = _make_batch_item(db, p.id, 1, base + timedelta(hours=2))
@@ -183,7 +183,7 @@ def test_partial_fulfillment_reduces_effective_quantity(db, make_user, make_prod
     from modules.products.routes import _allocate_batch_units_to_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     u = make_user()
     o = make_order(u, offer_page_id=1, created_at=base + timedelta(minutes=1))
     db.session.add(OrderItem(order_id=o.id, product_id=p.id, quantity=3, fulfilled_quantity=1,
@@ -209,7 +209,7 @@ def test_two_items_same_product_same_poland_order_no_double_allocation(db, make_
     from modules.products.routes import _allocate_batch_units_to_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     o1 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=1))
     o2 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=2))
 

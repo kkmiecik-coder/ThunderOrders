@@ -117,11 +117,11 @@
     <div class="meta-info">
         <div class="meta-item">
             <span class="meta-label">Rozpoczęcie:</span>
-            <span class="meta-value" id="metaStartValue">{{ summary.starts_at|format_datetime('%d.%m.%Y %H:%M') if summary.starts_at else 'Bez daty' }}</span>
+            <span class="meta-value" id="metaStartValue">{{ summary.starts_at|pl_time('%d.%m.%Y %H:%M') if summary.starts_at else 'Bez daty' }}</span>
         </div>
         <div class="meta-item">
             <span class="meta-label">Zakończenie:</span>
-            <span class="meta-value" id="metaEndValue">{{ summary.ends_at|format_datetime('%d.%m.%Y %H:%M') if summary.ends_at else 'Bez limitu' }}</span>
+            <span class="meta-value" id="metaEndValue">{{ summary.ends_at|pl_time('%d.%m.%Y %H:%M') if summary.ends_at else 'Bez limitu' }}</span>
         </div>
         <div class="meta-separator"></div>
         <div class="meta-item meta-item-visitors">
@@ -532,8 +532,8 @@
     window.ORDER_DETAIL_URL = "{{ url_for('orders.admin_detail', order_id=0) }}".replace('/0', '');
     window.ORDER_TIMESTAMPS = {{ summary.order_timestamps|tojson }};
     window.OFFER_PAGE_ID = {{ page.id }};
-    window.STARTS_AT = {{ summary.starts_at.isoformat()|tojson if summary.starts_at else 'null' }};
-    window.ENDS_AT = {{ summary.ends_at.isoformat()|tojson if summary.ends_at else 'null' }};
+    window.STARTS_AT = {{ summary.starts_at|iso_utc|tojson if summary.starts_at else 'null' }};
+    window.ENDS_AT = {{ summary.ends_at|iso_utc|tojson if summary.ends_at else 'null' }};
 
     // Page action functions (pause/end/close)
     async function changePageStatus(pageId, action) {

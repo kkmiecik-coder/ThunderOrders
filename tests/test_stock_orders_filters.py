@@ -5,9 +5,11 @@ Wcześniej robił to JavaScript na wyrenderowanych wierszach — po podzieleniu
 listy na strony filtrowałby tylko widoczne pozycje, więc logika musiała trafić
 do zapytania.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
+
+from utils.timeutil import pl_input_to_utc
 
 
 @pytest.fixture
@@ -26,7 +28,7 @@ def make_proxy_order(db):
             order_type='proxy',
             status=status,
             total_amount_pln=amount,
-            created_at=created_at or datetime(2026, 5, 10, 12, 0),
+            created_at=created_at or datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc),
         )
         db.session.add(order)
         db.session.commit()
@@ -51,7 +53,7 @@ def make_poland_order(db, make_proxy_order):
             is_archived=archived,
             tracking_number=tracking,
             total_amount=50,
-            created_at=datetime(2026, 5, 10, 12, 0),
+            created_at=datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc),
         )
         db.session.add(order)
         db.session.commit()
@@ -83,9 +85,9 @@ def test_proxy_tab_filters_by_status(app, admin, client, make_proxy_order):
 
 
 def test_proxy_tab_filters_by_date_range_includes_whole_end_day(app, admin, client, make_proxy_order):
-    """Data „do" ma obejmować cały dzień — created_at trzyma też godzinę."""
-    make_proxy_order('PRX/00001', created_at=datetime(2026, 5, 10, 23, 30))
-    make_proxy_order('PRX/00002', created_at=datetime(2026, 5, 12, 8, 0))
+    """Data „do" ma obejmować cały dzień — created_at trzyma też godzinę (doba polska)."""
+    make_proxy_order('PRX/00001', created_at=pl_input_to_utc(datetime(2026, 5, 10, 23, 30)))
+    make_proxy_order('PRX/00002', created_at=pl_input_to_utc(datetime(2026, 5, 12, 8, 0)))
 
     resp = client.get('/admin/products/stock-orders?tab=proxy&date_from=2026-05-10&date_to=2026-05-10')
     assert _numery(resp, 'PRX') == ['PRX/00001']

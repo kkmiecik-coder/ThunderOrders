@@ -3,10 +3,13 @@
 Spec: docs/superpowers/specs/2026-10-10-pupile-tamagotchi-design.md §2.4–2.7, §3.1
 
 Stan „na teraz" = simulate(stan_z_bazy, cfg, state_at, teraz). Czas jest zawsze parametrem
-(naiwny czas polski, jak w całej aplikacji) — tu nie ma datetime.now().
+(aware UTC, jak w całej aplikacji) — tu nie odczytujemy zegara. Upływ czasu liczymy w UTC,
+porę dnia (noc) wg zegara polskiego (`to_pl`) — godziny nocy w konfiguracji to godziny polskie.
 """
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
+
+from utils.timeutil import to_pl
 
 STEP_SECONDS = 300          # krok symulacji: 5 minut
 BARS = ('hunger', 'fun', 'clean')
@@ -45,12 +48,16 @@ def clamp_state(state):
 # ---------------------------------------------------------------------------
 
 def is_night(dt, cfg):
-    """Noc wg konfiguracji (domyślnie 23:00–07:00). start == end → brak nocy."""
+    """Noc wg konfiguracji (domyślnie 23:00–07:00 czasu polskiego). start == end → brak nocy.
+
+    Naiwny `dt` to błąd (`ValueError` z `to_pl`) — bez strefy nie wiadomo, która jest godzina w Polsce.
+    """
     start = int(cfg.night['start'])
     end = int(cfg.night['end'])
+    pl = to_pl(dt)
     if start == end:
         return False
-    godzina = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+    godzina = pl.hour + pl.minute / 60.0 + pl.second / 3600.0
     if start > end:                      # okno przez północ, np. 23 → 7
         return godzina >= start or godzina < end
     return start <= godzina < end        # okno w obrębie doby, np. 1 → 5

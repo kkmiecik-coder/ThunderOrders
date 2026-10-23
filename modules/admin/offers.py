@@ -13,6 +13,7 @@ from modules.offers.models import OfferPage, OfferSection, OfferSectionImage, Of
 from modules.products.models import Product, ProductType, VariantGroup
 from datetime import datetime
 import json
+from utils.timeutil import iso_utc, parse_pl_input, pl_input_to_utc, to_pl, utcnow
 
 
 # Kolejność statusów w zakładce „Bieżące" (od góry).
@@ -20,6 +21,15 @@ _OFFER_STATUS_ORDER = {'active': 0, 'paused': 1, 'scheduled': 2, 'draft': 3, 'en
 
 # Liczba stron sprzedaży na jedną stronę paginacji (parytet ze zleceniami wysyłki w WMS).
 OFFERS_PER_PAGE = 20
+
+# Miasta w podpowiedzi przy godzinach (ustawienia): popularne strefy na górze listy
+# wyboru — reszta stref IANA alfabetycznie pod nimi.
+POPULAR_TIMEZONES = (
+    'Asia/Seoul', 'Asia/Tokyo', 'Asia/Shanghai', 'Europe/London', 'Europe/Berlin',
+    'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Australia/Sydney',
+)
+DISPLAY_TIMEZONE_LABEL_MAX = 40
+DISPLAY_TIMEZONES_MAX = 10
 
 # Kolumny, po których wolno sortować listę: nazwa z URL -> wyrażenie SQL.
 # Klucze muszą się zgadzać z data-column w nagłówkach tabeli (_list_items.html).
@@ -143,12 +153,11 @@ def offers_selection_rows(query):
 def offers_list():
     """Lista stron sprzedaży — filtrowanie, sortowanie i paginacja po stronie serwera."""
     from sqlalchemy import func
-    from modules.offers.models import get_local_now
     from utils.pagination import resolve_per_page, paginate_with_choice
 
     # Automatyczna aktualizacja statusów (scheduled->active, active->ended, ended->active)
     # PRZED zapytaniami listy — status decyduje o zakładce i kolejności.
-    for page in offers_status_refresh_candidates(get_local_now()).all():
+    for page in offers_status_refresh_candidates(utcnow()).all():
         page.check_and_update_status()
 
     search_query = (request.args.get('search') or '').strip()
@@ -234,6 +243,11 @@ def offers_settings():
     reminder_last_check = get_setting_value('payment_reminder_last_check', None)
     reminder_last_count = get_setting_value('payment_reminder_last_count', '0')
 
+    # Strefy w podpowiedzi przy godzinach: popularne na górze, potem cała baza IANA
+    from zoneinfo import available_timezones
+    from utils.timeutil import get_display_timezones
+    other_timezones = sorted(available_timezones() - set(POPULAR_TIMEZONES))
+
     return render_template(
         'admin/offers/settings.html',
         title='Ustawienia stron sprzedaży',
@@ -243,7 +257,12 @@ def offers_settings():
         reminder_rules_before=reminder_rules_before,
         reminder_rules_after=reminder_rules_after,
         reminder_last_check=reminder_last_check,
-        reminder_last_count=reminder_last_count
+        reminder_last_count=reminder_last_count,
+        display_timezones=get_display_timezones(),
+        popular_timezones=POPULAR_TIMEZONES,
+        other_timezones=other_timezones,
+        display_timezones_max=DISPLAY_TIMEZONES_MAX,
+        display_timezone_label_max=DISPLAY_TIMEZONE_LABEL_MAX,
     )
 
 
@@ -276,14 +295,14 @@ def offers_create():
 
     if starts_at_str:
         try:
-            starts_at = datetime.strptime(starts_at_str, '%Y-%m-%dT%H:%M')
+            starts_at = parse_pl_input(starts_at_str)
         except ValueError:
             flash('Nieprawidłowy format daty rozpoczęcia.', 'error')
             return redirect(url_for('admin.offers_list'))
 
     if ends_at_str:
         try:
-            ends_at = datetime.strptime(ends_at_str, '%Y-%m-%dT%H:%M')
+            ends_at = parse_pl_input(ends_at_str)
         except ValueError:
             flash('Nieprawidłowy format daty zakończenia.', 'error')
             return redirect(url_for('admin.offers_list'))
@@ -407,17 +426,17 @@ def offers_save(page_id):
 
         if 'starts_at' in data:
             if data['starts_at']:
-                new_starts_at = datetime.strptime(data['starts_at'], '%Y-%m-%dT%H:%M')
+                new_starts_at = parse_pl_input(data['starts_at'])
                 page.starts_at = new_starts_at
 
-                if page.status == 'active' and new_starts_at > datetime.now():
+                if page.status == 'active' and new_starts_at > utcnow():
                     page.status = 'scheduled'
             else:
                 page.starts_at = None
 
         if 'ends_at' in data:
             if data['ends_at']:
-                page.ends_at = datetime.strptime(data['ends_at'], '%Y-%m-%dT%H:%M')
+                page.ends_at = parse_pl_input(data['ends_at'])
             else:
                 page.ends_at = None
 
@@ -456,7 +475,7 @@ def offers_save(page_id):
         if 'sections' in data:
             limit_changes = _update_sections(page, data['sections'])
 
-        page.updated_at = datetime.now()
+        page.updated_at = utcnow()
 
         db.session.commit()
 
@@ -511,7 +530,7 @@ def offers_save(page_id):
         return jsonify({
             'success': True,
             'message': 'Zapisano',
-            'updated_at': page.updated_at.strftime('%H:%M:%S') if page.updated_at else None,
+            'updated_at': to_pl(page.updated_at).strftime('%H:%M:%S') if page.updated_at else None,
             'notifications_sent': notifications_sent,
         })
 
@@ -1109,7 +1128,7 @@ def offers_bulk_status():
             broadcast_page_status(
                 page.id,
                 page.status,
-                ends_at=page.ends_at.isoformat() if page.ends_at else None
+                ends_at=iso_utc(page.ends_at)
             )
     except Exception:
         pass
@@ -1127,8 +1146,6 @@ def offers_bulk_status():
 @admin_required
 def offers_bulk_set_dates():
     """Masowe ustawienie daty rozpoczęcia lub zakończenia."""
-    from datetime import datetime
-
     data = request.get_json() or {}
     page_ids = data.get('page_ids') or []
     field = data.get('field')
@@ -1147,7 +1164,8 @@ def offers_bulk_set_dates():
         return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
 
     try:
-        parsed = datetime.fromisoformat(value)
+        # fromisoformat: przyjmuje też sekundy; wartość z offsetem odrzuca pl_input_to_utc
+        parsed = pl_input_to_utc(datetime.fromisoformat(value))
     except (ValueError, TypeError):
         return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
 
@@ -1268,7 +1286,7 @@ def offers_bulk_report():
 
     try:
         excel_buffer = generate_offers_bulk_report(pages)
-        filename = f'raport_zbiorczy_ofert_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'raport_zbiorczy_ofert_{to_pl(utcnow()).strftime("%Y%m%d_%H%M")}.xlsx'
         return Response(
             excel_buffer.getvalue(),
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -1311,7 +1329,7 @@ def offers_change_status(page_id):
         if not page.starts_at:
             return jsonify({'success': False, 'error': 'Brak daty rozpoczęcia'}), 400
         page.schedule()
-        message = f'Sprzedaż zaplanowana na {page.starts_at.strftime("%d.%m.%Y %H:%M")}.'
+        message = f'Sprzedaż zaplanowana na {to_pl(page.starts_at).strftime("%d.%m.%Y %H:%M")}.'
 
     elif action == 'pause':
         # Wstrzymaj sprzedaż
@@ -1344,7 +1362,7 @@ def offers_change_status(page_id):
         broadcast_page_status(
             page.id,
             page.status,
-            ends_at=page.ends_at.isoformat() if page.ends_at else None
+            ends_at=iso_utc(page.ends_at)
         )
     except Exception:
         pass
@@ -1833,17 +1851,15 @@ def offers_close_complete(page_id):
             'error': 'Termin płatności jest wymagany.'
         }), 400
 
-    from datetime import datetime
     try:
-        payment_deadline = datetime.fromisoformat(payment_deadline_str)
+        payment_deadline = pl_input_to_utc(datetime.fromisoformat(payment_deadline_str))
     except (ValueError, TypeError):
         return jsonify({
             'success': False,
             'error': 'Nieprawidłowy format daty terminu płatności.'
         }), 400
 
-    from modules.offers.models import get_local_now
-    if payment_deadline <= get_local_now():
+    if payment_deadline <= utcnow():
         return jsonify({
             'success': False,
             'error': 'Termin płatności musi być w przyszłości.'
@@ -1856,7 +1872,7 @@ def offers_close_complete(page_id):
     if page.page_type == 'preorder':
         from utils.activity_logger import log_activity
         page.is_fully_closed = True
-        page.closed_at = get_local_now()
+        page.closed_at = utcnow()
         page.closed_by_id = current_user.id
         db.session.commit()
 
@@ -1938,7 +1954,7 @@ def offers_live(page_id):
             'customer_name': o['customer_name'] or '-',
             'customer_email': o['customer_email'] or '',
             'customer_phone': o.get('customer_phone') or '',
-            'created_at': o['created_at'].strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
+            'created_at': to_pl(o['created_at']).strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
             'total_amount': o['total_amount'],
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
@@ -1987,7 +2003,7 @@ def offers_summary(page_id):
             'customer_name': o['customer_name'] or '-',
             'customer_email': o['customer_email'] or '',
             'customer_phone': o.get('customer_phone') or '',
-            'created_at': o['created_at'].strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
+            'created_at': to_pl(o['created_at']).strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
             'total_amount': o['total_amount'],
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
@@ -2322,6 +2338,83 @@ def delete_payment_reminder_rule():
 
 
 # ============================================
+# Strefy czasowe w podpowiedzi przy godzinach
+# ============================================
+
+def _save_display_timezones(strefy, stare):
+    """Zapisuje listę miast i loguje zmianę (stara/nowa lista w logu aktywności)."""
+    from modules.auth.models import Settings
+    from utils.activity_logger import log_activity
+    from utils.timeutil import DISPLAY_TIMEZONES_KEY
+
+    Settings.set_value(
+        DISPLAY_TIMEZONES_KEY, json.dumps(strefy, ensure_ascii=False),
+        updated_by=current_user.id, type='json',
+        description='Miasta w podpowiedzi przy wyświetlanych godzinach',
+    )
+    log_activity(
+        user=current_user,
+        action='display_timezones_updated',
+        entity_type='Settings',
+        entity_id=None,
+        old_value=json.dumps(stare, ensure_ascii=False),
+        new_value=json.dumps(strefy, ensure_ascii=False),
+    )
+
+
+@admin_bp.route('/offers/settings/timezones', methods=['POST'])
+@login_required
+@admin_required
+def add_display_timezone():
+    """Dodaje miasto do podpowiedzi przy godzinach: `{"label": "Londyn", "tz": "Europe/London"}`."""
+    from zoneinfo import available_timezones
+    from utils.timeutil import get_display_timezones
+
+    data = request.get_json(silent=True) or {}
+    label = data.get('label')
+    tz = data.get('tz')
+
+    if not isinstance(label, str) or not label.strip():
+        return jsonify({'success': False, 'error': 'Podaj nazwę miasta.'}), 400
+    label = label.strip()
+    if len(label) > DISPLAY_TIMEZONE_LABEL_MAX:
+        return jsonify({'success': False,
+                        'error': f'Nazwa miasta może mieć najwyżej {DISPLAY_TIMEZONE_LABEL_MAX} znaków.'}), 400
+    if not isinstance(tz, str) or tz not in available_timezones():
+        return jsonify({'success': False, 'error': 'Nieznana strefa czasowa.'}), 400
+
+    stare = get_display_timezones()
+    if any(s['tz'] == tz for s in stare):
+        return jsonify({'success': False, 'error': 'Ta strefa jest już na liście.'}), 400
+    if len(stare) >= DISPLAY_TIMEZONES_MAX:
+        return jsonify({'success': False,
+                        'error': f'Można dodać najwyżej {DISPLAY_TIMEZONES_MAX} miast.'}), 400
+
+    wpis = {'label': label, 'tz': tz}
+    _save_display_timezones(stare + [wpis], stare)
+    return jsonify({'success': True, 'timezone': wpis})
+
+
+@admin_bp.route('/offers/settings/timezones/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_display_timezone():
+    """Usuwa miasto z podpowiedzi (po strefie). Pusta lista wyłącza podpowiedź."""
+    from utils.timeutil import get_display_timezones
+
+    data = request.get_json(silent=True) or {}
+    tz = data.get('tz')
+
+    stare = get_display_timezones()
+    nowe = [s for s in stare if s['tz'] != tz]
+    if len(nowe) == len(stare):
+        return jsonify({'success': False, 'error': 'Tej strefy nie ma na liście.'}), 404
+
+    _save_display_timezones(nowe, stare)
+    return jsonify({'success': True})
+
+
+# ============================================
 # Export Excel zamkniętej strony Offers
 # ============================================
 
@@ -2344,7 +2437,7 @@ def offers_live_export_excel(page_id):
 
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_name = safe_name.replace(' ', '_')[:50]
-        filename = f'offers_LIVE_{safe_name}_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'offers_LIVE_{safe_name}_{to_pl(utcnow()).strftime("%Y%m%d_%H%M")}.xlsx'
 
         return Response(
             excel_buffer.getvalue(),
@@ -2388,7 +2481,7 @@ def offers_export_excel(page_id):
         # Generuj nazwę pliku
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_name = safe_name.replace(' ', '_')[:50]  # Max 50 znaków
-        filename = f'offers_{safe_name}_{page.closed_at.strftime("%Y%m%d")}.xlsx'
+        filename = f'offers_{safe_name}_{to_pl(page.closed_at).strftime("%Y%m%d")}.xlsx'
 
         return Response(
             excel_buffer.getvalue(),

@@ -3,7 +3,7 @@ Jedyne źródło prawdy o tym, które etapy płatności (E1-E4) danego zamówien
 są zaległe — termin minął, kwota nieopłacona. Używane przez kafelek i stronę
 zaległości w panelu admina, cron przypomnień i builder maila przypomnienia.
 """
-from modules.orders.models import get_local_now
+from utils.timeutil import utcnow
 
 STAGE_DEFINITIONS = {
     'product': {
@@ -49,7 +49,7 @@ def get_order_overdue_stages(order, now=None):
     i status etapu to 'none' lub 'rejected'. Brak ustalonego terminu NIE
     jest zaległością (nie da się przekroczyć terminu, którego nie ma).
     """
-    now = now or get_local_now()
+    now = now or utcnow()
     overdue = []
 
     for stage, definition in STAGE_DEFINITIONS.items():
@@ -93,7 +93,7 @@ def get_overdue_orders_summary():
     from modules.orders.models import Order, ShippingRequestOrder, PaymentConfirmation
     from modules.products.models import PolandOrderItem, PolandOrderItemOrder
 
-    now = get_local_now()
+    now = utcnow()
     results = []
 
     from utils.offer_closure import CLOSED_ORDER_STATUSES

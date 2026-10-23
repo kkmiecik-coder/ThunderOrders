@@ -3,43 +3,9 @@ Admin Module - Models
 Modele dla funkcjonalności administracyjnych (taski)
 """
 
-from datetime import datetime, timezone, timedelta
 from extensions import db
+from utils.timeutil import UTCDateTime, utcnow
 
-
-
-
-def get_local_now():
-    """
-    Zwraca aktualny czas polski (Europe/Warsaw).
-    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
-    Zwraca naive datetime dla porównań z naive datetime w bazie.
-    """
-    utc_now = datetime.now(timezone.utc)
-
-    # Prosty algorytm DST dla Polski:
-    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
-    # CET (UTC+1): reszta roku
-    year = utc_now.year
-
-    # Ostatnia niedziela marca
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
-    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Ostatnia niedziela października
-    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
-    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Sprawdź czy jesteśmy w czasie letnim
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)  # CEST
-    else:
-        offset = timedelta(hours=1)  # CET
-
-    # Zwróć naive datetime w czasie polskim
-    return (utc_now + offset).replace(tzinfo=None)
 
 class AdminTask(db.Model):
     """
@@ -74,16 +40,16 @@ class AdminTask(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # Due date
-    due_date = db.Column(db.DateTime)
+    due_date = db.Column(UTCDateTime)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
     updated_at = db.Column(
-        db.DateTime,
-        default=get_local_now,
-        onupdate=get_local_now
+        UTCDateTime,
+        default=utcnow,
+        onupdate=utcnow
     )
-    completed_at = db.Column(db.DateTime)
+    completed_at = db.Column(UTCDateTime)
 
     # Relationships
     creator = db.relationship('User', foreign_keys=[created_by], backref='created_tasks')
@@ -115,7 +81,7 @@ class AdminTask(db.Model):
             return False
         if self.status == 'completed':
             return False
-        return get_local_now() > self.due_date
+        return utcnow() > self.due_date
 
     def get_progress(self):
         """
@@ -159,7 +125,7 @@ class AdminTask(db.Model):
     def mark_completed(self):
         """Oznacza task jako ukończony"""
         self.status = 'completed'
-        self.completed_at = get_local_now()
+        self.completed_at = utcnow()
 
     def reopen(self):
         """Ponownie otwiera ukończony task"""
@@ -202,7 +168,7 @@ class AdminTaskAssignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     task_id = db.Column(db.Integer, db.ForeignKey('admin_tasks.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    assigned_at = db.Column(db.DateTime, default=get_local_now)
+    assigned_at = db.Column(UTCDateTime, default=utcnow)
 
     def __repr__(self):
         return f'<AdminTaskAssignment task={self.task_id} user={self.user_id}>'
@@ -219,7 +185,7 @@ class AdminTaskComment(db.Model):
     task_id = db.Column(db.Integer, db.ForeignKey('admin_tasks.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     comment = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     task = db.relationship('AdminTask', backref='comments')
@@ -245,7 +211,7 @@ class ActivityLog(db.Model):
     new_value = db.Column(db.Text, nullable=True)  # JSON
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         # Fallback wieku zaległości (unclaimed_service.wiek_zaleglosci) filtruje
@@ -329,8 +295,8 @@ class EmailLog(db.Model):
     # Czas od startu wysyłki do wyniku, razem z drzemkami między próbami.
     duration_ms = db.Column(db.Integer, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False, index=True)
-    sent_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False, index=True)
+    sent_at = db.Column(UTCDateTime, nullable=True)
 
     __table_args__ = (
         db.Index('ix_email_log_entity', 'entity_type', 'entity_id'),

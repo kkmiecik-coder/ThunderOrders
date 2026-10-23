@@ -10,17 +10,18 @@ kanoniczna, i rozjazd nie był widoczny.
 from datetime import timedelta
 
 import pytest
+from utils.timeutil import utcnow
 
 
 def _zlecenie_z_zamowieniem(db, user, make_order, numer, courier='pocztex'):
     """Zlecenie wysyłki z jednym zamówieniem — tak, jak widzą je obie strony detalu."""
     from modules.orders.models import (
-        ShippingRequest, ShippingRequestOrder, get_local_now)
+        ShippingRequest, ShippingRequestOrder)
 
     sr = ShippingRequest(
         request_number=numer, user_id=user.id, status='wyslane',
         courier=courier, tracking_number=f'TRK-{numer[-6:]}',
-        shipped_at=get_local_now() - timedelta(days=1))
+        shipped_at=utcnow() - timedelta(days=1))
     db.session.add(sr)
     db.session.commit()
 

@@ -11,6 +11,7 @@ sumie wagi i objętości wszystkich zamówień z paczki.
 from decimal import Decimal
 
 from modules.orders.wms_models import PackagingMaterial
+from utils.timeutil import utcnow
 
 
 def suggest_packaging(order):
@@ -265,7 +266,7 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     from flask import current_app
 
     from extensions import db
-    from modules.orders.models import Order, OrderShipment, OrderStatus, get_local_now
+    from modules.orders.models import Order, OrderShipment, OrderStatus
     from utils.activity_logger import log_activity
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
@@ -316,7 +317,7 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     if parcel_size:
         sr.parcel_size = parcel_size
     sr.status = 'wyslane'
-    sr.shipped_at = get_local_now()
+    sr.shipped_at = utcnow()
 
     if shipping_cost:
         try:
@@ -478,7 +479,7 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True, status_juz_ustawi
     from modules.client.collection_utils import (
         auto_add_order_to_collection, sprawdz_odznaki_kolekcji)
     from modules.orders.consolidation import propaguj_na_zrodla
-    from modules.orders.models import OrderStatus, get_local_now
+    from modules.orders.models import OrderStatus
     from utils.activity_logger import log_activity
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
@@ -511,7 +512,7 @@ def dostarcz_zlecenie(sr, *, source, user=None, powiadom=True, status_juz_ustawi
             f'potwierdzenie odbioru dotyczy całej paczki')
 
     old_status = sr.status
-    teraz = get_local_now()
+    teraz = utcnow()
 
     sr.status = 'dostarczone'
     sr.delivered_at = teraz

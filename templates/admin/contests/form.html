@@ -185,7 +185,7 @@
                             {% endif %}
                         </div>
                         <div class="ca-row">
-                            {{ form.ends_at.label(class="ca-label") }}
+                            <label class="ca-label" for="{{ form.ends_at.id }}">{{ form.ends_at.label.text }} <span class="tz-hint">(czas polski)</span></label>
                             {{ form.ends_at(class="ca-input") }}
                             {% if form.ends_at.errors %}
                             <ul class="ca-field-errors">

@@ -5,7 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from extensions import db
 from modules.achievements.models import Achievement, UserAchievement, AchievementStat
 from modules.achievements.checkers import get_metric_value
-from modules.auth.models import User, get_local_now
+from modules.auth.models import User
+from utils.timeutil import iso_utc
 
 # Zachowane dla zgodności — panel admina po wgraniu ikony robi tu pop().
 # Właściwy cache siedzi teraz w `flask.g`, czyli żyje tylko na czas requestu.
@@ -391,7 +392,7 @@ class AchievementService:
                 'tier': a.tier,
                 'tier_group': a.tier_group,
                 'unlocked': ua is not None,
-                'unlocked_at': ua.unlocked_at.isoformat() if ua else None,
+                'unlocked_at': iso_utc(ua.unlocked_at) if ua else None,
                 'shared': ua.shared if ua else False,
                 'progress': progress,
                 'stat_percentage': None if a.category == 'special' else (stat.percentage if stat else 0),

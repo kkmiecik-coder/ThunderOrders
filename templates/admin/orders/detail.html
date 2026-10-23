@@ -1254,7 +1254,7 @@
                     </div>
                     <div class="sr-info-row">
                         <span class="sr-info-label">Utworzono:</span>
-                        <span class="sr-info-value">{{ sr.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        <span class="sr-info-value">{{ sr.created_at|pl_time('%Y-%m-%d %H:%M') }}</span>
                     </div>
                 </div>
 
@@ -1371,8 +1371,8 @@
                 </button>
                 <div class="collapsible-content">
                     <div class="dates-info">
-                        <p><strong>Utworzone:</strong> {{ order.created_at|format_datetime }}</p>
-                        <p><strong>Ostatnia aktualizacja:</strong> {{ order.updated_at|format_datetime }}</p>
+                        <p><strong>Utworzone:</strong> {{ order.created_at|pl_time('%Y-%m-%d %H:%M') }}</p>
+                        <p><strong>Ostatnia aktualizacja:</strong> {{ order.updated_at|pl_time('%Y-%m-%d %H:%M') }}</p>
                     </div>
                 </div>
             </div>
@@ -1411,7 +1411,7 @@
                                 </svg>
                             </span>
                             <span class="wms-history-text">Sesja WMS #{{ wms_session_order.session.id }}</span>
-                            <span class="wms-history-date">{{ order.packed_at|format_datetime if order.packed_at else '' }}</span>
+                            <span class="wms-history-date">{{ order.packed_at|pl_time('%Y-%m-%d %H:%M') if order.packed_at else '' }}</span>
                         </div>
                         {% endif %}
                         {% if order.packer %}
@@ -1484,13 +1484,13 @@
                             <div class="history-item">
                                 <span class="history-icon">📦</span>
                                 <span class="history-text">Zamówienie utworzone</span>
-                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                                <span class="history-date">{{ event.created_at|pl_time('%Y-%m-%d %H:%M') }}</span>
                             </div>
                             {% elif event.type == 'refund' %}
                             <div class="history-item">
                                 <span class="history-icon">💰</span>
                                 <span class="history-text">Zwrot {{ "%.2f"|format(event.amount) }} PLN - {{ event.status }}</span>
-                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                                <span class="history-date">{{ event.created_at|pl_time('%Y-%m-%d %H:%M') }}</span>
                             </div>
                             {% elif event.type == 'email' %}
                             <div class="history-item">
@@ -1509,7 +1509,7 @@
                                     <br><small class="email-log-error">{{ event.email.error }}</small>
                                     {%- endif %}
                                 </span>
-                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                                <span class="history-date">{{ event.created_at|pl_time('%Y-%m-%d %H:%M') }}</span>
                             </div>
                             {% elif event.type == 'activity' %}
                             <div class="history-item">
@@ -1580,7 +1580,7 @@
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
                                 {% endif %}
-                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                                <span class="history-date">{{ event.created_at|pl_time('%Y-%m-%d %H:%M') }}</span>
                             </div>
                             {% endif %}
                         {% endfor %}

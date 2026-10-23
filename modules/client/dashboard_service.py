@@ -10,7 +10,7 @@ w trasie webowej.
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import and_
@@ -19,10 +19,11 @@ from sqlalchemy import func as sql_func
 from extensions import db
 from modules.orders.models import Order, ShippingRequestOrder
 from modules.auth.models import Settings
+from utils.timeutil import bucket_by_pl_day, pl_day_bounds_utc, pl_today
 
 
 def get_client_dashboard_stats(user):
-    today = datetime.now().date()
+    today = pl_today()
     thirty_days_ago = today - timedelta(days=30)
 
     # 1. Liczniki zamówień
@@ -88,17 +89,17 @@ def get_client_dashboard_stats(user):
     ).limit(15).all()
     total_orders = Order.query.filter_by(user_id=user.id).count()
 
-    # 5. Dane wykresu (30 dni) — puste dni zerami
-    orders_by_day = db.session.query(
-        sql_func.date(Order.created_at).label('order_date'),
-        sql_func.count(Order.id).label('count')
+    # 5. Dane wykresu (30 dni, doby polskie) — puste dni zerami
+    range_start, _ = pl_day_bounds_utc(thirty_days_ago)
+    orders_by_day = bucket_by_pl_day(db.session.query(
+        Order.created_at, Order.id
     ).filter(
         Order.user_id == user.id,
-        sql_func.date(Order.created_at) >= thirty_days_ago
-    ).group_by(sql_func.date(Order.created_at)).all()
+        Order.created_at >= range_start
+    ).all())
 
-    all_dates = [(thirty_days_ago + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(31)]
-    orders_dict = {str(row[0]): row[1] for row in orders_by_day}
+    all_days = [thirty_days_ago + timedelta(days=i) for i in range(31)]
+    all_dates = [d.strftime('%Y-%m-%d') for d in all_days]
 
     return {
         'orders': {
@@ -116,6 +117,6 @@ def get_client_dashboard_stats(user):
         },
         'chart_data': {
             'labels': all_dates,
-            'values': [orders_dict.get(d, 0) for d in all_dates],
+            'values': [len(orders_by_day.get(d, [])) for d in all_days],
         },
     }

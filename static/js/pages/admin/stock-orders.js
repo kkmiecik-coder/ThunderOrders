@@ -858,8 +858,8 @@ function confirmPolandOrder() {
     deadlineDateEl.classList.remove('input-error');
     deadlineTimeEl.classList.remove('input-error');
 
-    const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
-    if (deadlineDatetime <= new Date()) {
+    // Pola to polski zegar ścienny — porównujemy chwile, nie strefę przeglądarki
+    if (plWallToEpoch(`${deadlineDate}T${deadlineTime}`) <= Date.now()) {
         deadlineDateEl.classList.add('input-error');
         if (typeof window.showToast === 'function') {
             window.showToast('Termin płatności musi być w przyszłości.', 'error');
@@ -1385,8 +1385,8 @@ function saveCustomsVat() {
         cdDateEl.classList.remove('input-error');
         cdTimeEl.classList.remove('input-error');
 
-        const cdDatetime = new Date(`${cdDate}T${cdTime}`);
-        if (cdDatetime <= new Date()) {
+        // Pola to polski zegar ścienny — porównujemy chwile, nie strefę przeglądarki
+        if (plWallToEpoch(`${cdDate}T${cdTime}`) <= Date.now()) {
             cdDateEl.classList.add('input-error');
             if (typeof window.showToast === 'function') window.showToast('Termin płatności musi być w przyszłości.', 'error');
             return;
@@ -1693,8 +1693,7 @@ function _changeOrderStatus(tab, orderId, newStatus) {
                 row.dataset.status = newStatus;
 
                 // Update date display
-                const now = new Date();
-                const formattedDate = `${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                const formattedDate = formatPlDateTime(new Date());
 
                 if (config.dateUpdateSelector) {
                     const dateEl = row.querySelector(config.dateUpdateSelector);

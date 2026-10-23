@@ -4,7 +4,7 @@ Model: koszt liczony PER PARTIA, sztuki przydzielane do partii wg daty złożeni
 zamówienia (FIFO). Regresja: bug, w którym koszt jednej partii był dzielony przez
 cały popyt klientów (i nadpisywany przy wielu partiach) → zaniżony koszt.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -69,7 +69,7 @@ def test_dwie_partie_ta_sama_stawka_per_szt(db, make_user, make_product):
     from modules.orders.models import Order, OrderItem
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     orders = []
     for i in range(14):
         u = make_user()
@@ -102,7 +102,7 @@ def test_fifo_rozne_stawki_miedzy_partiami(db, make_user, make_product, make_ord
     from modules.products.routes import _distribute_proxy_shipping_to_client_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     o1 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=1))
     o2 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=2))
     o3 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=3))
@@ -125,7 +125,7 @@ def test_anulowana_partia_pomijana(db, make_user, make_product, make_order):
     from modules.products.routes import _distribute_proxy_shipping_to_client_orders
 
     p = make_product()
-    base = datetime(2026, 6, 1, 10, 0, 0)
+    base = datetime(2026, 6, 1, 10, 0, 0, tzinfo=timezone.utc)
     o1 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=1))
 
     _make_batch(db, p.id, 1, '99.00', base + timedelta(hours=1), status='anulowane')

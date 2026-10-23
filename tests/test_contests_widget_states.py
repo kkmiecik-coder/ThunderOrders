@@ -2,6 +2,7 @@
 Tests for widget_context() state resolution and get_display_contest() logic.
 """
 from datetime import timedelta
+from utils.timeutil import utcnow
 
 
 # ---------------------------------------------------------------------------
@@ -10,7 +11,6 @@ from datetime import timedelta
 
 def _make_contest(db, prod, status='aktywny', ends_at=None, updated_at=None):
     from modules.contests.models import Contest
-    from modules.orders.models import get_local_now
     c = Contest(
         name='Test Konkurs',
         prize_product_id=prod.id,
@@ -73,10 +73,9 @@ def test_widget_state_trwa_no_ends_at(db, make_user, make_product):
 def test_widget_state_trwa_ends_at_future(db, make_user, make_product):
     """Active contest with ends_at in the future → state 'trwa'."""
     from modules.contests import utils as cu
-    from modules.orders.models import get_local_now
     prod = make_product()
     user = make_user()
-    contest = _make_contest(db, prod, status='aktywny', ends_at=get_local_now() + timedelta(hours=2))
+    contest = _make_contest(db, prod, status='aktywny', ends_at=utcnow() + timedelta(hours=2))
 
     ctx = cu.widget_context(contest, user)
 
@@ -87,10 +86,9 @@ def test_widget_state_trwa_ends_at_future(db, make_user, make_product):
 def test_widget_state_zamkniete_ends_at_past(db, make_user, make_product):
     """Active contest with ends_at already past → state 'zamkniete'."""
     from modules.contests import utils as cu
-    from modules.orders.models import get_local_now
     prod = make_product()
     user = make_user()
-    contest = _make_contest(db, prod, status='aktywny', ends_at=get_local_now() - timedelta(hours=1))
+    contest = _make_contest(db, prod, status='aktywny', ends_at=utcnow() - timedelta(hours=1))
 
     ctx = cu.widget_context(contest, user)
 
@@ -161,10 +159,9 @@ def test_get_display_contest_returns_active_when_present(db, make_product):
 def test_get_display_contest_returns_recent_rozlosowany_when_no_active(db, make_product):
     """When no active contest, return a 'rozlosowany' contest updated within 14 days."""
     from modules.contests import utils as cu
-    from modules.orders.models import get_local_now
     prod = make_product()
     # updated 5 days ago — within the 14-day window
-    recent_updated = get_local_now() - timedelta(days=5)
+    recent_updated = utcnow() - timedelta(days=5)
     contest = _make_contest(db, prod, status='rozlosowany', updated_at=recent_updated)
 
     result = cu.get_display_contest()
@@ -177,9 +174,8 @@ def test_get_display_contest_returns_recent_rozlosowany_when_no_active(db, make_
 def test_get_display_contest_returns_none_when_rozlosowany_too_old(db, make_product):
     """A 'rozlosowany' contest updated more than 14 days ago must NOT be shown."""
     from modules.contests import utils as cu
-    from modules.orders.models import get_local_now
     prod = make_product()
-    old_updated = get_local_now() - timedelta(days=20)
+    old_updated = utcnow() - timedelta(days=20)
     _make_contest(db, prod, status='rozlosowany', updated_at=old_updated)
 
     result = cu.get_display_contest()
@@ -190,9 +186,8 @@ def test_get_display_contest_returns_none_when_rozlosowany_too_old(db, make_prod
 def test_get_display_contest_active_beats_rozlosowany(db, make_product):
     """Active contest takes priority over any 'rozlosowany' contest."""
     from modules.contests import utils as cu
-    from modules.orders.models import get_local_now
     prod = make_product()
-    recent_updated = get_local_now() - timedelta(days=2)
+    recent_updated = utcnow() - timedelta(days=2)
     _make_contest(db, prod, status='rozlosowany', updated_at=recent_updated)
     active = _make_contest(db, prod, status='aktywny')
 
@@ -210,7 +205,6 @@ def test_get_display_contest_active_beats_rozlosowany(db, make_product):
 def test_dashboard_renders_zamkniete_state(client, db, make_user, make_product, login):
     """Dashboard with a closed (ends_at past) active contest renders without error."""
     from modules.contests.models import Contest
-    from modules.orders.models import get_local_now
     prod = make_product()
     c = Contest(
         name='Zamknięty Konkurs',
@@ -218,7 +212,7 @@ def test_dashboard_renders_zamkniete_state(client, db, make_user, make_product, 
         ticket_min=1,
         ticket_max=50,
         status='aktywny',
-        ends_at=get_local_now() - timedelta(hours=3),
+        ends_at=utcnow() - timedelta(hours=3),
     )
     db.session.add(c)
     db.session.commit()
@@ -234,7 +228,6 @@ def test_dashboard_renders_zamkniete_state(client, db, make_user, make_product, 
 def test_dashboard_renders_rozstrzygniete_state(client, db, make_user, make_product, login):
     """Dashboard with a 'rozlosowany' contest (within 14 days) renders the winners block."""
     from modules.contests.models import Contest, ContestWinner
-    from modules.orders.models import get_local_now
     prod = make_product()
     c = Contest(
         name='Rozstrzygnięty Konkurs',

@@ -4,6 +4,7 @@ from datetime import date, timedelta
 import pytest
 
 from tests.pets_helpers import T0, NOC, zaloz_profil, zaloz_pupila, zaloz_zmarlego
+from utils.timeutil import pl_today
 
 
 def _cfg():
@@ -152,13 +153,12 @@ def test_dni_opieki_raz_dziennie_i_login_streak(db, make_user, monkeypatch):
 
 
 def test_login_streak_naprawde_rosnie_przy_pierwszej_opiece(db, make_user):
-    from modules.auth.models import get_local_now
     user = make_user()
     zaloz_profil(user)
     pet = zaloz_pupila(user, hunger=10.0)
     assert (user.login_streak or 0) == 0
     _akcja(user, pet, 'feed')
-    assert user.login_streak == 1 and user.last_login_date == get_local_now().date()
+    assert user.login_streak == 1 and user.last_login_date == pl_today()
 
 
 def test_obudz_i_pat_zero_nie_licza_dnia_opieki(db, make_user):

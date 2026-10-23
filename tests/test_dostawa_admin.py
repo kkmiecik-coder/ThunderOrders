@@ -1,10 +1,11 @@
 """Admin: lista opinii i metryki dostaw."""
+from utils.timeutil import utcnow
 
 
 def _dostarczone(db, user, numer, source):
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
     sr = ShippingRequest(request_number=numer, user_id=user.id, status='dostarczone',
-                         delivered_at=get_local_now(), delivered_source=source)
+                         delivered_at=utcnow(), delivered_source=source)
     db.session.add(sr)
     db.session.commit()
     return sr
@@ -61,11 +62,11 @@ def test_statystyki_nie_licza_paczki_zbiorczej_obok_jej_zrodel(app, db, make_use
     z klientów odbioru nie ma — nieprawda, a przy tym rozjazd z `total_requests`.
     """
     from modules.admin.statistics import statystyki_dostaw
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
 
     lider = make_user(email='lider-stat@example.com')
     drugi = make_user(email='drugi-stat@example.com')
-    teraz = get_local_now()
+    teraz = utcnow()
 
     zbiorcze = ShippingRequest(
         request_number='WYS/000620', user_id=lider.id, status='dostarczone',
@@ -95,14 +96,14 @@ def test_statystyki_dostaw_licza_w_tych_samych_jednostkach_co_kafelek_obok(
     """Mianownik podpowiedzi („X z Y dostarczonych zleceń") ma się mieścić
     w `total_requests` z tego samego JSON-a. Jedno wywołanie endpointu, bo to
     właśnie zestawienie obu liczb obok siebie widzi admin."""
-    from modules.orders.models import ShippingRequest, get_local_now
+    from modules.orders.models import ShippingRequest
 
     # profile_completed=True — bez tego before_request odsyła na uzupełnienie
     # profilu i endpoint nie oddaje JSON-a.
     admin = make_user(role='admin', email='admin-stat@example.com',
                       profile_completed=True)
     klient = make_user(email='klient-stat@example.com')
-    teraz = get_local_now()
+    teraz = utcnow()
 
     zbiorcze = ShippingRequest(
         request_number='WYS/000630', user_id=klient.id, status='dostarczone',

@@ -27,7 +27,7 @@
             </span>
             <span class="last-saved" id="lastSaved">
                 {% if survey.updated_at %}
-                Ostatni zapis: {{ survey.updated_at.strftime('%H:%M:%S') }}
+                Ostatni zapis: {{ survey.updated_at|pl_time('%H:%M:%S') }}
                 {% endif %}
             </span>
         </div>
@@ -105,9 +105,9 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="closesAt">Data zamknięcia (opcjonalna)</label>
+                        <label for="closesAt">Data zamknięcia (opcjonalna) <span class="tz-hint">(czas polski)</span></label>
                         <input type="datetime-local" id="closesAt" class="form-input"
-                               value="{{ survey.closes_at.strftime('%Y-%m-%dT%H:%M') if survey.closes_at else '' }}">
+                               value="{{ survey.closes_at|format_datetime_local }}">
                         <small class="form-hint">Puste = bez limitu czasu</small>
                     </div>
 

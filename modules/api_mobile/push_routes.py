@@ -4,10 +4,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 
 from extensions import db, limiter
-from modules.notifications.models import get_local_now
 from . import api_mobile_bp
 from .helpers import json_ok, json_err
 from .models import MobileDevice
+from utils.timeutil import utcnow
 
 _PLATFORMS = {'android', 'ios', 'web'}
 
@@ -38,7 +38,7 @@ def register_device():
     else:
         dev.user_id = uid          # przepięcie tokenu na bieżącego usera (bezpieczeństwo)
         dev.platform = platform
-        dev.last_used_at = get_local_now()
+        dev.last_used_at = utcnow()
     try:
         db.session.commit()
     except IntegrityError:
@@ -49,7 +49,7 @@ def register_device():
             raise
         dev.user_id = uid
         dev.platform = platform
-        dev.last_used_at = get_local_now()
+        dev.last_used_at = utcnow()
         db.session.commit()
     return json_ok({'id': dev.id, 'platform': dev.platform}, 201)
 

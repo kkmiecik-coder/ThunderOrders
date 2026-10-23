@@ -2,8 +2,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from utils.timeutil import utcnow
 
-from modules.orders.models import get_local_now
 @pytest.fixture(autouse=True)
 def _strona_sprzedazy(strona_sprzedazy):
     """Zamówienia w tym pliku powstają z `offer_page_id=1`, a to kolumna FK — strona
@@ -33,7 +33,7 @@ def test_no_overdue_when_no_deadlines(db, make_user, make_order):
 def test_product_overdue_when_deadline_passed_and_unpaid(db, make_user, make_order):
     from modules.orders.payment_overdue_service import get_order_overdue_stages
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(make_user(), total_amount=Decimal('100.00'))
     order.get_product_deadline = lambda: now - timedelta(days=3)
     order.get_shipping_kr_deadline = lambda: None
@@ -51,7 +51,7 @@ def test_product_overdue_when_deadline_passed_and_unpaid(db, make_user, make_ord
 def test_not_overdue_when_deadline_in_future(db, make_user, make_order):
     from modules.orders.payment_overdue_service import get_order_overdue_stages
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(make_user(), total_amount=Decimal('100.00'))
     order.get_product_deadline = lambda: now + timedelta(days=1)
     order.get_shipping_kr_deadline = lambda: None
@@ -64,7 +64,7 @@ def test_not_overdue_when_deadline_in_future(db, make_user, make_order):
 def test_not_overdue_when_already_approved(db, make_user, make_order):
     from modules.orders.payment_overdue_service import get_order_overdue_stages
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(make_user(), total_amount=Decimal('100.00'))
     order.get_product_deadline = lambda: now - timedelta(days=1)
     order.get_shipping_kr_deadline = lambda: None
@@ -78,7 +78,7 @@ def test_not_overdue_when_already_approved(db, make_user, make_order):
 def test_not_overdue_when_pending_confirmation(db, make_user, make_order):
     from modules.orders.payment_overdue_service import get_order_overdue_stages
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(make_user(), total_amount=Decimal('100.00'))
     order.get_product_deadline = lambda: now - timedelta(days=1)
     order.get_shipping_kr_deadline = lambda: None
@@ -93,7 +93,7 @@ def test_customs_vat_not_overdue_when_stage_not_applicable(db, make_user, make_o
     """order_type='on_hand' -> has_customs_vat_stage=False, etap E3 pomijany nawet z minionym terminem."""
     from modules.orders.payment_overdue_service import get_order_overdue_stages
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(
         make_user(), total_amount=Decimal('100.00'),
         order_type='on_hand', customs_vat_sale_cost=Decimal('20.00')
@@ -109,7 +109,7 @@ def test_customs_vat_not_overdue_when_stage_not_applicable(db, make_user, make_o
 def test_multiple_overdue_stages_on_one_order(db, make_user, make_order):
     from modules.orders.payment_overdue_service import get_order_overdue_stages
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(
         make_user(), total_amount=Decimal('100.00'),
         order_type='exclusive', payment_stages=4,
@@ -132,7 +132,7 @@ def test_multiple_overdue_stages_on_one_order(db, make_user, make_order):
 def test_summary_sorts_by_most_overdue_first(db, make_user, make_order):
     from modules.orders.payment_overdue_service import get_overdue_orders_summary
 
-    now = get_local_now()
+    now = utcnow()
     u = make_user()
     o1 = make_order(u, total_amount=Decimal('50.00'))
     o1.get_product_deadline = lambda: now - timedelta(days=1)
@@ -155,7 +155,7 @@ def test_summary_sorts_by_most_overdue_first(db, make_user, make_order):
 def test_summary_excludes_cancelled_orders(db, make_user, make_order):
     from modules.orders.payment_overdue_service import get_overdue_orders_summary
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(make_user(), total_amount=Decimal('50.00'), status='anulowane')
     order.get_product_deadline = lambda: now - timedelta(days=1)
     order.get_shipping_kr_deadline = lambda: None
@@ -172,7 +172,7 @@ def test_summary_excludes_closed_orders(db, make_user, make_order, status):
     """Zamówienie po stronie zwrotów nie może dostawać ponagleń o zapłatę."""
     from modules.orders.payment_overdue_service import get_overdue_orders_summary
 
-    now = get_local_now()
+    now = utcnow()
     order = make_order(make_user(), total_amount=Decimal('50.00'), status=status)
     order.get_product_deadline = lambda: now - timedelta(days=1)
     order.get_shipping_kr_deadline = lambda: None
@@ -187,13 +187,13 @@ def test_summary_excludes_closed_orders(db, make_user, make_order, status):
 def test_get_overdue_orders_summary_finds_real_shipping_kr_deadline(db, make_user, make_product, make_order):
     """Regresja end-to-end: zaległość E2 wykryta przez prawdziwe dane w
     PolandOrderItemOrder, nie przez monkeypatch getterów."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     from decimal import Decimal
     from modules.orders.models import OrderItem
     from modules.orders.payment_overdue_service import get_overdue_orders_summary
     from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, PolandOrderItemOrder
 
-    now = datetime.utcnow()
+    now = utcnow()
     product = make_product()
     user = make_user()
     order = make_order(user, offer_page_id=1, payment_stages=4,
@@ -240,14 +240,14 @@ def test_get_overdue_orders_summary_batches_poland_order_item_order_queries(
     SQL przez SQLAlchemy `before_cursor_execute` i asercją pilnuje, że
     zapytań dotykających poland_order_item_orders jest <=1 niezależnie od
     liczby zamówień."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     from decimal import Decimal
     from sqlalchemy import event
     from modules.orders.models import OrderItem
     from modules.orders.payment_overdue_service import get_overdue_orders_summary
     from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, PolandOrderItemOrder
 
-    now = datetime.utcnow()
+    now = utcnow()
     product = make_product()
 
     orders = []

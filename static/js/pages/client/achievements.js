@@ -381,8 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Unlock date
         var dateEl = document.getElementById('badge-detail-unlock-date');
         if (a.unlocked && a.unlocked_at) {
-            var d = new Date(a.unlocked_at);
-            dateEl.textContent = 'Zdobyte: ' + d.toLocaleDateString('pl-PL');
+            dateEl.textContent = 'Zdobyte: ' + formatPlDateTime(a.unlocked_at, { day: 'numeric', month: 'numeric', year: 'numeric' });
             dateEl.style.display = '';
         } else {
             dateEl.textContent = '';
@@ -535,8 +534,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var dateHtml = '';
         if (a.unlocked && a.unlocked_at) {
-            var dt = new Date(a.unlocked_at);
-            dateHtml = '<div style="font-size:24px;color:rgba(255,255,255,0.35);margin-top:8px;">Zdobyte: ' + dt.toLocaleDateString('pl-PL') + '</div>';
+            dateHtml = '<div style="font-size:24px;color:rgba(255,255,255,0.35);margin-top:8px;">Zdobyte: ' + formatPlDateTime(a.unlocked_at, { day: 'numeric', month: 'numeric', year: 'numeric' }) + '</div>';
         }
 
         // Static particles for legendary

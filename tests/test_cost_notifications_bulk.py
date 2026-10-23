@@ -4,10 +4,13 @@ Regresja: modale "Zamów do Polski" i "Cło/VAT" rozdzielały koszty na zamówie
 klientów bez żadnego powiadomienia (email szedł tylko przy ręcznej edycji pola).
 Emaile muszą iść JEDNYM połączeniem SMTP (batch) — limit AUTH Hostingera.
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from utils.timeutil import utcnow
+
+
 @pytest.fixture(autouse=True)
 def _strona_sprzedazy(strona_sprzedazy):
     """Zamówienia w tym pliku powstają z `offer_page_id=1`, a to kolumna FK — strona
@@ -209,7 +212,7 @@ def test_update_poland_customs_vat_powiadamia_batchem(
     db.session.add(poli)
     db.session.commit()
 
-    deadline = (datetime.now() + timedelta(days=7)).isoformat()
+    deadline = (utcnow() + timedelta(days=7)).strftime('%Y-%m-%dT%H:%M')  # pole datetime-local
     resp = client.put('/admin/products/api/update-poland-customs-vat', json={
         'items': [{'poland_order_item_id': poli.id, 'customs_vat_percentage': 10}],
         'customs_payment_deadline': deadline,

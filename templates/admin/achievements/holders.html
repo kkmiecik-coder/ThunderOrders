@@ -49,7 +49,7 @@
                         </a>
                     </td>
                     <td>{{ ua.user.email }}</td>
-                    <td>{{ ua.unlocked_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ ua.unlocked_at|pl_time('%Y-%m-%d %H:%M') }}</td>
                     <td>
                         {% if ua.granted_by %}
                             {{ ua.granted_by.email }}

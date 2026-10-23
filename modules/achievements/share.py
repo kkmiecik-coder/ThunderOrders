@@ -5,6 +5,7 @@ import textwrap
 
 from PIL import Image, ImageDraw, ImageFont
 from flask import current_app
+from utils.timeutil import to_pl
 
 FORMATS = {
     '1:1': (1080, 1080),
@@ -347,7 +348,7 @@ def generate_share_image(achievement, fmt='1:1', unlocked_at=None, stat_percenta
     if unlocked_at:
         date_cbg = _card_bg_at_y(d, text_y - card_y, card_h)
         date_color = _blend(date_cbg, (255, 255, 255), 0.35)
-        date_str = unlocked_at.strftime('%d.%m.%Y')
+        date_str = to_pl(unlocked_at).strftime('%d.%m.%Y')
         draw.text(
             (cx, text_y), f'Zdobyte: {date_str}',
             fill=date_color, font=fonts['date'], anchor='mt'

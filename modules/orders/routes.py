@@ -39,6 +39,7 @@ from modules.orders.wms_utils import COURIER_NAMES
 from extensions import db
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
+from utils.timeutil import format_pl_input, iso_utc, pl_day_bounds_utc, pl_input_to_utc, to_pl, utcnow
 # from modules.emails.sender import send_email  # Uncomment when email module is ready
 
 
@@ -114,13 +115,13 @@ def admin_list():
     if filter_form.status.data:
         query = query.filter(Order.status.in_(filter_form.status.data))
 
+    # Zakres dat = polskie doby (granice przeliczone na UTC)
     if filter_form.date_from.data:
-        query = query.filter(Order.created_at >= filter_form.date_from.data)
+        start, _ = pl_day_bounds_utc(filter_form.date_from.data)
+        query = query.filter(Order.created_at >= start)
 
     if filter_form.date_to.data:
-        # Add 1 day to include the end date
-        from datetime import timedelta
-        end_date = filter_form.date_to.data + timedelta(days=1)
+        _, end_date = pl_day_bounds_utc(filter_form.date_to.data)
         query = query.filter(Order.created_at < end_date)
 
     if filter_form.search.data:
@@ -616,7 +617,7 @@ def admin_update_status(order_id):
 
     if old_status != new_status:
         order.status = new_status
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
 
         from modules.orders.consolidation import (
             STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)
@@ -700,7 +701,7 @@ def admin_update_shipping_address(order_id):
         order.shipping_city = form.shipping_city.data
         order.shipping_voivodeship = form.shipping_voivodeship.data
         order.shipping_country = form.shipping_country.data or 'Polska'
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
         db.session.commit()
 
         return '<div class="alert alert-success">Adres dostawy zapisany</div>'
@@ -725,7 +726,7 @@ def admin_update_pickup_point(order_id):
         order.pickup_address = form.pickup_address.data
         order.pickup_postal_code = form.pickup_postal_code.data
         order.pickup_city = form.pickup_city.data
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
         db.session.commit()
 
         return '<div class="alert alert-success">Punkt odbioru zapisany</div>'
@@ -749,7 +750,7 @@ def admin_update_tracking(order_id):
         old_courier = order.courier
         order.tracking_number = form.tracking_number.data
         order.courier = form.courier.data
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
         db.session.commit()
 
         # Activity log
@@ -816,7 +817,7 @@ def admin_issue_refund(order_id):
         else:
             order.status = 'czesciowo_zwrocone'
 
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
         db.session.commit()
 
         # Activity log
@@ -894,7 +895,7 @@ def admin_update_payment(order_id):
 
         # Update payment
         order.paid_amount = paid_amount
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
         db.session.commit()
 
         # Activity log
@@ -1008,7 +1009,7 @@ def admin_update_order_field(order_id):
         elif field == 'admin_notes':
             order.admin_notes = value.strip() if value else None
 
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
         db.session.commit()
 
         # Activity log
@@ -1180,7 +1181,7 @@ def admin_add_shipment(order_id):
                 'courier': shipment.courier,
                 'courier_name': shipment.courier_display_name,
                 'tracking_url': shipment.tracking_url,
-                'created_at': shipment.created_at.strftime('%Y-%m-%d %H:%M')
+                'created_at': to_pl(shipment.created_at).strftime('%Y-%m-%d %H:%M')
             }
         })
 
@@ -1316,7 +1317,7 @@ def bulk_status_change():
                 old_status_name = order.status_display_name
                 if old_status != new_status:
                     order.status = new_status
-                    order.updated_at = datetime.now()
+                    order.updated_at = utcnow()
                     updated_count += 1
 
                     from modules.orders.consolidation import (
@@ -1584,7 +1585,7 @@ def export_orders():
 
         row_data = [
             order.order_number,
-            order.created_at.strftime('%Y-%m-%d %H:%M'),
+            to_pl(order.created_at).strftime('%Y-%m-%d %H:%M'),
             order.status_display_name,
             type_name,
             customer_name,
@@ -1630,7 +1631,7 @@ def export_orders():
 
     response = make_response(output.getvalue())
     response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response.headers['Content-Disposition'] = f'attachment; filename=zamowienia_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    response.headers['Content-Disposition'] = f'attachment; filename=zamowienia_export_{to_pl(utcnow()).strftime("%Y%m%d_%H%M%S")}.xlsx'
 
     return response
 
@@ -1776,12 +1777,13 @@ def client_list():
     elif status_filter:
         query = query.filter(Order.status == status_filter)
 
+    # Zakres dat = polskie doby (granice przeliczone na UTC)
     if date_from:
-        query = query.filter(Order.created_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+        start, _ = pl_day_bounds_utc(datetime.strptime(date_from, '%Y-%m-%d').date())
+        query = query.filter(Order.created_at >= start)
 
     if date_to:
-        from datetime import timedelta
-        end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        _, end_date = pl_day_bounds_utc(datetime.strptime(date_to, '%Y-%m-%d').date())
         query = query.filter(Order.created_at < end_date)
 
     # Search filter (by order number or custom name)
@@ -1966,7 +1968,7 @@ def client_detail(order_id):
                 data = json.loads(log.new_value) if log.new_value else {}
                 slug = data.get('status')
                 if slug:
-                    status_timestamps[slug] = log.created_at.strftime('%Y-%m-%dT%H:%M')
+                    status_timestamps[slug] = to_pl(log.created_at).strftime('%Y-%m-%dT%H:%M')
             except (ValueError, TypeError):
                 pass
 
@@ -2250,7 +2252,7 @@ def update_shipping_request_allowed_statuses():
         if setting:
             setting.value = json.dumps(validated_statuses)
             setting.type = 'json'
-            setting.updated_at = datetime.now()
+            setting.updated_at = utcnow()
         else:
             setting = Settings(
                 key='shipping_request_allowed_statuses',
@@ -2306,7 +2308,7 @@ def update_shipping_request_default_status():
         setting = Settings.query.filter_by(key='shipping_request_default_status').first()
         if setting:
             setting.value = default_status
-            setting.updated_at = datetime.now()
+            setting.updated_at = utcnow()
         else:
             setting = Settings(
                 key='shipping_request_default_status',
@@ -2543,7 +2545,7 @@ def update_shipping_request_status(status_id):
             ).update({'is_initial': False}, synchronize_session=False)
         status.is_initial = nowy_poczatkowy
         status.is_active = nowy_aktywny
-        status.updated_at = datetime.now()
+        status.updated_at = utcnow()
 
         db.session.commit()
 
@@ -3969,8 +3971,11 @@ def admin_get_shipping_request(shipping_request_id):
         # bez tego nie wie, czyje pola zostawia puste. None na zwykłym zleceniu
         # i na paczce, w której wszyscy są już rozliczeni.
         'consolidation_block_note': sr.consolidation_block_note,
-        'payment_deadline': sr.payment_deadline.isoformat() if sr.payment_deadline else None,
-        'created_at': sr.created_at.isoformat() if sr.created_at else None
+        'payment_deadline': iso_utc(sr.payment_deadline),
+        # Wartość pola datetime-local w modalu: czas polski, bo zapis czyta pole jako czas
+        # polski — pole wypełnione zegarem UTC przesuwałoby termin przy każdym zapisie.
+        'payment_deadline_input': format_pl_input(sr.payment_deadline),
+        'created_at': iso_utc(sr.created_at)
     })
 
 
@@ -4195,9 +4200,8 @@ def _zapisz_zlecenie_wysylki(sr, data):
     if 'payment_deadline' in data:
         deadline_str = data['payment_deadline']
         if deadline_str:
-            from datetime import datetime
             try:
-                sr.payment_deadline = datetime.fromisoformat(deadline_str)
+                sr.payment_deadline = pl_input_to_utc(datetime.fromisoformat(deadline_str))
             except (ValueError, TypeError):
                 raise _odmowa_zapisu(
                     sr, f'nieczytelny termin płatności („{deadline_str}") — '
@@ -5251,8 +5255,7 @@ def admin_export_shipping_requests_inpost():
             )
 
     exported = count_exported_rows(csv_text)
-    from modules.orders.models import get_local_now
-    filename = f'inpost_{get_local_now().strftime("%Y-%m-%d_%H%M")}.csv'
+    filename = f'inpost_{to_pl(utcnow()).strftime("%Y-%m-%d_%H%M")}.csv'
 
     log_activity(
         user=current_user,

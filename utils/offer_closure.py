@@ -8,7 +8,6 @@ Zawiera logikę całkowitego zamykania stron Offer:
 - Wysyłka emaili do klientów
 """
 
-from datetime import datetime
 from collections import defaultdict
 from decimal import Decimal
 from flask import current_app, url_for
@@ -18,6 +17,7 @@ from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirm
 from modules.auth.models import User
 from utils.transfer_title import render_transfer_title
 from utils.closure_settings import get_closure_statuses
+from utils.timeutil import iso_utc, pl_date, utcnow
 
 
 def calculate_set_fulfillment(page_id):
@@ -369,7 +369,7 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
             old_status = order.status
             old_status_name = order.status_display_name
             order.status = new_status
-            order.updated_at = datetime.now()
+            order.updated_at = utcnow()
 
             counts[fulfillment_type] += 1
             counts['updated_order_ids'].append(order.id)
@@ -511,7 +511,7 @@ def close_offer_page(page_id, user_id, send_emails=True):
 
         # 4. Ustaw flagę zamknięcia
         page.is_fully_closed = True
-        page.closed_at = datetime.now()
+        page.closed_at = utcnow()
         page.closed_by_id = user_id
 
         # 5. COMMIT - atomowa transakcja
@@ -864,7 +864,7 @@ def get_page_summary(page_id, include_financials=True):
     orders_by_date = Counter()
     for order in orders:
         if order.created_at:
-            date_key = order.created_at.strftime('%Y-%m-%d')
+            date_key = pl_date(order.created_at).strftime('%Y-%m-%d')  # doba polska
             orders_by_date[date_key] += 1
 
     sorted_dates = sorted(orders_by_date.items())
@@ -874,7 +874,7 @@ def get_page_summary(page_id, include_financials=True):
     order_timestamps = []
     for order in orders:
         if order.created_at:
-            order_timestamps.append(order.created_at.isoformat())
+            order_timestamps.append(iso_utc(order.created_at))
 
     # Products aggregated (do Tab Produkty)
     products_agg = {}
@@ -1217,7 +1217,7 @@ def get_live_summary(page_id, include_financials=True):
     order_timestamps = []
     for order in orders:
         if order.created_at:
-            order_timestamps.append(order.created_at.isoformat())
+            order_timestamps.append(iso_utc(order.created_at))
 
     # Products aggregated
     products_agg = {}
@@ -1556,7 +1556,7 @@ def cancel_offer_orders(page_id, order_ids, reason, admin_user_id, notify=True):
         new_status = 'do_zwrotu' if order_has_payment(order) else 'anulowane'
 
         order.status = new_status
-        order.updated_at = datetime.now()
+        order.updated_at = utcnow()
 
         from modules.orders.consolidation import (
             STATUSY_WYPINAJACE_Z_PACZKI, odepnij_anulowane_zamowienie)

@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from extensions import db
-from modules.auth.models import get_local_now
+from utils.timeutil import pl_day_bounds_utc, to_pl, utcnow
 
 
 def get_metric_value(user, metric, config, context=None):
@@ -76,7 +76,7 @@ def _login_streak(user, config, context):
 def _account_age_days(user, config, context):
     if not user.created_at:
         return (0, False)
-    days = (get_local_now() - user.created_at).days
+    days = (utcnow() - user.created_at).days
     return (days, days >= config['threshold'])
 
 
@@ -88,8 +88,8 @@ def _single_order_items(user, config, context):
 
 
 def _order_hour_range(user, config, context):
-    now = get_local_now()
-    hour = now.hour
+    # Godzina na zegarze w Polsce - „nocny marek" to noc polska, nie UTC
+    hour = to_pl(utcnow()).hour
     start, end = config['start'], config['end']
     in_range = start <= hour < end
     return (hour, in_range)
@@ -97,7 +97,7 @@ def _order_hour_range(user, config, context):
 
 def _orders_in_window(user, config, context):
     from modules.orders.models import Order
-    window_start = get_local_now() - timedelta(days=config['window_days'])
+    window_start = utcnow() - timedelta(days=config['window_days'])
     count = Order.query.filter(
         Order.user_id == user.id,
         Order.created_at >= window_start
@@ -107,12 +107,13 @@ def _orders_in_window(user, config, context):
 
 def _orders_in_weekend(user, config, context):
     from modules.orders.models import Order
-    now = get_local_now()
-    weekday = now.weekday()  # 0=Mon, 5=Sat, 6=Sun
+    # Weekend według kalendarza polskiego: od soboty 00:00 czasu polskiego
+    today = to_pl(utcnow()).date()
+    weekday = today.weekday()  # 0=Mon, 5=Sat, 6=Sun
     if weekday == 5:  # Saturday
-        weekend_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        weekend_start, _ = pl_day_bounds_utc(today)
     elif weekday == 6:  # Sunday
-        weekend_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        weekend_start, _ = pl_day_bounds_utc(today - timedelta(days=1))
     else:
         return (0, False)  # Not a weekend
 
@@ -129,7 +130,7 @@ def _time_since_drop(user, config, context):
     starts_at = context['offer_page_starts_at']
     if not starts_at:
         return (0, False)
-    now = get_local_now()
+    now = utcnow()
     minutes_diff = (now - starts_at).total_seconds() / 60
     return (minutes_diff, minutes_diff <= config['max_minutes'])
 
@@ -138,8 +139,8 @@ def _time_since_page_visit(user, config, context):
     if not context or 'page_entered_at' not in context:
         return (0, False)
     try:
-        entered_at = datetime.fromtimestamp(context['page_entered_at'] / 1000)
-        now = get_local_now()
+        entered_at = datetime.fromtimestamp(context['page_entered_at'] / 1000, tz=timezone.utc)
+        now = utcnow()
         minutes_diff = (now - entered_at).total_seconds() / 60
         return (minutes_diff, minutes_diff <= config['max_minutes'])
     except (ValueError, TypeError, OSError):
@@ -271,7 +272,7 @@ def _pet_adult_alive(user, config, context):
     from modules.pets.common import simulate_pet
     from modules.pets.config import PetConfig
     from modules.pets.models import Pet
-    now = (context or {}).get('now') or get_local_now()
+    now = (context or {}).get('now') or utcnow()
     cfg = PetConfig.load()
     zywe = Pet.query.filter(Pet.user_id == user.id, Pet.status == 'alive', Pet.hatched_at.isnot(None)).all()
     # żywy = także w symulacji (odejście między przebiegami crona jeszcze niezapisane)

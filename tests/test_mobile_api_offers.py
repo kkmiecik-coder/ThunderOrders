@@ -2,6 +2,7 @@
 
 Helper _auth skopiowany z tests/test_mobile_api_cart.py.
 """
+from utils.timeutil import utcnow
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +228,7 @@ def test_reserve_blocked_on_inactive_page(client, db, make_user, make_product):
     draft -> 404 (spójnie z detail). Żadna rezerwacja nie może powstać w bazie.
     """
     from modules.offers.models import OfferSection, OfferReservation
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     h, _ = _auth(client, db, make_user)
     prod = make_product(sale_price='10.00')
 
@@ -235,7 +236,7 @@ def test_reserve_blocked_on_inactive_page(client, db, make_user, make_product):
         ('scheduled', {}, 403, 'page_not_active'),
         ('paused', {}, 403, 'page_not_active'),
         # ends_at w przeszłości — inaczej check_and_update_status wskrzesiłby stronę
-        ('ended', {'ends_at': datetime.now() - timedelta(days=1)}, 403, 'page_not_active'),
+        ('ended', {'ends_at': utcnow() - timedelta(days=1)}, 403, 'page_not_active'),
         ('draft', {}, 404, 'page_not_found'),
     ]
     for status, attrs, exp_status, exp_code in cases:

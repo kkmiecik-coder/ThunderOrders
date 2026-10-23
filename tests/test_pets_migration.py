@@ -71,7 +71,10 @@ def test_migracja_jest_jedyna_glowa():
     cfg = Config('migrations/alembic.ini')
     cfg.set_main_option('script_location', 'migrations')
     sd = ScriptDirectory.from_config(cfg)
-    assert sd.get_heads() == [REWIZJA_ZARTY]
+    glowy = sd.get_heads()
+    assert len(glowy) == 1
+    # pupile w łańcuchu jedynej głowy (po nich doszła migracja danych czasu na UTC)
+    assert REWIZJA_ZARTY in {r.revision for r in sd.iterate_revisions(glowy[0], 'base')}
     assert sd.get_revision(REWIZJA_ZARTY).down_revision == REWIZJA_SZPITAL
     assert sd.get_revision(REWIZJA_SZPITAL).down_revision == REWIZJA
     assert sd.get_revision(REWIZJA).down_revision == 'dde1a45a7d87'

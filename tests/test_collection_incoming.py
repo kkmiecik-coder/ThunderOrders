@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 import pytest
+from datetime import timezone
 
 
 def _potwierdzenie(db, order, stage='product', status='approved', amount='100.00'):
@@ -247,9 +248,9 @@ def test_sortowanie_malejaco_po_dacie_zamowienia(db, make_user, make_order, make
     from modules.client.collection_incoming import incoming_items
     u, p = make_user(), make_product()
     stare = make_order(u, status='oczekujace', order_type='on_hand',
-                       created_at=datetime(2026, 1, 1, 10, 0))
+                       created_at=datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc))
     nowe = make_order(u, status='oczekujace', order_type='on_hand',
-                      created_at=datetime(2026, 6, 1, 10, 0))
+                      created_at=datetime(2026, 6, 1, 10, 0, tzinfo=timezone.utc))
     _pozycja(db, stare, p, price='10.00')
     _pozycja(db, nowe, p, price='20.00')
     _potwierdzenie(db, stare)
@@ -633,7 +634,7 @@ def test_sort_key_deterministyczny_tiebreak_dom_id():
     from datetime import datetime
     from modules.client.collection_service import _sort_key
 
-    ts = datetime(2026, 1, 1, 12, 0)
+    ts = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
     items = [SimpleNamespace(created_at=ts, dom_id=f'oi-1-{i}', name='x', market_price=None)
              for i in range(5)]
 

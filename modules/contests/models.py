@@ -1,5 +1,5 @@
 from extensions import db
-from modules.auth.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class Contest(db.Model):
@@ -18,10 +18,10 @@ class Contest(db.Model):
     eligibility_min_total_value = db.Column(db.Numeric(10, 2), nullable=True)
     eligibility_active_within_days = db.Column(db.Integer, nullable=True)
     status = db.Column(db.String(20), nullable=False, default='szkic')  # szkic|aktywny|rozlosowany
-    starts_at = db.Column(db.DateTime, nullable=True)
-    ends_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now, nullable=False)
+    starts_at = db.Column(UTCDateTime, nullable=True)
+    ends_at = db.Column(UTCDateTime, nullable=True)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False)
     created_by_admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     prize_product = db.relationship('Product', foreign_keys=[prize_product_id])
@@ -101,7 +101,7 @@ class ContestSpin(db.Model):
     contest_id = db.Column(db.Integer, db.ForeignKey('contests.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     tickets_won = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
 
     __table_args__ = (db.Index('ix_contest_spins_contest_user', 'contest_id', 'user_id'),)
 
@@ -119,7 +119,7 @@ class ContestWinner(db.Model):
     tickets_at_draw = db.Column(db.Integer, nullable=False)
     chance_pct = db.Column(db.Numeric(6, 3), nullable=True)
     prize_product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
-    drawn_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+    drawn_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         db.UniqueConstraint('contest_id', 'user_id', name='uq_contest_winner_user'),
@@ -139,7 +139,7 @@ class ContestExcludedUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     contest_id = db.Column(db.Integer, db.ForeignKey('contests.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
 
     user = db.relationship('User', foreign_keys=[user_id])
 

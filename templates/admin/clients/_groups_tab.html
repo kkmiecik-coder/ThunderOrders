@@ -15,7 +15,7 @@
         <tr data-group-id="{{ g.id }}">
             <td class="group-name">{{ g.name }}</td>
             <td>{{ g.member_count }}</td>
-            <td>{{ g.created_at.strftime('%Y-%m-%d') if g.created_at else '' }}</td>
+            <td>{{ g.created_at|format_date('%Y-%m-%d') if g.created_at else '' }}</td>
             <td>
                 <div class="action-buttons">
                     <button type="button" class="btn-icon btn-edit-group"

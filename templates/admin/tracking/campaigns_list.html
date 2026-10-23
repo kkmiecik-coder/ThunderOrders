@@ -68,7 +68,7 @@
                             <td>{{ campaign.unique_visits }}</td>
                             <td class="qrt-hide-mobile">
                                 {% if campaign.last_visit %}
-                                    {{ campaign.last_visit.strftime('%Y-%m-%d %H:%M') }}
+                                    {{ campaign.last_visit|pl_time('%Y-%m-%d %H:%M') }}
                                 {% else %}
                                     <span class="text-muted">Brak</span>
                                 {% endif %}
