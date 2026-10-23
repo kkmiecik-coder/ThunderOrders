@@ -53,7 +53,7 @@
                 <span class="detail-value">
                     {% if page.starts_at %}
                     {{ page.starts_at|format_date('%d.%m.%Y') }}
-                    <span class="detail-time">{{ page.starts_at|format_time }}</span>
+                    <span class="detail-time">{{ page.starts_at|pl_time('%H:%M') }}</span>
                     {% else %}
                     <span class="detail-muted">—</span>
                     {% endif %}
@@ -64,7 +64,7 @@
                 <span class="detail-value">
                     {% if page.ends_at %}
                     {{ page.ends_at|format_date('%d.%m.%Y') }}
-                    <span class="detail-time">{{ page.ends_at|format_time }}</span>
+                    <span class="detail-time">{{ page.ends_at|pl_time('%H:%M') }}</span>
                     {% else %}
                     <span class="detail-muted">Bez limitu</span>
                     {% endif %}
@@ -74,7 +74,7 @@
                 <span class="detail-label">Utworzono</span>
                 <span class="detail-value">
                     {{ page.created_at|format_date('%d.%m.%Y') }}
-                    <span class="detail-time">{{ page.created_at|format_time }}</span>
+                    <span class="detail-time">{{ page.created_at|pl_time('%H:%M') }}</span>
                 </span>
             </div>
         </div>
@@ -251,12 +251,12 @@
                     </td>
                     <td>
                         <span class="date-cell">{{ page.created_at|format_date('%d.%m.%Y') }}</span>
-                        <span class="time-cell">{{ page.created_at|format_time }}</span>
+                        <span class="time-cell">{{ page.created_at|pl_time('%H:%M') }}</span>
                     </td>
                     <td>
                         {% if page.starts_at %}
                         <span class="date-cell">{{ page.starts_at|format_date('%d.%m.%Y') }}</span>
-                        <span class="time-cell">{{ page.starts_at|format_time }}</span>
+                        <span class="time-cell">{{ page.starts_at|pl_time('%H:%M') }}</span>
                         {% else %}
                         <span class="text-muted">—</span>
                         {% endif %}
@@ -264,7 +264,7 @@
                     <td>
                         {% if page.ends_at %}
                         <span class="date-cell">{{ page.ends_at|format_date('%d.%m.%Y') }}</span>
-                        <span class="time-cell">{{ page.ends_at|format_time }}</span>
+                        <span class="time-cell">{{ page.ends_at|pl_time('%H:%M') }}</span>
                         {% else %}
                         <span class="text-muted">Bez limitu</span>
                         {% endif %}
@@ -272,7 +272,7 @@
                     <td>
                         {% if page.payment_deadline %}
                         <span class="date-cell">{{ page.payment_deadline|format_date('%d.%m.%Y') }}</span>
-                        <span class="time-cell">{{ page.payment_deadline|format_time }}</span>
+                        <span class="time-cell">{{ page.payment_deadline|pl_time('%H:%M') }}</span>
                         {% else %}
                         <span class="text-muted">—</span>
                         {% endif %}

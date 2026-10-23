@@ -94,7 +94,7 @@
                         </td>
                         <td>
                             <span class="date-cell">{{ survey.created_at|format_date('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ survey.created_at|format_time }}</span>
+                            <span class="time-cell">{{ survey.created_at|pl_time('%H:%M') }}</span>
                         </td>
                         <td class="actions-cell">
                             <div class="action-buttons">

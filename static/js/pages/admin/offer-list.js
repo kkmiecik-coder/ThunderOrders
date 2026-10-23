@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeAutoIncreaseForm();
     initializeDeleteForm();
     initializePaymentReminders();
+    initializeDisplayTimezones();
     initializeOfferSearch();
     initializeBulkActions();
 });
@@ -344,7 +345,8 @@ function initializePaymentReminders() {
         });
     }
 
-    document.querySelectorAll('.btn-remove-rule').forEach(btn => {
+    // Zakres zakładki: lista stref czasowych używa tych samych klas przycisków
+    document.querySelectorAll('#tab-payment-reminders .btn-remove-rule').forEach(btn => {
         btn.addEventListener('click', function() {
             deleteReminderRule(this.dataset.id, this.closest('.reminder-rule-row'));
         });
@@ -424,6 +426,109 @@ async function deleteReminderRule(ruleId, rowElement) {
         }
     } catch (error) {
         console.error('Error deleting rule:', error);
+        notifyToast('Błąd połączenia z serwerem.', 'error');
+    }
+}
+
+/**
+ * Strefy czasowe w podpowiedzi przy godzinach (tz-tooltip.js).
+ * Lista na stronach odświeża się przy następnym wczytaniu (data-display-timezones na <body>).
+ */
+function initializeDisplayTimezones() {
+    const addBtn = document.getElementById('addDisplayTimezoneBtn');
+    const list = document.getElementById('displayTimezonesList');
+    if (!addBtn || !list) return;
+
+    addBtn.addEventListener('click', addDisplayTimezone);
+
+    // Delegacja: wiersze dodane po wczytaniu strony też mają działający przycisk
+    list.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-remove-timezone');
+        if (btn) deleteDisplayTimezone(btn.dataset.tz, btn.closest('.reminder-rule-row'));
+    });
+}
+
+async function addDisplayTimezone() {
+    const labelInput = document.getElementById('displayTimezoneLabel');
+    const tzSelect = document.getElementById('displayTimezoneTz');
+    const label = labelInput.value.trim();
+    const tz = tzSelect.value;
+    if (!label) {
+        notifyToast('Podaj nazwę miasta.', 'error');
+        return;
+    }
+
+    try {
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+        const response = await fetch('/admin/offers/settings/timezones', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ label: label, tz: tz })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            const row = document.createElement('div');
+            row.className = 'reminder-rule-row';
+            row.dataset.tz = data.timezone.tz;
+
+            // textContent, nie innerHTML — nazwę miasta wpisuje człowiek
+            const text = document.createElement('span');
+            text.className = 'reminder-rule-text';
+            text.textContent = data.timezone.label + ' ';
+            const tzId = document.createElement('span');
+            tzId.className = 'timezone-id';
+            tzId.textContent = data.timezone.tz;
+            text.appendChild(tzId);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-remove-rule btn-remove-timezone';
+            btn.dataset.tz = data.timezone.tz;
+            btn.title = 'Usuń';
+            btn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                </svg>
+            `;
+
+            row.append(text, btn);
+            document.getElementById('displayTimezonesList').appendChild(row);
+            labelInput.value = '';
+            notifyToast('Miasto dodane.', 'success');
+        } else {
+            notifyToast(data.error || 'Wystąpił błąd.', 'error');
+        }
+    } catch (error) {
+        console.error('Error adding timezone:', error);
+        notifyToast('Błąd połączenia z serwerem.', 'error');
+    }
+}
+
+async function deleteDisplayTimezone(tz, rowElement) {
+    try {
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+        const response = await fetch('/admin/offers/settings/timezones/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ tz: tz })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            rowElement.remove();
+            notifyToast('Miasto usunięte.', 'success');
+        } else {
+            notifyToast(data.error || 'Wystąpił błąd.', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting timezone:', error);
         notifyToast('Błąd połączenia z serwerem.', 'error');
     }
 }

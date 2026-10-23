@@ -99,7 +99,7 @@
                 </svg>
                 <div class="start-date-text">
                     <span class="start-date-label">Data startu</span>
-                    <span class="start-date-value">{{ page.starts_at|format_datetime('%d.%m.%Y, godz. %H:%M') }}</span>
+                    <span class="start-date-value">{{ page.starts_at|pl_time('%d.%m.%Y, godz. %H:%M') }}</span>
                 </div>
             </div>
         </div>

@@ -135,7 +135,7 @@
                             </svg>
                         </span>
                         <span class="pc-deadline-text">
-                            Termin: {{ deadline|format_datetime('%d.%m %H:%M') }}
+                            Termin: {{ deadline|pl_time('%d.%m %H:%M') }}
                             {% if deadline < now %} — minął{% endif %}
                         </span>
                     </div>
@@ -171,7 +171,7 @@
                             </svg>
                         </span>
                         <span class="pc-deadline-text">
-                            Termin: {{ kr_deadline|format_datetime('%d.%m %H:%M') }}
+                            Termin: {{ kr_deadline|pl_time('%d.%m %H:%M') }}
                             {% if kr_deadline < now %} — minął{% endif %}
                         </span>
                     </div>
@@ -209,7 +209,7 @@
                             </svg>
                         </span>
                         <span class="pc-deadline-text">
-                            Termin: {{ customs_deadline|format_datetime('%d.%m %H:%M') }}
+                            Termin: {{ customs_deadline|pl_time('%d.%m %H:%M') }}
                             {% if customs_deadline < now %} — minął{% endif %}
                         </span>
                     </div>
@@ -246,7 +246,7 @@
                             </svg>
                         </span>
                         <span class="pc-deadline-text">
-                            Termin: {{ pl_deadline|format_datetime('%d.%m %H:%M') }}
+                            Termin: {{ pl_deadline|pl_time('%d.%m %H:%M') }}
                             {% if pl_deadline < now %} — minął{% endif %}
                         </span>
                     </div>

@@ -1,0 +1,103 @@
+/**
+ * Godzina z podpowiedzią w innych miastach (filtr pl_time + js/components/tz-tooltip.js).
+ * Podkreślenie i powiększony cel dotyku tylko, gdy strona ma listę miast
+ * (atrybut data-display-timezones na <body>); bez listy godzina to zwykły tekst.
+ */
+
+[data-display-timezones] .tz-time {
+    text-decoration: underline dotted;
+    text-decoration-color: rgba(100, 116, 139, 0.6);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    cursor: help;
+}
+
+/* Dotyk: cel ≥ 44 px przez niewidoczne pole wokół godziny — bez zmiany układu */
+@media (hover: none), (pointer: coarse) {
+    [data-display-timezones] .tz-time {
+        position: relative;
+    }
+
+    [data-display-timezones] .tz-time::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100%;
+        min-width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+    }
+}
+
+[data-display-timezones] .tz-time.tz-time--open {
+    text-decoration-color: currentColor;
+}
+
+/* Podpowiedź — jedna na stronę, pozycjonowana przez JS */
+.tz-tooltip {
+    position: fixed;
+    z-index: 20001;
+    max-width: calc(100vw - 16px);
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    color: #334155;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tz-tooltip[hidden] {
+    display: none;
+}
+
+.tz-tooltip__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.tz-tooltip__label {
+    color: #64748b;
+}
+
+.tz-tooltip__value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.tz-tooltip__row--pl {
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Dark mode */
+[data-theme="dark"] [data-display-timezones] .tz-time {
+    text-decoration-color: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] [data-display-timezones] .tz-time.tz-time--open {
+    text-decoration-color: #f093fb;
+}
+
+[data-theme="dark"] .tz-tooltip {
+    background: rgba(26, 26, 46, 0.92);
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .tz-tooltip__label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .tz-tooltip__row--pl {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}

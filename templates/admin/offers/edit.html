@@ -34,7 +34,7 @@
             </span>
             <span class="last-saved" id="lastSaved">
                 {% if page.updated_at %}
-                Ostatni zapis: {{ page.updated_at|format_time('%H:%M:%S') }}
+                Ostatni zapis: {{ page.updated_at|pl_time('%H:%M:%S') }}
                 {% endif %}
             </span>
         </div>

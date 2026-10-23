@@ -22,6 +22,15 @@ _OFFER_STATUS_ORDER = {'active': 0, 'paused': 1, 'scheduled': 2, 'draft': 3, 'en
 # Liczba stron sprzedaży na jedną stronę paginacji (parytet ze zleceniami wysyłki w WMS).
 OFFERS_PER_PAGE = 20
 
+# Miasta w podpowiedzi przy godzinach (ustawienia): popularne strefy na górze listy
+# wyboru — reszta stref IANA alfabetycznie pod nimi.
+POPULAR_TIMEZONES = (
+    'Asia/Seoul', 'Asia/Tokyo', 'Asia/Shanghai', 'Europe/London', 'Europe/Berlin',
+    'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Australia/Sydney',
+)
+DISPLAY_TIMEZONE_LABEL_MAX = 40
+DISPLAY_TIMEZONES_MAX = 10
+
 # Kolumny, po których wolno sortować listę: nazwa z URL -> wyrażenie SQL.
 # Klucze muszą się zgadzać z data-column w nagłówkach tabeli (_list_items.html).
 def _offer_sort_expressions():
@@ -234,6 +243,11 @@ def offers_settings():
     reminder_last_check = get_setting_value('payment_reminder_last_check', None)
     reminder_last_count = get_setting_value('payment_reminder_last_count', '0')
 
+    # Strefy w podpowiedzi przy godzinach: popularne na górze, potem cała baza IANA
+    from zoneinfo import available_timezones
+    from utils.timeutil import get_display_timezones
+    other_timezones = sorted(available_timezones() - set(POPULAR_TIMEZONES))
+
     return render_template(
         'admin/offers/settings.html',
         title='Ustawienia stron sprzedaży',
@@ -243,7 +257,12 @@ def offers_settings():
         reminder_rules_before=reminder_rules_before,
         reminder_rules_after=reminder_rules_after,
         reminder_last_check=reminder_last_check,
-        reminder_last_count=reminder_last_count
+        reminder_last_count=reminder_last_count,
+        display_timezones=get_display_timezones(),
+        popular_timezones=POPULAR_TIMEZONES,
+        other_timezones=other_timezones,
+        display_timezones_max=DISPLAY_TIMEZONES_MAX,
+        display_timezone_label_max=DISPLAY_TIMEZONE_LABEL_MAX,
     )
 
 
@@ -2315,6 +2334,83 @@ def delete_payment_reminder_rule():
     db.session.delete(rule)
     db.session.commit()
 
+    return jsonify({'success': True})
+
+
+# ============================================
+# Strefy czasowe w podpowiedzi przy godzinach
+# ============================================
+
+def _save_display_timezones(strefy, stare):
+    """Zapisuje listę miast i loguje zmianę (stara/nowa lista w logu aktywności)."""
+    from modules.auth.models import Settings
+    from utils.activity_logger import log_activity
+    from utils.timeutil import DISPLAY_TIMEZONES_KEY
+
+    Settings.set_value(
+        DISPLAY_TIMEZONES_KEY, json.dumps(strefy, ensure_ascii=False),
+        updated_by=current_user.id, type='json',
+        description='Miasta w podpowiedzi przy wyświetlanych godzinach',
+    )
+    log_activity(
+        user=current_user,
+        action='display_timezones_updated',
+        entity_type='Settings',
+        entity_id=None,
+        old_value=json.dumps(stare, ensure_ascii=False),
+        new_value=json.dumps(strefy, ensure_ascii=False),
+    )
+
+
+@admin_bp.route('/offers/settings/timezones', methods=['POST'])
+@login_required
+@admin_required
+def add_display_timezone():
+    """Dodaje miasto do podpowiedzi przy godzinach: `{"label": "Londyn", "tz": "Europe/London"}`."""
+    from zoneinfo import available_timezones
+    from utils.timeutil import get_display_timezones
+
+    data = request.get_json(silent=True) or {}
+    label = data.get('label')
+    tz = data.get('tz')
+
+    if not isinstance(label, str) or not label.strip():
+        return jsonify({'success': False, 'error': 'Podaj nazwę miasta.'}), 400
+    label = label.strip()
+    if len(label) > DISPLAY_TIMEZONE_LABEL_MAX:
+        return jsonify({'success': False,
+                        'error': f'Nazwa miasta może mieć najwyżej {DISPLAY_TIMEZONE_LABEL_MAX} znaków.'}), 400
+    if not isinstance(tz, str) or tz not in available_timezones():
+        return jsonify({'success': False, 'error': 'Nieznana strefa czasowa.'}), 400
+
+    stare = get_display_timezones()
+    if any(s['tz'] == tz for s in stare):
+        return jsonify({'success': False, 'error': 'Ta strefa jest już na liście.'}), 400
+    if len(stare) >= DISPLAY_TIMEZONES_MAX:
+        return jsonify({'success': False,
+                        'error': f'Można dodać najwyżej {DISPLAY_TIMEZONES_MAX} miast.'}), 400
+
+    wpis = {'label': label, 'tz': tz}
+    _save_display_timezones(stare + [wpis], stare)
+    return jsonify({'success': True, 'timezone': wpis})
+
+
+@admin_bp.route('/offers/settings/timezones/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_display_timezone():
+    """Usuwa miasto z podpowiedzi (po strefie). Pusta lista wyłącza podpowiedź."""
+    from utils.timeutil import get_display_timezones
+
+    data = request.get_json(silent=True) or {}
+    tz = data.get('tz')
+
+    stare = get_display_timezones()
+    nowe = [s for s in stare if s['tz'] != tz]
+    if len(nowe) == len(stare):
+        return jsonify({'success': False, 'error': 'Tej strefy nie ma na liście.'}), 404
+
+    _save_display_timezones(nowe, stare)
     return jsonify({'success': True})
 
 

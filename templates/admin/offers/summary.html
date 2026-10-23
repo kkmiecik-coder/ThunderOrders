@@ -41,7 +41,7 @@
     <div class="meta-info">
         <div class="meta-item">
             <span class="meta-label">Zamknięto:</span>
-            <span class="meta-value">{{ summary.closed_at|format_datetime('%d.%m.%Y %H:%M') if summary.closed_at else '-' }}</span>
+            <span class="meta-value">{{ summary.closed_at|pl_time('%d.%m.%Y %H:%M') if summary.closed_at else '-' }}</span>
         </div>
         <div class="meta-item">
             <span class="meta-label">Przez:</span>
@@ -58,7 +58,7 @@
         {% if page.payment_deadline %}
         <div class="meta-item">
             <span class="meta-label">Termin płatności:</span>
-            <span class="meta-value">{{ page.payment_deadline|format_datetime('%d.%m.%Y %H:%M') }}</span>
+            <span class="meta-value">{{ page.payment_deadline|pl_time('%d.%m.%Y %H:%M') }}</span>
         </div>
         {% endif %}
     </div>

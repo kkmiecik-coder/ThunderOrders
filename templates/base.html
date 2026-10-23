@@ -163,6 +163,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/cookie-banner.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/global-search.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/bottom-bar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/tz-tooltip.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
     <!-- HTMX -->
@@ -170,7 +171,8 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" {% if show_tour|default(false) %}data-show-tour="true"{% endif %}>
+{% set tz_tooltip_cities = get_display_timezones() %}
+<body class="{% block body_class %}{% endblock %}" {% if show_tour|default(false) %}data-show-tour="true"{% endif %}{% if tz_tooltip_cities %} data-display-timezones='{{ tz_tooltip_cities|tojson }}'{% endif %}>
     <!-- Splash Screen / Preloader -->
     <div id="login-preloader" class="login-preloader">
         <canvas id="preloaderParticles" class="preloader-canvas"></canvas>
@@ -250,6 +252,8 @@
 
     <!-- Czas polski w JS (formatPlDateTime, plWallToEpoch) — poza blokiem scripts, bo strony go nadpisują -->
     <script src="{{ url_for('static', filename='js/utils/pl-time.js') }}"></script>
+    <!-- Podpowiedź z godziną w innych miastach przy <time class="tz-time"> (filtr pl_time) -->
+    <script src="{{ url_for('static', filename='js/components/tz-tooltip.js') }}"></script>
 
     {% block scripts %}
     <!-- Google Analytics Helper (custom event tracking) -->

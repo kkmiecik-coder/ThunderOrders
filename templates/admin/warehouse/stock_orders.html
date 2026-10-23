@@ -271,8 +271,8 @@
                                     <td>
                                         {{ status_dropdown(order, [('zamowiono', 'Zamówiono'), ('dostarczone_do_proxy', 'Dostarczone do Proxy'), ('anulowane', 'Anulowane')], 'toggleStatusDropdown', 'changeOrderStatus', 'status-dropdown') }}
                                     </td>
-                                    <td class="text-muted">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</td>
-                                    <td>{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</td>
+                                    <td class="text-muted">{{ order.updated_at|pl_time('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</td>
+                                    <td>{{ order.created_at|pl_time('%d.%m.%Y %H:%M') }}</td>
                                     <td class="font-semibold">
                                         {{ '%.2f'|format(order.total_amount_pln) }} PLN
                                     </td>
@@ -416,8 +416,8 @@
                                     </td>
                                     <td class="poland-extra-info-cell">
                                         <div class="poland-date-cell">
-                                            <div class="poland-date-primary">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') if order.created_at else '-' }}</div>
-                                            <div class="poland-date-secondary">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</div>
+                                            <div class="poland-date-primary">{{ order.created_at|pl_time('%d.%m.%Y %H:%M') if order.created_at else '-' }}</div>
+                                            <div class="poland-date-secondary">{{ order.updated_at|pl_time('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</div>
                                         </div>
                                         <span class="poland-note-icon {% if order.notes %}has-note{% endif %}" {% if order.notes %}data-tooltip="{{ order.notes }}"{% endif %}>
                                             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -569,8 +569,8 @@
                                     </td>
                                     <td class="poland-extra-info-cell">
                                         <div class="poland-date-cell">
-                                            <div class="poland-date-primary">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') if order.created_at else '-' }}</div>
-                                            <div class="poland-date-secondary">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</div>
+                                            <div class="poland-date-primary">{{ order.created_at|pl_time('%d.%m.%Y %H:%M') if order.created_at else '-' }}</div>
+                                            <div class="poland-date-secondary">{{ order.updated_at|pl_time('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</div>
                                         </div>
                                         <span class="poland-note-icon {% if order.notes %}has-note{% endif %}" {% if order.notes %}data-tooltip="{{ order.notes }}"{% endif %}>
                                             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">

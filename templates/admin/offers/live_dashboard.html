@@ -117,11 +117,11 @@
     <div class="meta-info">
         <div class="meta-item">
             <span class="meta-label">Rozpoczęcie:</span>
-            <span class="meta-value" id="metaStartValue">{{ summary.starts_at|format_datetime('%d.%m.%Y %H:%M') if summary.starts_at else 'Bez daty' }}</span>
+            <span class="meta-value" id="metaStartValue">{{ summary.starts_at|pl_time('%d.%m.%Y %H:%M') if summary.starts_at else 'Bez daty' }}</span>
         </div>
         <div class="meta-item">
             <span class="meta-label">Zakończenie:</span>
-            <span class="meta-value" id="metaEndValue">{{ summary.ends_at|format_datetime('%d.%m.%Y %H:%M') if summary.ends_at else 'Bez limitu' }}</span>
+            <span class="meta-value" id="metaEndValue">{{ summary.ends_at|pl_time('%d.%m.%Y %H:%M') if summary.ends_at else 'Bez limitu' }}</span>
         </div>
         <div class="meta-separator"></div>
         <div class="meta-item meta-item-visitors">

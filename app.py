@@ -13,8 +13,9 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify, current_app
+from markupsafe import Markup
 from werkzeug.middleware.proxy_fix import ProxyFix
-from utils.timeutil import format_pl_input, iso_utc, to_pl, utcnow
+from utils.timeutil import format_pl_input, get_display_timezones, iso_utc, to_pl, utcnow
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Sentry - error tracking (inicjalizacja przed create_app)
@@ -1951,6 +1952,9 @@ def register_context_processors(app):
             'get_active_payment_methods': get_active_payment_methods,
             'maintenance_mode': getattr(g, 'maintenance_mode', False),
             'pets_enabled': _pets_enabled(),
+            # Miasta z podpowiedzi przy godzinach (tz-tooltip.js) — funkcja, żeby zapytanie
+            # szło tylko tam, gdzie szablon bazowy wypisuje listę na <body>
+            'get_display_timezones': get_display_timezones,
         }
 
     # Opcje selektora „ile na stronie" — jedno źródło prawdy z backendem.
@@ -2034,6 +2038,21 @@ def register_template_filters(app):
         Użycie: {{ date|format_time }} lub {{ date|format_time('%H:%M:%S') }}
         """
         return _strftime_pl(dt, fmt)
+
+    @app.template_filter('pl_time')
+    def pl_time_filter(dt, fmt='%d.%m.%Y, %H:%M'):
+        """
+        Godzina w czasie polskim w `<time>` z chwilą UTC — tz-tooltip.js dokleja do niej
+        podpowiedź z godziną w miastach z ustawień (`display_timezones`). Bez JS zostaje
+        sam czas polski. Tylko dla wartości z godziną; same daty idą przez format_date.
+        Użycie: {{ order.created_at|pl_time }} lub {{ page.ends_at|pl_time('%H:%M') }}
+        """
+        if dt is None:
+            return ''
+        if not isinstance(dt, datetime):    # sama data nie ma godziny ani strefy
+            return _strftime_pl(dt, fmt)
+        return Markup('<time datetime="{}" class="tz-time">{}</time>').format(
+            iso_utc(dt), _strftime_pl(dt, fmt))
 
     @app.template_filter('iso_utc')
     def iso_utc_filter(dt):

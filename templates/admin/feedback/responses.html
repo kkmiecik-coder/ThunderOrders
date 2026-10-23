@@ -206,7 +206,7 @@
                                     <span>{{ answer.response.user.full_name or answer.response.user.email }}</span>
                                     <span>•</span>
                                     {% endif %}
-                                    <span>{{ answer.response.submitted_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                                    <span>{{ answer.response.submitted_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                                 </div>
                             </div>
                             {% endif %}
@@ -258,7 +258,7 @@
                         </div>
                         <div class="response-meta">
                             <div class="response-date">{{ response.submitted_at|format_date('%d.%m.%Y') }}</div>
-                            <div class="response-time">{{ response.submitted_at|format_time('%H:%M') }}</div>
+                            <div class="response-time">{{ response.submitted_at|pl_time('%H:%M') }}</div>
                         </div>
                     </div>
                     <div class="response-card-body">

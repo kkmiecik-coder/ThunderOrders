@@ -12,6 +12,7 @@ Zasady:
 Naiwny datetime w miejscu, gdzie oczekujemy czasu, to błąd — rzucamy `ValueError`,
 zamiast zgadywać strefę.
 """
+import logging
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
@@ -106,6 +107,30 @@ def iso_utc(dt: datetime | None) -> str | None:
     if dt.tzinfo is None:
         raise ValueError(f'iso_utc: naiwny datetime {dt!r} - oczekiwano aware')
     return dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+DISPLAY_TIMEZONES_KEY = 'display_timezones'
+DEFAULT_DISPLAY_TIMEZONES = ({'label': 'Seul', 'tz': 'Asia/Seoul'},)
+
+
+def get_display_timezones() -> list[dict]:
+    """Miasta z podpowiedzi przy godzinach: `[{"label": "Seul", "tz": "Asia/Seoul"}, ...]`.
+
+    Lista z ustawień (`Settings`, typ json) edytowana przez admina; bez wiersza — Seul.
+    Zapisana pusta lista to świadome wyłączenie podpowiedzi, nie powrót do domyślnej.
+    Zepsuty wiersz (nie-JSON) daje listę domyślną — lista idzie na `<body>` każdej strony,
+    więc podpowiedź nie może wywrócić całego panelu.
+    """
+    from modules.auth.models import Settings   # import leniwy: modele importują ten moduł
+
+    try:
+        strefy = Settings.get_value(DISPLAY_TIMEZONES_KEY)
+    except ValueError:
+        logging.getLogger(__name__).warning('display_timezones: wartość nie jest JSON-em, używam domyślnej')
+        strefy = None
+    if strefy is None:
+        return [dict(s) for s in DEFAULT_DISPLAY_TIMEZONES]
+    return strefy
 
 
 class UTCDateTime(TypeDecorator):

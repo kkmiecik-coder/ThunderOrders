@@ -166,7 +166,7 @@
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Data:</span>
-                        <span class="detail-value">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                        <span class="detail-value">{{ order.created_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                     </div>
                     {% if order.delivery_method and order.delivery_method != '-' %}
                     <div class="detail-row">
@@ -379,8 +379,8 @@
                     <!-- Kolumna 5: Data -->
                     <td class="col-date" data-label="Data">
                         <div class="date-cell-new">
-                            <span class="date-created">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
-                            <span class="date-updated" title="Ostatnia zmiana">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="date-created">{{ order.created_at|pl_time('%d.%m.%Y %H:%M') }}</span>
+                            <span class="date-updated" title="Ostatnia zmiana">{{ order.updated_at|pl_time('%d.%m.%Y %H:%M') }}</span>
                         </div>
                     </td>
 
