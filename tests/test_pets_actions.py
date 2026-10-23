@@ -4,7 +4,7 @@ from datetime import date, timedelta
 import pytest
 
 from tests.pets_helpers import T0, NOC, zaloz_profil, zaloz_pupila, zaloz_zmarlego
-from utils.timeutil import utcnow
+from utils.timeutil import pl_today
 
 
 def _cfg():
@@ -158,7 +158,7 @@ def test_login_streak_naprawde_rosnie_przy_pierwszej_opiece(db, make_user):
     pet = zaloz_pupila(user, hunger=10.0)
     assert (user.login_streak or 0) == 0
     _akcja(user, pet, 'feed')
-    assert user.login_streak == 1 and user.last_login_date == utcnow().date()
+    assert user.login_streak == 1 and user.last_login_date == pl_today()
 
 
 def test_obudz_i_pat_zero_nie_licza_dnia_opieki(db, make_user):
