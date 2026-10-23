@@ -3,7 +3,7 @@ Auth Module - User Model
 Model użytkownika z metodami autentykacji
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
@@ -11,6 +11,7 @@ import random
 
 # Import db z extensions.py (unika circular import)
 from extensions import db
+from utils.timeutil import UTCDateTime, pl_today, utcnow
 
 
 # Granica bufora migracyjnego przy przejściu z UTC na czas polski w liczeniu
@@ -23,39 +24,6 @@ from extensions import db
 # jest zerowy. Ustawienie ZA WCZEŚNIE (przed pushem) wyłącza bufor i komuś
 # zeruje serię bezpowrotnie, bo historii logowań nie ma. Stąd zapas w tę stronę.
 DATA_WDROZENIA_STREAK_LOKALNY = date(2026, 9, 25)
-
-
-def get_local_now():
-    """
-    Zwraca aktualny czas polski (Europe/Warsaw).
-    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
-    Zwraca naive datetime dla porównań z naive datetime w bazie.
-    """
-    utc_now = datetime.now(timezone.utc)
-
-    # Prosty algorytm DST dla Polski:
-    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
-    # CET (UTC+1): reszta roku
-    year = utc_now.year
-
-    # Ostatnia niedziela marca
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
-    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Ostatnia niedziela października
-    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
-    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Sprawdź czy jesteśmy w czasie letnim
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)  # CEST
-    else:
-        offset = timedelta(hours=1)  # CET
-
-    # Zwróć naive datetime w czasie polskim
-    return (utc_now + offset).replace(tzinfo=None)
 
 
 class User(UserMixin, db.Model):
@@ -96,10 +64,10 @@ class User(UserMixin, db.Model):
 
     # Deactivation (by admin)
     deactivation_reason = db.Column(db.Text)
-    deactivated_at = db.Column(db.DateTime)
+    deactivated_at = db.Column(UTCDateTime)
     deactivated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     deletion_requested_at = db.Column(
-        db.DateTime,
+        UTCDateTime,
         nullable=True,
         comment='Data żądania usunięcia konta (RODO art. 17). Po 30 dniach dane zostaną zanonimizowane.'
     )
@@ -107,26 +75,26 @@ class User(UserMixin, db.Model):
     # Verification & Reset Tokens (legacy - kept for backward compatibility)
     email_verification_token = db.Column(db.String(255), index=True)
     password_reset_token = db.Column(db.String(255), index=True)
-    password_reset_expires = db.Column(db.DateTime)
+    password_reset_expires = db.Column(UTCDateTime)
 
     # New 6-digit code verification system
     email_verification_code = db.Column(db.String(6))
-    email_verification_code_expires = db.Column(db.DateTime)
-    email_verification_code_sent_at = db.Column(db.DateTime)
+    email_verification_code_expires = db.Column(UTCDateTime)
+    email_verification_code_sent_at = db.Column(UTCDateTime)
     email_verification_attempts = db.Column(db.Integer, default=0)
-    email_verification_locked_until = db.Column(db.DateTime)
+    email_verification_locked_until = db.Column(UTCDateTime)
     verification_session_token = db.Column(db.String(64), index=True)
 
     # Password reset 6-digit code system (mobile API) — odrębny od linkowego web-flow
     # (password_reset_token) i od weryfikacji e-mail, by uniknąć kolizji semantyki.
     password_reset_code = db.Column(db.String(6))
-    password_reset_code_expires = db.Column(db.DateTime)
-    password_reset_code_sent_at = db.Column(db.DateTime)
+    password_reset_code_expires = db.Column(UTCDateTime)
+    password_reset_code_sent_at = db.Column(UTCDateTime)
     password_reset_attempts = db.Column(db.Integer, default=0)
-    password_reset_locked_until = db.Column(db.DateTime)
+    password_reset_locked_until = db.Column(UTCDateTime)
 
     # Timestamps
-    last_login = db.Column(db.DateTime)
+    last_login = db.Column(UTCDateTime)
     login_count = db.Column(db.Integer, default=0, nullable=False)
 
     # Login streak (for achievements)
@@ -146,7 +114,7 @@ class User(UserMixin, db.Model):
         comment='Zgoda na cookies analityczne (Google Analytics). NULL=nie podjęto decyzji, TRUE=zgoda, FALSE=odmowa'
     )
     analytics_consent_date = db.Column(
-        db.DateTime,
+        UTCDateTime,
         nullable=True,
         comment='Data ostatniej zmiany zgody analitycznej (do ponownego pytania po 14 dniach od odmowy)'
     )
@@ -162,13 +130,13 @@ class User(UserMixin, db.Model):
     avatar_id = db.Column(db.Integer, db.ForeignKey('avatars.id'), index=True)
 
     # Registration reminder
-    registration_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+    registration_reminder_sent_at = db.Column(UTCDateTime, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
     updated_at = db.Column(
-        db.DateTime,
-        default=get_local_now,
-        onupdate=get_local_now
+        UTCDateTime,
+        default=utcnow,
+        onupdate=utcnow
     )
 
     # Relationships
@@ -216,11 +184,11 @@ class User(UserMixin, db.Model):
     def update_login_streak(self):
         """Update login streak on login. Call after login_user()."""
         from datetime import timedelta
-        # Czas POLSKI, nie serwerowy. Serwer chodzi w UTC, więc date.today()
+        # Czas POLSKI, nie serwerowy. Serwer chodzi w UTC, więc data serwera
         # przełączał dobę o 01:00/02:00 czasu polskiego — logowanie tuż po
         # północy lądowało pod datą dnia poprzedniego i seria stawała w miejscu
         # albo zerowała się mimo codziennych wizyt.
-        today = get_local_now().date()
+        today = pl_today()
 
         if self.last_login_date == today:
             return  # Already logged in today
@@ -229,7 +197,7 @@ class User(UserMixin, db.Model):
         ciagla = self.last_login_date == wczoraj
 
         # Bufor przejścia UTC → czas polski. W bazie leżą daty zapisane starym
-        # kodem (date.today() = UTC), więc dla logowań z okna 22:00–24:00 UTC
+        # kodem (data serwera = UTC), więc dla logowań z okna 22:00–24:00 UTC
         # zapisana data jest o dobę wstecz względem nowego „dziś". Bez tego
         # takiemu użytkownikowi pierwsze logowanie po wdrożeniu pokazałoby lukę
         # dwóch dni i wyzerowało serię — bezpowrotnie, bo historii logowań nie ma.
@@ -268,7 +236,7 @@ class User(UserMixin, db.Model):
             str: Unikalny token
         """
         self.password_reset_token = secrets.token_urlsafe(32)
-        self.password_reset_expires = get_local_now() + timedelta(seconds=expires_in)
+        self.password_reset_expires = utcnow() + timedelta(seconds=expires_in)
         return self.password_reset_token
 
     def verify_password_reset_token(self, token):
@@ -284,7 +252,7 @@ class User(UserMixin, db.Model):
         if self.password_reset_token != token:
             return False
 
-        if self.password_reset_expires and get_local_now() > self.password_reset_expires:
+        if self.password_reset_expires and utcnow() > self.password_reset_expires:
             return False
 
         return True
@@ -310,10 +278,10 @@ class User(UserMixin, db.Model):
         self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
         # Ustaw czas wygaśnięcia (24h)
-        self.email_verification_code_expires = get_local_now() + timedelta(hours=24)
+        self.email_verification_code_expires = utcnow() + timedelta(hours=24)
 
         # Zapisz czas wysłania (do cooldown 60s)
-        self.email_verification_code_sent_at = get_local_now()
+        self.email_verification_code_sent_at = utcnow()
 
         # Resetuj licznik prób
         self.email_verification_attempts = 0
@@ -336,11 +304,11 @@ class User(UserMixin, db.Model):
         """
         # Sprawdź czy weryfikacja nie jest zablokowana
         if self.is_verification_locked():
-            remaining = (self.email_verification_locked_until - get_local_now()).seconds // 60
+            remaining = (self.email_verification_locked_until - utcnow()).seconds // 60
             return False, f'Weryfikacja zablokowana. Spróbuj ponownie za {remaining + 1} minut.'
 
         # Sprawdź czy kod nie wygasł
-        if not self.email_verification_code_expires or get_local_now() > self.email_verification_code_expires:
+        if not self.email_verification_code_expires or utcnow() > self.email_verification_code_expires:
             return False, 'Kod weryfikacyjny wygasł. Wyślij nowy kod.'
 
         # Sprawdź kod
@@ -349,7 +317,7 @@ class User(UserMixin, db.Model):
 
             # Blokada po 5 próbach
             if self.email_verification_attempts >= 5:
-                self.email_verification_locked_until = get_local_now() + timedelta(minutes=15)
+                self.email_verification_locked_until = utcnow() + timedelta(minutes=15)
                 return False, 'Zbyt wiele nieudanych prób. Weryfikacja zablokowana na 15 minut.'
 
             remaining = 5 - self.email_verification_attempts
@@ -382,7 +350,7 @@ class User(UserMixin, db.Model):
         if not self.email_verification_code_sent_at:
             return True, 0
 
-        elapsed = (get_local_now() - self.email_verification_code_sent_at).total_seconds()
+        elapsed = (utcnow() - self.email_verification_code_sent_at).total_seconds()
         if elapsed >= 60:
             return True, 0
 
@@ -404,10 +372,10 @@ class User(UserMixin, db.Model):
         self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
         # Ustaw nowy czas wygaśnięcia (24h)
-        self.email_verification_code_expires = get_local_now() + timedelta(hours=24)
+        self.email_verification_code_expires = utcnow() + timedelta(hours=24)
 
         # Zapisz czas wysłania
-        self.email_verification_code_sent_at = get_local_now()
+        self.email_verification_code_sent_at = utcnow()
 
         # Resetuj licznik prób przy nowym kodzie
         self.email_verification_attempts = 0
@@ -425,7 +393,7 @@ class User(UserMixin, db.Model):
         if not self.email_verification_locked_until:
             return False
 
-        return get_local_now() < self.email_verification_locked_until
+        return utcnow() < self.email_verification_locked_until
 
     # ============================================
     # Password Reset Code (mobile API)
@@ -439,8 +407,8 @@ class User(UserMixin, db.Model):
             str: 6-cyfrowy kod resetu.
         """
         self.password_reset_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
-        self.password_reset_code_expires = get_local_now() + timedelta(minutes=15)
-        self.password_reset_code_sent_at = get_local_now()
+        self.password_reset_code_expires = utcnow() + timedelta(minutes=15)
+        self.password_reset_code_sent_at = utcnow()
         self.password_reset_attempts = 0
         self.password_reset_locked_until = None
         return self.password_reset_code
@@ -455,7 +423,7 @@ class User(UserMixin, db.Model):
         if not self.password_reset_code_sent_at:
             return True, 0
 
-        elapsed = (get_local_now() - self.password_reset_code_sent_at).total_seconds()
+        elapsed = (utcnow() - self.password_reset_code_sent_at).total_seconds()
         if elapsed >= 60:
             return True, 0
 
@@ -466,7 +434,7 @@ class User(UserMixin, db.Model):
         if not self.password_reset_locked_until:
             return False
 
-        return get_local_now() < self.password_reset_locked_until
+        return utcnow() < self.password_reset_locked_until
 
     def verify_password_reset_code(self, code):
         """
@@ -480,17 +448,17 @@ class User(UserMixin, db.Model):
             tuple: (success: bool, error_message: str|None)
         """
         if self.is_password_reset_locked():
-            remaining = (self.password_reset_locked_until - get_local_now()).seconds // 60
+            remaining = (self.password_reset_locked_until - utcnow()).seconds // 60
             return False, f'Zbyt wiele prób. Spróbuj ponownie za {remaining + 1} minut.'
 
         if not self.password_reset_code or not self.password_reset_code_expires \
-                or get_local_now() > self.password_reset_code_expires:
+                or utcnow() > self.password_reset_code_expires:
             return False, 'Kod resetu wygasł lub jest nieprawidłowy. Wyślij nowy kod.'
 
         if self.password_reset_code != code:
             self.password_reset_attempts = (self.password_reset_attempts or 0) + 1
             if self.password_reset_attempts >= 5:
-                self.password_reset_locked_until = get_local_now() + timedelta(minutes=15)
+                self.password_reset_locked_until = utcnow() + timedelta(minutes=15)
                 return False, 'Zbyt wiele nieudanych prób. Reset zablokowany na 15 minut.'
             remaining = 5 - self.password_reset_attempts
             return False, f'Niepoprawny kod. Pozostało prób: {remaining}.'
@@ -531,8 +499,8 @@ class User(UserMixin, db.Model):
             return False
         # Odmowa — sprawdź czy minęło 14 dni
         if self.analytics_consent_date:
-            from datetime import datetime, timedelta
-            return datetime.now() - self.analytics_consent_date > timedelta(days=14)
+            from datetime import timedelta
+            return utcnow() - self.analytics_consent_date > timedelta(days=14)
         # Odmowa bez daty (stare dane) — pokaż baner
         return True
 
@@ -551,8 +519,8 @@ class User(UserMixin, db.Model):
         """Czy minęło 30 dni od żądania usunięcia i można anonimizować"""
         if not self.deletion_requested_at:
             return False
-        from datetime import datetime, timedelta
-        return datetime.now() - self.deletion_requested_at > timedelta(days=30)
+        from datetime import timedelta
+        return utcnow() - self.deletion_requested_at > timedelta(days=30)
 
     @property
     def full_name(self):
@@ -604,7 +572,7 @@ class User(UserMixin, db.Model):
 
     def update_last_login(self):
         """Aktualizuje timestamp ostatniego logowania i inkrementuje licznik"""
-        self.last_login = get_local_now()
+        self.last_login = utcnow()
         self.login_count = (self.login_count or 0) + 1
         db.session.commit()
 
@@ -618,7 +586,7 @@ class User(UserMixin, db.Model):
         """
         self.is_active = False
         self.deactivation_reason = reason
-        self.deactivated_at = get_local_now()
+        self.deactivated_at = utcnow()
         self.deactivated_by = deactivated_by_user_id
 
     def reactivate(self):
@@ -636,8 +604,8 @@ class User(UserMixin, db.Model):
         Po 30 dniach dane zostaną zanonimizowane.
         """
         self.is_active = False
-        self.deletion_requested_at = get_local_now()
-        self.deactivated_at = get_local_now()
+        self.deletion_requested_at = utcnow()
+        self.deactivated_at = utcnow()
         self.deactivated_by = self.id
         self.deactivation_reason = 'Żądanie usunięcia konta (RODO art. 17)'
 
@@ -805,9 +773,9 @@ class Settings(db.Model):
 
     # Timestamps
     updated_at = db.Column(
-        db.DateTime,
-        default=get_local_now,
-        onupdate=get_local_now
+        UTCDateTime,
+        default=utcnow,
+        onupdate=utcnow
     )
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
@@ -921,8 +889,8 @@ class ShippingAddress(db.Model):
     is_active = db.Column(db.Boolean, default=True, index=True)  # Soft delete
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationship
     user = db.relationship('User', back_populates='shipping_addresses')
@@ -965,7 +933,7 @@ user_group_members = db.Table(
     db.Column('id', db.Integer, primary_key=True),
     db.Column('user_group_id', db.Integer, db.ForeignKey('user_groups.id', ondelete='CASCADE'), nullable=False),
     db.Column('user_id', db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-    db.Column('added_at', db.DateTime, default=get_local_now),
+    db.Column('added_at', UTCDateTime, default=utcnow),
     db.UniqueConstraint('user_group_id', 'user_id', name='unique_user_group_member'),
 )
 
@@ -978,8 +946,8 @@ class UserGroup(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     members = db.relationship(
         'User',

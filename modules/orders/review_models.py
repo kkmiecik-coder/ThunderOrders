@@ -9,7 +9,7 @@ wpływu, więc pytanie o ocenę produktu wprowadzałoby klienta w błąd.
 from sqlalchemy.orm import validates
 
 from extensions import db
-from modules.orders.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class DeliveryReview(db.Model):
@@ -41,8 +41,8 @@ class DeliveryReview(db.Model):
     rating = db.Column(db.SmallInteger, nullable=False)
     comment = db.Column(db.Text, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     shipping_request = db.relationship('ShippingRequest', back_populates='review')
     user = db.relationship('User', foreign_keys=[user_id])
@@ -120,4 +120,4 @@ class DeliveryReview(db.Model):
         from datetime import timedelta
         if not self.created_at:
             return True
-        return get_local_now() - self.created_at <= timedelta(days=self.OKNO_EDYCJI_DNI)
+        return utcnow() - self.created_at <= timedelta(days=self.OKNO_EDYCJI_DNI)

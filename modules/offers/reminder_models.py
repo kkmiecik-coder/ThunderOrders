@@ -2,7 +2,7 @@
 Modele konfiguracji i logowania przypomnień o płatnościach.
 """
 from extensions import db
-from modules.offers.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class PaymentReminderConfig(db.Model):
@@ -14,7 +14,7 @@ class PaymentReminderConfig(db.Model):
     hours = db.Column(db.Integer, nullable=False)
     payment_stage = db.Column(db.String(30), nullable=False, default='product')
     enabled = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     logs = db.relationship('PaymentReminderLog', back_populates='config', lazy='dynamic')
 
@@ -34,7 +34,7 @@ class PaymentReminderLog(db.Model):
     config_id = db.Column(db.Integer, db.ForeignKey('payment_reminder_configs.id'), nullable=True)
     stage = db.Column(db.String(30), nullable=True)  # 'product'|'shipping_kr'|'customs_vat'|'domestic_shipping'; NULL dla wpisów sprzed migracji
     reminder_type = db.Column(db.String(30), nullable=True)  # 'deadline_exceeded' gdy config_id=NULL
-    sent_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+    sent_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
 
     config = db.relationship('PaymentReminderConfig', back_populates='logs')
     order = db.relationship('Order', backref=db.backref('reminder_logs', lazy='dynamic'))

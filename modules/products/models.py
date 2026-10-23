@@ -4,42 +4,8 @@ Database models for products, categories, tags, suppliers and images
 """
 
 from extensions import db
-from datetime import datetime, timezone, timedelta
+from utils.timeutil import UTCDateTime, utcnow
 
-
-
-
-def get_local_now():
-    """
-    Zwraca aktualny czas polski (Europe/Warsaw).
-    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
-    Zwraca naive datetime dla porównań z naive datetime w bazie.
-    """
-    utc_now = datetime.now(timezone.utc)
-
-    # Prosty algorytm DST dla Polski:
-    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
-    # CET (UTC+1): reszta roku
-    year = utc_now.year
-
-    # Ostatnia niedziela marca
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
-    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Ostatnia niedziela października
-    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
-    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Sprawdź czy jesteśmy w czasie letnim
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)  # CEST
-    else:
-        offset = timedelta(hours=1)  # CET
-
-    # Zwróć naive datetime w czasie polskim
-    return (utc_now + offset).replace(tzinfo=None)
 
 class Category(db.Model):
     """Product Category with hierarchical structure"""
@@ -50,7 +16,7 @@ class Category(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     parent = db.relationship('Category', remote_side=[id], backref='children')
@@ -71,8 +37,8 @@ class Supplier(db.Model):
     country = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     products = db.relationship('Product', back_populates='supplier', lazy='dynamic')
@@ -87,7 +53,7 @@ class Tag(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     def __repr__(self):
         return f'<Tag {self.name}>'
@@ -99,7 +65,7 @@ class Size(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     def __repr__(self):
         return f'<Size {self.name}>'
@@ -112,8 +78,8 @@ class Manufacturer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     products = db.relationship('Product', back_populates='manufacturer', lazy='dynamic')
@@ -129,8 +95,8 @@ class ProductSeries(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     products = db.relationship('Product', back_populates='series', lazy='dynamic')
@@ -147,7 +113,7 @@ class ProductType(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     slug = db.Column(db.String(50), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     products = db.relationship('Product', back_populates='product_type', lazy='dynamic')
@@ -162,8 +128,8 @@ class VariantGroup(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)  # e.g. "Grupa 1", "Grupa 2"
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     def __repr__(self):
         return f'<VariantGroup {self.id} - {self.name}>'
@@ -174,7 +140,7 @@ variant_products = db.Table('variant_products',
     db.Column('id', db.Integer, primary_key=True),
     db.Column('variant_group_id', db.Integer, db.ForeignKey('variant_groups.id', ondelete='CASCADE'), nullable=False),
     db.Column('product_id', db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False),
-    db.Column('added_at', db.DateTime, default=get_local_now),
+    db.Column('added_at', UTCDateTime, default=utcnow),
     db.UniqueConstraint('variant_group_id', 'product_id', name='unique_variant_product')
 )
 
@@ -218,8 +184,8 @@ class Product(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     is_gratis = db.Column(db.Boolean, default=False, nullable=False)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     category = db.relationship('Category', back_populates='products')
@@ -275,7 +241,7 @@ class ProductImage(db.Model):
     path_compressed = db.Column(db.String(500), nullable=False)
     is_primary = db.Column(db.Boolean, default=False)
     sort_order = db.Column(db.Integer, default=0)
-    uploaded_at = db.Column(db.DateTime, default=get_local_now)
+    uploaded_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     product = db.relationship('Product', back_populates='images')
@@ -330,9 +296,9 @@ class ProxyOrder(db.Model):
     shipping_cost_difference = db.Column(db.Numeric(10, 2), default=0.00)
 
     # Dates
-    order_date = db.Column(db.DateTime, default=get_local_now)
-    expected_delivery_date = db.Column(db.DateTime, nullable=True)
-    actual_delivery_date = db.Column(db.DateTime, nullable=True)
+    order_date = db.Column(UTCDateTime, default=utcnow)
+    expected_delivery_date = db.Column(UTCDateTime, nullable=True)
+    actual_delivery_date = db.Column(UTCDateTime, nullable=True)
 
     # Notes
     notes = db.Column(db.Text, nullable=True)
@@ -341,8 +307,8 @@ class ProxyOrder(db.Model):
     # Tracking
     tracking_number = db.Column(db.String(100), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     supplier = db.relationship('Supplier', backref='proxy_orders')
@@ -375,7 +341,7 @@ class ProxyOrderItem(db.Model):
     # Size selection (snapshot at time of order)
     selected_size = db.Column(db.String(50), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     proxy_order = db.relationship('ProxyOrder', back_populates='items')
@@ -413,13 +379,13 @@ class PolandOrder(db.Model):
     tracking_number = db.Column(db.String(100), nullable=True)
 
     # Terminy płatności (ustawiane przy tworzeniu zamówienia do Polski / edycji cła)
-    payment_deadline = db.Column(db.DateTime, nullable=True)  # E2: Wysyłka KR
-    customs_payment_deadline = db.Column(db.DateTime, nullable=True)  # E3: Cło/VAT
+    payment_deadline = db.Column(UTCDateTime, nullable=True)  # E2: Wysyłka KR
+    customs_payment_deadline = db.Column(UTCDateTime, nullable=True)  # E3: Cło/VAT
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
-    shipped_at = db.Column(db.DateTime, nullable=True)
-    delivered_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
+    shipped_at = db.Column(UTCDateTime, nullable=True)
+    delivered_at = db.Column(UTCDateTime, nullable=True)
 
     # Relationships
     proxy_order = db.relationship('ProxyOrder', back_populates='poland_orders')
@@ -455,7 +421,7 @@ class PolandOrderItem(db.Model):
     # Size selection (snapshot at time of order)
     selected_size = db.Column(db.String(50), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     poland_order = db.relationship('PolandOrder', back_populates='items')
@@ -487,7 +453,7 @@ class PolandOrderItemOrder(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     poland_order_item = db.relationship(
         'PolandOrderItem',
@@ -511,8 +477,8 @@ class CartItem(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    created_at = db.Column(db.DateTime, default=db.func.now())
-    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     user = db.relationship('User', backref=db.backref('cart_items', lazy='dynamic'))
     product = db.relationship('Product', backref=db.backref('cart_items', lazy='dynamic'))
@@ -533,7 +499,7 @@ class ProductInteraction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     interaction_type = db.Column(db.Enum('view', 'cart_add', 'purchase', name='interaction_type_enum'), nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     user = db.relationship('User', backref=db.backref('product_interactions', lazy='dynamic'))
     product = db.relationship('Product', backref=db.backref('interactions', lazy='dynamic'))

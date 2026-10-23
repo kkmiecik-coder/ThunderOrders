@@ -15,51 +15,17 @@ Models for orders management:
 - PaymentConfirmation: Potwierdzenia płatności dla zamówień Offer
 """
 
-from datetime import datetime, timezone, timedelta
-
 from sqlalchemy import case, func
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from extensions import db
+from utils.timeutil import UTCDateTime, utcnow
 
 
 # ====================
 # LOOKUP TABLES
 # ====================
 
-
-
-def get_local_now():
-    """
-    Zwraca aktualny czas polski (Europe/Warsaw).
-    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
-    Zwraca naive datetime dla porównań z naive datetime w bazie.
-    """
-    utc_now = datetime.now(timezone.utc)
-
-    # Prosty algorytm DST dla Polski:
-    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
-    # CET (UTC+1): reszta roku
-    year = utc_now.year
-
-    # Ostatnia niedziela marca
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
-    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Ostatnia niedziela października
-    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
-    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Sprawdź czy jesteśmy w czasie letnim
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)  # CEST
-    else:
-        offset = timedelta(hours=1)  # CET
-
-    # Zwróć naive datetime w czasie polskim
-    return (utc_now + offset).replace(tzinfo=None)
 
 class OrderStatus(db.Model):
     """
@@ -74,8 +40,8 @@ class OrderStatus(db.Model):
     badge_color = db.Column(db.String(7), default='#6B7280')  # HEX color for badge
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     orders = db.relationship('Order', back_populates='status_rel', foreign_keys='Order.status')
@@ -103,8 +69,8 @@ class OrderType(db.Model):
     badge_color = db.Column(db.String(7), default='#6B7280')  # HEX color for type badge
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     orders = db.relationship('Order', back_populates='type_rel', foreign_keys='Order.order_type')
@@ -133,8 +99,8 @@ class WmsStatus(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     is_default = db.Column(db.Boolean, default=False)  # Default status for new items
     is_picked = db.Column(db.Boolean, default=False)  # Marks item as picked (for progress calculation)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     order_items = db.relationship('OrderItem', back_populates='wms_status_rel', foreign_keys='OrderItem.wms_status')
@@ -194,7 +160,7 @@ class Order(db.Model):
 
     # Shipping request
     shipping_requested = db.Column(db.Boolean, default=False)
-    shipping_requested_at = db.Column(db.DateTime, nullable=True)
+    shipping_requested_at = db.Column(UTCDateTime, nullable=True)
 
     # Tracking
     tracking_number = db.Column(db.String(100), nullable=True)
@@ -223,28 +189,28 @@ class Order(db.Model):
     admin_notes = db.Column(db.Text, nullable=True)  # Internal admin notes
 
     # WMS / Packing
-    wms_locked_at = db.Column(db.DateTime, nullable=True)  # WMS lock timestamp
+    wms_locked_at = db.Column(UTCDateTime, nullable=True)  # WMS lock timestamp
     wms_session_id = db.Column(db.Integer, db.ForeignKey('wms_sessions.id'), nullable=True)  # Active WMS session
-    packed_at = db.Column(db.DateTime, nullable=True)
+    packed_at = db.Column(UTCDateTime, nullable=True)
     packed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     packing_photo = db.Column(db.String(500), nullable=True)  # Path to packing photo
     total_package_weight = db.Column(db.Numeric(8, 2), nullable=True)  # Package weight in kg
     packaging_material_id = db.Column(db.Integer, db.ForeignKey('packaging_materials.id'), nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Kiedy zamówienie weszło w obecny status. Stemplowane listenerem (koniec pliku),
     # nie w trasach — ścieżek zmiany statusu jest kilka i każda nowa musiałaby
     # pamiętać o stemplu. NULL = zamówienie sprzed wdrożenia; wiek zaległości
     # liczy się wtedy z activity_log.
-    status_changed_at = db.Column(db.DateTime, nullable=True)
+    status_changed_at = db.Column(UTCDateTime, nullable=True)
 
     # Ostatnie przypomnienie „odbierz swoje rzeczy". Kolumna, nie tabela logu —
     # interesuje nas wyłącznie „kiedy ostatnio", tak samo jak przy
     # ShippingRequest.delivery_reminder_sent_at.
-    pickup_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+    pickup_reminder_sent_at = db.Column(UTCDateTime, nullable=True)
 
     # Relationships
     items = db.relationship('OrderItem', back_populates='order', cascade='all, delete-orphan')
@@ -1317,7 +1283,7 @@ class OrderItem(db.Model):
     wms_status = db.Column(db.String(50), db.ForeignKey('wms_statuses.slug'), nullable=True)
     picked = db.Column(db.Boolean, default=False)  # Legacy field, kept for compatibility
     picked_quantity = db.Column(db.Integer, default=0)  # How many units picked so far (0..quantity)
-    picked_at = db.Column(db.DateTime, nullable=True)
+    picked_at = db.Column(UTCDateTime, nullable=True)
     picked_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Offer set fulfillment fields
@@ -1339,7 +1305,7 @@ class OrderItem(db.Model):
     bonus_source_section_id = db.Column(db.Integer, db.ForeignKey('offer_sections.id', ondelete='SET NULL'), nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     order = db.relationship('Order', back_populates='items')
@@ -1430,7 +1396,7 @@ class OrderComment(db.Model):
     comment = db.Column(db.Text, nullable=False)
     is_internal = db.Column(db.Boolean, default=False)  # Internal notes (admin only)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     order = db.relationship('Order', back_populates='comments')
@@ -1476,8 +1442,8 @@ class OrderRefund(db.Model):
     status = db.Column(db.String(20), default='pending')  # pending, completed, cancelled
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    completed_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    completed_at = db.Column(UTCDateTime, nullable=True)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     order = db.relationship('Order', back_populates='refunds')
@@ -1519,7 +1485,7 @@ class OrderShipment(db.Model):
     notes = db.Column(db.String(255), nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Relationships
@@ -1543,9 +1509,9 @@ class OrderShipment(db.Model):
         już WMS (routes.py, wms_utils.py) i `ShippingRequest.courier_display_name`
         — zamiast trzymać własną, drugą kopię literału. Import wewnątrz property,
         nie na górze pliku: `wms_utils` importuje na poziomie modułu
-        `wms_models.PackagingMaterial`, a `wms_models` — `models.get_local_now`,
-        więc import na górze tego pliku zamyka cykl i wywala się na
-        „partially initialized module" (sprawdzone empirycznie).
+        `wms_models.PackagingMaterial`, a `wms_models` importował kiedyś stąd
+        funkcję czasu, więc import na górze tego pliku zamykał cykl i wywalał się
+        na „partially initialized module" (dziś czas idzie z `utils.timeutil`).
 
         Ta zmiana naprawia też realny brak: lokalny literał tutaj nie miał klucza
         'pocztex', mimo że kurier jest wybieralny w interfejsie (ten sam rodzaj
@@ -1600,8 +1566,8 @@ class ShippingRequestStatus(db.Model):
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     is_initial = db.Column(db.Boolean, default=False)  # Initial status - client can cancel
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     shipping_requests = db.relationship('ShippingRequest', back_populates='status_rel', foreign_keys='ShippingRequest.status')
@@ -1671,19 +1637,19 @@ class ShippingRequest(db.Model):
     client_notes = db.Column(db.Text, nullable=True)
 
     # Termin płatności za wysyłkę PL (E4)
-    payment_deadline = db.Column(db.DateTime, nullable=True)
+    payment_deadline = db.Column(UTCDateTime, nullable=True)
 
     # Dostawa (task 869efhwph). shipped_at jest punktem odniesienia dla przypomnienia
     # i automatycznego domknięcia — updated_at się do tego nie nadaje, bo zmienia się
     # przy każdej edycji zlecenia, a OrderShipment.created_at powstaje tylko wtedy,
     # gdy podano numer przesyłki.
-    shipped_at = db.Column(db.DateTime, nullable=True)
-    delivered_at = db.Column(db.DateTime, nullable=True)
+    shipped_at = db.Column(UTCDateTime, nullable=True)
+    delivered_at = db.Column(UTCDateTime, nullable=True)
     # 'klient' | 'auto' | 'admin' — bez tego statystyki nie odróżnią realnych
     # potwierdzeń od domknięć automatu.
     delivered_source = db.Column(db.String(20), nullable=True)
     # Deduplikacja przypomnienia: jedno na zlecenie, więc kolumna zamiast tabeli logu.
-    delivery_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+    delivery_reminder_sent_at = db.Column(UTCDateTime, nullable=True)
 
     # Konsolidacja — paczka zbiorcza łącząca zlecenia kilku klientów (task 869eckz7u).
     # Na zleceniu ŹRÓDŁOWYM: wskazuje paczkę zbiorczą, w której jadą jego zamówienia.
@@ -1704,8 +1670,8 @@ class ShippingRequest(db.Model):
     )
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     # foreign_keys jawnie wskazuje shipping_request_id — bez tego SQLAlchemy nie wie,
@@ -2054,9 +2020,9 @@ class ShippingRequest(db.Model):
         (do sierpnia 2026 trzymał własną kopię literału, dziś czyta z tej samej
         mapy) — zamiast drugiego literału. Import wewnątrz property, nie na górze:
         `wms_utils` importuje na poziomie modułu `wms_models.PackagingMaterial`,
-        a `wms_models` — `models.get_local_now`, więc import na górze tego pliku
-        zamyka cykl i wywala się na „partially initialized module"
-        (sprawdzone empirycznie).
+        a `wms_models` importował kiedyś stąd funkcję czasu, więc import na górze
+        tego pliku zamykał cykl i wywalał się na „partially initialized module"
+        (dziś czas idzie z `utils.timeutil`).
         """
         from modules.orders.wms_utils import COURIER_NAMES
         return COURIER_NAMES.get(self.courier, self.courier)
@@ -2106,7 +2072,7 @@ class ShippingRequestOrder(db.Model):
         db.Integer, db.ForeignKey('shipping_requests.id', ondelete='SET NULL'), nullable=True
     )
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     # foreign_keys jawnie wskazuje shipping_request_id (patrz komentarz przy request_orders wyżej).
@@ -2172,7 +2138,7 @@ class PaymentConfirmation(db.Model):
     # Kwota i potwierdzenie
     amount = db.Column(db.Numeric(10, 2), nullable=False, comment="Kwota do zapłaty w PLN")
     proof_file = db.Column(db.String(255), nullable=True, comment="Nazwa pliku potwierdzenia")
-    uploaded_at = db.Column(db.DateTime, nullable=True, comment="Data uploadu przez klienta")
+    uploaded_at = db.Column(UTCDateTime, nullable=True, comment="Data uploadu przez klienta")
 
     # Status i weryfikacja
     status = db.Column(
@@ -2184,8 +2150,8 @@ class PaymentConfirmation(db.Model):
     rejection_reason = db.Column(db.Text, nullable=True, comment="Powód odrzucenia (admin)")
 
     # Timestamps
-    created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
-    updated_at = db.Column(db.DateTime, nullable=False, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
+    updated_at = db.Column(UTCDateTime, nullable=False, default=utcnow, onupdate=utcnow)
 
     # Relacje
     order = db.relationship('Order', back_populates='payment_confirmations')
@@ -2269,4 +2235,4 @@ def _stempluj_zmiane_statusu(order, nowy, stary, initiator):
     """
     if nowy == stary:
         return
-    order.status_changed_at = get_local_now()
+    order.status_changed_at = utcnow()

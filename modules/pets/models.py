@@ -7,7 +7,7 @@ modules/pets/rules.py. Modele nie zawierają logiki gry. Kolumny muszą być 1:1
 z migracjami f3e9a1c7b2d4, b5d8e2f4a917 i c7a4d1e9f2b6 (pilnuje tego tests/test_pets_migration.py).
 """
 from extensions import db
-from modules.auth.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 PET_STATUSES = ('egg', 'alive', 'dead', 'merged')
 EGG_SOURCES = ('start', 'monthly', 'rescue', 'granted')
@@ -36,13 +36,13 @@ class PetProfile(db.Model):
     # Żarty towarzysza (spec v3.2 §6.2): jeden przełącznik użytkownika w warsztacie
     jokes_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text('1'))
     dupes_in_row = db.Column(db.Integer, nullable=False, default=0, server_default=db.text('0'))
-    start_egg_claimed_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
+    start_egg_claimed_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
     # Licznik miesięczny biegnie od ODBIORU (startowego lub poprzedniego miesięcznego)
-    last_monthly_egg_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
-    monthly_notified_at = db.Column(db.DateTime, nullable=True)
+    last_monthly_egg_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
+    monthly_notified_at = db.Column(UTCDateTime, nullable=True)
     granted_eggs_pending = db.Column(db.SmallInteger, nullable=False, default=0,
                                      server_default=db.text('0'))
-    created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
+    created_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
 
     # passive_deletes: przy db.session.delete(user) kasuje baza (ondelete=CASCADE),
     # ORM nie próbuje NULL-ować user_id (NOT NULL) — recenzja etapu 2, Important 1
@@ -68,11 +68,11 @@ class Pet(db.Model):
     # Zamrożone przy odbiorze: zmiana ustawień nie przestawia trwających inkubacji
     egg_hours = db.Column(db.SmallInteger, nullable=False, default=168)
     egg_progress_sec = db.Column(db.Integer, nullable=False, default=0, server_default=db.text('0'))
-    egg_progress_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
-    boost_until = db.Column(db.DateTime, nullable=True)
-    egg_ready_notified_at = db.Column(db.DateTime, nullable=True)
+    egg_progress_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
+    boost_until = db.Column(UTCDateTime, nullable=True)
+    egg_ready_notified_at = db.Column(UTCDateTime, nullable=True)
     egg_skin = db.Column(db.SmallInteger, nullable=False, default=0, server_default=db.text('0'))  # EGG_SKINS
-    hatched_at = db.Column(db.DateTime, nullable=True)
+    hatched_at = db.Column(UTCDateTime, nullable=True)
     merged_into_pet_id = db.Column(db.Integer, db.ForeignKey('pets.id', ondelete='SET NULL'),
                                    nullable=True)
 
@@ -81,30 +81,30 @@ class Pet(db.Model):
     fun = db.Column(db.Float, nullable=False, default=100.0)
     clean = db.Column(db.Float, nullable=False, default=100.0)
     health = db.Column(db.Float, nullable=False, default=100.0)
-    state_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
-    awake_until = db.Column(db.DateTime, nullable=True)   # okno po „Obudź"
+    state_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
+    awake_until = db.Column(UTCDateTime, nullable=True)   # okno po „Obudź"
 
     stars = db.Column(db.SmallInteger, nullable=False, default=0, server_default=db.text('0'))
     care_days = db.Column(db.Integer, nullable=False, default=0, server_default=db.text('0'))
     last_care_date = db.Column(db.Date, nullable=True)
-    last_heal_at = db.Column(db.DateTime, nullable=True)
+    last_heal_at = db.Column(UTCDateTime, nullable=True)
     # 0 brak, 1 smutny, 2 chory, 3 krytyczny, 4 odszedł — raz na epizod
     notify_level = db.Column(db.SmallInteger, nullable=False, default=0, server_default=db.text('0'))
 
     # --- szpital (spec v3 §4): NULL = nie w szpitalu; healed_at ustalone przy przyjęciu ---
-    hospital_since = db.Column(db.DateTime, nullable=True)
-    hospital_healed_at = db.Column(db.DateTime, nullable=True)
-    hospital_ready_notified_at = db.Column(db.DateTime, nullable=True)
+    hospital_since = db.Column(UTCDateTime, nullable=True)
+    hospital_healed_at = db.Column(UTCDateTime, nullable=True)
+    hospital_ready_notified_at = db.Column(UTCDateTime, nullable=True)
 
     # --- odejście ---
-    died_at = db.Column(db.DateTime, nullable=True)
-    death_notified_at = db.Column(db.DateTime, nullable=True)
-    rescue_egg_claimed_at = db.Column(db.DateTime, nullable=True)
-    rescue_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+    died_at = db.Column(UTCDateTime, nullable=True)
+    death_notified_at = db.Column(UTCDateTime, nullable=True)
+    rescue_egg_claimed_at = db.Column(UTCDateTime, nullable=True)
+    rescue_reminder_sent_at = db.Column(UTCDateTime, nullable=True)
     lights_count = db.Column(db.Integer, nullable=False, default=0, server_default=db.text('0'))
     last_light_date = db.Column(db.Date, nullable=True)
 
-    created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)  # = odebranie jajka
+    created_at = db.Column(UTCDateTime, nullable=False, default=utcnow)  # = odebranie jajka
 
     __table_args__ = (
         db.Index('ix_pets_user_status', 'user_id', 'status'),
@@ -127,7 +127,7 @@ class PetEvent(db.Model):
     type = db.Column(db.String(20), nullable=False)
     # pat: liczba ZALICZONYCH klepnięć w paczce; milestone: numer progu; reszta: 1
     value = db.Column(db.Integer, nullable=False, default=1, server_default=db.text('1'))
-    created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
+    created_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
 
     __table_args__ = (
         db.Index('ix_pet_events_pet_type_created', 'pet_id', 'type', 'created_at'),
@@ -148,7 +148,7 @@ class PetPeekImage(db.Model):
     filename = db.Column(db.String(80), nullable=False, unique=True)   # <uuid>.webp w static/uploads/pet_peeks/
     label = db.Column(db.String(60), nullable=True)                     # nazwa dla admina
     is_active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text('1'))
-    created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
+    created_at = db.Column(UTCDateTime, nullable=False, default=utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
     def __repr__(self):

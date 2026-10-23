@@ -1,5 +1,5 @@
 from extensions import db
-from modules.auth.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class Achievement(db.Model):
@@ -30,7 +30,7 @@ class Achievement(db.Model):
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     is_hidden_until_unlocked = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     user_achievements = db.relationship('UserAchievement', back_populates='achievement', lazy='dynamic')
     stat = db.relationship('AchievementStat', back_populates='achievement', uselist=False)
@@ -48,10 +48,10 @@ class UserAchievement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     achievement_id = db.Column(db.Integer, db.ForeignKey('achievement.id', ondelete='CASCADE'), nullable=False, index=True)
-    unlocked_at = db.Column(db.DateTime, default=get_local_now)
+    unlocked_at = db.Column(UTCDateTime, default=utcnow)
     seen = db.Column(db.Boolean, default=False)
     shared = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
     granted_by_id = db.Column(
         db.Integer,
         db.ForeignKey('users.id', ondelete='SET NULL'),
@@ -73,6 +73,6 @@ class AchievementStat(db.Model):
     achievement_id = db.Column(db.Integer, db.ForeignKey('achievement.id', ondelete='CASCADE'), unique=True, nullable=False)
     total_unlocked = db.Column(db.Integer, default=0)
     percentage = db.Column(db.Float, default=0.0)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     achievement = db.relationship('Achievement', back_populates='stat')

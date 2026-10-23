@@ -3,42 +3,9 @@ Offers Models
 Modele dla stron sprzedaży (exclusive, pre-order)
 """
 
-from datetime import datetime, timezone, timedelta
 import secrets
 from extensions import db
-
-
-def get_local_now():
-    """
-    Zwraca aktualny czas polski (Europe/Warsaw).
-    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
-    Zwraca naive datetime dla porównań z naive datetime w bazie.
-    """
-    utc_now = datetime.now(timezone.utc)
-
-    # Prosty algorytm DST dla Polski:
-    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
-    # CET (UTC+1): reszta roku
-    year = utc_now.year
-
-    # Ostatnia niedziela marca
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
-    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Ostatnia niedziela października
-    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
-    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Sprawdź czy jesteśmy w czasie letnim
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)  # CEST
-    else:
-        offset = timedelta(hours=1)  # CET
-
-    # Zwróć naive datetime w czasie polskim
-    return (utc_now + offset).replace(tzinfo=None)
+from utils.timeutil import UTCDateTime, utcnow
 
 
 offer_page_groups = db.Table(
@@ -95,16 +62,16 @@ class OfferPage(db.Model):
     )
 
     # Daty sprzedaży
-    starts_at = db.Column(db.DateTime, nullable=True)  # NULL = brak zaplanowanej daty
-    ends_at = db.Column(db.DateTime, nullable=True)    # NULL = bez daty końca
+    starts_at = db.Column(UTCDateTime, nullable=True)  # NULL = brak zaplanowanej daty
+    ends_at = db.Column(UTCDateTime, nullable=True)    # NULL = bez daty końca
 
     # Stopka (zawsze na dole strony)
     footer_content = db.Column(db.Text, nullable=True)
 
     # Metadane
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Typ realizacji zamówień (liczba etapów płatności)
     # 3 = Zamówienie do Polski (3 płatności: Produkt + Cło/VAT + Wysyłka PL)
@@ -122,11 +89,11 @@ class OfferPage(db.Model):
 
     # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
     is_fully_closed = db.Column(db.Boolean, default=False)
-    closed_at = db.Column(db.DateTime, nullable=True)
+    closed_at = db.Column(UTCDateTime, nullable=True)
     closed_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Termin płatności za produkt (ustawiany przy zamykaniu strony)
-    payment_deadline = db.Column(db.DateTime, nullable=True)
+    payment_deadline = db.Column(UTCDateTime, nullable=True)
 
     # Relationships
     creator = db.relationship('User', backref='offer_pages', foreign_keys=[created_by])
@@ -205,21 +172,21 @@ class OfferPage(db.Model):
         """Czy jest przed datą rozpoczęcia"""
         if not self.starts_at:
             return False
-        return get_local_now() < self.starts_at
+        return utcnow() < self.starts_at
 
     @property
     def is_after_end(self):
         """Czy jest po dacie zakończenia"""
         if not self.ends_at:
             return False
-        return get_local_now() > self.ends_at
+        return utcnow() > self.ends_at
 
     @property
     def time_to_start(self):
         """Zwraca timedelta do rozpoczęcia lub None"""
         if not self.starts_at:
             return None
-        diff = self.starts_at - get_local_now()
+        diff = self.starts_at - utcnow()
         if diff.total_seconds() > 0:
             return diff
         return None
@@ -229,7 +196,7 @@ class OfferPage(db.Model):
         """Zwraca timedelta do zakończenia lub None"""
         if not self.ends_at:
             return None
-        diff = self.ends_at - get_local_now()
+        diff = self.ends_at - utcnow()
         if diff.total_seconds() > 0:
             return diff
         return None
@@ -250,7 +217,7 @@ class OfferPage(db.Model):
     def publish(self):
         """Publikuje stronę natychmiast (status = active, ustawia starts_at jeśli puste)"""
         self.status = 'active'
-        now = get_local_now()
+        now = utcnow()
         # Ustaw datę rozpoczęcia na teraz jeśli nie była ustawiona
         if not self.starts_at:
             self.starts_at = now
@@ -274,7 +241,7 @@ class OfferPage(db.Model):
         """Wznawia sprzedaż (usuwa datę zakończenia jeśli była w przeszłości)"""
         self.status = 'active'
         # Usuń datę zakończenia jeśli jest w przeszłości, aby zapobiec automatycznemu zakończeniu
-        now = get_local_now()
+        now = utcnow()
         if self.ends_at and self.ends_at <= now:
             self.ends_at = None
 
@@ -282,7 +249,7 @@ class OfferPage(db.Model):
         """Kończy sprzedaż natychmiast (ustawia ends_at na teraz)"""
         self.status = 'ended'
         # Ustaw datę zakończenia na teraz, aby zapobiec automatycznemu wznowieniu
-        now = get_local_now()
+        now = utcnow()
         if not self.ends_at or self.ends_at > now:
             self.ends_at = now
 
@@ -291,7 +258,7 @@ class OfferPage(db.Model):
         Sprawdza daty i automatycznie aktualizuje status.
         Wywoływane przy każdym dostępie do strony.
         """
-        now = get_local_now()
+        now = utcnow()
 
         # Jeśli scheduled i minęła data startu -> active
         if self.status == 'scheduled' and self.starts_at and now >= self.starts_at:
@@ -456,7 +423,7 @@ class OfferSection(db.Model):
         server_default='active'
     )
 
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     page = db.relationship('OfferPage', back_populates='sections')
@@ -672,7 +639,7 @@ class OfferSectionImage(db.Model):
     path = db.Column(db.String(500), nullable=False)
     sort_order = db.Column(db.Integer, default=0)
 
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     section = db.relationship('OfferSection', back_populates='images')
 
@@ -775,7 +742,7 @@ class OfferAutoIncreaseLog(db.Model):
     trigger_increase_amount = db.Column(db.Integer, nullable=False)
 
     # Timestamp
-    triggered_at = db.Column(db.DateTime, default=get_local_now)
+    triggered_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     # passive_deletes=True pozwala bazie danych obsłużyć CASCADE DELETE
@@ -808,8 +775,8 @@ class OfferProductNotificationSubscription(db.Model):
 
     # Status i timestamps
     notified = db.Column(db.Boolean, default=False, nullable=False)
-    notified_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    notified_at = db.Column(UTCDateTime, nullable=True)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relacje
     page = db.relationship('OfferPage', backref=db.backref('notification_subscriptions', lazy='dynamic', passive_deletes=True))
@@ -866,7 +833,7 @@ class OfferSetBonus(db.Model):
     repeatable = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     sort_order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     section = db.relationship('OfferSection', backref=db.backref(

@@ -13,7 +13,7 @@ from flask import request, jsonify, current_app, send_from_directory, abort
 from flask_login import login_required, current_user
 from extensions import db
 from modules.client import client_bp
-from modules.orders.models import get_local_now
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class PaymentUploadSession(db.Model):
@@ -26,14 +26,14 @@ class PaymentUploadSession(db.Model):
     status = db.Column(db.String(20), default='waiting', nullable=False)  # waiting, uploaded
     uploaded_filename = db.Column(db.String(255), nullable=True)  # filename after upload
 
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at = db.Column(UTCDateTime, nullable=False)
 
     user = db.relationship('User', backref=db.backref('payment_upload_sessions', lazy='dynamic'))
 
     @property
     def is_expired(self):
-        return get_local_now() > self.expires_at
+        return utcnow() > self.expires_at
 
     @property
     def is_valid(self):
@@ -45,7 +45,7 @@ class PaymentUploadSession(db.Model):
 def payment_qr_session_create():
     """Create QR upload session, return QR data URI + session token."""
     try:
-        now = get_local_now()
+        now = utcnow()
         # Cleanup expired sessions + their orphaned files
         from modules.orders.models import PaymentConfirmation
         upload_folder = os.path.join(current_app.root_path, 'uploads', 'payment_confirmations')

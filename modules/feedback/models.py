@@ -3,42 +3,9 @@ Feedback Models
 Modele dla systemu ankiet i zbierania opinii
 """
 
-from datetime import datetime, timezone, timedelta
 import secrets
 from extensions import db
-
-
-def get_local_now():
-    """
-    Zwraca aktualny czas polski (Europe/Warsaw).
-    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
-    Zwraca naive datetime dla porównań z naive datetime w bazie.
-    """
-    utc_now = datetime.now(timezone.utc)
-
-    # Prosty algorytm DST dla Polski:
-    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
-    # CET (UTC+1): reszta roku
-    year = utc_now.year
-
-    # Ostatnia niedziela marca
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
-    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Ostatnia niedziela października
-    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
-    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
-
-    # Sprawdź czy jesteśmy w czasie letnim
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)  # CEST
-    else:
-        offset = timedelta(hours=1)  # CET
-
-    # Zwróć naive datetime w czasie polskim
-    return (utc_now + offset).replace(tzinfo=None)
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class FeedbackSurvey(db.Model):
@@ -68,7 +35,7 @@ class FeedbackSurvey(db.Model):
     )
 
     # Opcjonalna data zamknięcia
-    closes_at = db.Column(db.DateTime, nullable=True)
+    closes_at = db.Column(UTCDateTime, nullable=True)
 
     # Ustawienia
     is_anonymous = db.Column(db.Boolean, default=False)  # Czy ukrywać kto odpowiedział
@@ -76,8 +43,8 @@ class FeedbackSurvey(db.Model):
 
     # Metadane
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     creator = db.relationship('User', backref='feedback_surveys', foreign_keys=[created_by])
@@ -128,7 +95,7 @@ class FeedbackSurvey(db.Model):
         """Czy można wypełnić ankietę"""
         if self.status != 'active':
             return False
-        if self.closes_at and get_local_now() > self.closes_at:
+        if self.closes_at and utcnow() > self.closes_at:
             return False
         return True
 
@@ -153,7 +120,7 @@ class FeedbackSurvey(db.Model):
         Sprawdza daty i automatycznie aktualizuje status.
         Wywoływane przy każdym dostępie do ankiety.
         """
-        now = get_local_now()
+        now = utcnow()
 
         # Jeśli active i minęła data zamknięcia -> closed
         if self.status == 'active' and self.closes_at and now >= self.closes_at:
@@ -277,7 +244,7 @@ class FeedbackQuestion(db.Model):
     # Czy pytanie jest wymagane
     is_required = db.Column(db.Boolean, default=False)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     survey = db.relationship('FeedbackSurvey', back_populates='questions')
@@ -434,7 +401,7 @@ class FeedbackResponse(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
 
     # Metadane
-    submitted_at = db.Column(db.DateTime, default=get_local_now)
+    submitted_at = db.Column(UTCDateTime, default=utcnow)
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.String(500), nullable=True)
 
@@ -478,7 +445,7 @@ class FeedbackAnswer(db.Model):
     # Opcje odpowiedzi (dla checkbox_list - JSON array)
     answer_options = db.Column(db.JSON, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     response = db.relationship('FeedbackResponse', back_populates='answers')

@@ -4,7 +4,8 @@ Stores admin-sent broadcast notifications with targeting and read statistics.
 """
 
 from extensions import db
-from modules.notifications.models import get_local_now, Notification
+from modules.notifications.models import Notification
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class AdminBroadcast(db.Model):
@@ -18,7 +19,7 @@ class AdminBroadcast(db.Model):
     target_data = db.Column(db.Text, nullable=True)  # JSON: roles list or user IDs list
     sent_count = db.Column(db.Integer, default=0, nullable=False)
     sent_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False, index=True)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False, index=True)
 
     sender = db.relationship('User', backref=db.backref('sent_broadcasts', lazy='dynamic'))
 

@@ -12,29 +12,8 @@ Models for client features:
 
 import string
 import random
-from datetime import datetime, timezone, timedelta
 from extensions import db
-
-
-def get_local_now():
-    """Returns current time in Poland (Europe/Warsaw) timezone."""
-    utc_now = datetime.now(timezone.utc)
-    year = utc_now.year
-
-    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
-    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
-    dst_start = march_last_sunday.replace(hour=1)
-
-    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
-    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
-    dst_end = oct_last_sunday.replace(hour=1)
-
-    if dst_start <= utc_now < dst_end:
-        offset = timedelta(hours=2)
-    else:
-        offset = timedelta(hours=1)
-
-    return (utc_now + offset).replace(tzinfo=None)
+from utils.timeutil import UTCDateTime, utcnow
 
 
 class CollectionItem(db.Model):
@@ -54,8 +33,8 @@ class CollectionItem(db.Model):
     notes = db.Column(db.Text, nullable=True)
     is_public = db.Column(db.Boolean, default=True, nullable=False)
 
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     user = db.relationship('User', backref=db.backref('collection_items', lazy='dynamic'))
@@ -155,7 +134,7 @@ class CollectionItemImage(db.Model):
     path_compressed = db.Column(db.String(500), nullable=False)
     is_primary = db.Column(db.Boolean, default=False)
     sort_order = db.Column(db.Integer, default=0)
-    uploaded_at = db.Column(db.DateTime, default=get_local_now)
+    uploaded_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     collection_item = db.relationship('CollectionItem', back_populates='images')
@@ -177,8 +156,8 @@ class PublicCollectionConfig(db.Model):
     show_prices = db.Column(db.Boolean, default=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     user = db.relationship('User', backref=db.backref('public_collection_config', uselist=False))
@@ -210,8 +189,8 @@ class CollectionUploadSession(db.Model):
     collection_item_id = db.Column(db.Integer, db.ForeignKey('collection_items.id'), nullable=True)
     status = db.Column(db.String(20), default='waiting', nullable=False)
 
-    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
-    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at = db.Column(UTCDateTime, nullable=False)
 
     # Relationships
     user = db.relationship('User', backref=db.backref('upload_sessions', lazy='dynamic'))
@@ -225,7 +204,7 @@ class CollectionUploadSession(db.Model):
     @property
     def is_expired(self):
         """Check if session has expired."""
-        return get_local_now() > self.expires_at
+        return utcnow() > self.expires_at
 
     @property
     def is_valid(self):
@@ -245,7 +224,7 @@ class CollectionTempUpload(db.Model):
     filename = db.Column(db.String(255), nullable=False)
     path_original = db.Column(db.String(500), nullable=False)
     path_compressed = db.Column(db.String(500), nullable=False)
-    uploaded_at = db.Column(db.DateTime, default=get_local_now)
+    uploaded_at = db.Column(UTCDateTime, default=utcnow)
 
     # Relationships
     session = db.relationship('CollectionUploadSession', back_populates='temp_uploads')
