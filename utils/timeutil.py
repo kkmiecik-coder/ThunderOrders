@@ -118,19 +118,26 @@ def get_display_timezones() -> list[dict]:
 
     Lista z ustawień (`Settings`, typ json) edytowana przez admina; bez wiersza — Seul.
     Zapisana pusta lista to świadome wyłączenie podpowiedzi, nie powrót do domyślnej.
-    Zepsuty wiersz (nie-JSON) daje listę domyślną — lista idzie na `<body>` każdej strony,
-    więc podpowiedź nie może wywrócić całego panelu.
+    Zepsuty wiersz (nie-JSON albo nie lista) daje listę domyślną, a wpisy bez tekstowych
+    `label` i `tz` są pomijane — lista idzie na `<body>` każdej strony, więc podpowiedź nie
+    może wywrócić całego panelu.
     """
     from modules.auth.models import Settings   # import leniwy: modele importują ten moduł
 
     try:
         strefy = Settings.get_value(DISPLAY_TIMEZONES_KEY)
-    except ValueError:
+    except (ValueError, TypeError):     # nie-JSON albo NULL w kolumnie value
         logging.getLogger(__name__).warning('display_timezones: wartość nie jest JSON-em, używam domyślnej')
+        strefy = None
+    if strefy is not None and not isinstance(strefy, list):
+        logging.getLogger(__name__).warning('display_timezones: wartość nie jest listą, używam domyślnej')
         strefy = None
     if strefy is None:
         return [dict(s) for s in DEFAULT_DISPLAY_TIMEZONES]
-    return strefy
+    return [
+        {'label': s['label'], 'tz': s['tz']} for s in strefy
+        if isinstance(s, dict) and isinstance(s.get('label'), str) and isinstance(s.get('tz'), str)
+    ]
 
 
 class UTCDateTime(TypeDecorator):

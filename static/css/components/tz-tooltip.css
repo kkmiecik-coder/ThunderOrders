@@ -12,10 +12,13 @@
     cursor: help;
 }
 
-/* Dotyk: cel ≥ 44 px przez niewidoczne pole wokół godziny — bez zmiany układu */
+/* Dotyk: cel ≥ 44 px przez niewidoczne pole wokół godziny — bez zmiany układu.
+   cursor: pointer jest konieczny: iOS Safari nie wysyła `click` z tapnięcia w element
+   bez własnego słuchacza (delegacja na document się nie liczy) ani bez kursora-rączki. */
 @media (hover: none), (pointer: coarse) {
     [data-display-timezones] .tz-time {
         position: relative;
+        cursor: pointer;
     }
 
     [data-display-timezones] .tz-time::after {
@@ -27,6 +30,18 @@
         min-width: 44px;
         height: 44px;
         transform: translate(-50%, -50%);
+    }
+
+    /* Godzina w linku / przycisku: na dotyku wygrywa nawigacja — bez podpowiedzi, bez
+       powiększonego celu i bez kropkowanego podkreślenia (lustro INTERAKTYWNE w tz-tooltip.js) */
+    [data-display-timezones] :is(a[href], button, label, [onclick], [role="button"]) .tz-time {
+        position: static;
+        cursor: inherit;
+        text-decoration: none;
+    }
+
+    [data-display-timezones] :is(a[href], button, label, [onclick], [role="button"]) .tz-time::after {
+        content: none;
     }
 }
 

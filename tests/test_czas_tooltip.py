@@ -207,3 +207,53 @@ def test_pusta_lista_bez_atrybutu(app, db, client, login, make_user):
     client.post(URL_USUN, json={'tz': 'Asia/Seoul'})
     html = client.get('/admin/offers/settings').get_data(as_text=True)
     assert 'data-display-timezones' not in _body(html)
+
+
+# ---------------------------------------------------------------------------
+# Zepsuty wiersz ustawienia nie wywraca stron ani zapisu
+# ---------------------------------------------------------------------------
+
+def _zapisz_surowo(db, wartosc, typ='json'):
+    from modules.auth.models import Settings
+    db.session.add(Settings(key='display_timezones', value=wartosc, type=typ))
+    db.session.commit()
+
+
+def test_zepsuty_wiersz_nie_json_daje_domyslna(app, db):
+    _zapisz_surowo(db, 'nie-json')
+    assert get_display_timezones() == [SEUL]
+
+
+def test_zepsuty_wiersz_nie_lista_daje_domyslna(app, db):
+    _zapisz_surowo(db, '{"label": "Seul", "tz": "Asia/Seoul"}')
+    assert get_display_timezones() == [SEUL]
+
+
+def test_zepsuty_wiersz_null_daje_domyslna(app, db):
+    _zapisz_surowo(db, None)
+    assert get_display_timezones() == [SEUL]
+
+
+def test_zle_wpisy_pomijane(app, db):
+    _zapisz_surowo(db, json.dumps([
+        'Asia/Tokyo', 7, None, {'label': 'Bez strefy'}, {'tz': 'Asia/Tokyo'},
+        {'label': 1, 'tz': 'Asia/Tokyo'}, {'label': 'Londyn', 'tz': 'Europe/London', 'extra': 1},
+    ]))
+    assert get_display_timezones() == [LONDYN]
+
+
+def test_dodawanie_i_usuwanie_przy_zepsutych_wpisach(app, db, client, login, make_user):
+    _admin(make_user, login)
+    _zapisz_surowo(db, json.dumps(['smiec', {'label': 'Bez strefy'}, LONDYN]))
+    assert client.post(URL_DODAJ, json=SEUL).status_code == 200
+    assert _zapisane_strefy() == [LONDYN, SEUL]          # śmieci wypadają przy zapisie
+    assert client.post(URL_DODAJ, json={'label': 'L2', 'tz': 'Europe/London'}).status_code == 400
+    assert client.post(URL_USUN, json={'tz': 'Europe/London'}).status_code == 200
+    assert _zapisane_strefy() == [SEUL]
+
+
+def test_strona_przy_zepsutym_wierszu(app, db, client, login, make_user):
+    _admin(make_user, login)
+    _zapisz_surowo(db, '[1, 2')
+    html = client.get('/admin/offers/settings').get_data(as_text=True)
+    assert _strefy_z_body(html) == [SEUL]

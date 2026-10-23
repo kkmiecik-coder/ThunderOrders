@@ -7,8 +7,9 @@
  * = brak atrybutu = brak podpowiedzi.
  *
  * Mysz: najechanie pokazuje, zjechanie chowa. Dotyk: tapnięcie otwiera / zamyka (klik nie
- * idzie dalej, np. do linku wiersza), tapnięcie obok albo Esc zamyka. Słuchacze są
- * delegowane na `document`, więc działają też dla godzin wstawionych później.
+ * idzie dalej), tapnięcie obok albo Esc zamyka. Godzina wewnątrz linku / przycisku na dotyku
+ * zostaje zwykłym tekstem — wygrywa nawigacja (to samo wyłącza w CSS powiększony cel dotyku).
+ * Słuchacze są delegowane na `document`, więc działają też dla godzin wstawionych później.
  *
  * Bez zależności; ładowany w szablonach bazowych (base.html, offers/base_offers.html).
  */
@@ -18,6 +19,8 @@
     var PL_TZ = 'Europe/Warsaw';
     var TIP_ID = 'tz-tooltip';
     var MARGINES = 8;
+    // Przodkowie, których akcja ma pierwszeństwo przed podpowiedzią na dotyku (lustro w tz-tooltip.css)
+    var INTERAKTYWNE = 'a[href], button, label, [onclick], [role="button"]';
 
     var strefy = null;
     var formattery = {};
@@ -91,16 +94,17 @@
         tip.style.left = left + 'px';
     }
 
+    /** Pokazuje podpowiedź; false, gdy nie ma czego pokazać (zła data, żadna strefa nieznana przeglądarce). */
     function pokaz(el) {
         var data = new Date(el.getAttribute('datetime'));
-        if (isNaN(data.getTime())) return;
+        if (isNaN(data.getTime())) return false;
 
         var miasta = [];
         listaStref().forEach(function (s) {
-            var t = s && wStrefie(data, s.tz);
-            if (t) miasta.push(wiersz(s.label, t));
+            var t = s && typeof s.tz === 'string' && wStrefie(data, s.tz);
+            if (t) miasta.push(wiersz(String(s.label), t));
         });
-        if (!miasta.length) return;
+        if (!miasta.length) return false;
 
         ukryj();
         if (!tip) {
@@ -119,6 +123,7 @@
         aktywny = el;
         el.classList.add('tz-time--open');
         el.setAttribute('aria-describedby', TIP_ID);
+        return true;
     }
 
     function ukryj() {
@@ -150,14 +155,24 @@
         if (godzina(e.target) === aktywny && !aktywny.contains(e.relatedTarget)) ukryj();
     });
 
-    // Faza przechwytywania: tapnięcie w godzinę nie może uruchomić linku / wiersza pod spodem
+    // Faza przechwytywania: tapnięcie, które otworzyło / zamknęło podpowiedź, nie idzie dalej
+    // (np. do wiersza z własnym handlerem). Przechwytujemy tylko, gdy podpowiedź naprawdę się
+    // otworzyła albo zamknęła — inaczej tap działa jak zwykle.
     document.addEventListener('click', function (e) {
         var el = godzina(e.target);
-        if (el && ostatniWskaznik !== 'mouse' && listaStref().length) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (el === aktywny) ukryj(); else pokaz(el);
-            return;
+        if (el && ostatniWskaznik !== 'mouse' && !el.closest(INTERAKTYWNE)) {
+            var obsluzony;
+            if (el === aktywny) {
+                ukryj();
+                obsluzony = true;
+            } else {
+                obsluzony = pokaz(el);
+            }
+            if (obsluzony) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
         }
         if (aktywny && el !== aktywny) ukryj();
     }, true);
