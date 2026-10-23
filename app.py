@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify, current_app
 from markupsafe import Markup
 from werkzeug.middleware.proxy_fix import ProxyFix
-from utils.timeutil import format_pl_input, get_display_timezones, iso_utc, to_pl, utcnow
+from utils.timeutil import format_pl_input, get_display_timezones, iso_utc, parse_pl_input, to_pl, utcnow
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Sentry - error tracking (inicjalizacja przed create_app)
@@ -1277,10 +1277,19 @@ def register_cli_commands(app):
         for number, old, new in changed:
             click.echo(f"  {number}: {old} -> {new}")
 
+    def _czas_pl_z_cli(ctx, param, value):
+        """Opcja CLI z czasem polskim 'RRRR-MM-DD GG:MM:SS' -> aware UTC (kolumny UTCDateTime)."""
+        try:
+            return parse_pl_input(value, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            raise click.BadParameter(f'oczekiwano czasu polskiego "RRRR-MM-DD GG:MM:SS", jest {value!r}')
+
     @app.cli.command('resend-reconcile-notifications')
     @click.option('--dry-run', is_flag=True, help='Tylko wyswietl, bez wysylki')
-    @click.option('--since', default=None, help='Dolna granica czasu ActivityLog, np. "2026-09-19 15:39:00"')
-    @click.option('--until', default=None, help='Gorna granica czasu ActivityLog, np. "2026-09-19 15:41:00"')
+    @click.option('--since', default=None, callback=_czas_pl_z_cli,
+                  help='Dolna granica czasu ActivityLog (czas polski), np. "2026-09-19 15:39:00"')
+    @click.option('--until', default=None, callback=_czas_pl_z_cli,
+                  help='Gorna granica czasu ActivityLog (czas polski), np. "2026-09-19 15:41:00"')
     @click.option('--only-orders', default=None, help='Numery zamowien po przecinku (np. EX/1631,EX/1637) - do ponowienia tylko tych, ktore wczesniej sie nie udaly')
     @click.option('--delay', default=0.0, type=float, help='Sekundy odstepu miedzy wysylkami (unika rate-limitu SMTP przy duzej paczce)')
     def resend_reconcile_notifications(dry_run, since, until, only_orders, delay):

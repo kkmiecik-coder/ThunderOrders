@@ -148,3 +148,15 @@ def test_polaczenie_sqlite_bez_ustawiania_strefy():
 
     # SQLite nie zna SET time_zone - listener ma go pominąć bez błędu
     _ustaw_strefe_utc_w_mariadb(sqlite3.connect(':memory:'), None)
+
+
+@pytest.mark.parametrize('wartosc', ['2026-07-01 20:00:00', date(2026, 7, 1)])
+def test_utcdatetime_tekst_i_data_rzucaja_valueerror(wartosc):
+    # Surowy tekst (np. argument CLI) albo `date` nie mają strefy - ValueError z nazwą typu,
+    # a nie AttributeError z `.tzinfo`
+    silnik, tabela = _tabela_testowa()
+    with pytest.raises(StatementError) as blad:
+        with silnik.begin() as polaczenie:
+            polaczenie.execute(select(tabela.c.id).where(tabela.c.kiedy >= wartosc))
+    assert isinstance(blad.value.orig, ValueError)
+    assert type(wartosc).__name__ in str(blad.value.orig)

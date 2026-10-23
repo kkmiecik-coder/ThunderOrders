@@ -261,7 +261,7 @@ async function fetchExchangeRate(currency) {
         if (data.success) {
             exchangeRates[currency] = data.rate;
             console.log('Exchange rate cached:', exchangeRates);
-            updateExchangeRateInfo(currency, data.rate, data.cached, data.cached_at);
+            updateExchangeRateInfo(currency, data.rate, data.cached, data.cached_at_iso);
             return data.rate;
         } else {
             console.error('API returned error:', data.message);
@@ -717,7 +717,7 @@ window.initFormSubmission = function() {
 /**
  * Update exchange rate info text
  */
-function updateExchangeRateInfo(currency, rate, cached, cachedAt) {
+function updateExchangeRateInfo(currency, rate, cached, cachedAtIso) {
     const infoElement = document.getElementById('exchange-rate-info') || document.getElementById('exchange-rate-info-modal');
     if (!infoElement) return;
 
@@ -728,10 +728,11 @@ function updateExchangeRateInfo(currency, rate, cached, cachedAt) {
 
     let infoText = `1 ${currency} = ${rate.toFixed(4)} PLN`;
 
-    if (cached && cachedAt) {
-        const cacheDate = new Date(cachedAt);
-        const now = new Date();
-        const diffHours = Math.round((now - cacheDate) / 1000 / 60 / 60);
+    // cachedAtIso to chwila w UTC z "Z" - wiek liczony z niej nie zależy od strefy przeglądarki
+    // (cached_at to tekst czasu polskiego, który przeglądarka za granicą czytałaby w swojej strefie)
+    const cachedAtMs = cachedAtIso ? Date.parse(cachedAtIso) : NaN;
+    if (cached && !isNaN(cachedAtMs)) {
+        const diffHours = Math.round((Date.now() - cachedAtMs) / 1000 / 60 / 60);
         infoText += ` (cache: ${diffHours}h temu)`;
     }
 

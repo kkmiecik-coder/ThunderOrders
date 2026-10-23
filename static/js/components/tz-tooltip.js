@@ -6,9 +6,11 @@
  * w `data-display-timezones` na `<body>` (ustawienia admina, domyślnie Seul); pusta lista
  * = brak atrybutu = brak podpowiedzi.
  *
- * Mysz: najechanie pokazuje, zjechanie chowa. Dotyk: tapnięcie otwiera / zamyka (klik nie
- * idzie dalej), tapnięcie obok albo Esc zamyka. Godzina wewnątrz linku / przycisku na dotyku
- * zostaje zwykłym tekstem — wygrywa nawigacja (to samo wyłącza w CSS powiększony cel dotyku).
+ * Mysz: najechanie pokazuje, zjechanie chowa. Dotyk: tapnięcie otwiera / zamyka, tapnięcie
+ * obok albo Esc zamyka. Tapnięcie w godzinę nigdy nie blokuje akcji otoczenia — klik idzie
+ * dalej do wiersza / karty z własnym handlerem (jeśli ten nawiguje, wygrywa nawigacja).
+ * Godzina wewnątrz linku / przycisku na dotyku zostaje zwykłym tekstem — bez podpowiedzi
+ * (to samo wyłącza w CSS powiększony cel dotyku).
  * Słuchacze są delegowane na `document`, więc działają też dla godzin wstawionych później.
  *
  * Bez zależności; ładowany w szablonach bazowych (base.html, offers/base_offers.html).
@@ -155,24 +157,19 @@
         if (godzina(e.target) === aktywny && !aktywny.contains(e.relatedTarget)) ukryj();
     });
 
-    // Faza przechwytywania: tapnięcie, które otworzyło / zamknęło podpowiedź, nie idzie dalej
-    // (np. do wiersza z własnym handlerem). Przechwytujemy tylko, gdy podpowiedź naprawdę się
-    // otworzyła albo zamknęła — inaczej tap działa jak zwykle.
+    // Faza przechwytywania: podpowiedź przełącza się, zanim wiersz zdąży zatrzymać propagację.
+    // Klik NIE jest zatrzymywany ani blokowany (bez stopPropagation / preventDefault) — handler
+    // wiersza / karty dostaje go normalnie, a goła godzina i tak nie ma domyślnej akcji.
+    // Otwarcie i zamknięcie „obok" siedzą w tym jednym słuchaczu, więc tapnięcie, które
+    // otworzyło podpowiedź, nie może jej od razu zamknąć.
     document.addEventListener('click', function (e) {
         var el = godzina(e.target);
         if (el && ostatniWskaznik !== 'mouse' && !el.closest(INTERAKTYWNE)) {
-            var obsluzony;
             if (el === aktywny) {
                 ukryj();
-                obsluzony = true;
-            } else {
-                obsluzony = pokaz(el);
-            }
-            if (obsluzony) {
-                e.preventDefault();
-                e.stopPropagation();
                 return;
             }
+            if (pokaz(el)) return;
         }
         if (aktywny && el !== aktywny) ukryj();
     }, true);

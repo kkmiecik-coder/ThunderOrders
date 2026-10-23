@@ -144,7 +144,8 @@ class UTCDateTime(TypeDecorator):
     """Kolumna czasu: do bazy idzie naiwny UTC, z bazy wraca aware UTC.
 
     Zapis naiwnego datetime to błąd (`ValueError`, w SQLAlchemy opakowany w `StatementError`) —
-    nie zgadujemy, czy to był czas polski, czy UTC.
+    nie zgadujemy, czy to był czas polski, czy UTC. Tak samo tekst czy `date` (np. surowy
+    argument z CLI w porównaniu) — najpierw `parse_pl_input()` albo `pl_day_bounds_utc()`.
     """
     impl = DateTime
     cache_ok = True
@@ -152,6 +153,11 @@ class UTCDateTime(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
+        if not isinstance(value, datetime):
+            raise ValueError(
+                f'UTCDateTime: oczekiwano aware datetime, jest {type(value).__name__} {value!r} '
+                f'- tekst zamień przez parse_pl_input(), datę przez pl_day_bounds_utc()'
+            )
         if value.tzinfo is None:
             raise ValueError(f'UTCDateTime: naiwny datetime {value!r} - użyj aware (utcnow(), pl_input_to_utc())')
         return value.astimezone(timezone.utc).replace(tzinfo=None)
