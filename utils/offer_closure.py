@@ -17,7 +17,7 @@ from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirm
 from modules.auth.models import User
 from utils.transfer_title import render_transfer_title
 from utils.closure_settings import get_closure_statuses
-from utils.timeutil import pl_date, utcnow
+from utils.timeutil import iso_utc, pl_date, utcnow
 
 
 def calculate_set_fulfillment(page_id):
@@ -874,7 +874,7 @@ def get_page_summary(page_id, include_financials=True):
     order_timestamps = []
     for order in orders:
         if order.created_at:
-            order_timestamps.append(order.created_at.isoformat())
+            order_timestamps.append(iso_utc(order.created_at))
 
     # Products aggregated (do Tab Produkty)
     products_agg = {}
@@ -1217,7 +1217,7 @@ def get_live_summary(page_id, include_financials=True):
     order_timestamps = []
     for order in orders:
         if order.created_at:
-            order_timestamps.append(order.created_at.isoformat())
+            order_timestamps.append(iso_utc(order.created_at))
 
     # Products aggregated
     products_agg = {}

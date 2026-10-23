@@ -2,7 +2,7 @@
 CSV Import Models
 """
 from app import db
-from utils.timeutil import UTCDateTime, utcnow
+from utils.timeutil import UTCDateTime, iso_utc, utcnow
 
 
 class CsvImport(db.Model):
@@ -47,7 +47,7 @@ class CsvImport(db.Model):
             'has_headers': self.has_headers,
             'column_mapping': self.column_mapping,
             'error_log': self.error_log or [],
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'created_at': iso_utc(self.created_at),
+            'completed_at': iso_utc(self.completed_at),
             'progress_percent': round((self.processed_rows / self.total_rows * 100) if self.total_rows > 0 else 0)
         }

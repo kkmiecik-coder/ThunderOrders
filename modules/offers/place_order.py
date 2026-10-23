@@ -18,6 +18,7 @@ from modules.orders.utils import (
 )
 from utils.activity_logger import log_activity
 from utils.offer_auto_increase import check_and_apply_auto_increase
+from utils.timeutil import iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -710,7 +711,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
             'total_amount': float(order.total_amount),
             'item_count': total_items_count,
             'items': order_items_list,
-            'created_at': order.created_at.isoformat() if order.created_at else None,
+            'created_at': iso_utc(order.created_at),
             'payment_badge': order.payment_badge,
         })
 
@@ -1040,7 +1041,7 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
             'total_amount': float(order.total_amount),
             'item_count': total_items_count,
             'items': order_items_list,
-            'created_at': order.created_at.isoformat() if order.created_at else None,
+            'created_at': iso_utc(order.created_at),
             'payment_badge': order.payment_badge,
         })
 

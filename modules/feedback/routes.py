@@ -10,7 +10,7 @@ from functools import wraps
 from . import feedback_bp
 from .models import FeedbackSurvey, FeedbackQuestion, FeedbackResponse, FeedbackAnswer
 from extensions import db
-from utils.timeutil import parse_pl_input, utcnow
+from utils.timeutil import parse_pl_input, to_pl, utcnow
 
 
 # ============================================
@@ -106,7 +106,7 @@ def admin_save(survey_id):
 
         return jsonify({
             'success': True,
-            'updated_at': survey.updated_at.strftime('%H:%M:%S')
+            'updated_at': to_pl(survey.updated_at).strftime('%H:%M:%S')
         })
 
     except Exception as e:
@@ -248,7 +248,7 @@ def admin_export(survey_id):
     # Dane
     for response in responses:
         row = [
-            response.submitted_at.strftime('%Y-%m-%d %H:%M'),
+            to_pl(response.submitted_at).strftime('%Y-%m-%d %H:%M'),
             response.respondent_name if not survey.is_anonymous else 'Anonimowy'
         ]
 

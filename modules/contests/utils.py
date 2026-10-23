@@ -8,7 +8,7 @@ from extensions import db
 from modules.orders.models import Order
 from flask import url_for
 from utils.email_sender import send_contest_win_email
-from utils.timeutil import utcnow
+from utils.timeutil import iso_utc, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +259,7 @@ def widget_context(contest, user):
         'participants': count_participants(contest),
         'eligible': eligible,
         'can_spin': is_open and eligible and cooldown_ok,
-        'next_spin_at': nxt.isoformat() if nxt else None,
+        'next_spin_at': iso_utc(nxt),
         'spins_open': is_open,
         'state': state,
     }

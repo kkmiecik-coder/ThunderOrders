@@ -21,7 +21,7 @@ import time
 import threading
 
 from flask import current_app
-from utils.timeutil import utcnow
+from utils.timeutil import to_pl, utcnow
 
 
 # Retry config dla aktualizacji push_subscriptions po webpush.
@@ -1243,7 +1243,7 @@ class PushManager:
         from flask import url_for
 
         if payment_deadline:
-            deadline_str = payment_deadline.strftime('%d.%m %H:%M')
+            deadline_str = to_pl(payment_deadline).strftime('%d.%m %H:%M')
             body = f'Termin płatności upływa {deadline_str}. Prześlij potwierdzenie.'
         else:
             body = 'Masz oczekującą płatność do potwierdzenia.'
@@ -1447,7 +1447,7 @@ class PushManager:
         if new_ends_at is None:
             body = 'Sprzedaż przedłużona bez limitu czasowego'
         else:
-            body = f'Nowa data zakończenia: {new_ends_at.strftime("%d.%m.%Y, %H:%M")}'
+            body = f'Nowa data zakończenia: {to_pl(new_ends_at).strftime("%d.%m.%Y, %H:%M")}'
 
         title = f'{page.name} — zmiana daty zakończenia'
 

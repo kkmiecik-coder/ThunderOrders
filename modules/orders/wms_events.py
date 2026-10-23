@@ -13,7 +13,7 @@ from flask_socketio import join_room, emit
 from extensions import socketio, db
 from modules.orders.models import Order, OrderItem
 from modules.orders.wms_models import WmsSession, WmsSessionOrder
-from utils.timeutil import utcnow
+from utils.timeutil import iso_utc, utcnow
 
 # Mapping: SocketIO sid → {session_id, role}
 connected_clients = {}
@@ -36,7 +36,7 @@ def _build_item_data(item):
         'wms_status_name': item.wms_status_name,
         'wms_status_color': item.wms_status_color,
         'is_picked': (item.picked_quantity or 0) >= item.quantity,
-        'picked_at': item.picked_at.isoformat() if item.picked_at else None,
+        'picked_at': iso_utc(item.picked_at),
     }
 
 
@@ -142,8 +142,7 @@ def handle_join_session(data):
     # Notify room if mobile joined
     if role == 'mobile':
         emit('phone_connected', {
-            'connected_at': wms_session.phone_connected_at.isoformat()
-            if wms_session.phone_connected_at else None,
+            'connected_at': iso_utc(wms_session.phone_connected_at),
         }, to=room)
 
     # Send full session state to the joining client

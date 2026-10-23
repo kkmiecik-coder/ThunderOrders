@@ -17,7 +17,7 @@ from sqlalchemy import func, desc, cast, Date, extract, or_, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 from calendar import month_name
-from utils.timeutil import pl_day_bounds_utc, pl_today
+from utils.timeutil import pl_day_bounds_utc, pl_today, to_pl
 
 
 def get_shipping_alert_counts():
@@ -648,8 +648,8 @@ def get_offer_pages():
             'status': page.status,
             'status_class': status_class,
             'status_text': status_text,
-            'starts_at': page.starts_at.strftime('%d.%m.%Y %H:%M') if page.starts_at else None,
-            'ends_at': page.ends_at.strftime('%d.%m.%Y %H:%M') if page.ends_at else None,
+            'starts_at': to_pl(page.starts_at).strftime('%d.%m.%Y %H:%M') if page.starts_at else None,
+            'ends_at': to_pl(page.ends_at).strftime('%d.%m.%Y %H:%M') if page.ends_at else None,
             'edit_url': url_for('admin.offers_edit', page_id=page.id)
         })
 

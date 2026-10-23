@@ -18,7 +18,7 @@ from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, asc, case
 from datetime import timedelta
 from decimal import Decimal
-from utils.timeutil import bucket_by_pl_day, pl_day_bounds_utc, pl_today
+from utils.timeutil import bucket_by_pl_day, pl_day_bounds_utc, pl_today, to_pl
 
 
 # ========================================
@@ -776,7 +776,7 @@ def statistics_shipping():
             # (i rozjeżdżała się z KPI wyżej, które liczy z zamówień).
             _format_currency(r.display_shipping_cost) if r.display_shipping_cost else '-',
             r.orders_count,
-            r.created_at.strftime('%d.%m.%Y') if r.created_at else '-'
+            to_pl(r.created_at).strftime('%d.%m.%Y') if r.created_at else '-'
         ])
 
     return jsonify({

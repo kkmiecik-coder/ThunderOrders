@@ -14,6 +14,7 @@ from modules.client.shipping_service import (
     get_available_orders, validate_and_create_request, cancel_request,
     get_shipping_pricing, list_client_requests,
 )
+from utils.timeutil import to_pl
 
 
 # ============================================
@@ -158,7 +159,7 @@ def shipping_requests_list_json():
                 'status': req.status,
                 'status_display_name': req.status_display_name,
                 'status_badge_color': req.status_badge_color,
-                'created_at': req.created_at.strftime('%d.%m.%Y %H:%M'),
+                'created_at': to_pl(req.created_at).strftime('%d.%m.%Y %H:%M'),
                 'can_cancel': req.can_cancel,
                 'tracking_number': req.tracking_number,
                 'tracking_url': req.tracking_url
@@ -201,7 +202,7 @@ def shipping_requests_available_orders():
                 'id': order.id,
                 'order_number': order.order_number,
                 'total_amount': float(order.total_amount),
-                'created_at': order.created_at.strftime('%d.%m.%Y'),
+                'created_at': to_pl(order.created_at).strftime('%d.%m.%Y'),
                 'items': items_data,
                 'items_count': len(order.items),
                 # Gate Cło/VAT (task 869e674fd): False → zablokowane do zlecenia wysyłki

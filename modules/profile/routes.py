@@ -12,7 +12,7 @@ from extensions import db
 from utils.decorators import admin_required
 from utils.image_processor import process_avatar, delete_avatar_file, delete_avatar_series_folder
 import re
-from utils.timeutil import utcnow
+from utils.timeutil import pl_today
 
 
 @profile_bp.route('/')
@@ -218,7 +218,7 @@ def export_data():
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = (
-        f'attachment; filename=ThunderOrders_dane_{current_user.id}_{utcnow().strftime("%Y%m%d")}.pdf'
+        f'attachment; filename=ThunderOrders_dane_{current_user.id}_{pl_today().strftime("%Y%m%d")}.pdf'
     )
     return response
 

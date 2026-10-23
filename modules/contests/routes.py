@@ -13,7 +13,7 @@ from modules.contests import contests_bp
 from modules.contests.models import Contest, ContestPrize, ContestPrizeItem, ContestSpin, ContestWinner
 from modules.contests.forms import ContestForm
 from modules.contests import utils as cu
-from utils.timeutil import pl_input_to_utc, to_pl
+from utils.timeutil import iso_utc, pl_input_to_utc, to_pl
 
 
 def _display_name(user):
@@ -85,7 +85,7 @@ def admin_user_spins(cid, uid):
         name=_display_name(user),
         spin_count=len(spins),
         total_tickets=sum(s.tickets_won for s in spins),
-        spins=[{'tickets': s.tickets_won, 'at': s.created_at.isoformat()} for s in spins],
+        spins=[{'tickets': s.tickets_won, 'at': iso_utc(s.created_at)} for s in spins],
     )
 
 
@@ -381,7 +381,7 @@ def client_spin():
     if not cu.can_spin(c, current_user):
         nxt = cu.get_next_spin_at(c, current_user)
         return jsonify(success=False, error='Następny los dostępny później.',
-                       next_spin_at=nxt.isoformat() if nxt else None), 200
+                       next_spin_at=iso_utc(nxt)), 200
 
     # TODO: przy większym ruchu rozważyć blokadę DB na podwójny spin w oknie cooldownu (TOCTOU)
     tickets = cu.draw_ticket_count(c)  # rozkład skośny ku ticket_min (wyższe rzadsze)
@@ -390,4 +390,4 @@ def client_spin():
     nxt = cu.get_next_spin_at(c, current_user)
     return jsonify(success=True, tickets_won=tickets,
                    my_total=cu.get_user_tickets(c, current_user),
-                   next_spin_at=nxt.isoformat() if nxt else None)
+                   next_spin_at=iso_utc(nxt))

@@ -14,6 +14,7 @@ from . import offers_bp
 from .access import check_offer_page_access
 from .models import OfferPage
 from modules.products.models import Product, VariantGroup
+from utils.timeutil import iso_utc
 
 
 def _build_bonuses_config(page, sections):
@@ -426,7 +427,7 @@ def check_status(token):
     return jsonify({
         'status': page.status,
         'is_active': page.is_active,
-        'ends_at': page.ends_at.isoformat() if page.ends_at else None,
+        'ends_at': iso_utc(page.ends_at),
         'is_manually_closed': page.status == 'closed'
     })
 

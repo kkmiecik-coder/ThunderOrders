@@ -14,6 +14,7 @@ import uuid
 
 from extensions import db
 from modules.orders.models import Order, OrderType
+from utils.timeutil import to_pl
 
 
 # ====================
@@ -311,7 +312,7 @@ def get_order_summary(order):
         'type': order.type_display_name,
         'total_amount': float(order.total_amount),
         'items_count': order.items_count,
-        'created_at': order.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'created_at': to_pl(order.created_at).strftime('%Y-%m-%d %H:%M:%S'),
         'tracking_number': order.tracking_number,
         'courier': order.courier,
     }

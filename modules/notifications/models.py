@@ -6,7 +6,7 @@ Push Notification Models
 """
 
 from extensions import db
-from utils.timeutil import UTCDateTime, utcnow
+from utils.timeutil import UTCDateTime, iso_utc, utcnow
 
 
 class Notification(db.Model):
@@ -37,7 +37,7 @@ class Notification(db.Model):
             'notification_type': self.notification_type,
             'tag': self.tag,
             'is_read': self.is_read,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': iso_utc(self.created_at),
         }
 
 

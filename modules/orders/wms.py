@@ -38,7 +38,7 @@ from modules.orders.wms_packing import (
 from extensions import db, socketio
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
-from utils.timeutil import pl_day_bounds_utc, pl_today, utcnow
+from utils.timeutil import iso_utc, pl_day_bounds_utc, pl_today, to_pl, utcnow
 
 
 # Lock timeout in minutes — orders locked longer than this are considered abandoned
@@ -87,7 +87,7 @@ def _validate_orders_for_wms(order_ids, allow_packed=False):
         if order.wms_locked_at and order.wms_locked_at > lock_cutoff:
             errors.append(
                 f'{order.order_number}: zamówienie jest w trakcie pakowania '
-                f'(zablokowane {order.wms_locked_at.strftime("%H:%M")})'
+                f'(zablokowane {to_pl(order.wms_locked_at).strftime("%H:%M")})'
             )
             continue
 
@@ -149,7 +149,7 @@ def _build_session_data(session):
                 'wms_status_name': item.wms_status_name,
                 'wms_status_color': item.wms_status_color,
                 'is_picked': (item.picked_quantity or 0) >= item.quantity,
-                'picked_at': item.picked_at.isoformat() if item.picked_at else None,
+                'picked_at': iso_utc(item.picked_at),
             })
 
         # Quantity-based progress
@@ -172,9 +172,9 @@ def _build_session_data(session):
             'picked_percentage': picked_pct,
             'delivery_method': order.delivery_method_display,
             'sort_order': so.sort_order,
-            'picking_started_at': so.picking_started_at.isoformat() if so.picking_started_at else None,
-            'picking_completed_at': so.picking_completed_at.isoformat() if so.picking_completed_at else None,
-            'packing_completed_at': so.packing_completed_at.isoformat() if so.packing_completed_at else None,
+            'picking_started_at': iso_utc(so.picking_started_at),
+            'picking_completed_at': iso_utc(so.picking_completed_at),
+            'packing_completed_at': iso_utc(so.packing_completed_at),
             'packaging_material_id': order.packaging_material_id,
             'packaging_material_name': order.packaging_material.name if order.packaging_material else None,
             'total_package_weight': float(order.total_package_weight) if order.total_package_weight else None,
@@ -226,8 +226,8 @@ def _build_session_data(session):
             'session_token': session.session_token,
             'status': session.status,
             'is_active': session.is_active,
-            'created_at': session.created_at.isoformat() if session.created_at else None,
-            'completed_at': session.completed_at.isoformat() if session.completed_at else None,
+            'created_at': iso_utc(session.created_at),
+            'completed_at': iso_utc(session.completed_at),
             'current_order_index': session.current_order_index,
             'orders_count': session.orders_count,
             'picked_orders_count': session.picked_orders_count,
@@ -236,8 +236,7 @@ def _build_session_data(session):
             'created_by': session.user.full_name if session.user else 'Nieznany',
             'notes': session.notes,
             'phone_connected': bool(getattr(session, 'phone_connected', False)),
-            'phone_connected_at': session.phone_connected_at.isoformat()
-                if getattr(session, 'phone_connected_at', None) else None,
+            'phone_connected_at': iso_utc(getattr(session, 'phone_connected_at', None)),
         },
         'orders': orders_data,
         'wms_statuses': statuses_data,
@@ -785,7 +784,7 @@ def wms_update_item_status():
                 'wms_status_name': item.wms_status_name,
                 'wms_status_color': item.wms_status_color,
                 'is_picked': item.picked_quantity >= item.quantity,
-                'picked_at': item.picked_at.isoformat() if item.picked_at else None,
+                'picked_at': iso_utc(item.picked_at),
             },
             'order': {
                 'id': order.id,
@@ -1401,7 +1400,7 @@ def wms_upload_packing_photo():
         os.makedirs(upload_dir, exist_ok=True)
 
         now = utcnow()
-        timestamp = now.strftime('%Y%m%d_%H%M%S')
+        timestamp = to_pl(now).strftime('%Y%m%d_%H%M%S')
         save_filename = f'{order_id}_{timestamp}.jpg'
         save_path = os.path.join(upload_dir, save_filename)
         photo.save(save_path)

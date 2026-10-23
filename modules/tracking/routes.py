@@ -524,7 +524,7 @@ def qr_campaign_api_visits(campaign_id):
     for v in pagination.items:
         visits_data.append({
             'id': v.id,
-            'visited_at': v.visited_at.strftime('%Y-%m-%d %H:%M:%S') if v.visited_at else None,
+            'visited_at': to_pl(v.visited_at).strftime('%Y-%m-%d %H:%M:%S') if v.visited_at else None,
             'device_type': v.device_type,
             'browser': v.browser,
             'os': v.os,

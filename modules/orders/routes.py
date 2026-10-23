@@ -39,7 +39,7 @@ from modules.orders.wms_utils import COURIER_NAMES
 from extensions import db
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
-from utils.timeutil import format_pl_input, pl_day_bounds_utc, pl_input_to_utc, utcnow
+from utils.timeutil import format_pl_input, iso_utc, pl_day_bounds_utc, pl_input_to_utc, to_pl, utcnow
 # from modules.emails.sender import send_email  # Uncomment when email module is ready
 
 
@@ -1181,7 +1181,7 @@ def admin_add_shipment(order_id):
                 'courier': shipment.courier,
                 'courier_name': shipment.courier_display_name,
                 'tracking_url': shipment.tracking_url,
-                'created_at': shipment.created_at.strftime('%Y-%m-%d %H:%M')
+                'created_at': to_pl(shipment.created_at).strftime('%Y-%m-%d %H:%M')
             }
         })
 
@@ -1585,7 +1585,7 @@ def export_orders():
 
         row_data = [
             order.order_number,
-            order.created_at.strftime('%Y-%m-%d %H:%M'),
+            to_pl(order.created_at).strftime('%Y-%m-%d %H:%M'),
             order.status_display_name,
             type_name,
             customer_name,
@@ -1631,7 +1631,7 @@ def export_orders():
 
     response = make_response(output.getvalue())
     response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response.headers['Content-Disposition'] = f'attachment; filename=zamowienia_export_{utcnow().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    response.headers['Content-Disposition'] = f'attachment; filename=zamowienia_export_{to_pl(utcnow()).strftime("%Y%m%d_%H%M%S")}.xlsx'
 
     return response
 
@@ -1968,7 +1968,7 @@ def client_detail(order_id):
                 data = json.loads(log.new_value) if log.new_value else {}
                 slug = data.get('status')
                 if slug:
-                    status_timestamps[slug] = log.created_at.strftime('%Y-%m-%dT%H:%M')
+                    status_timestamps[slug] = to_pl(log.created_at).strftime('%Y-%m-%dT%H:%M')
             except (ValueError, TypeError):
                 pass
 
@@ -3971,11 +3971,11 @@ def admin_get_shipping_request(shipping_request_id):
         # bez tego nie wie, czyje pola zostawia puste. None na zwykłym zleceniu
         # i na paczce, w której wszyscy są już rozliczeni.
         'consolidation_block_note': sr.consolidation_block_note,
-        'payment_deadline': sr.payment_deadline.isoformat() if sr.payment_deadline else None,
+        'payment_deadline': iso_utc(sr.payment_deadline),
         # Wartość pola datetime-local w modalu: czas polski, bo zapis czyta pole jako czas
         # polski — pole wypełnione zegarem UTC przesuwałoby termin przy każdym zapisie.
         'payment_deadline_input': format_pl_input(sr.payment_deadline),
-        'created_at': sr.created_at.isoformat() if sr.created_at else None
+        'created_at': iso_utc(sr.created_at)
     })
 
 
@@ -5255,7 +5255,7 @@ def admin_export_shipping_requests_inpost():
             )
 
     exported = count_exported_rows(csv_text)
-    filename = f'inpost_{utcnow().strftime("%Y-%m-%d_%H%M")}.csv'
+    filename = f'inpost_{to_pl(utcnow()).strftime("%Y-%m-%d_%H%M")}.csv'
 
     log_activity(
         user=current_user,

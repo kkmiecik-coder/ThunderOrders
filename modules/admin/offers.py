@@ -13,7 +13,7 @@ from modules.offers.models import OfferPage, OfferSection, OfferSectionImage, Of
 from modules.products.models import Product, ProductType, VariantGroup
 from datetime import datetime
 import json
-from utils.timeutil import parse_pl_input, pl_input_to_utc, utcnow
+from utils.timeutil import iso_utc, parse_pl_input, pl_input_to_utc, to_pl, utcnow
 
 
 # Kolejność statusów w zakładce „Bieżące" (od góry).
@@ -511,7 +511,7 @@ def offers_save(page_id):
         return jsonify({
             'success': True,
             'message': 'Zapisano',
-            'updated_at': page.updated_at.strftime('%H:%M:%S') if page.updated_at else None,
+            'updated_at': to_pl(page.updated_at).strftime('%H:%M:%S') if page.updated_at else None,
             'notifications_sent': notifications_sent,
         })
 
@@ -1109,7 +1109,7 @@ def offers_bulk_status():
             broadcast_page_status(
                 page.id,
                 page.status,
-                ends_at=page.ends_at.isoformat() if page.ends_at else None
+                ends_at=iso_utc(page.ends_at)
             )
     except Exception:
         pass
@@ -1267,7 +1267,7 @@ def offers_bulk_report():
 
     try:
         excel_buffer = generate_offers_bulk_report(pages)
-        filename = f'raport_zbiorczy_ofert_{utcnow().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'raport_zbiorczy_ofert_{to_pl(utcnow()).strftime("%Y%m%d_%H%M")}.xlsx'
         return Response(
             excel_buffer.getvalue(),
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -1310,7 +1310,7 @@ def offers_change_status(page_id):
         if not page.starts_at:
             return jsonify({'success': False, 'error': 'Brak daty rozpoczęcia'}), 400
         page.schedule()
-        message = f'Sprzedaż zaplanowana na {page.starts_at.strftime("%d.%m.%Y %H:%M")}.'
+        message = f'Sprzedaż zaplanowana na {to_pl(page.starts_at).strftime("%d.%m.%Y %H:%M")}.'
 
     elif action == 'pause':
         # Wstrzymaj sprzedaż
@@ -1343,7 +1343,7 @@ def offers_change_status(page_id):
         broadcast_page_status(
             page.id,
             page.status,
-            ends_at=page.ends_at.isoformat() if page.ends_at else None
+            ends_at=iso_utc(page.ends_at)
         )
     except Exception:
         pass
@@ -1935,7 +1935,7 @@ def offers_live(page_id):
             'customer_name': o['customer_name'] or '-',
             'customer_email': o['customer_email'] or '',
             'customer_phone': o.get('customer_phone') or '',
-            'created_at': o['created_at'].strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
+            'created_at': to_pl(o['created_at']).strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
             'total_amount': o['total_amount'],
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
@@ -1984,7 +1984,7 @@ def offers_summary(page_id):
             'customer_name': o['customer_name'] or '-',
             'customer_email': o['customer_email'] or '',
             'customer_phone': o.get('customer_phone') or '',
-            'created_at': o['created_at'].strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
+            'created_at': to_pl(o['created_at']).strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
             'total_amount': o['total_amount'],
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
@@ -2341,7 +2341,7 @@ def offers_live_export_excel(page_id):
 
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_name = safe_name.replace(' ', '_')[:50]
-        filename = f'offers_LIVE_{safe_name}_{utcnow().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'offers_LIVE_{safe_name}_{to_pl(utcnow()).strftime("%Y%m%d_%H%M")}.xlsx'
 
         return Response(
             excel_buffer.getvalue(),
@@ -2385,7 +2385,7 @@ def offers_export_excel(page_id):
         # Generuj nazwę pliku
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_name = safe_name.replace(' ', '_')[:50]  # Max 50 znaków
-        filename = f'offers_{safe_name}_{page.closed_at.strftime("%Y%m%d")}.xlsx'
+        filename = f'offers_{safe_name}_{to_pl(page.closed_at).strftime("%Y%m%d")}.xlsx'
 
         return Response(
             excel_buffer.getvalue(),

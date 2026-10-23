@@ -1,7 +1,7 @@
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from utils.timeutil import utcnow
+from utils.timeutil import to_pl, utcnow
 
 
 def export_visits_xlsx(campaign, visits):
@@ -28,7 +28,7 @@ def export_visits_xlsx(campaign, visits):
     ws['A2'] = f'URL: https://thunderorders.cloud/qr/{campaign.slug}'
 
     ws.merge_cells('A3:I3')
-    ws['A3'] = f'Eksport: {utcnow().strftime("%Y-%m-%d %H:%M")}'
+    ws['A3'] = f'Eksport: {to_pl(utcnow()).strftime("%Y-%m-%d %H:%M")}'
 
     headers = [
         'Data/Godzina', 'Typ urz.', 'Przeglądarka', 'System',
@@ -43,7 +43,7 @@ def export_visits_xlsx(campaign, visits):
         cell.border = thin_border
 
     for row_idx, visit in enumerate(visits, 6):
-        ws.cell(row=row_idx, column=1, value=visit.visited_at.strftime('%Y-%m-%d %H:%M:%S') if visit.visited_at else '')
+        ws.cell(row=row_idx, column=1, value=to_pl(visit.visited_at).strftime('%Y-%m-%d %H:%M:%S') if visit.visited_at else '')
         ws.cell(row=row_idx, column=2, value=visit.device_type or '')
         ws.cell(row=row_idx, column=3, value=visit.browser or '')
         ws.cell(row=row_idx, column=4, value=visit.os or '')

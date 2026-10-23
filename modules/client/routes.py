@@ -17,7 +17,7 @@ from decimal import Decimal
 
 from modules.client import client_bp
 from modules.client.dashboard_service import get_client_dashboard_stats
-from utils.timeutil import bucket_by_pl_day, pl_day_bounds_utc, pl_today
+from utils.timeutil import bucket_by_pl_day, iso_utc, pl_day_bounds_utc, pl_today
 
 
 def sort_offer_pages(pages, filter_type):
@@ -361,8 +361,8 @@ def get_offer_pages():
             'status_text': status_text,
             'is_live': is_live,
             'is_important': page.status in ['active', 'scheduled'],
-            'starts_at': page.starts_at.isoformat() if page.starts_at else None,
-            'ends_at': page.ends_at.isoformat() if page.ends_at else None,
+            'starts_at': iso_utc(page.starts_at),
+            'ends_at': iso_utc(page.ends_at),
             'has_sets': len(page.get_set_sections()) > 0,
             'page_url': url_for('offers.order_page', token=page.token)
         })
