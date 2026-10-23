@@ -68,7 +68,7 @@
                 <!-- Prawa kolumna: Timer zakończenia -->
                 <div class="header-right">
                     {% if page.ends_at %}
-                    <div class="deadline-banner" data-deadline="{{ page.ends_at.isoformat() }}">
+                    <div class="deadline-banner" data-deadline="{{ page.ends_at|iso_utc }}">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
                             <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
@@ -606,7 +606,7 @@ window.redirectAfterOrderUrl = '#';
 // Auto-refresh when sale ends (if applicable)
 {% if page.ends_at and not preview_mode %}
 (function() {
-    const endDate = new Date({{ page.ends_at.isoformat()|tojson }}).getTime();
+    const endDate = new Date({{ page.ends_at|iso_utc|tojson }}).getTime();
     const orderPageUrl = '{{ url_for("offers.order_page", token=page.token) }}';
 
     function checkSaleEnd() {

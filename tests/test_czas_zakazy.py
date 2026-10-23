@@ -36,3 +36,27 @@ def test_brak_naiwnego_czasu_w_kodzie_aplikacji():
                 if wzorzec.search(linia):
                     trafienia.append(f'{plik.relative_to(KORZEN)}:{nr}: {opis}\n    {linia.strip()}')
     assert not trafienia, f'Zakazany czas ({len(trafienia)}):\n' + '\n'.join(trafienia)
+
+
+# Szablony: chwila dla człowieka idzie przez filtry `format_*` (czas polski), a do JS przez
+# `|iso_utc` (UTC z `Z`). Gołe `.strftime(` pokazałoby godzinę UTC, a `.isoformat()` dałoby
+# przeglądarce czas bez strefy - czytany jako lokalny (odliczanie admina w Seulu 7 h za wcześnie).
+ZAKAZY_SZABLONOW = {
+    '.strftime( w szablonie - pokaże UTC; użyj |format_datetime / |format_date / |format_time':
+        re.compile(r'\.strftime\('),
+    '.isoformat() w szablonie - chwila bez strefy; do JS użyj |iso_utc':
+        re.compile(r'\.isoformat\(\)'),
+}
+
+
+def test_szablony_bez_strftime_i_isoformat():
+    trafienia = []
+    for plik in sorted((KORZEN / 'templates').rglob('*')):
+        if not plik.is_file() or plik.suffix not in ('.html', '.txt', '.xml', '.js'):
+            continue
+        tekst = plik.read_text(encoding='utf-8', errors='replace')
+        for nr, linia in enumerate(tekst.splitlines(), start=1):
+            for opis, wzorzec in ZAKAZY_SZABLONOW.items():
+                if wzorzec.search(linia):
+                    trafienia.append(f'{plik.relative_to(KORZEN)}:{nr}: {opis}\n    {linia.strip()}')
+    assert not trafienia, f'Czas w szablonach ({len(trafienia)}):\n' + '\n'.join(trafienia)

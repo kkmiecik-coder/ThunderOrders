@@ -53,7 +53,7 @@
             <tbody>
                 {% for opinia in opinie %}
                 <tr>
-                    <td>{{ opinia.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ opinia.created_at|format_datetime('%Y-%m-%d %H:%M') }}</td>
                     <td>{{ opinia.shipping_request.request_number }}</td>
                     <td>
                         {% if opinia.user %}

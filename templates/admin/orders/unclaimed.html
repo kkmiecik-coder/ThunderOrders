@@ -62,7 +62,7 @@
                         <td class="unclaimed__col-check">
                             <input type="checkbox" class="unclaimed__pick"
                                    value="{{ wpis.user.id }}"
-                                   data-ostatnie="{{ wpis.ostatnie_przypomnienie.isoformat() if wpis.ostatnie_przypomnienie else '' }}">
+                                   data-ostatnie="{{ wpis.ostatnie_przypomnienie|iso_utc if wpis.ostatnie_przypomnienie else '' }}">
                         </td>
                         <td>
                             {# Strzałka rozwija/zwija listę zamówień tego klienta (osobny <button>,
@@ -117,7 +117,7 @@
                         </td>
                         <td class="unclaimed__col-przyp">
                             {% if wpis.ostatnie_przypomnienie %}
-                                {{ wpis.ostatnie_przypomnienie.strftime('%d.%m.%Y') }}
+                                {{ wpis.ostatnie_przypomnienie|format_date('%d.%m.%Y') }}
                             {% else %}
                                 <span class="unclaimed__pusto">&mdash;</span>
                             {% endif %}

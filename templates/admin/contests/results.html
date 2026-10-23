@@ -68,7 +68,7 @@
         </div>
         {% endif %}
 
-        <div class="ca-results-date">Rozlosowano {{ hero.drawn_at.strftime('%d.%m.%Y o %H:%M') }}</div>
+        <div class="ca-results-date">Rozlosowano {{ hero.drawn_at|format_datetime('%d.%m.%Y o %H:%M') }}</div>
 
         {% else %}
         <div class="ca-empty">

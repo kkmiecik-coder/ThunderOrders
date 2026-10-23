@@ -10,11 +10,11 @@ import sys
 
 import os
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify, current_app
 from werkzeug.middleware.proxy_fix import ProxyFix
-from utils.timeutil import format_pl_input, utcnow
+from utils.timeutil import format_pl_input, iso_utc, to_pl, utcnow
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Sentry - error tracking (inicjalizacja przed create_app)
@@ -1129,7 +1129,7 @@ def register_cli_commands(app):
                     setting = Settings(key=key, value=str(value), type='string')
                     db.session.add(setting)
 
-            set_setting('payment_reminder_last_check', now.strftime('%d/%m/%Y %H:%M'))
+            set_setting('payment_reminder_last_check', to_pl(now).strftime('%d/%m/%Y %H:%M'))
             set_setting('payment_reminder_last_count', str(sent_count))
             db.session.commit()
 
@@ -1527,7 +1527,7 @@ def register_cli_commands(app):
             return
 
         for user in pending:
-            click.echo(f'  #{user.id} — żądanie z {user.deletion_requested_at.strftime("%d.%m.%Y")}', nl=False)
+            click.echo(f'  #{user.id} — żądanie z {to_pl(user.deletion_requested_at).strftime("%d.%m.%Y")}', nl=False)
             if dry_run:
                 click.echo(' [DRY RUN — pominięto]')
             else:
@@ -2000,61 +2000,49 @@ def register_template_filters(app):
         return bleach.clean(value, tags=allowed_tags, attributes=allowed_attrs,
                             css_sanitizer=css_sanitizer, strip=True)
 
-    @app.template_filter('to_poland_tz')
-    def to_poland_tz_filter(dt):
-        """
-        Konwertuje datetime UTC na czas polski (Europe/Warsaw).
-        Użycie w template: {{ date|to_poland_tz }}
+    def _strftime_pl(dt, fmt):
+        """Chwila -> tekst w czasie polskim. Sama data (`date`) bez zmian - nie ma strefy.
+
+        Naiwny datetime to błąd (`ValueError` z `to_pl`) - w kodzie czas jest zawsze aware UTC.
         """
         if dt is None:
-            return None
-        # Jeśli datetime nie ma timezone, zakładamy że jest UTC
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(POLAND_TZ)
+            return ''
+        if isinstance(dt, datetime):
+            dt = to_pl(dt)
+        return dt.strftime(fmt)
 
     @app.template_filter('format_datetime')
     def format_datetime_filter(dt, fmt='%Y-%m-%d %H:%M'):
         """
-        Formatuje datetime.
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
-        Aware datetime konwertowany na czas polski.
+        Formatuje chwilę (aware UTC) w czasie polskim.
         Użycie: {{ date|format_datetime }} lub {{ date|format_datetime('%d.%m.%Y %H:%M') }}
         """
-        if dt is None:
-            return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime(fmt)
+        return _strftime_pl(dt, fmt)
 
     @app.template_filter('format_date')
     def format_date_filter(dt, fmt='%Y-%m-%d'):
         """
-        Formatuje tylko datę.
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
+        Formatuje tylko datę - dla chwili datę polską, dla `date` samą datę.
         Użycie: {{ date|format_date }} lub {{ date|format_date('%d.%m.%Y') }}
         """
-        if dt is None:
-            return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime(fmt)
+        return _strftime_pl(dt, fmt)
 
     @app.template_filter('format_time')
     def format_time_filter(dt, fmt='%H:%M'):
         """
-        Formatuje tylko godzinę.
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
+        Formatuje tylko godzinę w czasie polskim.
         Użycie: {{ date|format_time }} lub {{ date|format_time('%H:%M:%S') }}
         """
-        if dt is None:
-            return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime(fmt)
+        return _strftime_pl(dt, fmt)
+
+    @app.template_filter('iso_utc')
+    def iso_utc_filter(dt):
+        """
+        Chwila dla JS: ISO w UTC z `Z` (np. 2026-10-30T19:00:00Z). Przeglądarka w każdej
+        strefie odczyta ją poprawnie (`Date.parse`); wyświetlanie przez `formatPlDateTime`.
+        Użycie: data-target="{{ page.starts_at|iso_utc }}" lub {{ page.ends_at|iso_utc|tojson }}
+        """
+        return iso_utc(dt)
 
     @app.template_filter('format_datetime_local')
     def format_datetime_local_filter(dt):

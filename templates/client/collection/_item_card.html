@@ -16,7 +16,7 @@
         {% if item.market_price %}
         <span class="card-price">{{ "%.2f"|format(item.market_price) }} zł</span>
         {% endif %}
-        <span class="card-date">{{ item.created_at.strftime('%d.%m.%Y') }}</span>
+        <span class="card-date">{{ item.created_at|format_date('%d.%m.%Y') }}</span>
     </div>
     <div class="card-actions">
         {% if item.is_virtual %}

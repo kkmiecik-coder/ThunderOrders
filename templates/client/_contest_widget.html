@@ -25,12 +25,12 @@
       {% if contest_widget.state == 'trwa' %}
         <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
         {% if contest_widget.contest.ends_at %}
-        <span class="contest-widget__deadline">⏳ do {{ contest_widget.contest.ends_at.strftime('%d.%m %H:%M') }}</span>
+        <span class="contest-widget__deadline">⏳ do {{ contest_widget.contest.ends_at|format_datetime('%d.%m %H:%M') }}</span>
         {% endif %}
       {% elif contest_widget.state == 'zamkniete' %}
         <span class="contest-widget__badge contest-widget__badge--closed">⏳ PRZYJMOWANIE LOSÓW ZAKOŃCZONE</span>
         {% if contest_widget.contest.ends_at %}
-        <span class="contest-widget__deadline">zakończono {{ contest_widget.contest.ends_at.strftime('%d.%m %H:%M') }}</span>
+        <span class="contest-widget__deadline">zakończono {{ contest_widget.contest.ends_at|format_datetime('%d.%m %H:%M') }}</span>
         {% endif %}
       {% else %}{# rozstrzygniete #}
         <span class="contest-widget__badge contest-widget__badge--resolved">🏆 ROZSTRZYGNIĘTY</span>

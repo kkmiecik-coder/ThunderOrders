@@ -422,7 +422,7 @@
                             <div class="special-badge-info">
                                 <strong>{{ ua.achievement.name }}</strong>
                                 <br>
-                                <small>{{ ua.achievement.description }} · {{ ua.unlocked_at.strftime('%Y-%m-%d') }}</small>
+                                <small>{{ ua.achievement.description }} · {{ ua.unlocked_at|format_date('%Y-%m-%d') }}</small>
                             </div>
                             {% if current_user.is_admin() %}
                             <form method="POST"

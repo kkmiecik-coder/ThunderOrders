@@ -52,7 +52,7 @@
             <div class="broadcast-card-details">
                 <div class="broadcast-card-detail">
                     <span class="detail-label">Data</span>
-                    <span class="detail-value">{{ b.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                    <span class="detail-value">{{ b.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
                 </div>
                 <div class="broadcast-card-detail">
                     <span class="detail-label">Wysłano</span>
@@ -102,7 +102,7 @@
                         <span class="target-badge target-{{ b.target_type }}">{{ b.target_display }}</span>
                     </td>
                     <td class="text-sm text-secondary">
-                        {{ b.created_at.strftime('%d.%m.%Y %H:%M') }}
+                        {{ b.created_at|format_datetime('%d.%m.%Y %H:%M') }}
                     </td>
                     <td class="text-sm">{{ b.sent_count }}</td>
                     <td>

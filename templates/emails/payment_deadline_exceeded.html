@@ -23,7 +23,7 @@
                                 Przekroczony termin płatności
                             </h1>
                             <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
-                                Następujące zamówienia ze strony <strong>{{ page_name }}</strong> przekroczyły termin płatności (<strong>{{ payment_deadline.strftime('%d.%m.%Y, %H:%M') }}</strong>):
+                                Następujące zamówienia ze strony <strong>{{ page_name }}</strong> przekroczyły termin płatności (<strong>{{ payment_deadline|format_datetime('%d.%m.%Y, %H:%M') }} czasu polskiego</strong>):
                             </p>
                             <!-- Orders table -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">

@@ -27,7 +27,7 @@
                             </p>
                             <p style="margin: 0 0 24px 0; font-size: 16px; color: #212121;">
                                 {% if reminder_context == 'before_deadline' and payment_deadline %}
-                                    Przypominamy, że termin płatności za zamówienie <strong>{{ order_number }}</strong> upływa <strong>{{ payment_deadline.strftime('%d.%m.%Y o %H:%M') }}</strong>.
+                                    Przypominamy, że termin płatności za zamówienie <strong>{{ order_number }}</strong> upływa <strong>{{ payment_deadline|format_datetime('%d.%m.%Y o %H:%M') }} czasu polskiego</strong>.
                                 {% else %}
                                     Przypominamy o oczekującej płatności za zamówienie <strong>{{ order_number }}</strong>.
                                 {% endif %}
@@ -77,7 +77,7 @@
                             </p>
                             {% if payment_deadline %}
                             <p style="margin: 20px 0 0; font-size: 14px; color: #666; text-align: center;">
-                                <strong>Termin płatności: {{ payment_deadline.strftime('%d.%m.%Y, %H:%M') }}</strong>
+                                <strong>Termin płatności: {{ payment_deadline|format_datetime('%d.%m.%Y, %H:%M') }} czasu polskiego</strong>
                             </p>
                             {% endif %}
                             <!-- CTA Button -->

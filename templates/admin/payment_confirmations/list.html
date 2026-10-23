@@ -212,7 +212,7 @@
                     <div class="pc-card-row">
                         <span class="pc-card-label">Data:</span>
                         <span class="pc-card-value">
-                            {% if first.uploaded_at %}{{ first.uploaded_at.strftime('%d.%m.%Y %H:%M') }}{% else %}—{% endif %}
+                            {% if first.uploaded_at %}{{ first.uploaded_at|format_datetime('%d.%m.%Y %H:%M') }}{% else %}—{% endif %}
                         </span>
                     </div>
                     <div class="pc-card-row">
@@ -360,8 +360,8 @@
                     <td class="col-date">
                         <div class="date-cell-new">
                             {% if first.uploaded_at %}
-                                <span class="date-created">{{ first.uploaded_at.strftime('%d.%m.%Y') }}</span>
-                                <span class="date-updated">{{ first.uploaded_at.strftime('%H:%M') }}</span>
+                                <span class="date-created">{{ first.uploaded_at|format_date('%d.%m.%Y') }}</span>
+                                <span class="date-updated">{{ first.uploaded_at|format_time('%H:%M') }}</span>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}

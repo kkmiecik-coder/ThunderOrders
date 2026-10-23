@@ -53,6 +53,8 @@ import time
 
 from flask import current_app, url_for
 
+from utils.timeutil import to_pl
+
 
 def kontekst_zamowienia(order):
     """Powiązanie wpisu EmailLog z zamówieniem — do parametru `log_context`.
@@ -381,7 +383,7 @@ class EmailManager:
 
             payment_deadline_str = None
             if order.offer_page and order.offer_page.payment_deadline:
-                payment_deadline_str = order.offer_page.payment_deadline.strftime(
+                payment_deadline_str = to_pl(order.offer_page.payment_deadline).strftime(
                     '%d.%m.%Y %H:%M'
                 )
 
@@ -942,7 +944,7 @@ class EmailManager:
         def _format_date(dt):
             if dt is None:
                 return 'bez limitu czasowego'
-            return dt.strftime('%d.%m.%Y, %H:%M')
+            return to_pl(dt).strftime('%d.%m.%Y, %H:%M') + ' czasu polskiego'
 
         old_display = _format_date(old_ends_at)
         new_display = _format_date(new_ends_at)
@@ -1741,7 +1743,7 @@ class EmailManager:
         } for item in order.items]
 
         page_name = order.offer_page.name if order.offer_page else (order.offer_page_name or 'Offer')
-        created_at = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else ''
+        created_at = to_pl(order.created_at).strftime('%d.%m.%Y %H:%M') if order.created_at else ''
         order_total = float(order.total_amount or 0)
 
         for email in admin_emails:
