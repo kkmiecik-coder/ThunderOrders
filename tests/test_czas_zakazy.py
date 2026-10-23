@@ -1,14 +1,13 @@
 """Zakazy czasu w kodzie aplikacji: jedna konwencja (UTC w bazie i w kodzie), bez naiwnego czasu.
 
 Skanuje `app.py`, `modules/` i `utils/`. Każde trafienie to plik:linia, żeby od razu było widać,
-co poprawić. Wyjątki: `utils/timeutil.py` - tam mieszka sam typ `UTCDateTime`; `utils/czas_migracja.py` -
-lista kolumn migracji na UTC opisuje z nazwy dawne źródła czasu (sama zegara nie czyta).
+co poprawić. Wyjątek: `utils/timeutil.py` - tam mieszka sam typ `UTCDateTime`.
 """
 import re
 from pathlib import Path
 
 KORZEN = Path(__file__).resolve().parent.parent
-WYJATKI = {KORZEN / 'utils' / 'timeutil.py', KORZEN / 'utils' / 'czas_migracja.py'}
+WYJATKI = {KORZEN / 'utils' / 'timeutil.py'}
 
 ZAKAZY = {
     'get_local_now (naiwny czas polski) - użyj utcnow() z utils.timeutil': re.compile(r'get_local_now'),

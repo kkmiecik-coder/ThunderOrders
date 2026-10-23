@@ -1,8 +1,9 @@
-"""Testy migracji danych czasu polskiego na UTC (utils/czas_migracja + plik migracji).
+"""Testy migracji danych czasu polskiego na UTC (`e3b9a6c1d4f7_czas_utc_dane.py`).
 
-Migracja przelicza naiwny czas polski w bazie na naiwny UTC. Tu sprawdzamy:
-konwersję przy obu zmianach czasu, kompletność listy kolumn względem modeli
-oraz przebieg samej migracji (upgrade + downgrade) na SQLite.
+Migracja przelicza naiwny czas polski w bazie na naiwny UTC. Jej lista kolumn (`KOLUMNY`)
+i konwersja są zamrożone w pliku migracji; tutaj leży lista kolumn pominiętych
+(`WYKLUCZONE`) i strażnik, że każda kolumna `UTCDateTime` z modeli jest w jednej z nich.
+Sprawdzamy też konwersję przy obu zmianach czasu i przebieg migracji na SQLite.
 """
 import importlib.util
 from datetime import datetime, timedelta
@@ -13,10 +14,45 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from utils.czas_migracja import KOLUMNY, WYKLUCZONE, pl_naive_to_utc_naive, utc_naive_to_pl_naive
 from utils.timeutil import UTCDateTime
 
 PLIK_MIGRACJI = Path(__file__).resolve().parent.parent / 'migrations' / 'versions' / 'e3b9a6c1d4f7_czas_utc_dane.py'
+
+
+def _wczytaj_migracje():
+    """Świeży moduł migracji (każdy test może bezpiecznie podmieniać w nim WSAD/KOLUMNY)."""
+    spec = importlib.util.spec_from_file_location('migracja_czas_utc_dane', PLIK_MIGRACJI)
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    return modul
+
+
+_MIGRACJA = _wczytaj_migracje()
+KOLUMNY = _MIGRACJA.KOLUMNY
+pl_naive_to_utc_naive = _MIGRACJA.pl_naive_to_utc_naive
+utc_naive_to_pl_naive = _MIGRACJA.utc_naive_to_pl_naive
+
+# Kolumny już w UTC, których migracja nie rusza (źródła zapisu w kodzie sprzed zmiany, d681efb9;
+# serwer i sesja MariaDB w UTC). Kolumna `UTCDateTime` dodana po migracji jest od początku w UTC —
+# dopisz ją TUTAJ, nigdy do zamrożonego `KOLUMNY` w pliku migracji.
+WYKLUCZONE: dict[str, list[str]] = {
+    # default=db.func.now() i onupdate=db.func.now() — czas sesji MariaDB (UTC)
+    'cart_items': ['created_at', 'updated_at'],
+    # jedyny zapis: csv_processor.py `completed_at = datetime.now()` (wcześniej utcnow)
+    'csv_imports': ['completed_at'],
+    # default=datetime.now — serwer w UTC
+    'offer_section_images': ['created_at'],
+    # default=datetime.now — serwer w UTC
+    'offer_sections': ['created_at'],
+    # default/onupdate=datetime.now(timezone.utc)
+    'payment_methods': ['created_at', 'updated_at'],
+    # default=db.func.now() — czas sesji MariaDB (UTC)
+    'product_interactions': ['created_at'],
+    # created_at: default=datetime.utcnow; last_used_at: push_manager `datetime.utcnow()`
+    'push_subscriptions': ['created_at', 'last_used_at'],
+    # jedyny zapis: api/analytics.py `analytics_consent_date = datetime.now()` (poza NULL przy anonimizacji)
+    'users': ['analytics_consent_date'],
+}
 
 
 # --- konwersja -------------------------------------------------------------
@@ -113,8 +149,8 @@ def _pary(slownik):
 def test_kazda_kolumna_utc_jest_sklasyfikowana(db):
     brakujace = _kolumny_utc_z_modeli(db) - _pary(KOLUMNY) - _pary(WYKLUCZONE)
     assert not brakujace, (
-        f'Kolumny UTCDateTime bez klasyfikacji w utils/czas_migracja.py: {sorted(brakujace)}. '
-        'Kolumna dodana po migracji czasu na UTC jest od początku w UTC — dopisz ją do WYKLUCZONE.'
+        f'Kolumny UTCDateTime ani w KOLUMNY migracji e3b9a6c1d4f7, ani w WYKLUCZONE: {sorted(brakujace)}. '
+        'Kolumna dodana po migracji czasu na UTC jest od początku w UTC — dopisz ją do WYKLUCZONE w tym pliku.'
     )
 
 
@@ -147,13 +183,6 @@ def test_pewne_wykluczenia_i_poprawki_specu():
 
 
 # --- przebieg migracji na SQLite -------------------------------------------
-
-def _wczytaj_migracje():
-    spec = importlib.util.spec_from_file_location('migracja_czas_utc_dane', PLIK_MIGRACJI)
-    modul = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(modul)
-    return modul
-
 
 def _uruchom(modul, kierunek, db):
     polaczenie = db.session.connection()
@@ -258,3 +287,46 @@ def test_migracja_wsadami_przelicza_kazdy_wiersz_raz(db, make_user, make_order, 
 def test_migracja_po_aktualnym_headzie():
     migracja = _wczytaj_migracje()
     assert migracja.down_revision == 'c7a4d1e9f2b6'
+
+
+def test_migracja_bez_importow_z_aplikacji():
+    # Zamrożona kopia: zmiana modeli albo utils/ nie może zmienić wyniku tej migracji.
+    import ast
+    drzewo = ast.parse(PLIK_MIGRACJI.read_text(encoding='utf-8'))
+    moduly = set()
+    for wezel in ast.walk(drzewo):
+        if isinstance(wezel, ast.Import):
+            moduly |= {a.name.split('.')[0] for a in wezel.names}
+        elif isinstance(wezel, ast.ImportFrom):
+            moduly.add(wezel.module.split('.')[0])
+    assert moduly <= {'datetime', 'zoneinfo', 'sqlalchemy', 'alembic'}, moduly
+
+
+def test_migracja_przerywa_sie_na_nie_datetime_i_nic_nie_zostaje(db, make_user, make_order):
+    # `orders` idzie przed `users` (kolejność KOLUMNY), więc zamówienie zostaje przeliczone,
+    # zanim migracja trafi na zepsutą wartość — po wycofaniu transakcji musi wrócić do stanu sprzed.
+    uzytkownik = make_user()
+    zamowienie = make_order(uzytkownik)
+    _ustaw(db, 'orders', zamowienie.id, created_at=datetime(2026, 7, 1, 20, 0), updated_at=None)
+    db.session.execute(sa.text("UPDATE users SET created_at = 'to nie data' WHERE id = :id"), {'id': uzytkownik.id})
+    db.session.commit()
+
+    migracja = _wczytaj_migracje()
+    # SQLite: parser typu DateTime odrzuca tekst sam (ValueError); MariaDB/PyMySQL oddaje zerową
+    # datę jako str, którą łapie jawne sprawdzenie w migracji (RuntimeError).
+    with pytest.raises((RuntimeError, ValueError)):
+        _uruchom(migracja, 'upgrade', db)
+    db.session.rollback()
+
+    assert _odczytaj(db, 'orders', zamowienie.id, 'created_at') == {'created_at': datetime(2026, 7, 1, 20, 0)}
+
+
+def test_migracja_odrzuca_tabele_bez_klucza_id(db, monkeypatch):
+    db.session.execute(sa.text('CREATE TABLE czas_test_klucz (kod VARCHAR(10) PRIMARY KEY, kiedy DATETIME)'))
+    db.session.execute(sa.text("INSERT INTO czas_test_klucz VALUES ('a', '2026-07-01 20:00:00.000000')"))
+
+    migracja = _wczytaj_migracje()
+    monkeypatch.setattr(migracja, 'KOLUMNY', {'czas_test_klucz': ['kiedy']})
+    with pytest.raises(RuntimeError, match='klucz główny'):
+        _uruchom(migracja, 'upgrade', db)
+    db.session.rollback()
