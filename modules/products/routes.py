@@ -28,7 +28,7 @@ from modules.products.forms import (
 from extensions import db
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
-from utils.timeutil import pl_input_to_utc
+from utils.timeutil import pl_day_bounds_utc, pl_input_to_utc
 
 
 # ==========================================
@@ -2467,7 +2467,7 @@ def _apply_stock_order_filters(query, model, filters):
     listy na strony filtrowałby tylko widoczne pozycje, więc logika musiała
     trafić do zapytania.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     if filters['q']:
         query = query.filter(model.order_number.ilike(f"%{filters['q']}%"))
@@ -2478,17 +2478,18 @@ def _apply_stock_order_filters(query, model, filters):
     if filters['statuses']:
         query = query.filter(model.status.in_(filters['statuses']))
 
+    # Zakres dat = polskie doby (granice przeliczone na UTC)
     if filters['date_from']:
         try:
-            query = query.filter(
-                model.created_at >= pl_input_to_utc(datetime.strptime(filters['date_from'], '%Y-%m-%d')))
+            start, _ = pl_day_bounds_utc(datetime.strptime(filters['date_from'], '%Y-%m-%d').date())
+            query = query.filter(model.created_at >= start)
         except ValueError:
             pass  # śmieci w URL ignorujemy zamiast wywracać stronę
 
     if filters['date_to']:
         try:
             # Data „do" ma obejmować cały dzień, a created_at trzyma godzinę.
-            end = pl_input_to_utc(datetime.strptime(filters['date_to'], '%Y-%m-%d') + timedelta(days=1))
+            _, end = pl_day_bounds_utc(datetime.strptime(filters['date_to'], '%Y-%m-%d').date())
             query = query.filter(model.created_at < end)
         except ValueError:
             pass

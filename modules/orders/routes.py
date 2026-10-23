@@ -39,7 +39,7 @@ from modules.orders.wms_utils import COURIER_NAMES
 from extensions import db
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
-from utils.timeutil import pl_input_to_utc, utcnow
+from utils.timeutil import format_pl_input, pl_day_bounds_utc, pl_input_to_utc, utcnow
 # from modules.emails.sender import send_email  # Uncomment when email module is ready
 
 
@@ -115,13 +115,13 @@ def admin_list():
     if filter_form.status.data:
         query = query.filter(Order.status.in_(filter_form.status.data))
 
+    # Zakres dat = polskie doby (granice przeliczone na UTC)
     if filter_form.date_from.data:
-        query = query.filter(Order.created_at >= filter_form.date_from.data)
+        start, _ = pl_day_bounds_utc(filter_form.date_from.data)
+        query = query.filter(Order.created_at >= start)
 
     if filter_form.date_to.data:
-        # Add 1 day to include the end date
-        from datetime import timedelta
-        end_date = filter_form.date_to.data + timedelta(days=1)
+        _, end_date = pl_day_bounds_utc(filter_form.date_to.data)
         query = query.filter(Order.created_at < end_date)
 
     if filter_form.search.data:
@@ -1777,12 +1777,13 @@ def client_list():
     elif status_filter:
         query = query.filter(Order.status == status_filter)
 
+    # Zakres dat = polskie doby (granice przeliczone na UTC)
     if date_from:
-        query = query.filter(Order.created_at >= pl_input_to_utc(datetime.strptime(date_from, '%Y-%m-%d')))
+        start, _ = pl_day_bounds_utc(datetime.strptime(date_from, '%Y-%m-%d').date())
+        query = query.filter(Order.created_at >= start)
 
     if date_to:
-        from datetime import timedelta
-        end_date = pl_input_to_utc(datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1))
+        _, end_date = pl_day_bounds_utc(datetime.strptime(date_to, '%Y-%m-%d').date())
         query = query.filter(Order.created_at < end_date)
 
     # Search filter (by order number or custom name)
@@ -3971,6 +3972,9 @@ def admin_get_shipping_request(shipping_request_id):
         # i na paczce, w której wszyscy są już rozliczeni.
         'consolidation_block_note': sr.consolidation_block_note,
         'payment_deadline': sr.payment_deadline.isoformat() if sr.payment_deadline else None,
+        # Wartość pola datetime-local w modalu: czas polski, bo zapis czyta pole jako czas
+        # polski — pole wypełnione zegarem UTC przesuwałoby termin przy każdym zapisie.
+        'payment_deadline_input': format_pl_input(sr.payment_deadline),
         'created_at': sr.created_at.isoformat() if sr.created_at else None
     })
 
@@ -4196,7 +4200,6 @@ def _zapisz_zlecenie_wysylki(sr, data):
     if 'payment_deadline' in data:
         deadline_str = data['payment_deadline']
         if deadline_str:
-            from datetime import datetime
             try:
                 sr.payment_deadline = pl_input_to_utc(datetime.fromisoformat(deadline_str))
             except (ValueError, TypeError):

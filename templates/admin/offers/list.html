@@ -206,12 +206,12 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="startsAt" class="form-label">Data rozpoczęcia</label>
+                        <label for="startsAt" class="form-label">Data rozpoczęcia <span class="tz-hint">(czas polski)</span></label>
                         <input type="datetime-local" id="startsAt" name="starts_at" class="form-control">
                         <small class="form-hint">Pozostaw puste, aby opublikować ręcznie</small>
                     </div>
                     <div class="form-group">
-                        <label for="endsAt" class="form-label">Data zakończenia</label>
+                        <label for="endsAt" class="form-label">Data zakończenia <span class="tz-hint">(czas polski)</span></label>
                         <input type="datetime-local" id="endsAt" name="ends_at" class="form-control">
                         <small class="form-hint">Pozostaw puste dla sprzedaży bez limitu czasu</small>
                     </div>
@@ -335,7 +335,7 @@
         </div>
         <div class="modal-body">
             <p class="bulk-modal-info">Dotyczy <strong id="bulkDateCount">0</strong> zaznaczonych stron.</p>
-            <label class="bulk-date-label" for="bulkDateInput">Wybierz datę i godzinę</label>
+            <label class="bulk-date-label" for="bulkDateInput">Wybierz datę i godzinę <span class="tz-hint">(czas polski)</span></label>
             <input type="datetime-local" id="bulkDateInput" class="bulk-date-input">
         </div>
         <div class="modal-footer">

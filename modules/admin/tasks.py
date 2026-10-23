@@ -11,8 +11,7 @@ from modules.admin.models import AdminTask, AdminTaskAssignment, AdminTaskCommen
 from modules.auth.models import User
 from extensions import db
 from utils.decorators import role_required
-from datetime import datetime
-from utils.timeutil import pl_input_to_utc
+from utils.timeutil import format_pl_input, parse_pl_input
 
 
 @admin_bp.route('/tasks')
@@ -83,7 +82,7 @@ def task_create():
     due_date = None
     if due_date_str:
         try:
-            due_date = pl_input_to_utc(datetime.strptime(due_date_str, '%Y-%m-%dT%H:%M'))
+            due_date = parse_pl_input(due_date_str)
         except ValueError:
             return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
 
@@ -159,7 +158,7 @@ def task_get(id):
             'description': task.description or '',
             'priority': task.priority,
             'status': task.status,
-            'due_date': task.due_date.strftime('%Y-%m-%dT%H:%M') if task.due_date else '',
+            'due_date': format_pl_input(task.due_date),
             'assigned_users': assigned_users,
             'comments': comments
         }
@@ -195,7 +194,7 @@ def task_update(id):
     # Parse due_date
     if due_date_str:
         try:
-            task.due_date = pl_input_to_utc(datetime.strptime(due_date_str, '%Y-%m-%dT%H:%M'))
+            task.due_date = parse_pl_input(due_date_str)
         except ValueError:
             return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
     else:

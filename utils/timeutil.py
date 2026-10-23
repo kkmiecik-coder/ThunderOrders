@@ -52,6 +52,16 @@ def parse_pl_input(s: str | None, fmt: str = '%Y-%m-%dT%H:%M') -> datetime | Non
     return pl_input_to_utc(datetime.strptime(s, fmt))
 
 
+def format_pl_input(dt: datetime | None, fmt: str = '%Y-%m-%dT%H:%M') -> str:
+    """Aware chwila -> tekst do pola formularza w czasie polskim (odwrotność `parse_pl_input`).
+
+    Pusty tekst dla `None`; naiwny datetime to błąd (`ValueError`, jak w `to_pl`).
+    """
+    if dt is None:
+        return ''
+    return to_pl(dt).strftime(fmt)
+
+
 def pl_today() -> date:
     """Dzisiejsza data w Polsce."""
     return datetime.now(PL_TZ).date()

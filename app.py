@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify, current_app
 from werkzeug.middleware.proxy_fix import ProxyFix
-from utils.timeutil import utcnow
+from utils.timeutil import format_pl_input, utcnow
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Sentry - error tracking (inicjalizacja przed create_app)
@@ -2059,16 +2059,12 @@ def register_template_filters(app):
     @app.template_filter('format_datetime_local')
     def format_datetime_local_filter(dt):
         """
-        Formatuje datetime dla input type="datetime-local".
-        Naive datetime traktowany jako czas polski (nie konwertujemy).
+        Formatuje datetime dla input type="datetime-local" — w czasie polskim,
+        bo admin zawsze wpisuje czas polski (zapis czyta pole przez parse_pl_input).
+        Naiwny datetime to błąd (ValueError).
         Użycie: {{ date|format_datetime_local }}
         """
-        if dt is None:
-            return ''
-        # Naive datetime = już czas polski, nie konwertujemy
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(POLAND_TZ)
-        return dt.strftime('%Y-%m-%dT%H:%M')
+        return format_pl_input(dt)
 
     @app.template_filter('format_currency')
     def format_currency_filter(value, currency='PLN', decimals=2):

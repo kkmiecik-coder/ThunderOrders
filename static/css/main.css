@@ -276,6 +276,18 @@ body {
   color: var(--error);
 }
 
+/* Dopisek przy polach czasu w panelu admina: wpisujemy zawsze czas polski */
+.tz-hint {
+  font-size: 0.85em;
+  font-weight: 400;
+  color: #757575;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .tz-hint {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* Utility classes */
 .text-center {
   text-align: center;

@@ -67,8 +67,9 @@
     function initEdits(sr) {
         return {
             orderCosts: new Map(sr.orders.map(o => [o.id, o.shipping_cost || 0])),
-            // "YYYY-MM-DDTHH:MM" — format pola datetime-local i payloadu PUT
-            deadline: sr.payment_deadline ? sr.payment_deadline.substring(0, 16) : '',
+            // "YYYY-MM-DDTHH:MM" w czasie polskim — format pola datetime-local i payloadu PUT
+            // (serwer liczy go z UTC; obcięcie payment_deadline dałoby zegar UTC)
+            deadline: sr.payment_deadline_input || '',
             parcelSize: sr.parcel_size || '',
             packagingMaterialId: sr.packaging_material_id || '',
             courier: sr.courier || '',
@@ -459,7 +460,7 @@
                     </div>
                     ${state.mode === 'ship' ? '' : `
                     <div class="form-group">
-                        <label class="form-label" for="srDeadline">Termin płatności</label>
+                        <label class="form-label" for="srDeadline">Termin płatności <span class="tz-hint">(czas polski)</span></label>
                         <input type="datetime-local" id="srDeadline" class="form-control" value="${edits.deadline}">
                     </div>`}
                     <div class="form-group">

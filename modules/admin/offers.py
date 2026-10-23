@@ -13,7 +13,7 @@ from modules.offers.models import OfferPage, OfferSection, OfferSectionImage, Of
 from modules.products.models import Product, ProductType, VariantGroup
 from datetime import datetime
 import json
-from utils.timeutil import pl_input_to_utc, utcnow
+from utils.timeutil import parse_pl_input, pl_input_to_utc, utcnow
 
 
 # Kolejność statusów w zakładce „Bieżące" (od góry).
@@ -276,14 +276,14 @@ def offers_create():
 
     if starts_at_str:
         try:
-            starts_at = pl_input_to_utc(datetime.strptime(starts_at_str, '%Y-%m-%dT%H:%M'))
+            starts_at = parse_pl_input(starts_at_str)
         except ValueError:
             flash('Nieprawidłowy format daty rozpoczęcia.', 'error')
             return redirect(url_for('admin.offers_list'))
 
     if ends_at_str:
         try:
-            ends_at = pl_input_to_utc(datetime.strptime(ends_at_str, '%Y-%m-%dT%H:%M'))
+            ends_at = parse_pl_input(ends_at_str)
         except ValueError:
             flash('Nieprawidłowy format daty zakończenia.', 'error')
             return redirect(url_for('admin.offers_list'))
@@ -407,7 +407,7 @@ def offers_save(page_id):
 
         if 'starts_at' in data:
             if data['starts_at']:
-                new_starts_at = pl_input_to_utc(datetime.strptime(data['starts_at'], '%Y-%m-%dT%H:%M'))
+                new_starts_at = parse_pl_input(data['starts_at'])
                 page.starts_at = new_starts_at
 
                 if page.status == 'active' and new_starts_at > utcnow():
@@ -417,7 +417,7 @@ def offers_save(page_id):
 
         if 'ends_at' in data:
             if data['ends_at']:
-                page.ends_at = pl_input_to_utc(datetime.strptime(data['ends_at'], '%Y-%m-%dT%H:%M'))
+                page.ends_at = parse_pl_input(data['ends_at'])
             else:
                 page.ends_at = None
 
@@ -1127,8 +1127,6 @@ def offers_bulk_status():
 @admin_required
 def offers_bulk_set_dates():
     """Masowe ustawienie daty rozpoczęcia lub zakończenia."""
-    from datetime import datetime
-
     data = request.get_json() or {}
     page_ids = data.get('page_ids') or []
     field = data.get('field')
@@ -1147,6 +1145,7 @@ def offers_bulk_set_dates():
         return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
 
     try:
+        # fromisoformat: przyjmuje też sekundy; wartość z offsetem odrzuca pl_input_to_utc
         parsed = pl_input_to_utc(datetime.fromisoformat(value))
     except (ValueError, TypeError):
         return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
@@ -1833,7 +1832,6 @@ def offers_close_complete(page_id):
             'error': 'Termin płatności jest wymagany.'
         }), 400
 
-    from datetime import datetime
     try:
         payment_deadline = pl_input_to_utc(datetime.fromisoformat(payment_deadline_str))
     except (ValueError, TypeError):

@@ -13,7 +13,7 @@ from modules.contests import contests_bp
 from modules.contests.models import Contest, ContestPrize, ContestPrizeItem, ContestSpin, ContestWinner
 from modules.contests.forms import ContestForm
 from modules.contests import utils as cu
-from utils.timeutil import pl_input_to_utc
+from utils.timeutil import pl_input_to_utc, to_pl
 
 
 def _display_name(user):
@@ -252,6 +252,10 @@ def admin_edit(cid):
     # GET: prefill z obiektu. POST: TYLKO z danych formularza — bez obj, aby odznaczone
     # (disabled, niewysłane) kryteria stały się None, a nie zachowywały starej wartości z obj.
     form = ContestForm(obj=c) if request.method == 'GET' else ContestForm()
+    if request.method == 'GET' and c.ends_at:
+        # Pole datetime-local pokazuje czas polski — _apply_form czyta je jako czas polski;
+        # pole z zegarem UTC przesuwałoby koniec przy każdym zapisie.
+        form.ends_at.data = to_pl(c.ends_at).replace(tzinfo=None)
     if form.validate_on_submit():
         _apply_form(form, c)
         _apply_prizes(c)
