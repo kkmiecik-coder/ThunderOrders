@@ -54,7 +54,18 @@ source venv/bin/activate
 pip install -r requirements.txt --quiet 2>&1
 
 echo "$LOG_PREFIX Running migrations..."
-flask db upgrade 2>&1
+# Nieudana migracja też NIE MOŻE przejść dalej: Alembic cofa transakcję, więc baza zostaje
+# w starym stanie, a przeładowanie podniosłoby nowy kod na nieprzerobione dane (np. migracja
+# czasu na UTC: nowy kod czytałby czas polski jako UTC).
+if ! flask db upgrade 2>&1; then
+    echo "$LOG_PREFIX ================================================================"
+    echo "$LOG_PREFIX BŁĄD: flask db upgrade nie powiódł się. PRZERYWAM DEPLOY."
+    echo "$LOG_PREFIX Kod na dysku to już $(git rev-parse --short HEAD), ale usługi NIE zostały"
+    echo "$LOG_PREFIX przeładowane — działające procesy dalej chodzą na poprzedniej wersji."
+    echo "$LOG_PREFIX Naprawa: sprawdź błąd migracji wyżej, popraw i uruchom ponownie ten skrypt."
+    echo "$LOG_PREFIX ================================================================"
+    exit 1
+fi
 
 echo "$LOG_PREFIX Reloading application..."
 # Architektura rozdzielona (2026-06-04): HTTP (gthread) + WS (eventlet/Socket.IO).
