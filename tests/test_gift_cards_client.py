@@ -108,6 +108,37 @@ def test_ranking_saved_as_type_ids_in_order(client, setup):
     assert GiftParticipant.query.one().ranking == [t1.id, t2.id]
 
 
+def test_ranking_first_save_conflict_updates_existing(client, setup, monkeypatch):
+    """Podwójne wysłanie pierwszego rankingu: insert trafia w unikalny klucz -> aktualizacja, nie 500."""
+    import json
+    from sqlalchemy.exc import IntegrityError
+    from extensions import db as _db
+    from modules.gift_cards.models import GiftParticipant
+    c, t1, t2, user, _ = setup
+    real_commit = _db.session.commit
+
+    def commit_with_conflict():
+        _db.session.rollback()
+        _db.session.add(GiftParticipant(campaign_id=c.id, user_id=user.id,
+                                        ranking_json=json.dumps([t1.id, t2.id])))
+        real_commit()
+        monkeypatch.undo()
+        raise IntegrityError('x', {}, Exception('dup'))
+
+    monkeypatch.setattr(_db.session, 'commit', commit_with_conflict)
+    resp = client.post(f'/gratisy/{c.id}/ranking', data={f'rank_{t1.id}': 2, f'rank_{t2.id}': 1})
+    assert resp.status_code == 302
+    assert GiftParticipant.query.one().ranking == [t2.id, t1.id]
+
+
+def test_race_box_carries_server_time(client, setup):
+    """Odliczanie liczy się względem czasu serwera, nie zegara urządzenia."""
+    import re
+    c = setup[0]
+    html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
+    assert re.search(r'data-server-now="\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', html)
+
+
 @pytest.mark.parametrize('dane', ['duplikat_miejsca', 'obcy_rodzaj', 'brak_rodzaju', 'zle_miejsce', 'tekst'])
 def test_ranking_tampering_rejected(dane, client, setup):
     from modules.gift_cards.models import GiftParticipant

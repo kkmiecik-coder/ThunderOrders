@@ -52,6 +52,7 @@
       {% if is_open %}
         <div class="gc-client-card gc-client-race" id="gcRace"
              data-race-at="{{ race_at_iso or '' }}"
+             data-server-now="{{ server_now_iso }}"
              data-race-url="{{ url_for('gift_cards.client_race', cid=campaign.id) }}"
              data-position="{{ queue_pos or '' }}">
           <h2 class="gc-client-h2">Zgłoszenie</h2>

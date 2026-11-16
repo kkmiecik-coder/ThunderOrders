@@ -28,6 +28,13 @@
       saveBtn.disabled = !done;
     };
 
+    // Bez podwójnego wysłania (podwójne kliknięcie przy pierwszym zapisie).
+    form.addEventListener('submit', function () {
+      if (saveBtn) saveBtn.disabled = true;
+    });
+    // Powrót przyciskiem „wstecz" (bfcache) — przycisk znów aktywny, jeśli siatka jest pełna.
+    window.addEventListener('pageshow', refresh);
+
     form.addEventListener('change', function (e) {
       var input = e.target;
       if (!input || input.type !== 'radio') return;
@@ -48,6 +55,10 @@
     var posBox = document.getElementById('gcPosition');
     var posNum = document.getElementById('gcPositionNum');
     var raceAt = race.dataset.raceAt ? new Date(race.dataset.raceAt).getTime() : null;
+    // Zegar urządzenia bywa przestawiony — liczymy względem czasu serwera z chwili wczytania strony.
+    var serverNow = race.dataset.serverNow ? new Date(race.dataset.serverNow).getTime() : NaN;
+    var offset = isNaN(serverNow) ? 0 : serverNow - Date.now();
+    var now = function () { return Date.now() + offset; };
     var registered = !!race.dataset.position;
     var timer = null;
 
@@ -64,7 +75,7 @@
         countdown.textContent = 'Godzina zgłoszeń nie jest jeszcze ustalona.';
         return;
       }
-      var left = raceAt - Date.now();
+      var left = raceAt - now();
       if (left <= 0) {
         btn.disabled = false;
         countdown.textContent = 'Zgłoszenia trwają!';

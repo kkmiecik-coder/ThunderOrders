@@ -54,12 +54,30 @@ def client_campaign(cid):
         place_of=position, has_ranking=bool(ranking),
         is_open=campaign.status == STATUS_OPEN,
         race_at_iso=iso_utc(campaign.race_at),
+        server_now_iso=iso_utc(utcnow()),
         race_at_text=to_pl(campaign.race_at).strftime('%d.%m.%Y, godz. %H:%M') if campaign.race_at else None,
         queue_pos=queue_position(campaign, current_user.id),
         assignments=assignments, shortage=shortage,
         shortage_text=pl_cards(shortage) if shortage else None,
         page_title='Gratisowe karty',
     )
+
+
+def _store_ranking(cid, ranking_json):
+    """Zapis rankingu; przy równoczesnym pierwszym zapisie (unikalny klucz) aktualizuje istniejący wiersz."""
+    participant = GiftParticipant.query.filter_by(campaign_id=cid, user_id=current_user.id).first()
+    if participant is None:
+        db.session.add(GiftParticipant(campaign_id=cid, user_id=current_user.id,
+                                       ranking_json=ranking_json, ranking_updated_at=utcnow()))
+        try:
+            db.session.commit()
+            return
+        except IntegrityError:
+            db.session.rollback()
+            participant = GiftParticipant.query.filter_by(campaign_id=cid, user_id=current_user.id).one()
+    participant.ranking_json = ranking_json
+    participant.ranking_updated_at = utcnow()
+    db.session.commit()
 
 
 @gift_cards_bp.route('/gratisy/<int:cid>/ranking', methods=['POST'])
@@ -83,13 +101,7 @@ def client_save_ranking(cid):
         return _ranking_error('Każde miejsce może być wybrane tylko raz.', campaign)
 
     ranking = sorted(type_ids, key=lambda tid: places[tid])
-    participant = GiftParticipant.query.filter_by(campaign_id=cid, user_id=current_user.id).first()
-    if participant is None:
-        participant = GiftParticipant(campaign_id=cid, user_id=current_user.id)
-        db.session.add(participant)
-    participant.ranking_json = json.dumps(ranking)
-    participant.ranking_updated_at = utcnow()
-    db.session.commit()
+    _store_ranking(cid, json.dumps(ranking))
     flash('Ranking zapisany.', 'success')
     return redirect(url_for('gift_cards.client_campaign', cid=cid))
 
