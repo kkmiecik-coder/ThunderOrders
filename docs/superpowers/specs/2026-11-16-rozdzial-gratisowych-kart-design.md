@@ -1,6 +1,6 @@
 # Rozdział gratisowych kart — projekt
 
-Data: 2026-11-16 · Właścicielka: Karolina · Status: do akceptacji
+Data: 2026-11-16 · Właścicielka: Karolina · Status: do akceptacji (wszystkie pytania rozstrzygnięte)
 
 ## Po co to jest
 
@@ -62,7 +62,13 @@ tylko przegląda i zatwierdza.**
    (między sobą wg daty złożenia pierwszego zamówienia). *(decyzja Claude)*
 6. **Kto nie ułożył rankingu** — dostaje to, co zostanie po innych (bez powtórek, jeśli się
    da). *(decyzja Claude)*
-7. **Karolina ma ostatnie słowo** — przed zatwierdzeniem może ręcznie zamienić dowolną kartę.
+7. **Za mało kart (decyzja Karoliny: mniej dla końca kolejki).** Gdy dotrze mniej kart, niż
+   łącznie się należy, rozdział idzie rundami do wyczerpania kart, więc braki trafiają na
+   ostatnie rundy i w nich na osoby najdalej w kolejce. Osoba z 1 kartą z końca kolejki
+   dostaje swoją kartę w rundzie 1, a mniej dostają osoby z wieloma kartami z końca kolejki
+   *(doprecyzowanie Claude, spójne z zasadą rund)*. Ekran rozdziału wyraźnie oznacza, komu
+   ile brakuje, a Karolina decyduje, co dalej (np. dosyła później).
+8. **Karolina ma ostatnie słowo** — przed zatwierdzeniem może ręcznie zamienić dowolną kartę.
 
 ## Rodzaje kart — za każdym razem inne
 
@@ -155,8 +161,3 @@ w kilku zamówieniach, karty przypisuje się do konkretnych pozycji.
 - Cofnięcie zatwierdzenia: możliwe, dopóki żadne z zamówień z akcji nie zostało
   spakowane *(decyzja Claude)*.
 
-## Otwarte — do decyzji Karoliny
-
-- **Za mało kart:** co, jeśli dotrze mniej kart niż łącznie się należy (np. należy się 50,
-  dotarło 45)? Propozycja: ostatnie osoby w kolejce dostają mniej, system to wyraźnie
-  oznacza, a Karolina decyduje (np. dosyła później).
