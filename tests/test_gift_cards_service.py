@@ -102,3 +102,129 @@ def test_queue_ignores_race_entry_of_non_entitled_user(db, make_user, make_order
     d = make_user()
     db.session.add(GiftRaceEntry(campaign_id=c.id, user_id=d.id)); db.session.commit()
     assert queue_order(c, compute_entitlements(c)) == [a.id, b.id, cc.id]
+
+
+# ---- Task 4: rozdział, zamiany, zatwierdzanie ----
+
+def _typy(db, c, **ilosci):
+    from modules.gift_cards.models import GiftCardType
+    out = {}
+    for i, (nazwa, q) in enumerate(ilosci.items()):
+        t = GiftCardType(campaign_id=c.id, name=nazwa, quantity=q, sort_order=i)
+        db.session.add(t); out[nazwa] = t
+    db.session.commit()
+    return out
+
+
+def _ranking(db, c, user, typy):
+    import json
+    from modules.gift_cards.models import GiftParticipant
+    db.session.add(GiftParticipant(campaign_id=c.id, user_id=user.id, ranking_json=json.dumps([t.id for t in typy])))
+    db.session.commit()
+
+
+def test_run_distribution_saves_assignments_on_order_items(db, make_user, make_order, akcja):
+    from modules.gift_cards.models import GiftAssignment
+    from modules.gift_cards.service import run_distribution
+    c, bonus, page = akcja
+    a = make_user()
+    o1, o2 = make_order(a, offer_page_id=page.id), make_order(a, offer_page_id=page.id)
+    item1, item2 = _bonus(db, o1, bonus, 1), _bonus(db, o2, bonus, 1)
+    t = _typy(db, c, San=1, Yunho=1)
+    _ranking(db, c, a, [t['San'], t['Yunho']])
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    rows = GiftAssignment.query.filter_by(user_id=a.id).order_by(GiftAssignment.round_no).all()
+    assert [r.order_item_id for r in rows] == [item1.id, item2.id]
+    assert [r.card_type_id for r in rows] == [t['San'].id, t['Yunho'].id]
+    assert c.status == 'rozdzielona'
+
+
+def test_run_distribution_requires_quantities(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import GiftCardsError, run_distribution
+    c, bonus, page = akcja
+    t = _typy(db, c, San=None)
+    c.status = 'zamknieta'; db.session.commit()
+    with pytest.raises(GiftCardsError, match='ilości'):
+        run_distribution(c)
+
+
+def test_run_distribution_no_entitled_users(db, akcja):
+    from modules.gift_cards.service import run_distribution
+    c, _, _ = akcja
+    _typy(db, c, San=2)
+    c.status = 'zamknieta'; db.session.commit()
+    result = run_distribution(c)
+    assert result.picks == {} and c.status == 'rozdzielona'
+
+
+def _dwoje_z_kartami(db, make_user, make_order, akcja, san=1, yunho=1):
+    from modules.gift_cards.service import run_distribution
+    c, bonus, page = akcja
+    a, b = make_user(), make_user()
+    ia = _bonus(db, make_order(a, offer_page_id=page.id), bonus, 1)
+    ib = _bonus(db, make_order(b, offer_page_id=page.id), bonus, 1)
+    t = _typy(db, c, San=san, Yunho=yunho)
+    _ranking(db, c, a, [t['San'], t['Yunho']])
+    _ranking(db, c, b, [t['San'], t['Yunho']])
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    return c, a, b, ia, ib, t
+
+
+def test_swap_over_stock_rejected(db, make_user, make_order, akcja):
+    from modules.gift_cards.models import GiftAssignment
+    from modules.gift_cards.service import GiftCardsError, swap_assignment
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    b_row = GiftAssignment.query.filter_by(user_id=b.id).one()
+    assert b_row.card_type_id == t['Yunho'].id  # San poszedł do A
+    with pytest.raises(GiftCardsError, match='Brak wolnych sztuk'):
+        swap_assignment(b_row.id, t['San'].id)
+
+
+def test_swap_recomputes_duplicate_flag(db, make_user, make_order, akcja):
+    from modules.gift_cards.models import GiftAssignment
+    from modules.gift_cards.service import run_distribution, swap_assignment
+    c, bonus, page = akcja
+    a = make_user()
+    o = make_order(a, offer_page_id=page.id)
+    _bonus(db, o, bonus, 2)
+    t = _typy(db, c, San=2, Yunho=2)
+    _ranking(db, c, a, [t['San'], t['Yunho']])
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    rows = GiftAssignment.query.filter_by(user_id=a.id).order_by(GiftAssignment.round_no).all()
+    assert [r.is_duplicate for r in rows] == [False, False]
+    swap_assignment(rows[1].id, rows[0].card_type_id)
+    rows = GiftAssignment.query.filter_by(user_id=a.id).order_by(GiftAssignment.round_no).all()
+    assert [r.is_duplicate for r in rows] == [False, True]
+    assert [r.rank_position for r in rows] == [1, 1]
+
+
+def test_label_pending_then_names_after_approve(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import approve
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    assert ia.gift_cards_label == 'przydział w toku'
+    approve(c)
+    assert ia.gift_cards_label == 'San'
+    assert ib.gift_cards_label == 'Yunho'
+
+
+def test_label_none_for_non_bonus_item(db, make_user, make_order, make_product, akcja):
+    c, bonus, page = akcja
+    it = _bonus(db, make_order(make_user(), offer_page_id=page.id), bonus, 1, is_bonus=False)
+    assert it.gift_cards_label is None
+
+
+def test_revert_blocked_when_order_packed(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import GiftCardsError, approve, can_revert, revert_approval
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    approve(c)
+    assert can_revert(c) is True
+    ia.order.status = 'spakowane'; db.session.commit()
+    assert can_revert(c) is False
+    with pytest.raises(GiftCardsError):
+        revert_approval(c)
+    ia.order.status = 'nowe'; db.session.commit()
+    revert_approval(c)
+    assert c.status == 'rozdzielona'

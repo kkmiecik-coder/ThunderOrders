@@ -1326,6 +1326,12 @@ class OrderItem(db.Model):
         return self.product.name if self.product else 'Unknown Product'
 
     @property
+    def gift_cards_label(self):
+        """Karty przydzielone do pozycji gratisowej (lub "przydział w toku")."""
+        from modules.gift_cards.service import item_gift_label
+        return item_gift_label(self)
+
+    @property
     def product_name_with_size(self):
         """Returns product name with size badge if applicable"""
         name = self.product_name
