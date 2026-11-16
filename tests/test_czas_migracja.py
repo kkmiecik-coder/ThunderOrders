@@ -40,6 +40,10 @@ WYKLUCZONE: dict[str, list[str]] = {
     'cart_items': ['created_at', 'updated_at'],
     # jedyny zapis: csv_processor.py `completed_at = datetime.now()` (wcześniej utcnow)
     'csv_imports': ['completed_at'],
+    # rozdział gratisów (f4c8d2a7b9e1) — tabele powstały po migracji czasu, od początku UTCDateTime
+    'gift_campaigns': ['created_at', 'race_at', 'updated_at'],
+    'gift_participants': ['ranking_updated_at'],
+    'gift_race_entries': ['created_at'],
     # default=datetime.now — serwer w UTC
     'offer_section_images': ['created_at'],
     # default=datetime.now — serwer w UTC
