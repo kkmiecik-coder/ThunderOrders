@@ -186,3 +186,39 @@ def test_swap_endpoint_success(client, admin, db, setup, make_user, make_order):
     assert resp.get_json() == {'success': True}
     db.session.refresh(a)
     assert a.card_type_id == other
+
+
+def _second_page(db, make_user):
+    from modules.offers.models import OfferPage
+    p = OfferPage(name='Druga', token=OfferPage.generate_token(), status='active',
+                  created_by=make_user(role='admin').id)
+    db.session.add(p)
+    db.session.commit()
+    return p
+
+
+def _edit_pages(client, c, bonus, page_ids):
+    return client.post(f'{BASE}/{c.id}/edytuj', data={
+        'name': 'Akcja', 'offer_page_ids': page_ids, 'bonus_product_id': bonus.id,
+        'type_name': ['Typ A', 'Typ B'], 'type_existing_image': ['', '']})
+
+
+def test_edit_draft_keeps_same_page_and_adds_second(client, admin, db, setup, make_user):
+    bonus, page = setup
+    c = _campaign(db, bonus, page)
+    second = _second_page(db, make_user)
+    resp = _edit_pages(client, c, bonus, [page.id, second.id])
+    assert resp.status_code == 302
+    db.session.refresh(c)
+    assert sorted(c.offer_page_ids) == sorted([page.id, second.id])
+
+
+def test_edit_draft_removes_a_page(client, admin, db, setup, make_user):
+    bonus, page = setup
+    c = _campaign(db, bonus, page)
+    second = _second_page(db, make_user)
+    _edit_pages(client, c, bonus, [page.id, second.id])
+    resp = _edit_pages(client, c, bonus, [second.id])
+    assert resp.status_code == 302
+    db.session.refresh(c)
+    assert c.offer_page_ids == [second.id]

@@ -206,7 +206,14 @@ def admin_form(cid=None):
     campaign.race_at = data['race_at']
     if editing_structure:
         campaign.bonus_product_id = data['bonus_id']
-        campaign.pages = [GiftCampaignPage(offer_page_id=pid) for pid in data['page_ids']]
+        wanted = set(data['page_ids'])
+        for page_row in list(campaign.pages):
+            if page_row.offer_page_id not in wanted:
+                campaign.pages.remove(page_row)
+        have = {p.offer_page_id for p in campaign.pages}
+        for pid in data['page_ids']:
+            if pid not in have:
+                campaign.pages.append(GiftCampaignPage(offer_page_id=pid))
         kept = {row['existing_image'] for row in data['rows'] if row['existing_image']}
         for old in campaign.card_types:
             if old.image_path and old.image_path not in kept:
