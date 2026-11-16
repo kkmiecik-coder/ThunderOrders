@@ -228,3 +228,53 @@ def test_revert_blocked_when_order_packed(db, make_user, make_order, akcja):
     ia.order.status = 'nowe'; db.session.commit()
     revert_approval(c)
     assert c.status == 'rozdzielona'
+
+
+# ---- Task 5: maile ----
+
+def test_pl_cards_plural_forms():
+    from modules.gift_cards.emails import pl_cards
+    assert [pl_cards(n) for n in (1, 2, 4, 5, 12, 14, 22, 25)] == [
+        '1 karta', '2 karty', '4 karty', '5 kart', '12 kart', '14 kart', '22 karty', '25 kart']
+
+
+def test_send_invites_one_mail_per_entitled_user(db, app, make_user, make_order, akcja, maile_synchronicznie):
+    from datetime import datetime, timezone
+    from extensions import mail
+    from modules.gift_cards.emails import send_invites
+    c, bonus, page = akcja
+    a, b, nie = make_user(email='a@example.com'), make_user(email='b@example.com'), make_user(email='n@example.com')
+    _bonus(db, make_order(a, offer_page_id=page.id), bonus, 3)
+    _bonus(db, make_order(b, offer_page_id=page.id), bonus, 1)
+    c.race_at = datetime(2026, 12, 1, 18, 30, tzinfo=timezone.utc)  # zima: 19:30 w Polsce
+    db.session.commit()
+    with app.test_request_context(), mail.record_messages() as out:
+        assert send_invites(c) == 2
+    assert len(out) == 2
+    by_rcpt = {m.recipients[0]: m for m in out}
+    assert set(by_rcpt) == {'a@example.com', 'b@example.com'}
+    assert 'przysługują Ci 3 karty' in by_rcpt['a@example.com'].body
+    assert 'przysługuje Ci 1 karta' in by_rcpt['b@example.com'].body
+    assert '01.12.2026 19:30' in by_rcpt['a@example.com'].body
+    assert f'/gratisy/{c.id}' in by_rcpt['a@example.com'].html
+    assert by_rcpt['a@example.com'].subject == 'Gratisowe karty: Akcja - ThunderOrders'
+
+
+def test_send_results_lists_cards_and_shortage(db, app, make_user, make_order, akcja, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.emails import send_results
+    from modules.gift_cards.models import GiftAssignment
+    c, bonus, page = akcja
+    a = make_user(email='a@example.com')
+    item = _bonus(db, make_order(a, offer_page_id=page.id), bonus, 3)
+    t = _typy(db, c, San=1, Yunho=1)
+    for rnd, nazwa in ((2, 'Yunho'), (1, 'San')):
+        db.session.add(GiftAssignment(campaign_id=c.id, user_id=a.id, order_item_id=item.id,
+                                      card_type_id=t[nazwa].id, round_no=rnd))
+    db.session.commit()
+    with app.test_request_context(), mail.record_messages() as out:
+        assert send_results(c) == 1
+    body = out[0].body
+    assert 'San, Yunho' in body and 'Brakuje 1 karta — skontaktujemy się w tej sprawie.' in body
+    assert 'San, Yunho' in out[0].html
+    assert out[0].subject == 'Twoje gratisowe karty: Akcja - ThunderOrders'

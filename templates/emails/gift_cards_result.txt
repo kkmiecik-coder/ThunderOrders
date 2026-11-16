@@ -1,0 +1,11 @@
+Cześć {{ user_name or '' }}!
+
+Rozdzieliliśmy karty w akcji {{ campaign_name }}.
+Twoje karty: {{ cards or '—' }}
+{% if shortage_text %}
+{{ shortage_text }}
+{% endif %}
+Szczegóły: {{ url }}
+
+Pozdrawiamy,
+ThunderOrders
