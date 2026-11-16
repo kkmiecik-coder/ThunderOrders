@@ -109,6 +109,8 @@
 
 .gc-type-row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-3); }
 .gc-type-row .gc-input { flex: 1 1 240px; width: auto; }
+.gc-type-row .gc-input--qty { flex: 0 0 110px; max-width: 110px; }
+.gc-hint--lead { margin: 0 0 var(--space-4); }
 .gc-type-thumb { width: 44px; height: 44px; border-radius: var(--radius-sm); object-fit: cover; border: 1px solid var(--border-primary); }
 
 /* Znaczniki w tabeli przydziału */

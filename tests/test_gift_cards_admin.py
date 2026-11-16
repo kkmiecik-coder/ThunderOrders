@@ -109,6 +109,44 @@ def test_create_campaign_with_card_types(client, admin, db, setup):
     assert client.get(f'{BASE}/{c.id}/edytuj').status_code == 200
 
 
+def _post_new(client, bonus, page, names, quantities):
+    return client.post(BASE + '/nowa', data={
+        'name': 'Akcja z ilosciami', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'type_name': names, 'type_existing_image': [''] * len(names), 'type_quantity': quantities})
+
+
+def test_create_with_quantities_saves_them_and_blank_stays_empty(client, admin, db, setup):
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    resp = _post_new(client, bonus, page, ['San', 'Yunho', 'Wooyoung'], ['12', '', '0'])
+    assert resp.status_code == 302
+    c = GiftCampaign.query.one()
+    assert [(t.name, t.quantity) for t in c.card_types] == [('San', 12), ('Yunho', None), ('Wooyoung', 0)]
+    html = client.get(f'{BASE}/{c.id}/edytuj').get_data(as_text=True)
+    assert 'name="type_quantity"' in html and 'value="12"' in html
+
+
+def test_create_with_invalid_quantity_shows_error_and_keeps_input(client, admin, db, setup):
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    resp = _post_new(client, bonus, page, ['San', 'Yunho'], ['5', 'dużo'])
+    assert resp.status_code == 200
+    assert GiftCampaign.query.count() == 0
+    html = resp.get_data(as_text=True)
+    assert 'Yunho' in html and 'value="5"' in html
+
+
+def test_create_without_quantity_field_still_works(client, admin, db, setup):
+    """Stary kształt formularza (bez pola ilości) nadal zapisuje akcję z pustymi ilościami."""
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    resp = client.post(BASE + '/nowa', data={
+        'name': 'Bez ilosci', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'type_name': ['San'], 'type_existing_image': ['']})
+    assert resp.status_code == 302
+    assert GiftCampaign.query.one().card_types[0].quantity is None
+
+
 def test_create_without_types_shows_error(client, admin, db, setup):
     from modules.gift_cards.models import GiftCampaign
     bonus, page = setup

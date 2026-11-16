@@ -60,11 +60,16 @@
 
         <section class="gc-card">
             <h2>Rodzaje kart</h2>
+            <p class="gc-hint gc-hint--lead">Ilość sztuk możesz wpisać od razu albo zostawić pustą i uzupełnić później
+                w szczegółach akcji, po zamknięciu zgłoszeń (zanim klikniesz „Rozdziel karty”).</p>
             <div id="gcTypeList">
                 {% for row in data.rows %}
                 <div class="gc-type-row">
                     <input type="text" name="type_name" class="gc-input" maxlength="200" value="{{ row.name }}"
                            placeholder="Nazwa rodzaju karty" {% if locked %}disabled{% endif %}>
+                    <input type="number" name="type_quantity" class="gc-input gc-input--qty" min="0" step="1"
+                           inputmode="numeric" value="{{ row.raw_quantity }}" placeholder="Ilość"
+                           aria-label="Ilość sztuk" {% if locked %}disabled{% endif %}>
                     <input type="hidden" name="type_existing_image" value="{{ row.existing_image }}">
                     {% if row.existing_image %}
                     <img class="gc-type-thumb" src="{{ url_for('static', filename=row.existing_image) }}" alt="">
@@ -81,6 +86,8 @@
             <template id="gcTypeTemplate">
                 <div class="gc-type-row">
                     <input type="text" name="type_name" class="gc-input" maxlength="200" placeholder="Nazwa rodzaju karty">
+                    <input type="number" name="type_quantity" class="gc-input gc-input--qty" min="0" step="1"
+                           inputmode="numeric" placeholder="Ilość" aria-label="Ilość sztuk">
                     <input type="hidden" name="type_existing_image" value="">
                     <input type="file" name="type_image" accept="image/*">
                     <button type="button" class="gc-btn gc-btn--danger" data-gc-remove-type>Usuń</button>

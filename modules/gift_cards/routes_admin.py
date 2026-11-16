@@ -161,14 +161,24 @@ def _read_form(campaign=None):
     allowed_images = {t.image_path for t in campaign.card_types if t.image_path} if campaign else set()
     existing = [v if v in allowed_images else '' for v in request.form.getlist('type_existing_image')]
     files = request.files.getlist('type_image')
+    raw_quantities = [q.strip() for q in request.form.getlist('type_quantity')]
     rows = []
     for i, type_name in enumerate(names):
         if not type_name:
             continue
+        raw_qty = raw_quantities[i] if i < len(raw_quantities) else ''
+        quantity = None
+        if raw_qty:
+            if raw_qty.isdigit():
+                quantity = int(raw_qty)
+            else:
+                errors.append(f'Ilość dla „{type_name}” musi być liczbą całkowitą od 0 (albo zostaw puste).')
         rows.append({
             'name': type_name,
             'existing_image': existing[i] if i < len(existing) else '',
             'file': files[i] if i < len(files) else None,
+            'quantity': quantity,
+            'raw_quantity': raw_qty,
         })
     return {'name': name, 'race_at': race_at, 'raw_race': raw_race, 'page_ids': page_ids,
             'bonus_id': bonus_id, 'rows': rows, 'errors': errors}
@@ -182,7 +192,8 @@ def _render_form(campaign, data=None):
             'raw_race': format_pl_input(campaign.race_at) if campaign and campaign.race_at else '',
             'page_ids': campaign.offer_page_ids if campaign else [],
             'bonus_id': campaign.bonus_product_id if campaign else None,
-            'rows': [{'name': t.name, 'existing_image': t.image_path or ''}
+            'rows': [{'name': t.name, 'existing_image': t.image_path or '',
+                      'raw_quantity': '' if t.quantity is None else str(t.quantity)}
                      for t in campaign.card_types] if campaign else [],
         }
     return render_template('admin/gift_cards/form.html', campaign=campaign, data=data, pages=pages,
@@ -238,7 +249,8 @@ def admin_form(cid=None):
         new_types = []
         for order, row in enumerate(data['rows']):
             image = _save_type_image(row['file']) or row['existing_image'] or None
-            new_types.append(GiftCardType(name=row['name'], image_path=image, sort_order=order))
+            new_types.append(GiftCardType(name=row['name'], image_path=image, sort_order=order,
+                                          quantity=row['quantity']))
         campaign.card_types = new_types
     db.session.commit()
     flash('Zapisano akcję.', 'success')
