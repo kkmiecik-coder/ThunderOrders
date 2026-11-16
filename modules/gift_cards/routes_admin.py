@@ -3,6 +3,7 @@ import secrets
 
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import or_
 
 from extensions import db
 from modules.auth.models import User
@@ -17,6 +18,7 @@ from modules.gift_cards.service import (
     approve, revert_approval, run_distribution, swap_assignment, type_usage,
 )
 from modules.offers.models import OfferPage, OfferSetBonus
+from modules.orders.models import OrderItem
 from modules.products.models import Product
 from utils.decorators import role_required
 from utils.timeutil import format_pl_input, parse_pl_input
@@ -112,9 +114,18 @@ def _save_type_image(file):
 
 
 def _bonus_products():
+    """Produkty do wyboru jako gratis akcji.
+
+    Ustawione jako gratis na stronach ofert ORAZ te, które kiedykolwiek trafiły do zamówień
+    jako gratis (dodane ręcznie albo ze starszych ofert) — uprawnienia i tak liczymy
+    z gratisowych pozycji zamówień, więc lista musi je obejmować.
+    """
+    from_offers = (db.session.query(OfferSetBonus.bonus_product_id)
+                   .filter(OfferSetBonus.bonus_product_id.isnot(None)))
+    from_orders = (db.session.query(OrderItem.product_id)
+                   .filter(OrderItem.is_bonus.is_(True), OrderItem.product_id.isnot(None)))
     return (Product.query
-            .filter(Product.id.in_(db.session.query(OfferSetBonus.bonus_product_id)
-                                   .filter(OfferSetBonus.bonus_product_id.isnot(None))))
+            .filter(or_(Product.id.in_(from_offers), Product.id.in_(from_orders)))
             .order_by(Product.name).all())
 
 

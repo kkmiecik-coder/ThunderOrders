@@ -63,6 +63,35 @@ def test_list_and_form_render(client, admin, db, setup):
     assert 'Gratis' in html and 'Rodzaje kart' in html
 
 
+def test_form_lists_products_given_as_gratis_in_orders(client, admin, db, make_user, make_product,
+                                                      make_order, strona_sprzedazy):
+    """Gratis dodany ręcznie / ze starej oferty (bez ustawienia na stronie) też jest do wyboru."""
+    reczny = make_product(name='Gratis reczny')
+    zwykly = make_product(name='Album zwykly')
+    _entitled(db, make_user, make_order, reczny, strona_sprzedazy)
+    from modules.orders.models import OrderItem
+    o = make_order(make_user(), offer_page_id=strona_sprzedazy.id)
+    db.session.add(OrderItem(order_id=o.id, product_id=zwykly.id, quantity=1, price=10, total=10,
+                             is_bonus=False))
+    db.session.commit()
+
+    html = client.get(BASE + '/nowa').get_data(as_text=True)
+    assert 'Gratis reczny' in html
+    assert 'Album zwykly' not in html
+
+
+def test_form_lists_set_bonus_and_order_gratis_once_each(client, admin, db, setup, make_user, make_order):
+    bonus, page = setup
+    _entitled(db, make_user, make_order, bonus, page)
+    html = client.get(BASE + '/nowa').get_data(as_text=True)
+    assert html.count('>Gratis</option>') == 1
+
+
+def test_form_without_any_gratis_shows_hint(client, admin, db):
+    html = client.get(BASE + '/nowa').get_data(as_text=True)
+    assert 'Nie ma jeszcze żadnych gratisów' in html
+
+
 def test_create_campaign_with_card_types(client, admin, db, setup):
     from modules.gift_cards.models import GiftCampaign
     from utils.timeutil import to_pl
