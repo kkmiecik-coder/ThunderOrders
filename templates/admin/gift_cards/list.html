@@ -1,0 +1,47 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Rozdział gratisów{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/gift-cards.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="gc-page">
+    <div class="gc-page-header">
+        <h1>Rozdział gratisów</h1>
+        <div class="gc-actions">
+            <a href="{{ url_for('gift_cards.admin_form') }}" class="gc-btn gc-btn--primary">Nowa akcja</a>
+        </div>
+    </div>
+
+    <div class="gc-table-card">
+        {% if items %}
+        <table class="gc-table">
+            <thead>
+                <tr>
+                    <th>Akcja</th>
+                    <th>Status</th>
+                    <th>Uprawnione karty</th>
+                    <th>Wyścig</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td class="gc-name">{{ it.c.name }}</td>
+                    <td><span class="gc-pill gc-pill--{{ it.c.status }}">{{ it.status_label }}</span></td>
+                    <td class="gc-num">{{ it.entitled }}</td>
+                    <td>{% if it.c.race_at %}{{ it.c.race_at|format_datetime('%d.%m.%Y %H:%M') }}{% else %}—{% endif %}</td>
+                    <td><a href="{{ url_for('gift_cards.admin_detail', cid=it.c.id) }}" class="gc-btn">Otwórz</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="gc-empty">Brak akcji — utwórz pierwszą przyciskiem „Nowa akcja”.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

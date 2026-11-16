@@ -1,0 +1,158 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ campaign.name }} — Rozdział gratisów{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/gift-cards.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="gc-page" id="gcDetail"
+     data-swap-url="{{ url_for('gift_cards.admin_swap', cid=campaign.id) }}">
+    <a href="{{ url_for('gift_cards.admin_list') }}" class="gc-back-link">&larr; Wróć do listy</a>
+
+    <div class="gc-page-header">
+        <h1>{{ campaign.name }} <span class="gc-pill gc-pill--{{ campaign.status }}">{{ status_label }}</span></h1>
+        <div class="gc-actions">
+            {% if campaign.status != 'zatwierdzona' %}
+            <a href="{{ url_for('gift_cards.admin_form', cid=campaign.id) }}" class="gc-btn">Edytuj</a>
+            {% endif %}
+
+            {% if campaign.status == 'szkic' %}
+            <form method="post" action="{{ url_for('gift_cards.admin_publish', cid=campaign.id) }}"
+                  data-gc-confirm="Opublikować akcję i wysłać zaproszenia mailem do wszystkich uprawnionych? Tego nie da się cofnąć.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="gc-btn gc-btn--primary">Opublikuj i wyślij zaproszenia</button>
+            </form>
+            {% elif campaign.status == 'otwarta' %}
+            <form method="post" action="{{ url_for('gift_cards.admin_close', cid=campaign.id) }}"
+                  data-gc-confirm="Zamknąć zgłoszenia? Klienci nie będą mogli już zmieniać rankingów ani wchodzić do wyścigu.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="gc-btn gc-btn--primary">Zamknij zgłoszenia</button>
+            </form>
+            {% elif campaign.status == 'rozdzielona' %}
+            <form method="post" action="{{ url_for('gift_cards.admin_approve', cid=campaign.id) }}"
+                  data-gc-confirm="Zatwierdzić przydział i wysłać klientom maile z wynikiem?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="gc-btn gc-btn--primary">Zatwierdź i wyślij wyniki</button>
+            </form>
+            {% elif campaign.status == 'zatwierdzona' %}
+            <form method="post" action="{{ url_for('gift_cards.admin_revert', cid=campaign.id) }}"
+                  data-gc-confirm="Cofnąć zatwierdzenie? Przydział wróci do edycji.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="gc-btn gc-btn--danger" {% if not revert_ok %}disabled{% endif %}>Cofnij zatwierdzenie</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if campaign.status == 'zatwierdzona' and not revert_ok %}
+    <div class="gc-notice">Nie można cofnąć zatwierdzenia: część zamówień z tego przydziału jest już spakowana lub wysłana.</div>
+    {% endif %}
+
+    <div class="gc-summary">
+        <div class="gc-summary-item">
+            <span class="gc-summary-value">{{ entitled_total }}</span>
+            <span class="gc-summary-label">Kart należnych</span>
+        </div>
+        <div class="gc-summary-item">
+            <span class="gc-summary-value">{% if available is not none %}{{ available }}{% else %}—{% endif %}</span>
+            <span class="gc-summary-label">Kart dostępnych</span>
+        </div>
+        <div class="gc-summary-item">
+            <span class="gc-summary-value">{{ duplicates if has_assignments else '—' }}</span>
+            <span class="gc-summary-label">Powtórek</span>
+        </div>
+    </div>
+
+    <section class="gc-card">
+        <h2>Rodzaje kart</h2>
+        {% if quantities_editable %}
+        <form method="post" action="{{ url_for('gift_cards.admin_quantities', cid=campaign.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% for t in campaign.card_types %}
+            <div class="gc-row">
+                <label class="gc-label" for="gcQty{{ t.id }}">{{ t.name }}</label>
+                <input type="number" min="0" step="1" id="gcQty{{ t.id }}" name="quantity_{{ t.id }}"
+                       class="gc-input gc-input--qty" value="{{ t.quantity if t.quantity is not none else '' }}" required>
+            </div>
+            {% endfor %}
+            <div class="gc-actions">
+                <button type="submit" class="gc-btn">Zapisz ilości</button>
+            </div>
+        </form>
+        <form method="post" action="{{ url_for('gift_cards.admin_distribute', cid=campaign.id) }}"
+              class="gc-actions" data-gc-confirm="{% if campaign.status == 'rozdzielona' %}Rozdzielić od nowa? Ręczne zamiany zostaną utracone.{% endif %}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="gc-btn gc-btn--primary">Rozdziel karty</button>
+        </form>
+        {% else %}
+        <ul>
+            {% for t in campaign.card_types %}
+            <li>{{ t.name }}{% if t.quantity is not none %} — {{ t.quantity }} szt.{% endif %}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+
+    <h2 class="gc-name">Uprawnieni</h2>
+    <div class="gc-table-card">
+        {% if rows %}
+        <table class="gc-table">
+            <thead>
+                <tr>
+                    <th class="gc-col-place">Miejsce</th>
+                    <th>Osoba</th>
+                    <th class="gc-col-total">Kart</th>
+                    <th class="gc-col-race">Wyścig / ranking</th>
+                    {% if has_assignments %}<th>Przydział</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td class="gc-num">{{ r.place }}</td>
+                    <td class="gc-name">{{ r.user.full_name if r.user else '—' }}</td>
+                    <td class="gc-num">{{ r.total }}</td>
+                    <td>
+                        {% if r.race_position %}wyścig: {{ r.race_position }}{% else %}bez wyścigu{% endif %}
+                        · {% if r.has_ranking %}ma ranking{% else %}bez rankingu{% endif %}
+                    </td>
+                    {% if has_assignments %}
+                    <td>
+                        <div class="gc-cards-cell">
+                            {% for a in r.cards %}
+                            <div class="gc-card-line">
+                                {% if campaign.status == 'rozdzielona' %}
+                                <select class="gc-select gc-select--card" data-assignment-id="{{ a.id }}"
+                                        data-current="{{ a.card_type_id }}" aria-label="Rodzaj karty">
+                                    {% for t in campaign.card_types %}
+                                    <option value="{{ t.id }}" {% if t.id == a.card_type_id %}selected{% endif %}>{{ t.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% else %}
+                                <span>{{ a.card_type.name }}</span>
+                                {% endif %}
+                                {% if a.rank_position %}<span class="gc-tag">wybór nr {{ a.rank_position }}</span>
+                                {% else %}<span class="gc-tag">bez rankingu</span>{% endif %}
+                                {% if a.is_duplicate %}<span class="gc-tag gc-tag--dup">powtórka</span>{% endif %}
+                            </div>
+                            {% endfor %}
+                            {% if r.missing %}<span class="gc-tag gc-tag--missing">brakuje {{ r.missing }}</span>{% endif %}
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="gc-empty">Na razie nikt nie jest uprawniony do kart w tej akcji.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/gift-cards.js') }}"></script>
+{% endblock %}

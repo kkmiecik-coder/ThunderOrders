@@ -181,6 +181,14 @@
                 </a>
             </li>
             <li class="sidebar-item">
+                <a href="{{ url_for('gift_cards.admin_list') }}"
+                   class="sidebar-link {% if request.endpoint and request.endpoint.startswith('gift_cards.admin_') %}active{% endif %}"
+                   data-tooltip="Rozdział gratisów">
+                    <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Rozdział gratisów" class="sidebar-icon">
+                    <span class="sidebar-text">Rozdział gratisów</span>
+                </a>
+            </li>
+            <li class="sidebar-item">
                 <a href="{{ url_for('pets_admin.index') }}"
                    class="sidebar-link {% if request.endpoint and request.endpoint.startswith('pets_admin.') %}active{% endif %}"
                    data-tooltip="Pupile">
