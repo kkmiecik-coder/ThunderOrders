@@ -347,3 +347,61 @@ def test_concurrent_approve_sends_no_extra_mails(client, admin, db, setup, make_
     with client.session_transaction() as sess:
         assert ('error', 'Ta akcja została już zatwierdzona.') in sess['_flashes']
 
+
+# ---- Grafiki rodzajów: tylko własne pliki akcji (I5) ----
+
+@pytest.fixture
+def static_tmp(app, tmp_path, monkeypatch):
+    """Podmiana katalogu aplikacji na tymczasowy — testy nie dotykają prawdziwego static/."""
+    monkeypatch.setattr(app, 'root_path', str(tmp_path))
+    uploads = tmp_path / 'static' / 'uploads' / 'gift_cards' / 'compressed'
+    uploads.mkdir(parents=True)
+    secret = tmp_path / 'static' / 'sekret.txt'
+    secret.write_text('nie ruszac')
+    outside = tmp_path / 'poza.txt'
+    outside.write_text('nie ruszac')
+    return uploads, secret, outside
+
+
+def test_crafted_existing_image_is_ignored(client, admin, db, setup, static_tmp):
+    from modules.gift_cards.models import GiftCardType
+    uploads, secret, outside = static_tmp
+    bonus, page = setup
+    c = _campaign(db, bonus, page)
+    resp = client.post(f'{BASE}/{c.id}/edytuj', data={
+        'name': 'Akcja', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'type_name': ['Typ A', 'Typ B'],
+        'type_existing_image': ['uploads/gift_cards/../sekret.txt', '../poza.txt']})
+    assert resp.status_code == 302
+    assert [t.image_path for t in GiftCardType.query.filter_by(campaign_id=c.id)] == [None, None]
+    assert secret.exists() and outside.exists()
+
+
+def test_existing_image_of_this_campaign_is_kept(client, admin, db, setup, static_tmp):
+    from modules.gift_cards.models import GiftCardType
+    uploads, _, _ = static_tmp
+    (uploads / 'a.png').write_bytes(b'x')
+    bonus, page = setup
+    c = _campaign(db, bonus, page)
+    c.card_types[0].image_path = 'uploads/gift_cards/compressed/a.png'
+    db.session.commit()
+    client.post(f'{BASE}/{c.id}/edytuj', data={
+        'name': 'Akcja', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'type_name': ['Typ A', 'Typ B'],
+        'type_existing_image': ['uploads/gift_cards/compressed/a.png', '']})
+    paths = [t.image_path for t in GiftCardType.query.filter_by(campaign_id=c.id).order_by(GiftCardType.sort_order)]
+    assert paths == ['uploads/gift_cards/compressed/a.png', None]
+    assert (uploads / 'a.png').exists()
+
+
+def test_delete_type_image_only_inside_uploads(app, static_tmp):
+    from modules.gift_cards.routes_admin import _delete_type_image
+    uploads, secret, outside = static_tmp
+    (uploads / 'b.png').write_bytes(b'x')
+    with app.app_context():
+        _delete_type_image('uploads/gift_cards/../sekret.txt')
+        _delete_type_image('uploads/gift_cards/../../../poza.txt')
+        _delete_type_image('../poza.txt')
+        _delete_type_image('uploads/gift_cards/compressed/b.png')
+    assert secret.exists() and outside.exists()
+    assert not (uploads / 'b.png').exists()

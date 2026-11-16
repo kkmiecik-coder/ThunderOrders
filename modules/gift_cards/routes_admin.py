@@ -61,14 +61,15 @@ def admin_list():
 # --------------------------------------------------------------------------- #
 
 def _delete_type_image(relative_path):
+    """Usuwa grafikę rodzaju — wyłącznie plik leżący wewnątrz static/uploads/gift_cards."""
     if not relative_path:
         return
-    norm = relative_path.replace('\\', '/')
-    if not norm.startswith('uploads/gift_cards/'):
+    base = os.path.realpath(os.path.join(current_app.root_path, 'static', 'uploads', 'gift_cards'))
+    path = os.path.realpath(os.path.join(current_app.root_path, 'static', relative_path.replace('\\', '/')))
+    if os.path.commonpath([base, path]) != base or path == base:
         return
-    path = os.path.join(current_app.root_path, 'static', norm)
     try:
-        if os.path.exists(path):
+        if os.path.isfile(path):
             os.remove(path)
     except Exception as exc:
         current_app.logger.warning('[gift_cards] nie usunięto %s: %s', path, exc)
@@ -117,8 +118,12 @@ def _bonus_products():
             .order_by(Product.name).all())
 
 
-def _read_form():
-    """Odczyt pól formularza do słownika; błędy trafiają do listy errors."""
+def _read_form(campaign=None):
+    """Odczyt pól formularza do słownika; błędy trafiają do listy errors.
+
+    `type_existing_image` przyjmujemy tylko, gdy to grafika obecnego rodzaju tej akcji —
+    inna wartość z formularza jest ignorowana (nie wolno wskazać dowolnego pliku).
+    """
     errors = []
     name = (request.form.get('name') or '').strip()
     if not name:
@@ -142,7 +147,8 @@ def _read_form():
         bonus_id = None
 
     names = [n.strip() for n in request.form.getlist('type_name')]
-    existing = request.form.getlist('type_existing_image')
+    allowed_images = {t.image_path for t in campaign.card_types if t.image_path} if campaign else set()
+    existing = [v if v in allowed_images else '' for v in request.form.getlist('type_existing_image')]
     files = request.files.getlist('type_image')
     rows = []
     for i, type_name in enumerate(names):
@@ -185,7 +191,7 @@ def admin_form(cid=None):
     if request.method == 'GET':
         return _render_form(campaign)
 
-    data = _read_form()
+    data = _read_form(campaign)
     editing_structure = campaign is None or campaign.status == STATUS_DRAFT
     if editing_structure:
         if not data['page_ids']:
