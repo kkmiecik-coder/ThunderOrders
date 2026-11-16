@@ -26,6 +26,7 @@ def upgrade():
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.Column('created_by_admin_id', sa.Integer(), nullable=True),
+        sa.Column('entitlements_snapshot', sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(['bonus_product_id'], ['products.id'], ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['created_by_admin_id'], ['users.id'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id'),

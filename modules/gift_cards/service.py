@@ -1,8 +1,10 @@
 """Uprawnienia do gratisowych kart i kolejka rozdziału."""
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from extensions import db
+from modules.auth.models import User
 from modules.orders.models import Order, OrderItem
 from modules.gift_cards.allocation import Person, allocate
 from modules.gift_cards.models import (
@@ -115,9 +117,77 @@ def run_distribution(campaign):
                 card_type_id=pick.type_id, round_no=pick.round_no,
                 rank_position=pick.rank_position, is_duplicate=pick.is_duplicate,
             ))
+    campaign.entitlements_snapshot = json.dumps(
+        {str(uid): [[item_id, qty] for item_id, qty in ent.items] for uid, ent in entitlements.items()}
+    )
     campaign.status = STATUS_DISTRIBUTED
     db.session.commit()
     return result
+
+
+def _snapshot(campaign) -> dict:
+    """Uprawnienia zapisane przy rozdziale: user_id -> {order_item_id: ilość}."""
+    raw = json.loads(campaign.entitlements_snapshot or '{}')
+    return {int(uid): {item_id: qty for item_id, qty in items} for uid, items in raw.items()}
+
+
+def type_usage(campaign) -> list:
+    """Dla każdego rodzaju: (rodzaj, ile przydzielono, ilość). Kolejność jak w campaign.card_types."""
+    counts = dict(
+        db.session.query(GiftAssignment.card_type_id, db.func.count(GiftAssignment.id))
+        .filter(GiftAssignment.campaign_id == campaign.id)
+        .group_by(GiftAssignment.card_type_id).all()
+    )
+    return [(t, counts.get(t.id, 0), t.quantity or 0) for t in campaign.card_types]
+
+
+def _entitlement_problems(campaign) -> list:
+    """Różnice między obecnymi uprawnieniami a zapisanymi przy rozdziale."""
+    if campaign.entitlements_snapshot is None:
+        return ['Brak zapisu uprawnień z chwili rozdziału.']
+    before = _snapshot(campaign)
+    now = {uid: dict(ent.items) for uid, ent in compute_entitlements(campaign).items()}
+    uids = sorted(set(before) | set(now))
+    users = {u.id: u for u in User.query.filter(User.id.in_(uids)).all()} if uids else {}
+    problems = []
+    for uid in uids:
+        user = users.get(uid)
+        name = user.full_name if user else f'Klient #{uid}'
+        old, new = before.get(uid), now.get(uid)
+        if old is None:
+            problems.append(f'{name} — nowa osoba uprawniona do kart.')
+            continue
+        if new is None:
+            problems.append(f'{name} — nie ma już uprawnień do kart (np. anulowane lub zwrócone zamówienie).')
+            continue
+        if set(new) - set(old):
+            problems.append(f'{name} — nowa pozycja gratisowa w zamówieniu.')
+        if set(old) - set(new):
+            problems.append(f'{name} — pozycja gratisowa zniknęła (np. anulowane lub zwrócone zamówienie).')
+        for item_id in sorted(set(old) & set(new)):
+            if old[item_id] != new[item_id]:
+                problems.append(f'{name} — zmieniła się ilość gratisu ({old[item_id]} → {new[item_id]}).')
+    return problems
+
+
+def _stock_problems(campaign) -> list:
+    """Rodzaje, którym przydzielono więcej kart niż jest sztuk (np. po ręcznych zamianach)."""
+    return [
+        f'{card_type.name} — przydzielono {assigned}, a jest {quantity} szt. (o {assigned - quantity} za dużo).'
+        for card_type, assigned, quantity in type_usage(campaign) if assigned > quantity
+    ]
+
+
+def distribution_problems(campaign) -> list:
+    """Powody, dla których rozdziału nie można zatwierdzić (pusta lista = można).
+
+    Porównuje obecne uprawnienia z zapisanymi przy rozdziale (anulowane/zwrócone zamówienia,
+    nowe pozycje gratisowe, zmienione ilości) i sprawdza, czy żaden rodzaj nie ma więcej
+    przydziałów niż sztuk. Dotyczy tylko statusu 'rozdzielona'.
+    """
+    if campaign.status != STATUS_DISTRIBUTED:
+        return []
+    return _entitlement_problems(campaign) + _stock_problems(campaign)
 
 
 def swap_assignment(assignment_id, new_type_id):
@@ -132,9 +202,7 @@ def swap_assignment(assignment_id, new_type_id):
     if new_type is None or new_type.campaign_id != campaign.id:
         raise GiftCardsError('Ten rodzaj karty nie należy do tej akcji.')
     if new_type.id != assignment.card_type_id:
-        used = GiftAssignment.query.filter_by(campaign_id=campaign.id, card_type_id=new_type.id).count()
-        if used + 1 > (new_type.quantity or 0):
-            raise GiftCardsError(f'Brak wolnych sztuk: {new_type.name}.')
+        # Zamiana swobodna — nadmiar sztuk blokuje dopiero zatwierdzenie (distribution_problems).
         assignment.card_type_id = new_type.id
         db.session.flush()
 
@@ -156,8 +224,16 @@ def swap_assignment(assignment_id, new_type_id):
 def approve(campaign):
     if campaign.status != STATUS_DISTRIBUTED:
         raise GiftCardsError('Zatwierdzić można tylko rozdzieloną akcję.')
-    campaign.status = STATUS_APPROVED
+    if _entitlement_problems(campaign):
+        raise GiftCardsError('Zamówienia albo ilości zmieniły się od rozdziału — rozdziel karty ponownie.')
+    if _stock_problems(campaign):
+        raise GiftCardsError('Część rodzajów ma więcej przydziałów niż sztuk — popraw zamiany albo ilości.')
+    # Warunkowa zmiana statusu: przy dwóch równoczesnych kliknięciach tylko jedno przejdzie.
+    changed = (GiftCampaign.query.filter_by(id=campaign.id, status=STATUS_DISTRIBUTED)
+               .update({'status': STATUS_APPROVED}, synchronize_session=False))
     db.session.commit()
+    if changed != 1:
+        raise GiftCardsError('Ta akcja została już zatwierdzona.')
 
 
 def can_revert(campaign) -> bool:

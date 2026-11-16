@@ -13,8 +13,8 @@ from modules.gift_cards.models import (
     GiftAssignment, GiftCampaign, GiftCampaignPage, GiftCardType, GiftParticipant,
 )
 from modules.gift_cards.service import (
-    GiftCardsError, can_revert, compute_entitlements, queue_order, queue_position,
-    approve, revert_approval, run_distribution, swap_assignment,
+    GiftCardsError, can_revert, compute_entitlements, distribution_problems, queue_order, queue_position,
+    approve, revert_approval, run_distribution, swap_assignment, type_usage,
 )
 from modules.offers.models import OfferPage, OfferSetBonus
 from modules.products.models import Product
@@ -238,28 +238,34 @@ def admin_form(cid=None):
 def admin_detail(cid):
     campaign = _get_campaign(cid)
     entitlements = compute_entitlements(campaign)
-    order = queue_order(campaign, entitlements)
-    users = {u.id: u for u in User.query.filter(User.id.in_(order)).all()} if order else {}
-    participants = {p.user_id: p for p in
-                    GiftParticipant.query.filter_by(campaign_id=campaign.id).all()}
     assignments = {}
     for a in (GiftAssignment.query.filter_by(campaign_id=campaign.id)
               .order_by(GiftAssignment.round_no, GiftAssignment.id).all()):
         assignments.setdefault(a.user_id, []).append(a)
+    # Wiersze z uprawnionych ORAZ z przydziałów — osoba, która straciła uprawnienie po rozdziale
+    # (np. anulowane zamówienie), nadal widnieje w tabeli razem ze swoimi kartami.
+    order = queue_order(campaign, entitlements)
+    orphans = sorted(uid for uid in assignments if uid not in entitlements)
+    uids = order + orphans
+    users = {u.id: u for u in User.query.filter(User.id.in_(uids)).all()} if uids else {}
+    participants = {p.user_id: p for p in
+                    GiftParticipant.query.filter_by(campaign_id=campaign.id).all()}
 
     has_assignments = campaign.status in (STATUS_DISTRIBUTED, STATUS_APPROVED)
     rows = []
-    for index, uid in enumerate(order, start=1):
+    for index, uid in enumerate(uids, start=1):
         participant = participants.get(uid)
         cards = assignments.get(uid, [])
+        total = entitlements[uid].total if uid in entitlements else 0
         rows.append({
-            'place': index,
+            'place': index if uid in entitlements else None,
             'user': users.get(uid),
-            'total': entitlements[uid].total,
+            'total': total,
+            'entitled': uid in entitlements,
             'race_position': queue_position(campaign, uid),
             'has_ranking': bool(participant and participant.ranking),
             'cards': cards,
-            'missing': max(entitlements[uid].total - len(cards), 0) if has_assignments else 0,
+            'missing': max(total - len(cards), 0) if has_assignments else 0,
         })
 
     entitled_total = sum(e.total for e in entitlements.values())
@@ -267,11 +273,14 @@ def admin_detail(cid):
     available = sum(q for q in quantities if isinstance(q, int)) if all(isinstance(q, int) for q in quantities) and quantities else None
     duplicates = sum(1 for lst in assignments.values() for a in lst if a.is_duplicate)
     revert_ok = can_revert(campaign) if campaign.status == STATUS_APPROVED else True
+    usage = ([{'type': t, 'assigned': assigned, 'quantity': quantity, 'over': max(assigned - quantity, 0)}
+              for t, assigned, quantity in type_usage(campaign)] if has_assignments else [])
     return render_template(
         'admin/gift_cards/detail.html', campaign=campaign, rows=rows, has_assignments=has_assignments,
         entitled_total=entitled_total, available=available, duplicates=duplicates,
         revert_ok=revert_ok, status_label=STATUS_LABELS.get(campaign.status, campaign.status),
         quantities_editable=campaign.status in (STATUS_CLOSED, STATUS_DISTRIBUTED),
+        problems=distribution_problems(campaign), usage=usage,
     )
 
 
@@ -290,8 +299,16 @@ def admin_publish(cid):
     if not campaign.card_types or not campaign.pages or campaign.bonus_product_id is None:
         flash('Uzupełnij strony ofert, produkt-gratis i rodzaje kart przed publikacją.', 'error')
         return _detail_redirect(cid)
-    campaign.status = STATUS_OPEN
+    if campaign.race_at is None:
+        flash('Ustaw datę i godzinę wyścigu przed publikacją.', 'error')
+        return _detail_redirect(cid)
+    # Warunkowa zmiana statusu: przy dwóch równoczesnych kliknięciach maile wyjdą tylko raz.
+    changed = (GiftCampaign.query.filter_by(id=cid, status=STATUS_DRAFT)
+               .update({'status': STATUS_OPEN}, synchronize_session=False))
     db.session.commit()
+    if changed != 1:
+        flash('Akcja została już opublikowana.', 'error')
+        return _detail_redirect(cid)
     sent = send_invites(campaign)
     flash(f'Wysłano {sent} zaproszeń.', 'success')
     return _detail_redirect(cid)

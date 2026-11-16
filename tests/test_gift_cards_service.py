@@ -172,14 +172,25 @@ def _dwoje_z_kartami(db, make_user, make_order, akcja, san=1, yunho=1):
     return c, a, b, ia, ib, t
 
 
-def test_swap_over_stock_rejected(db, make_user, make_order, akcja):
+def test_swap_over_stock_allowed_but_blocks_approve_until_fixed(db, make_user, make_order, akcja):
+    """Zamiana swobodna (decyzja I2 = A): nadmiar sztuk blokuje zatwierdzenie, nie zamianę."""
     from modules.gift_cards.models import GiftAssignment
-    from modules.gift_cards.service import GiftCardsError, swap_assignment
+    from modules.gift_cards.service import GiftCardsError, approve, distribution_problems, swap_assignment
     c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    a_row = GiftAssignment.query.filter_by(user_id=a.id).one()
     b_row = GiftAssignment.query.filter_by(user_id=b.id).one()
     assert b_row.card_type_id == t['Yunho'].id  # San poszedł do A
-    with pytest.raises(GiftCardsError, match='Brak wolnych sztuk'):
-        swap_assignment(b_row.id, t['San'].id)
+    swap_assignment(b_row.id, t['San'].id)
+    assert b_row.card_type_id == t['San'].id and b_row.rank_position == 1
+    assert distribution_problems(c) == ['San — przydzielono 2, a jest 1 szt. (o 1 za dużo).']
+    with pytest.raises(GiftCardsError, match='więcej przydziałów niż sztuk'):
+        approve(c)
+    assert c.status == 'rozdzielona'
+    # Wymiana kart między dwiema osobami = dwie zamiany; po drugiej wszystko się zgadza.
+    swap_assignment(a_row.id, t['Yunho'].id)
+    assert distribution_problems(c) == []
+    approve(c)
+    assert c.status == 'zatwierdzona'
 
 
 def test_swap_recomputes_duplicate_flag(db, make_user, make_order, akcja):
@@ -228,6 +239,74 @@ def test_revert_blocked_when_order_packed(db, make_user, make_order, akcja):
     ia.order.status = 'nowe'; db.session.commit()
     revert_approval(c)
     assert c.status == 'rozdzielona'
+
+
+# ---- Strażnik zatwierdzenia: zmiany od rozdziału (I1) ----
+
+def test_run_distribution_saves_entitlements_snapshot(db, make_user, make_order, akcja):
+    import json
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    assert json.loads(c.entitlements_snapshot) == {str(a.id): [[ia.id, 1]], str(b.id): [[ib.id, 1]]}
+
+
+def test_problems_empty_right_after_distribution_and_outside_distributed(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import distribution_problems
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    assert distribution_problems(c) == []
+    ia.order.status = 'anulowane'; db.session.commit()
+    assert distribution_problems(c) != []
+    c.status = 'zamknieta'; db.session.commit()
+    assert distribution_problems(c) == []
+
+
+def test_cancelled_order_after_distribution_blocks_approve(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import GiftCardsError, approve, distribution_problems
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    ia.order.status = 'anulowane'; db.session.commit()
+    problems = distribution_problems(c)
+    assert len(problems) == 1 and a.full_name in problems[0] and 'nie ma już uprawnień' in problems[0]
+    with pytest.raises(GiftCardsError, match='rozdziel karty ponownie'):
+        approve(c)
+    assert c.status == 'rozdzielona'
+
+
+def test_bonus_quantity_lowered_after_distribution_blocks_approve(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import GiftCardsError, approve, distribution_problems, run_distribution
+    c, bonus, page = akcja
+    a = make_user()
+    item = _bonus(db, make_order(a, offer_page_id=page.id), bonus, 2)
+    _typy(db, c, San=2, Yunho=2)
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    item.quantity = 1; db.session.commit()
+    assert distribution_problems(c) == [f'{a.full_name} — zmieniła się ilość gratisu (2 → 1).']
+    with pytest.raises(GiftCardsError, match='rozdziel karty ponownie'):
+        approve(c)
+    run_distribution(c)  # ponowny rozdział zapisuje nowy stan
+    assert distribution_problems(c) == []
+    approve(c)
+    assert c.status == 'zatwierdzona'
+
+
+def test_new_entitled_person_and_new_item_after_distribution(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import distribution_problems
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    c_, bonus, page = akcja
+    nowa = make_user()
+    _bonus(db, make_order(nowa, offer_page_id=page.id), bonus, 1)
+    _bonus(db, make_order(a, offer_page_id=page.id), bonus, 1)
+    problems = distribution_problems(c)
+    assert f'{nowa.full_name} — nowa osoba uprawniona do kart.' in problems
+    assert f'{a.full_name} — nowa pozycja gratisowa w zamówieniu.' in problems
+
+
+def test_card_quantity_lowered_after_distribution_blocks_approve(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import GiftCardsError, approve, distribution_problems
+    c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
+    t['San'].quantity = 0; db.session.commit()
+    assert distribution_problems(c) == ['San — przydzielono 1, a jest 0 szt. (o 1 za dużo).']
+    with pytest.raises(GiftCardsError):
+        approve(c)
 
 
 # ---- Task 5: maile ----

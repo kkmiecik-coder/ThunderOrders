@@ -24,9 +24,12 @@ def setup(db, make_user, make_product, strona_sprzedazy):
     return bonus, strona_sprzedazy
 
 
-def _campaign(db, bonus, page, status='szkic', types=('Typ A', 'Typ B'), quantities=None):
+def _campaign(db, bonus, page, status='szkic', types=('Typ A', 'Typ B'), quantities=None, race=True):
+    from datetime import timedelta
     from modules.gift_cards.models import GiftCampaign, GiftCampaignPage, GiftCardType
-    c = GiftCampaign(name='Akcja', bonus_product_id=bonus.id, status=status)
+    from utils.timeutil import utcnow
+    c = GiftCampaign(name='Akcja', bonus_product_id=bonus.id, status=status,
+                     race_at=utcnow() + timedelta(days=1) if race else None)
     db.session.add(c)
     db.session.commit()
     db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=page.id))
@@ -160,18 +163,31 @@ def test_full_flow_close_quantities_distribute_approve(client, admin, db, setup,
     assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona'
 
 
-def test_swap_endpoint_returns_error_json_over_stock(client, admin, db, setup, make_user, make_order):
-    from modules.gift_cards.models import GiftAssignment
+def test_swap_over_stock_allowed_summary_shows_excess_and_blocks_approve(client, admin, db, setup, make_user,
+                                                                         make_order, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftAssignment, GiftCampaign
     bonus, page = setup
     c = _campaign(db, bonus, page, status='zamknieta', quantities=[1, 1])
     _entitled(db, make_user, make_order, bonus, page)
     _entitled(db, make_user, make_order, bonus, page)
     client.post(f'{BASE}/{c.id}/rozdziel')
     a, b = GiftAssignment.query.order_by(GiftAssignment.id).all()
-    resp = client.post(f'{BASE}/{c.id}/zamien', json={'assignment_id': a.id, 'type_id': b.card_type_id})
-    assert resp.status_code == 400
-    body = resp.get_json()
-    assert body['success'] is False and 'Brak wolnych sztuk' in body['error']
+    a_type, b_type = a.card_type_id, b.card_type_id
+    resp = client.post(f'{BASE}/{c.id}/zamien', json={'assignment_id': a.id, 'type_id': b_type})
+    assert resp.get_json() == {'success': True}
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert '2 / 1' in html and 'o 1 za dużo' in html and '0 / 1' in html
+    assert 'Nie można zatwierdzić przydziału' in html
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz')
+    assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona' and outbox == []
+    # Druga zamiana kończy wymianę między osobami — można zatwierdzić.
+    client.post(f'{BASE}/{c.id}/zamien', json={'assignment_id': b.id, 'type_id': a_type})
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert 'za dużo' not in html and 'Nie można zatwierdzić przydziału' not in html
+    client.post(f'{BASE}/{c.id}/zatwierdz')
+    assert db.session.get(GiftCampaign, c.id).status == 'zatwierdzona'
 
 
 def test_swap_endpoint_success(client, admin, db, setup, make_user, make_order):
@@ -222,3 +238,112 @@ def test_edit_draft_removes_a_page(client, admin, db, setup, make_user):
     assert resp.status_code == 302
     db.session.refresh(c)
     assert c.offer_page_ids == [second.id]
+
+
+# ---- Strażnik zatwierdzenia (I1) ----
+
+def _distributed(client, db, bonus, page, make_user, make_order, qty=1):
+    c = _campaign(db, bonus, page, status='zamknieta', quantities=[2, 2])
+    u, item = _entitled(db, make_user, make_order, bonus, page, qty=qty)
+    other, _ = _entitled(db, make_user, make_order, bonus, page)
+    client.post(f'{BASE}/{c.id}/rozdziel')
+    return c, u, item
+
+
+def test_cancelled_order_after_distribute_banner_and_approve_blocked(client, admin, db, setup, make_user,
+                                                                    make_order, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    item.order.status = 'anulowane'; db.session.commit()
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert 'Nie można zatwierdzić przydziału' in html
+    assert f'{u.full_name} — nie ma już uprawnień do kart' in html
+    # Osoba bez uprawnień nadal widnieje w tabeli razem ze swoją kartą.
+    assert html.count('bez uprawnień') == 1 and html.count('data-assignment-id') == 2
+    assert 'disabled>Zatwierdź i wyślij wyniki' in html
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz')
+    assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona' and outbox == []
+    with client.session_transaction() as sess:
+        assert any('rozdziel karty ponownie' in m for _, m in sess['_flashes'])
+    # Ponowny rozdział naprawia sytuację.
+    client.post(f'{BASE}/{c.id}/rozdziel')
+    assert 'Nie można zatwierdzić przydziału' not in client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+
+
+def test_quantity_lowered_after_distribute_blocks_approve(client, admin, db, setup, make_user, make_order,
+                                                          maile_synchronicznie):
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order, qty=2)
+    item.quantity = 1; db.session.commit()
+    assert 'zmieniła się ilość gratisu (2 → 1)' in client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    client.post(f'{BASE}/{c.id}/zatwierdz')
+    assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona'
+
+
+# ---- Publikacja i zatwierdzenie tylko raz (M1, M2) ----
+
+def test_publish_requires_race_at(client, admin, db, setup, make_user, make_order, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c = _campaign(db, bonus, page, race=False)
+    _entitled(db, make_user, make_order, bonus, page)
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/publikuj')
+    assert db.session.get(GiftCampaign, c.id).status == 'szkic' and outbox == []
+    with client.session_transaction() as sess:
+        assert ('error', 'Ustaw datę i godzinę wyścigu przed publikacją.') in sess['_flashes']
+
+
+def _stale_campaign(monkeypatch, db, new_status):
+    """Symuluje drugie, równoczesne kliknięcie: obiekt akcji ma stary status, w bazie jest już nowy."""
+    from sqlalchemy import text
+    import modules.gift_cards.routes_admin as routes
+    real = routes._get_campaign
+
+    def stale(cid):
+        campaign = real(cid)
+        _ = campaign.status  # załadowany stary status
+        db.session.execute(text('UPDATE gift_campaigns SET status = :s WHERE id = :id'),
+                           {'s': new_status, 'id': cid})
+        return campaign
+
+    monkeypatch.setattr(routes, '_get_campaign', stale)
+
+
+def test_second_publish_sends_no_extra_mails(client, admin, db, setup, make_user, make_order,
+                                             maile_synchronicznie, monkeypatch):
+    from extensions import mail
+    bonus, page = setup
+    c = _campaign(db, bonus, page)
+    _entitled(db, make_user, make_order, bonus, page)
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/publikuj')
+        client.post(f'{BASE}/{c.id}/publikuj')
+    assert len(outbox) == 1
+    # Równoczesne kliknięcie: status już zmieniony w bazie -> żadnych maili.
+    c2 = _campaign(db, bonus, page)
+    _stale_campaign(monkeypatch, db, 'otwarta')
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c2.id}/publikuj')
+    assert outbox == []
+    with client.session_transaction() as sess:
+        assert ('error', 'Akcja została już opublikowana.') in sess['_flashes']
+
+
+def test_concurrent_approve_sends_no_extra_mails(client, admin, db, setup, make_user, make_order,
+                                                 maile_synchronicznie, monkeypatch):
+    from extensions import mail
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    _stale_campaign(monkeypatch, db, 'zatwierdzona')
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz')
+    assert outbox == []
+    with client.session_transaction() as sess:
+        assert ('error', 'Ta akcja została już zatwierdzona.') in sess['_flashes']
+

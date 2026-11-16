@@ -34,7 +34,7 @@
             <form method="post" action="{{ url_for('gift_cards.admin_approve', cid=campaign.id) }}"
                   data-gc-confirm="Zatwierdzić przydział i wysłać klientom maile z wynikiem?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="gc-btn gc-btn--primary">Zatwierdź i wyślij wyniki</button>
+                <button type="submit" class="gc-btn gc-btn--primary" {% if problems %}disabled{% endif %}>Zatwierdź i wyślij wyniki</button>
             </form>
             {% elif campaign.status == 'zatwierdzona' %}
             <form method="post" action="{{ url_for('gift_cards.admin_revert', cid=campaign.id) }}"
@@ -45,6 +45,16 @@
             {% endif %}
         </div>
     </div>
+
+    {% if problems %}
+    <div class="gc-notice gc-notice--problems" role="alert">
+        <strong>Nie można zatwierdzić przydziału:</strong>
+        <ul class="gc-problems">
+            {% for p in problems %}<li>{{ p }}</li>{% endfor %}
+        </ul>
+        Popraw zamiany albo ilości, a gdy zmieniły się zamówienia — rozdziel karty ponownie.
+    </div>
+    {% endif %}
 
     {% if campaign.status == 'zatwierdzona' and not revert_ok %}
     <div class="gc-notice">Nie można cofnąć zatwierdzenia: część zamówień z tego przydziału jest już spakowana lub wysłana.</div>
@@ -64,6 +74,21 @@
             <span class="gc-summary-label">Powtórek</span>
         </div>
     </div>
+
+    {% if usage %}
+    <section class="gc-card">
+        <h2>Przydzielone / ilość</h2>
+        <ul class="gc-usage">
+            {% for u in usage %}
+            <li class="gc-usage-item{% if u.over %} gc-usage-item--over{% endif %}">
+                <span class="gc-usage-name">{{ u.type.name }}</span>
+                <span class="gc-usage-count">{{ u.assigned }} / {{ u.quantity }}</span>
+                {% if u.over %}<span class="gc-tag gc-tag--dup">o {{ u.over }} za dużo</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
 
     <section class="gc-card">
         <h2>Rodzaje kart</h2>
@@ -111,8 +136,11 @@
             <tbody>
                 {% for r in rows %}
                 <tr>
-                    <td class="gc-num">{{ r.place }}</td>
-                    <td class="gc-name">{{ r.user.full_name if r.user else '—' }}</td>
+                    <td class="gc-num">{{ r.place if r.place else '—' }}</td>
+                    <td class="gc-name">
+                        {{ r.user.full_name if r.user else '—' }}
+                        {% if not r.entitled %}<span class="gc-tag gc-tag--dup">bez uprawnień</span>{% endif %}
+                    </td>
                     <td class="gc-num">{{ r.total }}</td>
                     <td>
                         {% if r.race_position %}wyścig: {{ r.race_position }}{% else %}bez wyścigu{% endif %}

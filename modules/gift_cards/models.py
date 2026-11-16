@@ -21,6 +21,8 @@ class GiftCampaign(db.Model):
     created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
     updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False)
     created_by_admin_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    # JSON {user_id: [[order_item_id, ilość], ...]} — uprawnienia z chwili rozdziału (strażnik zatwierdzenia)
+    entitlements_snapshot = db.Column(db.Text, nullable=True)
 
     bonus_product = db.relationship('Product', foreign_keys=[bonus_product_id])
     pages = db.relationship('GiftCampaignPage', backref='campaign', cascade='all, delete-orphan')
