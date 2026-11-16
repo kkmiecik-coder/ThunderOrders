@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/order-detail.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/gift-cards.css') }}">
 {% if show_tracking_map %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/tracking-map.css') }}">
@@ -190,6 +191,9 @@
                                 </span>
                                 {%- endif -%}
                             </div>
+                            {% if item.is_bonus %}{% set gc_campaign = item.open_gift_campaign %}{% if gc_campaign %}
+                            <a class="gc-client-order-link" href="{{ url_for('gift_cards.client_campaign', cid=gc_campaign.id) }}">Wybierz swoje gratisowe karty →</a>
+                            {% endif %}{% endif %}
                             {% if item.product_sku or item.product_ean %}
                             <span class="od-product-row__codes">
                                 {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}

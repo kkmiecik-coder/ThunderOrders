@@ -6,7 +6,7 @@ from extensions import db
 from modules.orders.models import Order, OrderItem
 from modules.gift_cards.allocation import Person, allocate
 from modules.gift_cards.models import (
-    GiftAssignment, GiftCardType, GiftParticipant, GiftRaceEntry,
+    GiftAssignment, GiftCampaign, GiftCardType, GiftParticipant, GiftRaceEntry,
     STATUS_APPROVED, STATUS_CLOSED, STATUS_DISTRIBUTED, STATUS_OPEN,
 )
 
@@ -190,15 +190,26 @@ def item_gift_label(item):
     if rows and rows[0].campaign.status == STATUS_APPROVED:
         return ', '.join(r.card_type.name for r in rows)
 
-    from modules.gift_cards.models import GiftCampaign
+    return 'przydział w toku' if _campaign_for_item(
+        item, (STATUS_OPEN, STATUS_CLOSED, STATUS_DISTRIBUTED)) else None
+
+
+def _campaign_for_item(item, statuses):
+    """Akcja w danym statusie, do której należy pozycja gratisowa (ten sam produkt i strona oferty)."""
+    if not item.is_bonus:
+        return None
     page_id = item.order.offer_page_id if item.order else None
     if page_id is None or item.product_id is None:
         return None
-    pending = (
+    return (
         GiftCampaign.query
         .filter(GiftCampaign.bonus_product_id == item.product_id,
-                GiftCampaign.status.in_((STATUS_OPEN, STATUS_CLOSED, STATUS_DISTRIBUTED)),
+                GiftCampaign.status.in_(statuses),
                 GiftCampaign.pages.any(offer_page_id=page_id))
         .first()
     )
-    return 'przydział w toku' if pending else None
+
+
+def open_campaign_for_item(item):
+    """Otwarta akcja obejmująca pozycję gratisową (do linku na stronie zamówienia) albo None."""
+    return _campaign_for_item(item, (STATUS_OPEN,))
