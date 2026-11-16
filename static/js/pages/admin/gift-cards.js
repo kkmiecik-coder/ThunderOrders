@@ -23,6 +23,15 @@
         }
     });
 
+    // Pole daty wyścigu: kliknięcie w dowolne miejsce pola od razu otwiera kalendarz.
+    document.querySelectorAll('input[type="datetime-local"].gc-input').forEach(function (input) {
+        input.addEventListener('click', function () {
+            if (typeof input.showPicker === 'function') {
+                try { input.showPicker(); } catch (e) { /* przeglądarka nie pozwala — zostaje zwykłe pole */ }
+            }
+        });
+    });
+
     // Formularz akcji: dodawanie i usuwanie wierszy rodzajów kart.
     var addButton = document.getElementById('gcAddType');
     var list = document.getElementById('gcTypeList');

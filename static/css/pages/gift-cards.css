@@ -94,6 +94,14 @@
     font-family: inherit; font-size: var(--text-base);
 }
 .gc-select--multi { min-height: 160px; padding: var(--space-2); }
+
+/* Pole daty: całe klikalne, ikona kalendarza wyraźna w obu motywach */
+.gc-input[type="datetime-local"] { cursor: pointer; color-scheme: light; }
+[data-theme="dark"] .gc-input[type="datetime-local"] { color-scheme: dark; }
+.gc-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer; opacity: 1; width: 22px; height: 22px; padding: 4px; border-radius: var(--radius-sm);
+}
+.gc-input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover { background: var(--bg-tertiary, rgba(127, 127, 127, 0.15)); }
 .gc-input:disabled, .gc-select:disabled { opacity: 0.6; cursor: not-allowed; }
 .gc-input--qty { max-width: 120px; }
 .gc-select--card { min-width: 220px; }
