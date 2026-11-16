@@ -570,6 +570,10 @@
                 var itemName = item.product_name || '-';
                 if (item.selected_size) itemName += ' [' + item.selected_size + ']';
                 itemEl.textContent = itemName;
+                if (item.gift_cards_label) {
+                    itemEl.textContent += ' (' + (item.gift_cards_label === 'przydział w toku'
+                        ? item.gift_cards_label : 'Karty: ' + item.gift_cards_label) + ')';
+                }
                 itemsList.appendChild(itemEl);
             });
         }
@@ -581,6 +585,16 @@
         });
 
         return card;
+    }
+
+    // Linia z przydziałem gratisowych kart tuż pod nazwą pozycji (tekst przez textContent)
+    function appendGiftCardsLine(nameEl, label) {
+        if (!nameEl || !label) return;
+        var pending = label === 'przydział w toku';
+        var line = document.createElement('div');
+        line.className = pending ? 'gift-cards-pending' : 'gift-cards-line';
+        line.textContent = pending ? label : 'Karty: ' + label;
+        nameEl.parentNode.insertBefore(line, nameEl.nextSibling);
     }
 
     function updateOrderCardProgress(card, order) {
@@ -703,6 +717,7 @@
         var displayName = item.product_name || '-';
         if (item.selected_size) displayName += ' [' + item.selected_size + ']';
         card.querySelector('.wms-item-name').textContent = displayName;
+        appendGiftCardsLine(card.querySelector('.wms-item-name'), item.gift_cards_label);
         card.querySelector('.wms-item-sku').textContent = item.product_sku || '';
 
         // Status badge

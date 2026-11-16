@@ -1,0 +1,6 @@
+{#- Etykieta kart przydzielonych do pozycji-gratisu. Oczekuje zmiennej `gl` (item.gift_cards_label). -#}
+{%- if gl == 'przydział w toku' -%}
+<span class="gift-cards-pending">przydział w toku</span>
+{%- elif gl -%}
+<span class="gift-cards-line">Karty: {{ gl }}</span>
+{%- endif -%}

@@ -381,6 +381,13 @@
         sku.className = 'wms-m-item-sku';
         sku.textContent = item.product_sku || '';
         info.appendChild(name);
+        if (item.gift_cards_label) {
+            var pending = item.gift_cards_label === 'przydział w toku';
+            var gift = document.createElement('div');
+            gift.className = pending ? 'gift-cards-pending' : 'gift-cards-line';
+            gift.textContent = pending ? item.gift_cards_label : 'Karty: ' + item.gift_cards_label;
+            info.appendChild(gift);
+        }
         info.appendChild(sku);
 
         var badge = document.createElement('span');
