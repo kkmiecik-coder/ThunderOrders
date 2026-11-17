@@ -506,3 +506,65 @@ def test_delete_type_image_only_inside_uploads(app, static_tmp):
         _delete_type_image('uploads/gift_cards/compressed/b.png')
     assert secret.exists() and outside.exists()
     assert not (uploads / 'b.png').exists()
+
+
+# ---- Plik Excel z rozdziału ----
+
+def _excel(client, cid):
+    from io import BytesIO
+    from openpyxl import load_workbook
+    resp = client.get(f'{BASE}/{cid}/excel')
+    assert resp.status_code == 200
+    assert 'spreadsheetml' in resp.headers['Content-Type']
+    assert '.xlsx' in resp.headers['Content-Disposition']
+    return load_workbook(BytesIO(resp.data))
+
+
+def _cells(ws):
+    return [[c for c in row] for row in ws.iter_rows(values_only=True)]
+
+
+def test_excel_has_clients_and_summary(client, admin, db, setup, make_user, make_order):
+    bonus, page = setup
+    c, u, _ = _distributed(client, db, bonus, page, make_user, make_order, qty=2)
+    wb = _excel(client, c.id)
+    assert wb.sheetnames == ['Klientki', 'Podsumowanie']
+
+    rows = _cells(wb['Klientki'])
+    flat = [v for row in rows for v in row if v is not None]
+    assert u.email in flat
+    header = next(row for row in rows if row and row[0] == 'Miejsce')
+    assert 'Typ A' in header and 'Typ B' in header
+    user_row = next(row for row in rows if u.email in row)
+    # 2 karty przydzielone, rozpisane na rodzaje
+    assert user_row[header.index('Kart')] == 2
+    per_type = sum(user_row[header.index(t)] or 0 for t in ('Typ A', 'Typ B'))
+    assert per_type == 2
+
+    summary = _cells(wb['Podsumowanie'])
+    type_a = next(row for row in summary if row and row[0] == 'Typ A')
+    type_b = next(row for row in summary if row and row[0] == 'Typ B')
+    assert type_a[1] + type_b[1] == 3  # 2 + 1 karta drugiej osoby
+    assert type_a[2] == 2 and type_b[2] == 2  # wpisane ilości
+
+
+def test_excel_link_only_after_distribution(client, admin, db, setup, make_user, make_order):
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='zamknieta', quantities=[2, 2])
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert f'{BASE}/{c.id}/excel' not in html
+    resp = client.get(f'{BASE}/{c.id}/excel')
+    assert resp.status_code == 302
+
+    c2, _, _ = _distributed(client, db, bonus, page, make_user, make_order)
+    html = client.get(f'{BASE}/{c2.id}').get_data(as_text=True)
+    assert f'{BASE}/{c2.id}/excel' in html
+    assert 'Pobierz Excel' in html
+
+
+def test_excel_requires_admin(client, login, make_user, db, setup):
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='rozdzielona')
+    login(make_user(role='client'))
+    resp = client.get(f'{BASE}/{c.id}/excel')
+    assert resp.status_code in (302, 403)

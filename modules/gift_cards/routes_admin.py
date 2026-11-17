@@ -1,7 +1,7 @@
 import os
 import secrets
 
-from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import abort, current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import or_
 
@@ -9,6 +9,7 @@ from extensions import db
 from modules.auth.models import User
 from modules.gift_cards import gift_cards_bp
 from modules.gift_cards.emails import send_invites, send_results
+from modules.gift_cards.export import build_distribution_excel
 from modules.gift_cards.models import (
     STATUS_APPROVED, STATUS_CLOSED, STATUS_DRAFT, STATUS_OPEN, STATUS_DISTRIBUTED,
     GiftAssignment, GiftCampaign, GiftCampaignPage, GiftCardType, GiftParticipant,
@@ -21,7 +22,7 @@ from modules.offers.models import OfferPage, OfferSection, OfferSetBonus
 from modules.orders.models import Order, OrderItem
 from modules.products.models import Product
 from utils.decorators import role_required
-from utils.timeutil import format_pl_input, parse_pl_input
+from utils.timeutil import format_pl_input, parse_pl_input, to_pl, utcnow
 
 STATUS_LABELS = {
     STATUS_DRAFT: 'Szkic',
@@ -285,6 +286,47 @@ def admin_form(cid=None):
 @role_required('admin', 'mod')
 def admin_detail(cid):
     campaign = _get_campaign(cid)
+    rows, entitlements, assignments, has_assignments = _detail_rows(campaign)
+
+    entitled_total = sum(e.total for e in entitlements.values())
+    quantities = [t.quantity for t in campaign.card_types]
+    available = sum(q for q in quantities if isinstance(q, int)) if all(isinstance(q, int) for q in quantities) and quantities else None
+    duplicates = sum(1 for lst in assignments.values() for a in lst if a.is_duplicate)
+    revert_ok = can_revert(campaign) if campaign.status == STATUS_APPROVED else True
+    usage = _usage(campaign) if has_assignments else []
+    return render_template(
+        'admin/gift_cards/detail.html', campaign=campaign, rows=rows, has_assignments=has_assignments,
+        entitled_total=entitled_total, available=available, duplicates=duplicates,
+        revert_ok=revert_ok, status_label=STATUS_LABELS.get(campaign.status, campaign.status),
+        quantities_editable=campaign.status in (STATUS_CLOSED, STATUS_DISTRIBUTED),
+        problems=distribution_problems(campaign), usage=usage,
+    )
+
+
+@gift_cards_bp.route('/admin/rozdzial-gratisow/<int:cid>/excel')
+@login_required
+@role_required('admin', 'mod')
+def admin_excel(cid):
+    campaign = _get_campaign(cid)
+    rows, _, _, has_assignments = _detail_rows(campaign)
+    if not has_assignments:
+        flash('Plik Excel będzie dostępny po rozdzieleniu kart.', 'error')
+        return _detail_redirect(cid)
+    buffer = build_distribution_excel(campaign, rows, _usage(campaign),
+                                      STATUS_LABELS.get(campaign.status, campaign.status))
+    safe = ''.join(ch for ch in campaign.name if ch.isalnum() or ch in ' -_').strip().replace(' ', '_')[:50]
+    filename = f'gratisy_{safe or campaign.id}_{to_pl(utcnow()).strftime("%Y%m%d")}.xlsx'
+    return send_file(buffer, as_attachment=True, download_name=filename,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+def _usage(campaign):
+    return [{'type': t, 'assigned': assigned, 'quantity': quantity, 'over': max(assigned - quantity, 0)}
+            for t, assigned, quantity in type_usage(campaign)]
+
+
+def _detail_rows(campaign):
+    """Wiersze tabeli „Uprawnieni” — wspólne dla strony szczegółów i pliku Excel."""
     entitlements = compute_entitlements(campaign)
     assignments = {}
     for a in (GiftAssignment.query.filter_by(campaign_id=campaign.id)
@@ -315,21 +357,7 @@ def admin_detail(cid):
             'cards': cards,
             'missing': max(total - len(cards), 0) if has_assignments else 0,
         })
-
-    entitled_total = sum(e.total for e in entitlements.values())
-    quantities = [t.quantity for t in campaign.card_types]
-    available = sum(q for q in quantities if isinstance(q, int)) if all(isinstance(q, int) for q in quantities) and quantities else None
-    duplicates = sum(1 for lst in assignments.values() for a in lst if a.is_duplicate)
-    revert_ok = can_revert(campaign) if campaign.status == STATUS_APPROVED else True
-    usage = ([{'type': t, 'assigned': assigned, 'quantity': quantity, 'over': max(assigned - quantity, 0)}
-              for t, assigned, quantity in type_usage(campaign)] if has_assignments else [])
-    return render_template(
-        'admin/gift_cards/detail.html', campaign=campaign, rows=rows, has_assignments=has_assignments,
-        entitled_total=entitled_total, available=available, duplicates=duplicates,
-        revert_ok=revert_ok, status_label=STATUS_LABELS.get(campaign.status, campaign.status),
-        quantities_editable=campaign.status in (STATUS_CLOSED, STATUS_DISTRIBUTED),
-        problems=distribution_problems(campaign), usage=usage,
-    )
+    return rows, entitlements, assignments, has_assignments
 
 
 # --------------------------------------------------------------------------- #
