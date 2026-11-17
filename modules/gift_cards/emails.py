@@ -18,8 +18,12 @@ def pl_cards(n: int) -> str:
 
 
 def _entitled_text(n: int) -> str:
-    """„przysługuje Ci 1 karta" / „przysługują Ci N karty|kart"."""
-    return f'{"przysługuje" if n == 1 else "przysługują"} Ci {pl_cards(n)}'
+    """„przysługuje Ci 1 karta", „przysługują Ci 2 karty", „przysługuje Ci 5 kart".
+
+    Liczebnik z „kart" (5+, 12–14) łączy się z czasownikiem w liczbie pojedynczej.
+    """
+    plural_verb = 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14
+    return f'{"przysługują" if plural_verb else "przysługuje"} Ci {pl_cards(n)}'
 
 
 def _recipients(entitlements):

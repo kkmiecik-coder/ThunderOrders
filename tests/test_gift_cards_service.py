@@ -357,3 +357,17 @@ def test_send_results_lists_cards_and_shortage(db, app, make_user, make_order, a
     assert 'San, Yunho' in body and 'Brakuje 1 karta — skontaktujemy się w tej sprawie.' in body
     assert 'San, Yunho' in out[0].html
     assert out[0].subject == 'Twoje gratisowe karty: Akcja - ThunderOrders'
+
+
+@pytest.mark.parametrize('n, expected', [
+    (1, 'przysługuje Ci 1 karta'),
+    (2, 'przysługują Ci 2 karty'),
+    (4, 'przysługują Ci 4 karty'),
+    (5, 'przysługuje Ci 5 kart'),
+    (6, 'przysługuje Ci 6 kart'),
+    (12, 'przysługuje Ci 12 kart'),
+    (22, 'przysługują Ci 22 karty'),
+])
+def test_entitled_text_polish_grammar(n, expected):
+    from modules.gift_cards.emails import _entitled_text
+    assert _entitled_text(n) == expected
