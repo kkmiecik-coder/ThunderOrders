@@ -23,7 +23,7 @@
         }
     });
 
-    // Pole daty wyścigu: kliknięcie w dowolne miejsce pola od razu otwiera kalendarz.
+    // Pole startu zgłoszeń: kliknięcie w dowolne miejsce pola od razu otwiera kalendarz.
     document.querySelectorAll('input[type="datetime-local"].gc-input').forEach(function (input) {
         input.addEventListener('click', function () {
             if (typeof input.showPicker === 'function') {

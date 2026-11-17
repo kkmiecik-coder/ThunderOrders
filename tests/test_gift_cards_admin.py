@@ -397,7 +397,7 @@ def test_publish_requires_race_at(client, admin, db, setup, make_user, make_orde
         client.post(f'{BASE}/{c.id}/publikuj')
     assert db.session.get(GiftCampaign, c.id).status == 'szkic' and outbox == []
     with client.session_transaction() as sess:
-        assert ('error', 'Ustaw datę i godzinę wyścigu przed publikacją.') in sess['_flashes']
+        assert ('error', 'Ustaw datę i godzinę startu zgłoszeń przed publikacją.') in sess['_flashes']
 
 
 def _stale_campaign(monkeypatch, db, new_status):

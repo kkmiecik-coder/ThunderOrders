@@ -1,7 +1,7 @@
 Cześć {{ user_name or '' }}!
 
 W akcji {{ campaign_name }} {{ entitled_text }}.
-{% if race_at %}Wyścig po karty odbędzie się {{ race_at }} (czasu polskiego).
+{% if race_at %}Zgłoszenia ruszają {{ race_at }} (czasu polskiego). Kto pierwszy kliknie „Zgłaszam się”, ten wyżej w kolejce.
 {% endif %}
 Ułóż proszę swój ranking kart — od tych, które chcesz najbardziej, do najmniej wymarzonych:
 {{ url }}

@@ -146,7 +146,7 @@ def _read_form(campaign=None):
         try:
             race_at = parse_pl_input(raw_race)
         except ValueError:
-            errors.append('Niepoprawna data i godzina wyścigu.')
+            errors.append('Niepoprawna data i godzina startu zgłoszeń.')
 
     page_ids = []
     for raw in request.form.getlist('offer_page_ids'):
@@ -348,7 +348,7 @@ def admin_publish(cid):
         flash('Uzupełnij strony ofert, produkt-gratis i rodzaje kart przed publikacją.', 'error')
         return _detail_redirect(cid)
     if campaign.race_at is None:
-        flash('Ustaw datę i godzinę wyścigu przed publikacją.', 'error')
+        flash('Ustaw datę i godzinę startu zgłoszeń przed publikacją.', 'error')
         return _detail_redirect(cid)
     # Warunkowa zmiana statusu: przy dwóch równoczesnych kliknięciach maile wyjdą tylko raz.
     changed = (GiftCampaign.query.filter_by(id=cid, status=STATUS_DRAFT)

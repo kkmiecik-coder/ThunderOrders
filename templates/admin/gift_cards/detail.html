@@ -26,7 +26,7 @@
             </form>
             {% elif campaign.status == 'otwarta' %}
             <form method="post" action="{{ url_for('gift_cards.admin_close', cid=campaign.id) }}"
-                  data-gc-confirm="Zamknąć zgłoszenia? Klienci nie będą mogli już zmieniać rankingów ani wchodzić do wyścigu.">
+                  data-gc-confirm="Zamknąć zgłoszenia? Klienci nie będą mogli już zmieniać rankingów ani się zgłaszać.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="gc-btn gc-btn--primary">Zamknij zgłoszenia</button>
             </form>
@@ -129,7 +129,7 @@
                     <th class="gc-col-place">Miejsce</th>
                     <th>Osoba</th>
                     <th class="gc-col-total">Kart</th>
-                    <th class="gc-col-race">Wyścig / ranking</th>
+                    <th class="gc-col-race">Zgłoszenie / ranking</th>
                     {% if has_assignments %}<th>Przydział</th>{% endif %}
                 </tr>
             </thead>
@@ -143,7 +143,7 @@
                     </td>
                     <td class="gc-num">{{ r.total }}</td>
                     <td>
-                        {% if r.race_position %}wyścig: {{ r.race_position }}{% else %}bez wyścigu{% endif %}
+                        {% if r.race_position %}zgłoszenie nr {{ r.race_position }}{% else %}bez zgłoszenia{% endif %}
                         · {% if r.has_ranking %}ma ranking{% else %}bez rankingu{% endif %}
                     </td>
                     {% if has_assignments %}
