@@ -3,7 +3,7 @@ from flask import url_for
 
 from modules.auth.models import User
 from modules.gift_cards.models import GiftAssignment
-from modules.gift_cards.service import compute_entitlements
+from modules.gift_cards.service import compute_entitlements, pool_breakdown
 from utils.email_sender import prepare_email, send_email_batch
 from utils.timeutil import to_pl
 
@@ -26,6 +26,27 @@ def _entitled_text(n: int) -> str:
     return f'{"przysługują" if plural_verb else "przysługuje"} Ci {pl_cards(n)}'
 
 
+def entitled_summary(campaign, ent) -> str:
+    """„przysługują Ci 3 karty (2 karty — Benefit 50k, 1 karta — Benefit 100k)” — rozbicie tylko przy kilku pulach."""
+    text = _entitled_text(ent.total)
+    parts = pool_breakdown(campaign, ent)
+    if len(campaign.pools) > 1 and parts:
+        text += ' (' + ', '.join(f'{pl_cards(n)} — {pool.label}' for pool, n in parts) + ')'
+    return text
+
+
+def cards_by_pool_text(campaign, assignments) -> str:
+    """„San, Yunho” — a przy kilku pulach „Benefit 50k: San, Yunho; Benefit 100k: San”."""
+    if len(campaign.pools) <= 1:
+        return ', '.join(a.card_type.name for a in assignments)
+    parts = []
+    for pool in campaign.pools:
+        names = [a.card_type.name for a in assignments if a.pool_id == pool.id]
+        if names:
+            parts.append(f'{pool.label}: {", ".join(names)}')
+    return '; '.join(parts)
+
+
 def _recipients(entitlements):
     users = User.query.filter(User.id.in_(list(entitlements))).all() if entitlements else []
     return [u for u in sorted(users, key=lambda u: u.id) if u.email]
@@ -38,14 +59,13 @@ def send_invites(campaign) -> int:
     race_at = to_pl(campaign.race_at).strftime('%d.%m.%Y %H:%M') if campaign.race_at else None
     messages = []
     for user in _recipients(entitlements):
-        total = entitlements[user.id].total
         msg = prepare_email(
             to=user.email,
             subject=f'Gratisowe karty: {campaign.name} - ThunderOrders',
             template='gift_cards_invite',
             user_name=user.first_name,
             campaign_name=campaign.name,
-            entitled_text=_entitled_text(total),
+            entitled_text=entitled_summary(campaign, entitlements[user.id]),
             race_at=race_at,
             url=url,
         )
@@ -63,13 +83,13 @@ def send_results(campaign) -> int:
         GiftAssignment.query.filter_by(campaign_id=campaign.id)
         .order_by(GiftAssignment.user_id, GiftAssignment.round_no, GiftAssignment.id).all()
     )
-    names = {}
+    by_user = {}
     for a in assignments:
-        names.setdefault(a.user_id, []).append(a.card_type.name)
+        by_user.setdefault(a.user_id, []).append(a)
     url = url_for('gift_cards.client_campaign', cid=campaign.id, _external=True)
     messages = []
     for user in _recipients(entitlements):
-        cards = names.get(user.id, [])
+        cards = by_user.get(user.id, [])
         missing = entitlements[user.id].total - len(cards)
         msg = prepare_email(
             to=user.email,
@@ -77,7 +97,7 @@ def send_results(campaign) -> int:
             template='gift_cards_result',
             user_name=user.first_name,
             campaign_name=campaign.name,
-            cards=', '.join(cards),
+            cards=cards_by_pool_text(campaign, cards),
             shortage_text=(f'Brakuje {pl_cards(missing)} — skontaktujemy się w tej sprawie.'
                            if missing > 0 else None),
             url=url,

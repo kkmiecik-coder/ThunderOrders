@@ -21,24 +21,32 @@ class Entitlement:
     user_id: int
     items: list = field(default_factory=list)  # (order_item_id, quantity), wg Order.created_at, OrderItem.id
     first_order_at: datetime = None
+    pool_items: dict = field(default_factory=dict)  # pool_id -> [(order_item_id, quantity), ...]
 
     @property
     def total(self) -> int:
         return sum(q for _, q in self.items)
 
+    def pool_total(self, pool_id) -> int:
+        return sum(q for _, q in self.pool_items.get(pool_id, []))
+
 
 def compute_entitlements(campaign) -> dict:
-    """Uprawnienia klientów: user_id -> Entitlement (gratisowe pozycje z zamówień akcji)."""
+    """Uprawnienia klientów: user_id -> Entitlement (gratisowe pozycje z zamówień akcji).
+
+    Każdy produkt-gratis akcji to osobna pula; `items`/`total` sumują wszystkie pule.
+    """
     page_ids = campaign.offer_page_ids
-    if campaign.bonus_product_id is None or not page_ids:
+    pool_of = {p.bonus_product_id: p.id for p in campaign.pools if p.bonus_product_id is not None}
+    if not pool_of or not page_ids:
         return {}
 
     rows = (
-        db.session.query(OrderItem.id, OrderItem.quantity, Order.user_id, Order.created_at)
+        db.session.query(OrderItem.id, OrderItem.quantity, OrderItem.product_id, Order.user_id, Order.created_at)
         .join(Order, Order.id == OrderItem.order_id)
         .filter(
             OrderItem.is_bonus.is_(True),
-            OrderItem.product_id == campaign.bonus_product_id,
+            OrderItem.product_id.in_(list(pool_of)),
             Order.offer_page_id.in_(page_ids),
             Order.status.notin_(EXCLUDED_ORDER_STATUSES),
         )
@@ -47,12 +55,20 @@ def compute_entitlements(campaign) -> dict:
     )
 
     result = {}
-    for item_id, quantity, user_id, created_at in rows:
+    for item_id, quantity, product_id, user_id, created_at in rows:
         ent = result.get(user_id)
         if ent is None:
             ent = result[user_id] = Entitlement(user_id=user_id, items=[], first_order_at=created_at)
         ent.items.append((item_id, quantity))
+        ent.pool_items.setdefault(pool_of[product_id], []).append((item_id, quantity))
     return result
+
+
+def pool_breakdown(campaign, ent) -> list:
+    """[(pula, ile kart)] — tylko pule, w których klient ma karty; kolejność jak w akcji."""
+    if ent is None:
+        return []
+    return [(pool, ent.pool_total(pool.id)) for pool in campaign.pools if ent.pool_total(pool.id) > 0]
 
 
 def queue_order(campaign, entitlements: dict) -> list:
@@ -79,7 +95,7 @@ def queue_position(campaign, user_id):
 def dashboard_campaigns(user_id) -> list:
     """Akcje do kafelka na stronie głównej klienta: otwarte / zamknięte / rozdzielone,
     w których klient ma gratisy. Szkice i zatwierdzone się nie pokazują."""
-    from modules.gift_cards.emails import _entitled_text
+    from modules.gift_cards.emails import entitled_summary
     from utils.timeutil import to_pl, utcnow
 
     campaigns = (GiftCampaign.query
@@ -92,7 +108,7 @@ def dashboard_campaigns(user_id) -> list:
         if not ent or ent.total <= 0:
             continue
         participant = GiftParticipant.query.filter_by(campaign_id=campaign.id, user_id=user_id).first()
-        text = _entitled_text(ent.total)
+        text = entitled_summary(campaign, ent)
         result.append({
             'campaign': campaign,
             'entitled_text': text[:1].upper() + text[1:],
@@ -120,38 +136,47 @@ def _valid_ranking(participant, type_ids):
 
 
 def run_distribution(campaign):
-    """Rozdziela karty i zapisuje GiftAssignment. Wynik: AllocationResult."""
+    """Rozdziela karty każdej puli osobno (ta sama kolejka i ranking) i zapisuje GiftAssignment.
+
+    Wynik: {pool_id: AllocationResult}.
+    """
     if campaign.status not in (STATUS_CLOSED, STATUS_DISTRIBUTED):
         raise GiftCardsError('Rozdział jest możliwy dopiero po zamknięciu akcji.')
     types = list(campaign.card_types)
-    if not types or any(not isinstance(t.quantity, int) or t.quantity < 0 for t in types):
+    pools = list(campaign.pools)
+    stock = campaign.stock_map()
+    if not types or not pools or any(
+            not isinstance(stock.get((pool.id, t.id)), int) or stock[(pool.id, t.id)] < 0
+            for pool in pools for t in types):
         raise GiftCardsError('Uzupełnij ilości wszystkich rodzajów kart.')
     type_ids = [t.id for t in types]
 
     entitlements = compute_entitlements(campaign)
     order = queue_order(campaign, entitlements)
     participants = {p.user_id: p for p in campaign.participants}
-    people = [
-        Person(uid, entitlements[uid].total, _valid_ranking(participants.get(uid), type_ids))
-        for uid in order
-    ]
-    result = allocate(people, {t.id: t.quantity for t in types})
+    rankings = {uid: _valid_ranking(participants.get(uid), type_ids) for uid in order}
 
     GiftAssignment.query.filter_by(campaign_id=campaign.id).delete()
-    for uid in order:
-        slots = [item_id for item_id, qty in entitlements[uid].items for _ in range(qty)]
-        for slot, pick in zip(slots, result.picks[uid]):
-            db.session.add(GiftAssignment(
-                campaign_id=campaign.id, user_id=uid, order_item_id=slot,
-                card_type_id=pick.type_id, round_no=pick.round_no,
-                rank_position=pick.rank_position, is_duplicate=pick.is_duplicate,
-            ))
+    results = {}
+    for pool in pools:
+        people = [Person(uid, entitlements[uid].pool_total(pool.id), rankings[uid])
+                  for uid in order if entitlements[uid].pool_total(pool.id) > 0]
+        result = results[pool.id] = allocate(people, {t.id: stock[(pool.id, t.id)] for t in types})
+        for person in people:
+            slots = [item_id for item_id, qty in entitlements[person.user_id].pool_items[pool.id]
+                     for _ in range(qty)]
+            for slot, pick in zip(slots, result.picks[person.user_id]):
+                db.session.add(GiftAssignment(
+                    campaign_id=campaign.id, user_id=person.user_id, order_item_id=slot,
+                    pool_id=pool.id, card_type_id=pick.type_id, round_no=pick.round_no,
+                    rank_position=pick.rank_position, is_duplicate=pick.is_duplicate,
+                ))
     campaign.entitlements_snapshot = json.dumps(
         {str(uid): [[item_id, qty] for item_id, qty in ent.items] for uid, ent in entitlements.items()}
     )
     campaign.status = STATUS_DISTRIBUTED
     db.session.commit()
-    return result
+    return results
 
 
 def _snapshot(campaign) -> dict:
@@ -161,13 +186,16 @@ def _snapshot(campaign) -> dict:
 
 
 def type_usage(campaign) -> list:
-    """Dla każdego rodzaju: (rodzaj, ile przydzielono, ilość). Kolejność jak w campaign.card_types."""
-    counts = dict(
-        db.session.query(GiftAssignment.card_type_id, db.func.count(GiftAssignment.id))
+    """Dla każdej pary pula × rodzaj: (pula, rodzaj, ile przydzielono, ilość)."""
+    counts = {
+        (pool_id, type_id): n for pool_id, type_id, n in
+        db.session.query(GiftAssignment.pool_id, GiftAssignment.card_type_id, db.func.count(GiftAssignment.id))
         .filter(GiftAssignment.campaign_id == campaign.id)
-        .group_by(GiftAssignment.card_type_id).all()
-    )
-    return [(t, counts.get(t.id, 0), t.quantity or 0) for t in campaign.card_types]
+        .group_by(GiftAssignment.pool_id, GiftAssignment.card_type_id).all()
+    }
+    stock = campaign.stock_map()
+    return [(pool, t, counts.get((pool.id, t.id), 0), stock.get((pool.id, t.id)) or 0)
+            for pool in campaign.pools for t in campaign.card_types]
 
 
 def _entitlement_problems(campaign) -> list:
@@ -201,9 +229,11 @@ def _entitlement_problems(campaign) -> list:
 
 def _stock_problems(campaign) -> list:
     """Rodzaje, którym przydzielono więcej kart niż jest sztuk (np. po ręcznych zamianach)."""
+    several = len(campaign.pools) > 1
     return [
-        f'{card_type.name} — przydzielono {assigned}, a jest {quantity} szt. (o {assigned - quantity} za dużo).'
-        for card_type, assigned, quantity in type_usage(campaign) if assigned > quantity
+        f'{card_type.name}{f" ({pool.label})" if several else ""} — przydzielono {assigned}, '
+        f'a jest {quantity} szt. (o {assigned - quantity} za dużo).'
+        for pool, card_type, assigned, quantity in type_usage(campaign) if assigned > quantity
     ]
 
 
@@ -240,7 +270,9 @@ def swap_assignment(assignment_id, new_type_id):
         GiftParticipant.query.filter_by(campaign_id=campaign.id, user_id=assignment.user_id).first(),
         type_ids,
     )
-    rows = (GiftAssignment.query.filter_by(campaign_id=campaign.id, user_id=assignment.user_id)
+    # Powtórki liczymy w obrębie puli przydziału (San z 50k i San ze 100k to różne karty).
+    rows = (GiftAssignment.query.filter_by(campaign_id=campaign.id, user_id=assignment.user_id,
+                                           pool_id=assignment.pool_id)
             .order_by(GiftAssignment.round_no, GiftAssignment.id).all())
     seen = set()
     for row in rows:
@@ -308,7 +340,7 @@ def _campaign_for_item(item, statuses):
         return None
     return (
         GiftCampaign.query
-        .filter(GiftCampaign.bonus_product_id == item.product_id,
+        .filter(GiftCampaign.pools.any(bonus_product_id=item.product_id),
                 GiftCampaign.status.in_(statuses),
                 GiftCampaign.pages.any(offer_page_id=page_id))
         .first()

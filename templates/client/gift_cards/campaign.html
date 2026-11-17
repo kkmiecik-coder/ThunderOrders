@@ -19,14 +19,20 @@
         {% if total == 1 %}Przysługuje Ci{% else %}Przysługują Ci{% endif %}
         <strong>{{ total_text }}</strong>.
       </p>
+      {% if several_pools and breakdown %}
+        <ul class="gc-client-breakdown">
+          {% for pool, text in breakdown %}<li><strong>{{ text }}</strong> — {{ pool.label }}</li>{% endfor %}
+        </ul>
+      {% endif %}
     </div>
 
     {% if campaign.status == 'zatwierdzona' %}
       <div class="gc-client-card">
         <h2 class="gc-client-h2">Twoje karty</h2>
-        {% if assignments %}
+        {% for pool, cards in assignment_groups %}
+          {% if several_pools %}<h3 class="gc-client-h3">{{ pool.label }}</h3>{% endif %}
           <ol class="gc-client-result">
-            {% for a in assignments %}
+            {% for a in cards %}
               <li class="gc-client-result__item">
                 {% if a.card_type.image_path %}
                   <img class="gc-client-thumb" src="{{ url_for('static', filename=a.card_type.image_path) }}" alt="{{ a.card_type.name }}">
@@ -35,7 +41,7 @@
               </li>
             {% endfor %}
           </ol>
-        {% endif %}
+        {% endfor %}
         {% if shortage_text %}
           <p class="gc-client-note">Brakuje {{ shortage_text }} — skontaktujemy się w tej sprawie.</p>
         {% endif %}
@@ -77,7 +83,7 @@
         <h2 class="gc-client-h2">Twój ranking</h2>
         <p class="gc-client-note">
           Dla każdej karty wybierz miejsce — 1 oznacza kartę, którą chcesz najbardziej.
-          Każde miejsce wybierz tylko raz.
+          Każde miejsce wybierz tylko raz.{% if several_pools %} Ten sam ranking liczy się dla wszystkich Twoich gratisów.{% endif %}
         </p>
         <div class="gc-client-grid-wrap">
           <table class="gc-client-grid">
@@ -118,6 +124,18 @@
           {% if has_ranking %}<span class="gc-client-saved">Masz zapisany ranking.</span>{% endif %}
         {% endif %}
       </form>
+
+      {% if is_open or notes %}
+      <form method="post" action="{{ url_for('gift_cards.client_save_notes', cid=campaign.id) }}"
+            class="gc-client-card" id="gcNotesForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h2 class="gc-client-h2"><label for="gcNotes">Uwagi</label></h2>
+        <p class="gc-client-note">Masz dodatkową prośbę albo informację do przydziału kart? Napisz tutaj (nieobowiązkowe).</p>
+        <textarea id="gcNotes" name="notes" class="gc-client-notes" rows="3" maxlength="{{ notes_max }}"
+                  {% if not is_open %}disabled{% endif %}>{{ notes }}</textarea>
+        {% if is_open %}<button type="submit" class="gc-btn gc-btn--primary">Zapisz uwagi</button>{% endif %}
+      </form>
+      {% endif %}
     {% endif %}
   {% endif %}
 </div>

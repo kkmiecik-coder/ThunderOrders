@@ -2,6 +2,8 @@ from datetime import timedelta
 
 import pytest
 
+from tests.gift_helpers import add_pool, add_types
+
 from utils.timeutil import utcnow
 
 
@@ -11,13 +13,14 @@ def setup(db, make_user, make_product, make_order, strona_sprzedazy, login):
     from modules.gift_cards.models import GiftCampaign, GiftCampaignPage, GiftCardType
     from modules.orders.models import OrderItem
     bonus = make_product(name='Gratis')
-    c = GiftCampaign(name='Akcja', bonus_product_id=bonus.id, status='otwarta',
+    c = GiftCampaign(name='Akcja', status='otwarta',
                      race_at=utcnow() - timedelta(minutes=1))
     db.session.add(c); db.session.commit()
     db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=strona_sprzedazy.id))
-    t1 = GiftCardType(campaign_id=c.id, name='San', sort_order=0, quantity=1)
-    t2 = GiftCardType(campaign_id=c.id, name='Yunho', sort_order=1, quantity=1)
-    db.session.add_all([t1, t2]); db.session.commit()
+    db.session.commit()
+    pool = add_pool(db, c, bonus)
+    t = add_types(db, c, {'San': 1, 'Yunho': 1})
+    t1, t2 = t['San'], t['Yunho']
     user = make_user()
     order = make_order(user, offer_page_id=strona_sprzedazy.id)
     item = OrderItem(order_id=order.id, product_id=bonus.id, quantity=2, price=0, total=0, is_bonus=True)
@@ -173,8 +176,8 @@ def test_shows_assigned_cards_after_approve(client, setup, db):
     from modules.gift_cards.models import GiftAssignment
     c, t1, t2, user, item = setup
     db.session.add_all([
-        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, card_type_id=t1.id, round_no=1),
-        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, card_type_id=t2.id, round_no=2),
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, pool_id=c.pools[0].id, card_type_id=t1.id, round_no=1),
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, pool_id=c.pools[0].id, card_type_id=t2.id, round_no=2),
     ])
     c.status = 'zatwierdzona'; db.session.commit()
     html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
@@ -185,7 +188,7 @@ def test_shortage_note_after_approve(client, setup, db):
     from modules.gift_cards.models import GiftAssignment
     c, t1, t2, user, item = setup
     db.session.add(GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id,
-                                  card_type_id=t1.id, round_no=1))
+                                  pool_id=c.pools[0].id, card_type_id=t1.id, round_no=1))
     c.status = 'zatwierdzona'; db.session.commit()
     assert 'Brakuje 1 karta' in client.get(f'/gratisy/{c.id}').get_data(as_text=True)
 
@@ -251,3 +254,106 @@ def test_dashboard_tile_hidden_for_draft_and_approved(client, dash, db, status):
 def test_dashboard_tile_hidden_for_non_entitled(client, dash, make_user, login):
     login(make_user(profile_completed=True))
     assert 'gc-dash' not in client.get(DASH).get_data(as_text=True)
+
+
+# ---- Pule i uwagi ----
+
+@pytest.fixture
+def dwie_pule(db, make_product, setup):
+    """Do akcji z `setup` dochodzi druga pula (Benefit 100k) z 1 kartą dla klientki."""
+    from modules.orders.models import OrderItem
+    from tests.gift_helpers import set_stock
+    c, t1, t2, user, item = setup
+    c.pools[0].bonus_product.name = 'Benefit 50k'
+    b100 = make_product(name='Benefit 100k')
+    p100 = add_pool(db, c, b100)
+    set_stock(db, p100, {t1: 1, t2: 1})
+    item100 = OrderItem(order_id=item.order_id, product_id=b100.id, quantity=1, price=0, total=0, is_bonus=True)
+    db.session.add(item100); db.session.commit()
+    return c, t1, t2, user, item, p100, item100
+
+
+def test_page_shows_breakdown_per_pool(client, dwie_pule):
+    c = dwie_pule[0]
+    html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
+    assert '3 karty' in html
+    assert '2 karty</strong> — Benefit 50k' in html and '1 karta</strong> — Benefit 100k' in html
+    assert 'Ten sam ranking liczy się dla wszystkich' in html
+
+
+def test_result_grouped_per_pool(client, db, dwie_pule):
+    from modules.gift_cards.models import GiftAssignment
+    c, t1, t2, user, item, p100, item100 = dwie_pule
+    db.session.add_all([
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, pool_id=c.pools[0].id,
+                       card_type_id=t1.id, round_no=1),
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item100.id, pool_id=p100.id,
+                       card_type_id=t1.id, round_no=1),
+    ])
+    c.status = 'zatwierdzona'; db.session.commit()
+    html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
+    assert html.index('Benefit 50k</h3>') < html.index('Benefit 100k</h3>')
+    assert 'Brakuje 1 karta' in html
+
+
+def test_invite_mail_has_breakdown(app, db, dwie_pule, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.emails import send_invites
+    c = dwie_pule[0]
+    with app.test_request_context(), mail.record_messages() as out:
+        assert send_invites(c) == 1
+    assert 'przysługują Ci 3 karty (2 karty — Benefit 50k, 1 karta — Benefit 100k)' in out[0].body
+
+
+def test_result_mail_lists_cards_per_pool(app, db, dwie_pule, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.emails import send_results
+    from modules.gift_cards.models import GiftAssignment
+    c, t1, t2, user, item, p100, item100 = dwie_pule
+    db.session.add_all([
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, pool_id=c.pools[0].id,
+                       card_type_id=t1.id, round_no=1),
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, pool_id=c.pools[0].id,
+                       card_type_id=t2.id, round_no=2),
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item100.id, pool_id=p100.id,
+                       card_type_id=t1.id, round_no=1),
+    ])
+    db.session.commit()
+    with app.test_request_context(), mail.record_messages() as out:
+        send_results(c)
+    assert 'Benefit 50k: San, Yunho; Benefit 100k: San' in out[0].body
+
+
+def test_save_notes_when_open(client, db, setup):
+    from modules.gift_cards.models import GiftParticipant
+    c, *_ , user, _item = setup
+    resp = client.post(f'/gratisy/{c.id}/uwagi', data={'notes': '  Proszę bez Yunho  '})
+    assert resp.status_code == 302
+    p = GiftParticipant.query.filter_by(campaign_id=c.id, user_id=user.id).one()
+    assert p.notes == 'Proszę bez Yunho' and p.ranking == []
+    html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
+    assert 'Proszę bez Yunho</textarea>' in html
+
+
+def test_notes_do_not_touch_saved_ranking(client, db, setup):
+    from modules.gift_cards.models import GiftParticipant
+    c, t1, t2, user, _ = setup
+    client.post(f'/gratisy/{c.id}/ranking', data={f'rank_{t1.id}': 2, f'rank_{t2.id}': 1})
+    client.post(f'/gratisy/{c.id}/uwagi', data={'notes': 'Hej'})
+    p = GiftParticipant.query.filter_by(campaign_id=c.id, user_id=user.id).one()
+    assert p.ranking == [t2.id, t1.id] and p.notes == 'Hej'
+
+
+def test_notes_rejected_when_closed_or_too_long(client, db, setup):
+    from modules.gift_cards.models import GiftParticipant
+    c = setup[0]
+    assert client.post(f'/gratisy/{c.id}/uwagi', data={'notes': 'x' * 1001}).status_code == 400
+    c.status = 'zamknieta'; db.session.commit()
+    assert client.post(f'/gratisy/{c.id}/uwagi', data={'notes': 'późno'}).status_code == 400
+    assert GiftParticipant.query.filter(GiftParticipant.notes.isnot(None)).count() == 0
+
+
+def test_notes_forbidden_for_non_entitled(client, setup, make_user, login):
+    c = setup[0]
+    login(make_user())
+    assert client.post(f'/gratisy/{c.id}/uwagi', data={'notes': 'x'}).status_code == 403

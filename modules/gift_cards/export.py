@@ -41,45 +41,63 @@ def _header(ws, row, labels):
         cell.font, cell.fill, cell.alignment, cell.border = _HEADER_FONT, _HEADER_FILL, _HEADER_ALIGN, _BORDER
 
 
-def _cards_text(cards):
-    counts = Counter(a.card_type.name for a in cards)
-    return ', '.join(name if n == 1 else f'{name} ×{n}' for name, n in counts.items())
+def _cards_text(cards, pools):
+    """„San, Yunho ×2” — a przy kilku pulach „50k: San · 100k: Yunho ×2”."""
+    def one(group):
+        counts = Counter(a.card_type.name for a in group)
+        return ', '.join(name if n == 1 else f'{name} ×{n}' for name, n in counts.items())
+    if len(pools) <= 1:
+        return one(cards)
+    parts = []
+    for pool in pools:
+        group = [a for a in cards if a.pool_id == pool.id]
+        if group:
+            parts.append(f'{pool.label}: {one(group)}')
+    return ' · '.join(parts)
 
 
 def build_distribution_excel(campaign, rows, usage, status_label) -> BytesIO:
-    """rows — wiersze jak na stronie szczegółów; usage — [{'type', 'assigned', 'quantity', 'over'}]."""
+    """rows — wiersze jak na stronie szczegółów; usage — [{'pool', 'items': [{'type', 'assigned', ...}]}]."""
     types = list(campaign.card_types)
+    pools = list(campaign.pools)
+    several = len(pools) > 1
+    columns = [(pool, t) for pool in pools for t in types]
     wb = Workbook()
 
     # --- Arkusz 1: klientki ---
     ws = wb.active
     ws.title = 'Klientki'
     labels = (['Miejsce', 'Imię i nazwisko', 'Kart', 'Przydzielone karty']
-              + [t.name for t in types] + ['Powtórki', 'Brakuje', 'Uwagi'])
+              + [f'{t.name} — {pool.label}' if several else t.name for pool, t in columns]
+              + ['Powtórki', 'Brakuje', 'Uwagi klientki', 'Uwagi'])
     _title(ws, campaign, status_label, len(labels))
     _header(ws, 4, labels)
+    wrap_cols = {2, 4, len(labels) - 1, len(labels)}
+    dup_col, missing_col = len(labels) - 3, len(labels) - 2
     r = 5
     for row in rows:
         user = row['user']
         cards = row['cards']
-        per_type = Counter(a.card_type_id for a in cards)
+        per_cell = Counter((a.pool_id, a.card_type_id) for a in cards)
         duplicates = sum(1 for a in cards if a.is_duplicate)
         # Bez maili — tylko imię i nazwisko (mail pojawi się wyłącznie, gdy konto nie ma imienia).
-        values = ([row['place'] or '', user.full_name if user else '', len(cards), _cards_text(cards)]
-                  + [per_type.get(t.id) or None for t in types]
-                  + [duplicates or None, row['missing'] or None,
+        values = ([row['place'] or '', user.full_name if user else '', len(cards), _cards_text(cards, pools)]
+                  + [per_cell.get((pool.id, t.id)) or None for pool, t in columns]
+                  + [duplicates or None, row['missing'] or None, row.get('notes') or '',
                      '' if row['entitled'] else 'bez uprawnień (np. anulowane zamówienie)'])
         for col, value in enumerate(values, start=1):
             cell = ws.cell(row=r, column=col, value=value)
             cell.border = _BORDER
-            cell.alignment = _WRAP if col in (2, 4, len(labels)) else _CENTER
+            cell.alignment = _WRAP if col in wrap_cols else _CENTER
         if duplicates:
-            ws.cell(row=r, column=len(labels) - 2).fill = _DUP_FILL
+            ws.cell(row=r, column=dup_col).fill = _DUP_FILL
         if row['missing']:
-            ws.cell(row=r, column=len(labels) - 1).fill = _MISSING_FILL
+            ws.cell(row=r, column=missing_col).fill = _MISSING_FILL
         r += 1
 
-    widths = [9, 28, 7, 40] + [max(10, min(len(t.name) + 2, 22)) for t in types] + [10, 10, 30]
+    widths = ([9, 28, 7, 44]
+              + [max(10, min(len(labels[4 + i]) + 2, 24)) for i in range(len(columns))]
+              + [10, 10, 36, 30])
     for col, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
     ws.freeze_panes = 'C5'
@@ -91,43 +109,47 @@ def build_distribution_excel(campaign, rows, usage, status_label) -> BytesIO:
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.print_title_rows = '4:4'
 
-    # --- Arkusz 2: podsumowanie ---
+    # --- Arkusz 2: podsumowanie (osobna tabelka dla każdej puli) ---
     ws2 = wb.create_sheet('Podsumowanie')
     _title(ws2, campaign, status_label, 4)
-    _header(ws2, 4, ['Rodzaj karty', 'Przydzielono', 'Dostępne (wpisana ilość)', 'Ponad stan'])
-    r = 5
-    for u in usage:
-        values = [u['type'].name, u['assigned'], u['type'].quantity, u['over'] or None]
-        for col, value in enumerate(values, start=1):
-            cell = ws2.cell(row=r, column=col, value=value)
-            cell.border = _BORDER
-            cell.alignment = _WRAP if col == 1 else _CENTER
-        if u['over']:
-            ws2.cell(row=r, column=4).fill = _MISSING_FILL
+    r = 4
+    for group in usage:
+        if several:
+            ws2.cell(row=r, column=1, value=group['pool'].label).font = Font(bold=True, size=12, color=_PURPLE)
+            r += 1
+        _header(ws2, r, ['Rodzaj karty', 'Przydzielono', 'Dostępne (wpisana ilość)', 'Ponad stan'])
         r += 1
-    total_cell = ws2.cell(row=r, column=1, value='Razem')
-    total_cell.font = Font(bold=True)
-    ws2.cell(row=r, column=2, value=sum(u['assigned'] for u in usage)).font = Font(bold=True)
-    quantities = [u['type'].quantity for u in usage]
-    if quantities and all(isinstance(q, int) for q in quantities):
-        ws2.cell(row=r, column=3, value=sum(quantities)).font = Font(bold=True)
-    for col in range(1, 5):
-        ws2.cell(row=r, column=col).border = _BORDER
-        ws2.cell(row=r, column=col).alignment = _WRAP if col == 1 else _CENTER
+        items = group['items']
+        for u in items:
+            values = [u['type'].name, u['assigned'], u['quantity'], u['over'] or None]
+            for col, value in enumerate(values, start=1):
+                cell = ws2.cell(row=r, column=col, value=value)
+                cell.border = _BORDER
+                cell.alignment = _WRAP if col == 1 else _CENTER
+            if u['over']:
+                ws2.cell(row=r, column=4).fill = _MISSING_FILL
+            r += 1
+        ws2.cell(row=r, column=1, value='Razem').font = Font(bold=True)
+        ws2.cell(row=r, column=2, value=sum(u['assigned'] for u in items)).font = Font(bold=True)
+        ws2.cell(row=r, column=3, value=sum(u['quantity'] for u in items)).font = Font(bold=True)
+        for col in range(1, 5):
+            ws2.cell(row=r, column=col).border = _BORDER
+            ws2.cell(row=r, column=col).alignment = _WRAP if col == 1 else _CENTER
+        r += 2
 
-    r += 2
     entitled = [row for row in rows if row['entitled']]
     facts = [
         ('Uprawnionych osób', len(entitled)),
         ('Kart należnych łącznie', sum(row['total'] for row in entitled)),
         ('Powtórek', sum(1 for row in rows for a in row['cards'] if a.is_duplicate)),
         ('Osób, którym brakuje kart', sum(1 for row in rows if row['missing'])),
+        ('Osób z uwagami', sum(1 for row in rows if row.get('notes'))),
     ]
     for label, value in facts:
         ws2.cell(row=r, column=1, value=label).font = Font(bold=True)
         ws2.cell(row=r, column=2, value=value).alignment = _CENTER
         r += 1
-    for col, width in enumerate([32, 14, 24, 12], start=1):
+    for col, width in enumerate([34, 14, 24, 12], start=1):
         ws2.column_dimensions[get_column_letter(col)].width = width
 
     buffer = BytesIO()

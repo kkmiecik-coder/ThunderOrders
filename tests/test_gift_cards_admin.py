@@ -1,5 +1,7 @@
 import pytest
 
+from tests.gift_helpers import add_pool, add_types, set_stock
+
 BASE = '/admin/rozdzial-gratisow'
 
 
@@ -26,18 +28,22 @@ def setup(db, make_user, make_product, strona_sprzedazy):
 
 def _campaign(db, bonus, page, status='szkic', types=('Typ A', 'Typ B'), quantities=None, race=True):
     from datetime import timedelta
-    from modules.gift_cards.models import GiftCampaign, GiftCampaignPage, GiftCardType
+    from modules.gift_cards.models import GiftCampaign, GiftCampaignPage
     from utils.timeutil import utcnow
-    c = GiftCampaign(name='Akcja', bonus_product_id=bonus.id, status=status,
+    c = GiftCampaign(name='Akcja', status=status,
                      race_at=utcnow() + timedelta(days=1) if race else None)
     db.session.add(c)
     db.session.commit()
     db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=page.id))
-    for i, name in enumerate(types):
-        db.session.add(GiftCardType(campaign_id=c.id, name=name, sort_order=i,
-                                    quantity=quantities[i] if quantities else None))
     db.session.commit()
+    add_pool(db, c, bonus)
+    add_types(db, c, {name: (quantities[i] if quantities else None) for i, name in enumerate(types)})
     return c
+
+
+def _qty(c, t):
+    """Ilość rodzaju w (jedynej) puli akcji."""
+    return c.stock_map().get((c.pools[0].id, t.id))
 
 
 def _entitled(db, make_user, make_order, bonus, page, qty=1):
@@ -97,22 +103,22 @@ def test_create_campaign_with_card_types(client, admin, db, setup):
     from utils.timeutil import to_pl
     bonus, page = setup
     resp = client.post(BASE + '/nowa', data={
-        'name': 'ATEEZ unit', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'name': 'ATEEZ unit', 'offer_page_ids': [page.id], 'bonus_product_ids': [bonus.id],
         'race_at': '2026-11-20T20:00', 'type_name': ['Hongjoong + Seonghwa', 'Yunho + Yeosang'],
         'type_existing_image': ['', '']})
     assert resp.status_code == 302
     c = GiftCampaign.query.one()
     assert [t.name for t in c.card_types] == ['Hongjoong + Seonghwa', 'Yunho + Yeosang']
     assert to_pl(c.race_at).hour == 20
-    assert c.offer_page_ids == [page.id] and c.bonus_product_id == bonus.id
+    assert c.offer_page_ids == [page.id] and c.bonus_product_ids == [bonus.id]
     assert c.status == 'szkic'
     assert client.get(f'{BASE}/{c.id}/edytuj').status_code == 200
 
 
 def _post_new(client, bonus, page, names, quantities):
     return client.post(BASE + '/nowa', data={
-        'name': 'Akcja z ilosciami', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
-        'type_name': names, 'type_existing_image': [''] * len(names), 'type_quantity': quantities})
+        'name': 'Akcja z ilosciami', 'offer_page_ids': [page.id], 'bonus_product_ids': [bonus.id],
+        'type_name': names, 'type_existing_image': [''] * len(names), f'type_quantity_{bonus.id}': quantities})
 
 
 def test_create_with_quantities_saves_them_and_blank_stays_empty(client, admin, db, setup):
@@ -121,9 +127,9 @@ def test_create_with_quantities_saves_them_and_blank_stays_empty(client, admin, 
     resp = _post_new(client, bonus, page, ['San', 'Yunho', 'Wooyoung'], ['12', '', '0'])
     assert resp.status_code == 302
     c = GiftCampaign.query.one()
-    assert [(t.name, t.quantity) for t in c.card_types] == [('San', 12), ('Yunho', None), ('Wooyoung', 0)]
+    assert [(t.name, _qty(c, t)) for t in c.card_types] == [('San', 12), ('Yunho', None), ('Wooyoung', 0)]
     html = client.get(f'{BASE}/{c.id}/edytuj').get_data(as_text=True)
-    assert 'name="type_quantity"' in html and 'value="12"' in html
+    assert f'name="type_quantity_{bonus.id}"' in html and 'value="12"' in html
 
 
 def test_create_with_invalid_quantity_shows_error_and_keeps_input(client, admin, db, setup):
@@ -141,17 +147,18 @@ def test_create_without_quantity_field_still_works(client, admin, db, setup):
     from modules.gift_cards.models import GiftCampaign
     bonus, page = setup
     resp = client.post(BASE + '/nowa', data={
-        'name': 'Bez ilosci', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'name': 'Bez ilosci', 'offer_page_ids': [page.id], 'bonus_product_ids': [bonus.id],
         'type_name': ['San'], 'type_existing_image': ['']})
     assert resp.status_code == 302
-    assert GiftCampaign.query.one().card_types[0].quantity is None
+    c = GiftCampaign.query.one()
+    assert _qty(c, c.card_types[0]) is None
 
 
 def test_create_without_types_shows_error(client, admin, db, setup):
     from modules.gift_cards.models import GiftCampaign
     bonus, page = setup
     resp = client.post(BASE + '/nowa', data={'name': 'X', 'offer_page_ids': [page.id],
-                                             'bonus_product_id': bonus.id})
+                                             'bonus_product_ids': [bonus.id]})
     assert resp.status_code == 200
     assert GiftCampaign.query.count() == 0
 
@@ -202,9 +209,10 @@ def test_quantities_reject_invalid(client, admin, db, setup):
     bonus, page = setup
     c = _campaign(db, bonus, page, status='zamknieta')
     t1, t2 = c.card_types
-    client.post(f'{BASE}/{c.id}/ilosci', data={f'quantity_{t1.id}': '3', f'quantity_{t2.id}': '-1'})
-    db.session.refresh(t1)
-    assert t1.quantity is None
+    p = c.pools[0].id
+    client.post(f'{BASE}/{c.id}/ilosci', data={f'quantity_{p}_{t1.id}': '3', f'quantity_{p}_{t2.id}': '-1'})
+    db.session.expire_all()
+    assert _qty(c, t1) is None
 
 
 def test_full_flow_close_quantities_distribute_approve(client, admin, db, setup, make_user, make_order,
@@ -216,7 +224,8 @@ def test_full_flow_close_quantities_distribute_approve(client, admin, db, setup,
     u, item = _entitled(db, make_user, make_order, bonus, page, qty=2)
     client.post(f'{BASE}/{c.id}/zamknij')
     t1, t2 = c.card_types
-    client.post(f'{BASE}/{c.id}/ilosci', data={f'quantity_{t1.id}': '1', f'quantity_{t2.id}': '1'})
+    p = c.pools[0].id
+    client.post(f'{BASE}/{c.id}/ilosci', data={f'quantity_{p}_{t1.id}': '1', f'quantity_{p}_{t2.id}': '1'})
     client.post(f'{BASE}/{c.id}/rozdziel')
     assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona'
     html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
@@ -316,7 +325,7 @@ def test_edit_form_keeps_already_selected_page_without_gratis(client, admin, db,
 
 def _edit_pages(client, c, bonus, page_ids):
     return client.post(f'{BASE}/{c.id}/edytuj', data={
-        'name': 'Akcja', 'offer_page_ids': page_ids, 'bonus_product_id': bonus.id,
+        'name': 'Akcja', 'offer_page_ids': page_ids, 'bonus_product_ids': [bonus.id],
         'type_name': ['Typ A', 'Typ B'], 'type_existing_image': ['', '']})
 
 
@@ -470,7 +479,7 @@ def test_crafted_existing_image_is_ignored(client, admin, db, setup, static_tmp)
     bonus, page = setup
     c = _campaign(db, bonus, page)
     resp = client.post(f'{BASE}/{c.id}/edytuj', data={
-        'name': 'Akcja', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'name': 'Akcja', 'offer_page_ids': [page.id], 'bonus_product_ids': [bonus.id],
         'type_name': ['Typ A', 'Typ B'],
         'type_existing_image': ['uploads/gift_cards/../sekret.txt', '../poza.txt']})
     assert resp.status_code == 302
@@ -487,7 +496,7 @@ def test_existing_image_of_this_campaign_is_kept(client, admin, db, setup, stati
     c.card_types[0].image_path = 'uploads/gift_cards/compressed/a.png'
     db.session.commit()
     client.post(f'{BASE}/{c.id}/edytuj', data={
-        'name': 'Akcja', 'offer_page_ids': [page.id], 'bonus_product_id': bonus.id,
+        'name': 'Akcja', 'offer_page_ids': [page.id], 'bonus_product_ids': [bonus.id],
         'type_name': ['Typ A', 'Typ B'],
         'type_existing_image': ['uploads/gift_cards/compressed/a.png', '']})
     paths = [t.image_path for t in GiftCardType.query.filter_by(campaign_id=c.id).order_by(GiftCardType.sort_order)]
@@ -572,3 +581,92 @@ def test_excel_requires_admin(client, login, make_user, db, setup):
     login(make_user(role='client'))
     resp = client.get(f'{BASE}/{c.id}/excel')
     assert resp.status_code in (302, 403)
+
+
+# ---- Pule: kilka gratisów w jednej akcji ----
+
+def _post_two_pools(client, page, b50, b100, names, q50, q100, url=None):
+    return client.post(url or BASE + '/nowa', data={
+        'name': 'Aniteez', 'offer_page_ids': [page.id], 'bonus_product_ids': [b50.id, b100.id],
+        'type_name': names, 'type_existing_image': [''] * len(names),
+        f'type_quantity_{b50.id}': q50, f'type_quantity_{b100.id}': q100})
+
+
+def test_create_with_two_pools_saves_quantities_per_pool(client, admin, db, setup, make_product):
+    from modules.gift_cards.models import GiftCampaign
+    b50, page = setup
+    b100 = make_product(name='Benefit 100k')
+    resp = _post_two_pools(client, page, b50, b100, ['San', 'Yunho'], ['15', '7'], ['6', ''])
+    assert resp.status_code == 302
+    c = GiftCampaign.query.one()
+    assert c.bonus_product_ids == [b50.id, b100.id]
+    p50, p100 = c.pools
+    san, yunho = c.card_types
+    stock = c.stock_map()
+    assert (stock[(p50.id, san.id)], stock[(p50.id, yunho.id)]) == (15, 7)
+    assert (stock[(p100.id, san.id)], stock[(p100.id, yunho.id)]) == (6, None)
+    html = client.get(f'{BASE}/{c.id}/edytuj').get_data(as_text=True)
+    assert f'name="type_quantity_{b100.id}"' in html and 'Benefit 100k' in html
+
+
+def test_edit_draft_dropping_pool_keeps_other_pool_quantities(client, admin, db, setup, make_product):
+    from modules.gift_cards.models import GiftCampaign
+    b50, page = setup
+    b100 = make_product(name='Benefit 100k')
+    _post_two_pools(client, page, b50, b100, ['San'], ['15'], ['6'])
+    c = GiftCampaign.query.one()
+    client.post(f'{BASE}/{c.id}/edytuj', data={
+        'name': 'Aniteez', 'offer_page_ids': [page.id], 'bonus_product_ids': [b50.id],
+        'type_name': ['San'], 'type_existing_image': [''], f'type_quantity_{b50.id}': ['15']})
+    db.session.expire_all()
+    c = db.session.get(GiftCampaign, c.id)
+    assert c.bonus_product_ids == [b50.id]
+    assert list(c.stock_map().values()) == [15]
+
+
+def test_quantities_grid_saves_each_pool(client, admin, db, setup, make_product):
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='zamknieta')
+    p100 = add_pool(db, c, make_product(name='Benefit 100k'))
+    p50 = c.pools[0]
+    t1, t2 = c.card_types
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert f'name="quantity_{p100.id}_{t2.id}"' in html
+    client.post(f'{BASE}/{c.id}/ilosci', data={
+        f'quantity_{p50.id}_{t1.id}': '3', f'quantity_{p50.id}_{t2.id}': '4',
+        f'quantity_{p100.id}_{t1.id}': '1', f'quantity_{p100.id}_{t2.id}': '0'})
+    db.session.expire_all()
+    assert c.stock_map() == {(p50.id, t1.id): 3, (p50.id, t2.id): 4, (p100.id, t1.id): 1, (p100.id, t2.id): 0}
+
+
+def test_detail_and_excel_show_pools_and_client_notes(client, admin, db, setup, make_user, make_order,
+                                                      make_product):
+    from modules.gift_cards.models import GiftParticipant
+    from modules.orders.models import OrderItem
+    b50, page = setup
+    c = _campaign(db, b50, page, status='zamknieta', types=('San', 'Yunho'), quantities=[2, 2])
+    b100 = make_product(name='Benefit 100k')
+    p100 = add_pool(db, c, b100)
+    set_stock(db, p100, {t: 1 for t in c.card_types})
+    u, item = _entitled(db, make_user, make_order, b50, page)
+    u.first_name, u.last_name = 'Ola', 'Nowak'
+    db.session.add(OrderItem(order_id=item.order_id, product_id=b100.id, quantity=1, price=0, total=0,
+                             is_bonus=True))
+    db.session.add(GiftParticipant(campaign_id=c.id, user_id=u.id, notes='Proszę bez Yunho'))
+    db.session.commit()
+    client.post(f'{BASE}/{c.id}/rozdziel')
+
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert 'Proszę bez Yunho' in html
+    assert 'gc-pool-tag' in html and 'Benefit 100k' in html
+
+    wb = _excel(client, c.id)
+    rows = _cells(wb['Klientki'])
+    header = next(row for row in rows if row and row[0] == 'Miejsce')
+    assert 'San — Benefit 100k' in header and 'Uwagi klientki' in header
+    ola = next(row for row in rows if 'Ola Nowak' in row)
+    assert ola[header.index('Kart')] == 2
+    assert ola[header.index('Uwagi klientki')] == 'Proszę bez Yunho'
+    assert 'Benefit 100k:' in ola[header.index('Przydzielone karty')]
+    summary = [v for row in _cells(wb['Podsumowanie']) for v in row if v]
+    assert 'Benefit 100k' in summary and 'Gratis' in summary
