@@ -94,6 +94,16 @@
     font-family: inherit; font-size: var(--text-base);
 }
 .gc-select--multi { min-height: 160px; padding: var(--space-2); }
+.gc-checklist { display: flex; flex-direction: column; max-height: 280px; overflow-y: auto; padding: var(--space-1);
+    border: 1px solid var(--border-primary); border-radius: 10px; background: var(--bg-primary); }
+.gc-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; padding: 0 var(--space-3);
+    border-radius: 8px; cursor: pointer; color: var(--text-primary); }
+.gc-check:hover { background: var(--bg-tertiary); }
+.gc-check input[type="checkbox"] { width: 20px; height: 20px; flex: none; margin: 0; cursor: pointer; accent-color: var(--primary-color); }
+.gc-check input[type="checkbox"]:disabled { cursor: not-allowed; }
+.gc-check input[type="checkbox"]:disabled + span { opacity: .7; }
+.gc-check span { overflow-wrap: anywhere; }
+.gc-check:has(input:checked) { background: color-mix(in srgb, var(--primary-color) 14%, transparent); font-weight: 600; }
 
 /* Pole daty: całe klikalne, ikona kalendarza wyraźna w obu motywach */
 .gc-input[type="datetime-local"] { cursor: pointer; color-scheme: light; }
@@ -175,7 +185,7 @@
 .gc-client-notes { width: 100%; box-sizing: border-box; min-height: 88px; padding: var(--space-3); margin-bottom: var(--space-3);
     border: 1px solid var(--border-primary); border-radius: 10px; background: var(--bg-primary); color: var(--text-primary);
     font: inherit; font-size: 16px; resize: vertical; }
-.gc-client-notes:focus { outline: 2px solid var(--primary, #7B2CBF); outline-offset: 1px; }
+.gc-client-notes:focus { outline: 2px solid var(--primary-color); outline-offset: 1px; }
 .gc-client-notes:disabled { opacity: .7; }
 .gc-client-empty { text-align: center; }
 .gc-client-empty__text { font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0; }
