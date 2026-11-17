@@ -169,6 +169,14 @@
 .gc-client-lead { font-size: 1rem; color: var(--text-secondary); margin: 0; }
 .gc-client-lead strong { color: var(--primary-color); }
 .gc-client-note { font-size: 0.875rem; color: var(--text-secondary); margin: 0 0 var(--space-3); }
+.gc-client-h3 { font-size: 0.95rem; font-weight: 700; color: var(--text-secondary); margin: var(--space-3) 0 var(--space-2); }
+.gc-client-breakdown { list-style: none; margin: var(--space-2) 0 0; padding: 0; color: var(--text-secondary); font-size: 0.9rem; }
+.gc-client-breakdown li { padding: 2px 0; overflow-wrap: anywhere; }
+.gc-client-notes { width: 100%; box-sizing: border-box; min-height: 88px; padding: var(--space-3); margin-bottom: var(--space-3);
+    border: 1px solid var(--border-primary); border-radius: 10px; background: var(--bg-primary); color: var(--text-primary);
+    font: inherit; font-size: 16px; resize: vertical; }
+.gc-client-notes:focus { outline: 2px solid var(--primary, #7B2CBF); outline-offset: 1px; }
+.gc-client-notes:disabled { opacity: .7; }
 .gc-client-empty { text-align: center; }
 .gc-client-empty__text { font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0; }
 .gc-client-countdown { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0 0 var(--space-3); }

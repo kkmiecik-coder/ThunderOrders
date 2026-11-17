@@ -95,7 +95,7 @@ def queue_position(campaign, user_id):
 def dashboard_campaigns(user_id) -> list:
     """Akcje do kafelka na stronie głównej klienta: otwarte / zamknięte / rozdzielone,
     w których klient ma gratisy. Szkice i zatwierdzone się nie pokazują."""
-    from modules.gift_cards.emails import _entitled_text
+    from modules.gift_cards.emails import entitled_summary
     from utils.timeutil import to_pl, utcnow
 
     campaigns = (GiftCampaign.query
@@ -108,7 +108,7 @@ def dashboard_campaigns(user_id) -> list:
         if not ent or ent.total <= 0:
             continue
         participant = GiftParticipant.query.filter_by(campaign_id=campaign.id, user_id=user_id).first()
-        text = _entitled_text(ent.total)
+        text = entitled_summary(campaign, ent)
         result.append({
             'campaign': campaign,
             'entitled_text': text[:1].upper() + text[1:],

@@ -3,6 +3,8 @@ from datetime import timedelta
 
 import pytest
 
+from tests.gift_helpers import add_pool, add_types
+
 from utils.timeutil import utcnow
 
 
@@ -13,13 +15,14 @@ def setup(db, make_user, make_product, make_order, strona_sprzedazy):
                                            GiftCampaignPage, GiftCardType)
     from modules.orders.models import OrderItem
     bonus = make_product(name='Gratis')
-    c = GiftCampaign(name='Akcja', bonus_product_id=bonus.id, status='zatwierdzona',
+    c = GiftCampaign(name='Akcja', status='zatwierdzona',
                      race_at=utcnow() - timedelta(minutes=1))
     db.session.add(c); db.session.commit()
     db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=strona_sprzedazy.id))
-    t1 = GiftCardType(campaign_id=c.id, name='San', sort_order=0, quantity=1)
-    t2 = GiftCardType(campaign_id=c.id, name='Yunho', sort_order=1, quantity=1)
-    db.session.add_all([t1, t2]); db.session.commit()
+    db.session.commit()
+    pool = add_pool(db, c, bonus)
+    t = add_types(db, c, {'San': 1, 'Yunho': 1})
+    t1, t2 = t['San'], t['Yunho']
     user = make_user()
     order = make_order(user, offer_page_id=strona_sprzedazy.id)
     item = OrderItem(order_id=order.id, product_id=bonus.id, quantity=2, price=0,
@@ -27,9 +30,9 @@ def setup(db, make_user, make_product, make_order, strona_sprzedazy):
     db.session.add(item); db.session.commit()
     db.session.add_all([
         GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id,
-                       card_type_id=t1.id, round_no=1),
+                       pool_id=c.pools[0].id, card_type_id=t1.id, round_no=1),
         GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id,
-                       card_type_id=t2.id, round_no=2),
+                       pool_id=c.pools[0].id, card_type_id=t2.id, round_no=2),
     ])
     db.session.commit()
     return c, user, order, item
