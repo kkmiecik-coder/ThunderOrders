@@ -42,6 +42,7 @@
                     <option value="{{ page.id }}" {% if page.id in data.page_ids %}selected{% endif %}>{{ page.name }}</option>
                     {% endfor %}
                 </select>
+                <p class="gc-hint">Widać tylko strony, które mają gratis — ustawiony w secie albo dany w zamówieniach.</p>
             </div>
             <div class="gc-row">
                 <label class="gc-label" for="gcProduct">Produkt-gratis</label>

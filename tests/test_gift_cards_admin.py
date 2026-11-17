@@ -280,6 +280,40 @@ def _second_page(db, make_user):
     return p
 
 
+def _page(db, make_user, name):
+    from modules.offers.models import OfferPage
+    p = OfferPage(name=name, token=OfferPage.generate_token(), status='active',
+                  created_by=make_user(role='admin').id)
+    db.session.add(p)
+    db.session.commit()
+    return p
+
+
+def test_form_lists_only_pages_with_gratis(client, admin, db, setup, make_user, make_order, make_product):
+    bonus, page = setup                                   # strona z gratisem ustawionym w secie
+    z_zamowien = _page(db, make_user, 'Strona z recznym gratisem')
+    _entitled(db, make_user, make_order, make_product(name='Inny gratis'), z_zamowien)
+    bez = _page(db, make_user, 'Strona bez gratisow')
+    from modules.orders.models import OrderItem
+    o = make_order(make_user(), offer_page_id=bez.id)
+    db.session.add(OrderItem(order_id=o.id, product_id=make_product().id, quantity=1, price=10, total=10,
+                             is_bonus=False))
+    db.session.commit()
+
+    html = client.get(BASE + '/nowa').get_data(as_text=True)
+    assert f'<option value="{page.id}"' in html
+    assert 'Strona z recznym gratisem' in html
+    assert 'Strona bez gratisow' not in html
+
+
+def test_edit_form_keeps_already_selected_page_without_gratis(client, admin, db, setup, make_user):
+    bonus, page = setup
+    bez = _page(db, make_user, 'Wybrana bez gratisow')
+    c = _campaign(db, bonus, bez)
+    html = client.get(f'{BASE}/{c.id}/edytuj').get_data(as_text=True)
+    assert 'Wybrana bez gratisow' in html
+
+
 def _edit_pages(client, c, bonus, page_ids):
     return client.post(f'{BASE}/{c.id}/edytuj', data={
         'name': 'Akcja', 'offer_page_ids': page_ids, 'bonus_product_id': bonus.id,

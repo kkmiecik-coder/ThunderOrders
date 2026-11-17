@@ -17,8 +17,8 @@ from modules.gift_cards.service import (
     GiftCardsError, can_revert, compute_entitlements, distribution_problems, queue_order, queue_position,
     approve, revert_approval, run_distribution, swap_assignment, type_usage,
 )
-from modules.offers.models import OfferPage, OfferSetBonus
-from modules.orders.models import OrderItem
+from modules.offers.models import OfferPage, OfferSection, OfferSetBonus
+from modules.orders.models import Order, OrderItem
 from modules.products.models import Product
 from utils.decorators import role_required
 from utils.timeutil import format_pl_input, parse_pl_input
@@ -184,8 +184,25 @@ def _read_form(campaign=None):
             'bonus_id': bonus_id, 'rows': rows, 'errors': errors}
 
 
+def _pages_with_gratis(keep_ids=()):
+    """Strony ofert, które mają gratis: ustawiony w secie albo dany w zamówieniach z tej strony.
+
+    `keep_ids` — strony już wybrane w akcji zostają na liście, nawet gdy gratisu nie mają,
+    żeby edycja nie gubiła ich po cichu.
+    """
+    from_sets = (db.session.query(OfferSection.offer_page_id)
+                 .join(OfferSetBonus, OfferSetBonus.section_id == OfferSection.id)
+                 .filter(OfferSetBonus.bonus_product_id.isnot(None)))
+    from_orders = (db.session.query(Order.offer_page_id)
+                   .join(OrderItem, OrderItem.order_id == Order.id)
+                   .filter(OrderItem.is_bonus.is_(True), Order.offer_page_id.isnot(None)))
+    conditions = [OfferPage.id.in_(from_sets), OfferPage.id.in_(from_orders)]
+    if keep_ids:
+        conditions.append(OfferPage.id.in_(list(keep_ids)))
+    return OfferPage.query.filter(or_(*conditions)).order_by(OfferPage.created_at.desc()).all()
+
+
 def _render_form(campaign, data=None):
-    pages = OfferPage.query.order_by(OfferPage.created_at.desc()).all()
     if data is None:
         data = {
             'name': campaign.name if campaign else '',
@@ -196,6 +213,8 @@ def _render_form(campaign, data=None):
                       'raw_quantity': '' if t.quantity is None else str(t.quantity)}
                      for t in campaign.card_types] if campaign else [],
         }
+    keep = set(data['page_ids']) | (set(campaign.offer_page_ids) if campaign else set())
+    pages = _pages_with_gratis(keep)
     return render_template('admin/gift_cards/form.html', campaign=campaign, data=data, pages=pages,
                            products=_bonus_products(),
                            locked=bool(campaign and campaign.status != STATUS_DRAFT))
