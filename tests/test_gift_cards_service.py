@@ -1,10 +1,12 @@
 import pytest
 
+from tests.gift_helpers import add_pool, add_types, set_stock
+
 
 def test_race_entry_unique_per_user(db, make_user, make_product):
     from sqlalchemy.exc import IntegrityError
     from modules.gift_cards.models import GiftCampaign, GiftRaceEntry
-    c = GiftCampaign(name='ATEEZ', bonus_product_id=make_product().id)
+    c = GiftCampaign(name='ATEEZ')
     db.session.add(c); db.session.commit()
     u = make_user()
     db.session.add(GiftRaceEntry(campaign_id=c.id, user_id=u.id)); db.session.commit()
@@ -15,7 +17,7 @@ def test_race_entry_unique_per_user(db, make_user, make_product):
 
 def test_participant_ranking_property(db, make_user, make_product):
     from modules.gift_cards.models import GiftCampaign, GiftParticipant
-    c = GiftCampaign(name='X', bonus_product_id=make_product().id); db.session.add(c); db.session.commit()
+    c = GiftCampaign(name='X'); db.session.add(c); db.session.commit()
     p = GiftParticipant(campaign_id=c.id, user_id=make_user().id)
     assert p.ranking == []
     p.ranking_json = '[3, 1, 2]'
@@ -29,10 +31,11 @@ def test_participant_ranking_property(db, make_user, make_product):
 def akcja(db, make_user, make_product, strona_sprzedazy):
     from modules.gift_cards.models import GiftCampaign, GiftCampaignPage
     bonus = make_product(name='Gratis')
-    c = GiftCampaign(name='Akcja', bonus_product_id=bonus.id)
+    c = GiftCampaign(name='Akcja')
     db.session.add(c); db.session.commit()
     db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=strona_sprzedazy.id))
     db.session.commit()
+    add_pool(db, c, bonus)
     return c, bonus, strona_sprzedazy
 
 
@@ -69,7 +72,7 @@ def test_entitlements_sum_bonus_items_across_orders(db, make_user, make_product,
 def test_entitlements_empty_without_bonus_product(db, akcja):
     from modules.gift_cards.service import compute_entitlements
     c, _, _ = akcja
-    c.bonus_product_id = None
+    db.session.delete(c.pools[0]); db.session.commit(); db.session.refresh(c)
     assert compute_entitlements(c) == {}
 
 
@@ -107,13 +110,7 @@ def test_queue_ignores_race_entry_of_non_entitled_user(db, make_user, make_order
 # ---- Task 4: rozdział, zamiany, zatwierdzanie ----
 
 def _typy(db, c, **ilosci):
-    from modules.gift_cards.models import GiftCardType
-    out = {}
-    for i, (nazwa, q) in enumerate(ilosci.items()):
-        t = GiftCardType(campaign_id=c.id, name=nazwa, quantity=q, sort_order=i)
-        db.session.add(t); out[nazwa] = t
-    db.session.commit()
-    return out
+    return add_types(db, c, ilosci)
 
 
 def _ranking(db, c, user, typy):
@@ -155,7 +152,7 @@ def test_run_distribution_no_entitled_users(db, akcja):
     _typy(db, c, San=2)
     c.status = 'zamknieta'; db.session.commit()
     result = run_distribution(c)
-    assert result.picks == {} and c.status == 'rozdzielona'
+    assert [r.picks for r in result.values()] == [{}] and c.status == 'rozdzielona'
 
 
 def _dwoje_z_kartami(db, make_user, make_order, akcja, san=1, yunho=1):
@@ -303,7 +300,7 @@ def test_new_entitled_person_and_new_item_after_distribution(db, make_user, make
 def test_card_quantity_lowered_after_distribution_blocks_approve(db, make_user, make_order, akcja):
     from modules.gift_cards.service import GiftCardsError, approve, distribution_problems
     c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)
-    t['San'].quantity = 0; db.session.commit()
+    set_stock(db, c.pools[0], {t['San']: 0})
     assert distribution_problems(c) == ['San — przydzielono 1, a jest 0 szt. (o 1 za dużo).']
     with pytest.raises(GiftCardsError):
         approve(c)
@@ -349,7 +346,7 @@ def test_send_results_lists_cards_and_shortage(db, app, make_user, make_order, a
     t = _typy(db, c, San=1, Yunho=1)
     for rnd, nazwa in ((2, 'Yunho'), (1, 'San')):
         db.session.add(GiftAssignment(campaign_id=c.id, user_id=a.id, order_item_id=item.id,
-                                      card_type_id=t[nazwa].id, round_no=rnd))
+                                      pool_id=c.pools[0].id, card_type_id=t[nazwa].id, round_no=rnd))
     db.session.commit()
     with app.test_request_context(), mail.record_messages() as out:
         assert send_results(c) == 1
@@ -371,3 +368,120 @@ def test_send_results_lists_cards_and_shortage(db, app, make_user, make_order, a
 def test_entitled_text_polish_grammar(n, expected):
     from modules.gift_cards.emails import _entitled_text
     assert _entitled_text(n) == expected
+
+
+# ---- Pule: kilka gratisów w jednej akcji ----
+
+@pytest.fixture
+def dwie_pule(db, make_product, akcja):
+    """Akcja z pulami 50k (pierwsza) i 100k; rodzaje San/Yunho wspólne."""
+    c, bonus50, page = akcja
+    bonus50.name = 'Benefit 50k'
+    bonus100 = make_product(name='Benefit 100k')
+    p100 = add_pool(db, c, bonus100)
+    p50 = c.pools[0]
+    t = add_types(db, c, {'San': 1, 'Yunho': 1}, pool=p50)
+    set_stock(db, p100, {t['San']: 1, t['Yunho']: 1})
+    return c, page, (p50, bonus50), (p100, bonus100), t
+
+
+def test_entitlements_split_per_pool(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.service import compute_entitlements, pool_breakdown
+    c, page, (p50, b50), (p100, b100), _ = dwie_pule
+    a = make_user()
+    o = make_order(a, offer_page_id=page.id)
+    _bonus(db, o, b50, 2); _bonus(db, o, b100, 1)
+    ent = compute_entitlements(c)[a.id]
+    assert ent.total == 3
+    assert ent.pool_total(p50.id) == 2 and ent.pool_total(p100.id) == 1
+    assert [(p.id, n) for p, n in pool_breakdown(c, ent)] == [(p50.id, 2), (p100.id, 1)]
+    assert p100.label == 'Benefit 100k'
+
+
+def test_distribution_per_pool_same_type_is_not_duplicate(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.models import GiftAssignment
+    from modules.gift_cards.service import run_distribution
+    c, page, (p50, b50), (p100, b100), t = dwie_pule
+    a = make_user()
+    o = make_order(a, offer_page_id=page.id)
+    _bonus(db, o, b50, 1); _bonus(db, o, b100, 1)
+    _ranking(db, c, a, [t['San'], t['Yunho']])
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    rows = GiftAssignment.query.filter_by(campaign_id=c.id).order_by(GiftAssignment.pool_id).all()
+    assert [(r.pool_id, r.card_type_id, r.is_duplicate) for r in rows] == [
+        (p50.id, t['San'].id, False), (p100.id, t['San'].id, False)]
+
+
+def test_person_only_in_one_pool_gets_only_that_pool(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.models import GiftAssignment
+    from modules.gift_cards.service import run_distribution
+    c, page, (p50, b50), (p100, b100), t = dwie_pule
+    a, b = make_user(), make_user()
+    _bonus(db, make_order(a, offer_page_id=page.id), b50, 1)
+    _bonus(db, make_order(b, offer_page_id=page.id), b100, 2)
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    by_user = {}
+    for r in GiftAssignment.query.filter_by(campaign_id=c.id).all():
+        by_user.setdefault(r.user_id, set()).add(r.pool_id)
+    assert by_user == {a.id: {p50.id}, b.id: {p100.id}}
+
+
+def test_zero_stock_in_pool_is_never_assigned(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.models import GiftAssignment
+    from modules.gift_cards.service import run_distribution
+    c, page, (p50, b50), (p100, b100), t = dwie_pule
+    set_stock(db, p100, {t['San']: 0})
+    a = make_user()
+    _bonus(db, make_order(a, offer_page_id=page.id), b100, 1)
+    _ranking(db, c, a, [t['San'], t['Yunho']])
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    row = GiftAssignment.query.filter_by(campaign_id=c.id).one()
+    assert row.pool_id == p100.id and row.card_type_id == t['Yunho'].id
+
+
+def test_missing_stock_in_second_pool_blocks_distribution(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.service import GiftCardsError, run_distribution
+    c, page, (p50, b50), (p100, b100), t = dwie_pule
+    set_stock(db, p100, {t['Yunho']: None})
+    c.status = 'zamknieta'; db.session.commit()
+    with pytest.raises(GiftCardsError):
+        run_distribution(c)
+
+
+def test_stock_problem_names_the_pool(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.service import distribution_problems, run_distribution
+    c, page, (p50, b50), (p100, b100), t = dwie_pule
+    a = make_user()
+    _bonus(db, make_order(a, offer_page_id=page.id), b100, 1)
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    set_stock(db, p100, {t['San']: 0, t['Yunho']: 0})
+    problems = distribution_problems(c)
+    assert len(problems) == 1 and '(Benefit 100k)' in problems[0]
+
+
+def test_swap_duplicates_counted_within_pool(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.models import GiftAssignment
+    from modules.gift_cards.service import run_distribution, swap_assignment
+    c, page, (p50, b50), (p100, b100), t = dwie_pule
+    a = make_user()
+    o = make_order(a, offer_page_id=page.id)
+    _bonus(db, o, b50, 1); _bonus(db, o, b100, 1)
+    _ranking(db, c, a, [t['Yunho'], t['San']])
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    row50 = GiftAssignment.query.filter_by(campaign_id=c.id, pool_id=p50.id).one()
+    swap_assignment(row50.id, t['San'].id)
+    swap_assignment(row50.id, t['Yunho'].id)  # ten sam rodzaj co w 100k — to nie powtórka
+    assert not any(r.is_duplicate for r in GiftAssignment.query.filter_by(campaign_id=c.id))
+
+
+def test_label_pending_for_item_of_second_pool(db, make_user, make_order, dwie_pule):
+    from modules.gift_cards.service import item_gift_label
+    c, page, (p50, b50), (p100, b100), t = dwie_pule
+    c.status = 'otwarta'; db.session.commit()
+    item = _bonus(db, make_order(make_user(), offer_page_id=page.id), b100, 1)
+    assert item_gift_label(item) == 'przydział w toku'
