@@ -54,7 +54,7 @@ def build_distribution_excel(campaign, rows, usage, status_label) -> BytesIO:
     # --- Arkusz 1: klientki ---
     ws = wb.active
     ws.title = 'Klientki'
-    labels = (['Miejsce', 'Imię i nazwisko', 'E-mail', 'Kart', 'Przydzielone karty']
+    labels = (['Miejsce', 'Imię i nazwisko', 'Kart', 'Przydzielone karty']
               + [t.name for t in types] + ['Powtórki', 'Brakuje', 'Uwagi'])
     _title(ws, campaign, status_label, len(labels))
     _header(ws, 4, labels)
@@ -64,22 +64,22 @@ def build_distribution_excel(campaign, rows, usage, status_label) -> BytesIO:
         cards = row['cards']
         per_type = Counter(a.card_type_id for a in cards)
         duplicates = sum(1 for a in cards if a.is_duplicate)
-        values = ([row['place'] or '', user.full_name if user else '', user.email if user else '',
-                   len(cards), _cards_text(cards)]
+        # Bez maili — tylko imię i nazwisko (mail pojawi się wyłącznie, gdy konto nie ma imienia).
+        values = ([row['place'] or '', user.full_name if user else '', len(cards), _cards_text(cards)]
                   + [per_type.get(t.id) or None for t in types]
                   + [duplicates or None, row['missing'] or None,
                      '' if row['entitled'] else 'bez uprawnień (np. anulowane zamówienie)'])
         for col, value in enumerate(values, start=1):
             cell = ws.cell(row=r, column=col, value=value)
             cell.border = _BORDER
-            cell.alignment = _WRAP if col in (2, 3, 5, len(labels)) else _CENTER
+            cell.alignment = _WRAP if col in (2, 4, len(labels)) else _CENTER
         if duplicates:
             ws.cell(row=r, column=len(labels) - 2).fill = _DUP_FILL
         if row['missing']:
             ws.cell(row=r, column=len(labels) - 1).fill = _MISSING_FILL
         r += 1
 
-    widths = [9, 26, 30, 7, 40] + [max(10, min(len(t.name) + 2, 22)) for t in types] + [10, 10, 30]
+    widths = [9, 28, 7, 40] + [max(10, min(len(t.name) + 2, 22)) for t in types] + [10, 10, 30]
     for col, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
     ws.freeze_panes = 'C5'

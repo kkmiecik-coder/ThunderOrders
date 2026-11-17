@@ -527,15 +527,19 @@ def _cells(ws):
 def test_excel_has_clients_and_summary(client, admin, db, setup, make_user, make_order):
     bonus, page = setup
     c, u, _ = _distributed(client, db, bonus, page, make_user, make_order, qty=2)
+    u.first_name, u.last_name = 'Ola', 'Nowak'
+    db.session.commit()
     wb = _excel(client, c.id)
     assert wb.sheetnames == ['Klientki', 'Podsumowanie']
 
     rows = _cells(wb['Klientki'])
     flat = [v for row in rows for v in row if v is not None]
-    assert u.email in flat
+    assert 'Ola Nowak' in flat
+    assert u.email not in flat  # bez maili klientek
+    assert 'E-mail' not in flat
     header = next(row for row in rows if row and row[0] == 'Miejsce')
     assert 'Typ A' in header and 'Typ B' in header
-    user_row = next(row for row in rows if u.email in row)
+    user_row = next(row for row in rows if 'Ola Nowak' in row)
     # 2 karty przydzielone, rozpisane na rodzaje
     assert user_row[header.index('Kart')] == 2
     per_type = sum(user_row[header.index(t)] or 0 for t in ('Typ A', 'Typ B'))
