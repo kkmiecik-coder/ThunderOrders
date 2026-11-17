@@ -196,3 +196,58 @@ def test_order_detail_links_to_open_campaign(client, setup, db):
     assert 'Wybierz swoje gratisowe karty' in client.get(url).get_data(as_text=True)
     c.status = 'zamknieta'; db.session.commit()
     assert 'Wybierz swoje gratisowe karty' not in client.get(url).get_data(as_text=True)
+
+
+# --- Kafelek akcji na stronie głównej klientki -------------------------------------------
+
+DASH = '/client/dashboard'
+
+
+@pytest.fixture
+def dash(setup, db):
+    """Uprawniona klientka z uzupełnionym profilem (inaczej panel przekierowuje do profilu)."""
+    setup[3].profile_completed = True
+    db.session.commit()
+    return setup
+
+
+def test_dashboard_tile_for_entitled_client_after_start(client, dash):
+    setup = dash
+    html = client.get(DASH).get_data(as_text=True)
+    assert 'gc-dash' in html and 'Akcja' in html
+    assert 'Przysługują Ci 2 karty' in html
+    assert 'Zgłoszenia trwają' in html
+    assert f'/gratisy/{setup[0].id}' in html
+
+
+def test_dashboard_tile_before_start_asks_for_ranking(client, dash, db):
+    c = dash[0]
+    c.race_at = utcnow() + timedelta(hours=2); db.session.commit()
+    html = client.get(DASH).get_data(as_text=True)
+    assert 'Zgłoszenia ruszają' in html and 'Ułóż ranking' in html
+
+
+def test_dashboard_tile_shows_queue_position(client, dash):
+    c = dash[0]
+    assert client.post(f'/gratisy/{c.id}/zglaszam-sie').status_code == 200
+    html = client.get(DASH).get_data(as_text=True)
+    assert 'Jesteś nr' in html and 'w kolejce' in html
+
+
+def test_dashboard_tile_closed_campaign_waits_for_result(client, dash, db):
+    c = dash[0]
+    c.status = 'zamknieta'; db.session.commit()
+    html = client.get(DASH).get_data(as_text=True)
+    assert 'gc-dash' in html and 'przydzielamy karty' in html
+
+
+@pytest.mark.parametrize('status', ['szkic', 'zatwierdzona'])
+def test_dashboard_tile_hidden_for_draft_and_approved(client, dash, db, status):
+    c = dash[0]
+    c.status = status; db.session.commit()
+    assert 'gc-dash' not in client.get(DASH).get_data(as_text=True)
+
+
+def test_dashboard_tile_hidden_for_non_entitled(client, dash, make_user, login):
+    login(make_user(profile_completed=True))
+    assert 'gc-dash' not in client.get(DASH).get_data(as_text=True)

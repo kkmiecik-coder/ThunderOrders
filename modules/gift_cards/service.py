@@ -76,6 +76,35 @@ def queue_position(campaign, user_id):
     ).count()
 
 
+def dashboard_campaigns(user_id) -> list:
+    """Akcje do kafelka na stronie głównej klienta: otwarte / zamknięte / rozdzielone,
+    w których klient ma gratisy. Szkice i zatwierdzone się nie pokazują."""
+    from modules.gift_cards.emails import _entitled_text
+    from utils.timeutil import to_pl, utcnow
+
+    campaigns = (GiftCampaign.query
+                 .filter(GiftCampaign.status.in_([STATUS_OPEN, STATUS_CLOSED, STATUS_DISTRIBUTED]))
+                 .order_by(GiftCampaign.race_at, GiftCampaign.id).all())
+    now = utcnow()
+    result = []
+    for campaign in campaigns:
+        ent = compute_entitlements(campaign).get(user_id)
+        if not ent or ent.total <= 0:
+            continue
+        participant = GiftParticipant.query.filter_by(campaign_id=campaign.id, user_id=user_id).first()
+        text = _entitled_text(ent.total)
+        result.append({
+            'campaign': campaign,
+            'entitled_text': text[:1].upper() + text[1:],
+            'is_open': campaign.status == STATUS_OPEN,
+            'started': campaign.race_at is not None and campaign.race_at <= now,
+            'start_text': to_pl(campaign.race_at).strftime('%d.%m, godz. %H:%M') if campaign.race_at else None,
+            'has_ranking': bool(_valid_ranking(participant, [t.id for t in campaign.card_types])),
+            'position': queue_position(campaign, user_id),
+        })
+    return result
+
+
 class GiftCardsError(Exception):
     """Błąd biznesowy rozdziału; komunikat po polsku do pokazania we flash."""
 

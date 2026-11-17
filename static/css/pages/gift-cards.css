@@ -213,3 +213,26 @@
     .gc-client { padding: var(--space-3); }
     .gc-client-card { padding: var(--space-4); }
 }
+
+/* Kafelek akcji na stronie głównej klienta */
+.gc-dash {
+    display: flex; align-items: center; gap: var(--space-4);
+    background: var(--card-bg); border: 1px solid var(--card-border); border-left: 4px solid var(--kpop-pink);
+    border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+    padding: var(--space-4) var(--space-5); margin-bottom: var(--space-6);
+}
+.gc-dash--live { border-color: var(--kpop-pink); }
+.gc-dash__icon { font-size: 2rem; line-height: 1; flex: 0 0 auto; }
+.gc-dash__body { flex: 1 1 auto; min-width: 0; }
+.gc-dash__badge {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--kpop-pink); margin-bottom: var(--space-1);
+}
+.gc-dash__title { font-size: var(--text-lg); font-weight: 700; color: var(--text-primary); margin: 0 0 var(--space-1); }
+.gc-dash__text { font-size: var(--text-sm); color: var(--text-secondary); margin: 0; }
+.gc-dash__text strong { color: var(--text-primary); }
+.gc-dash__cta { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 600px) {
+    .gc-dash { flex-wrap: wrap; padding: var(--space-4); }
+    .gc-dash__cta { width: 100%; }
+}
