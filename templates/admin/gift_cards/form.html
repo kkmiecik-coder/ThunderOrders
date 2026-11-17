@@ -1,0 +1,109 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{% if campaign %}Edycja: {{ campaign.name }}{% else %}Nowa akcja gratisów{% endif %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/gift-cards.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="gc-page">
+    <a href="{% if campaign %}{{ url_for('gift_cards.admin_detail', cid=campaign.id) }}{% else %}{{ url_for('gift_cards.admin_list') }}{% endif %}"
+       class="gc-back-link">&larr; Wróć</a>
+
+    <div class="gc-page-header">
+        <h1>{% if campaign %}Edycja akcji{% else %}Nowa akcja gratisów{% endif %}</h1>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="giftCampaignForm" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <section class="gc-card">
+            <h2>Podstawowe informacje</h2>
+            <div class="gc-row">
+                <label class="gc-label" for="gcName">Nazwa akcji</label>
+                <input type="text" id="gcName" name="name" class="gc-input" maxlength="200"
+                       value="{{ data.name }}" placeholder="np. ATEEZ unit" required>
+            </div>
+            <div class="gc-row">
+                <label class="gc-label" for="gcRace">Start zgłoszeń — data i godzina (czas polski)</label>
+                <input type="datetime-local" id="gcRace" name="race_at" class="gc-input" value="{{ data.raw_race }}">
+                <p class="gc-hint">Od tej chwili klienci mogą klikać „Zgłaszam się” (kto pierwszy, ten wyżej w kolejce).</p>
+            </div>
+        </section>
+
+        <section class="gc-card">
+            <h2>Strony ofert i produkt-gratis</h2>
+            {% if locked %}<p class="gc-hint">Strony ofert, produkt i rodzaje kart można zmieniać tylko w szkicu.</p>{% endif %}
+            <div class="gc-row">
+                <label class="gc-label" for="gcPages">Strony ofert (Ctrl/Cmd — kilka naraz)</label>
+                <select id="gcPages" name="offer_page_ids" multiple class="gc-select gc-select--multi" {% if locked %}disabled{% endif %}>
+                    {% for page in pages %}
+                    <option value="{{ page.id }}" {% if page.id in data.page_ids %}selected{% endif %}>{{ page.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="gc-hint">Widać tylko strony, które mają gratis — ustawiony w secie albo dany w zamówieniach.</p>
+            </div>
+            <div class="gc-row">
+                <label class="gc-label" for="gcProduct">Produkt-gratis</label>
+                {% if products %}
+                <select id="gcProduct" name="bonus_product_id" class="gc-select" {% if locked %}disabled{% endif %}>
+                    <option value="">— wybierz —</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}" {% if product.id == data.bonus_id %}selected{% endif %}>{{ product.name }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="gc-hint">Nie ma jeszcze żadnych gratisów — ani ustawionych na stronach ofert, ani dodanych do zamówień. Dodaj gratis w sekcji set na stronie oferty.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="gc-card">
+            <h2>Rodzaje kart</h2>
+            <p class="gc-hint gc-hint--lead">Ilość sztuk możesz wpisać od razu albo zostawić pustą i uzupełnić później
+                w szczegółach akcji, po zamknięciu zgłoszeń (zanim klikniesz „Rozdziel karty”).</p>
+            <div id="gcTypeList">
+                {% for row in data.rows %}
+                <div class="gc-type-row">
+                    <input type="text" name="type_name" class="gc-input" maxlength="200" value="{{ row.name }}"
+                           placeholder="Nazwa rodzaju karty" {% if locked %}disabled{% endif %}>
+                    <input type="number" name="type_quantity" class="gc-input gc-input--qty" min="0" step="1"
+                           inputmode="numeric" value="{{ row.raw_quantity }}" placeholder="Ilość"
+                           aria-label="Ilość sztuk" {% if locked %}disabled{% endif %}>
+                    <input type="hidden" name="type_existing_image" value="{{ row.existing_image }}">
+                    {% if row.existing_image %}
+                    <img class="gc-type-thumb" src="{{ url_for('static', filename=row.existing_image) }}" alt="">
+                    {% endif %}
+                    {% if not locked %}
+                    <input type="file" name="type_image" accept="image/*">
+                    <button type="button" class="gc-btn gc-btn--danger" data-gc-remove-type>Usuń</button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% if not locked %}
+            <button type="button" class="gc-btn" id="gcAddType">Dodaj rodzaj karty</button>
+            <template id="gcTypeTemplate">
+                <div class="gc-type-row">
+                    <input type="text" name="type_name" class="gc-input" maxlength="200" placeholder="Nazwa rodzaju karty">
+                    <input type="number" name="type_quantity" class="gc-input gc-input--qty" min="0" step="1"
+                           inputmode="numeric" placeholder="Ilość" aria-label="Ilość sztuk">
+                    <input type="hidden" name="type_existing_image" value="">
+                    <input type="file" name="type_image" accept="image/*">
+                    <button type="button" class="gc-btn gc-btn--danger" data-gc-remove-type>Usuń</button>
+                </div>
+            </template>
+            {% endif %}
+        </section>
+
+        <div class="gc-actions">
+            <button type="submit" class="gc-btn gc-btn--primary">Zapisz</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/gift-cards.js') }}"></script>
+{% endblock %}

@@ -141,6 +141,15 @@ def dashboard():
             db.session.rollback()
             current_app.logger.exception('dashboard: widget pupila pominięty')
 
+    # Kafelek akcji gratisowych kart — błąd nie może zabrać klientowi dashboardu.
+    gift_campaigns = []
+    try:
+        from modules.gift_cards.service import dashboard_campaigns
+        gift_campaigns = dashboard_campaigns(current_user.id)
+    except Exception:   # noqa: BLE001
+        db.session.rollback()
+        current_app.logger.exception('dashboard: kafelek gratisowych kart pominięty')
+
     return render_template(
         'client/dashboard.html',
         title='Panel Klienta',
@@ -155,6 +164,7 @@ def dashboard():
         show_tour=not current_user.has_seen_tour,
         contest_widget=contest_widget,
         pets_widget=pets_widget,
+        gift_campaigns=gift_campaigns,
     )
 
 

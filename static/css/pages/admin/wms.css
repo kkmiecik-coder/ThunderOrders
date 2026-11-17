@@ -2627,3 +2627,25 @@
 [data-theme="dark"] .wms-packing-sr-info {
     color: rgba(255, 255, 255, 0.6);
 }
+
+/* Przydział gratisowych kart pod nazwą pozycji (kolory z zmiennych: działają w jasnym i ciemnym motywie) */
+.gift-cards-line {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: var(--text-secondary);
+}
+
+.gift-cards-pending {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 1px 8px;
+    border: 1px solid var(--warning);
+    border-radius: 999px;
+    background: rgba(255, 193, 7, 0.15);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-primary);
+}

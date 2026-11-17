@@ -1,0 +1,28 @@
+{# Kafelek akcji gratisowych kart na stronie głównej klienta (dane: service.dashboard_campaigns) #}
+{% for gc in gift_campaigns or [] %}
+{% set url = url_for('gift_cards.client_campaign', cid=gc.campaign.id) %}
+<div class="gc-dash{% if gc.is_open and gc.started and not gc.position %} gc-dash--live{% endif %}">
+    <div class="gc-dash__icon" aria-hidden="true">🎴</div>
+    <div class="gc-dash__body">
+        <div class="gc-dash__badge">Gratisowe karty</div>
+        <h3 class="gc-dash__title">{{ gc.campaign.name }}</h3>
+        <p class="gc-dash__text">{{ gc.entitled_text }}.
+        {% if not gc.is_open %}
+            Zgłoszenia zamknięte — przydzielamy karty. Wynik dostaniesz mailem.
+        {% elif gc.position %}
+            Jesteś nr <strong>{{ gc.position }}</strong> w kolejce. Ranking możesz zmieniać do zamknięcia zgłoszeń.
+        {% elif gc.started %}
+            Zgłoszenia trwają — kliknij „Zgłaszam się”, kto pierwszy, ten wyżej w kolejce!
+        {% else %}
+            {% if gc.start_text %}Zgłoszenia ruszają <strong>{{ gc.start_text }}</strong>.{% endif %}
+            {% if gc.has_ranking %}Ranking zapisany ✓{% else %}Ułóż ranking kart, zanim ruszą zgłoszenia.{% endif %}
+        {% endif %}
+        </p>
+    </div>
+    <a class="gc-btn gc-btn--primary gc-dash__cta" href="{{ url }}">
+        {%- if gc.is_open and gc.started and not gc.position -%}Zgłoś się →
+        {%- elif gc.is_open and not gc.started and not gc.has_ranking -%}Ułóż ranking →
+        {%- else -%}Zobacz akcję →{%- endif -%}
+    </a>
+</div>
+{% endfor %}

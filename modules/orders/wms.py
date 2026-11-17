@@ -140,6 +140,7 @@ def _build_session_data(session):
             items_data.append({
                 'id': item.id,
                 'product_name': item.product_name,
+                'gift_cards_label': item.gift_cards_label if item.is_bonus else None,
                 'selected_size': item.selected_size,
                 'product_sku': item.product_sku,
                 'product_image_url': item.product_image_url,

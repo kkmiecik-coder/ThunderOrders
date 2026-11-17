@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/onboarding-tour.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/dashboard.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/contest.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/gift-cards.css') }}">
 {% if pets_widget %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-rig.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pet-room.css') }}">
@@ -140,6 +141,9 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Akcje gratisowych kart (przy zamówieniach — to nie konkurs) -->
+    {% include 'client/gift_cards/_dashboard_widget.html' %}
 
     <!-- Grid: Wykres + Ostatnie zamówienia -->
     <div class="dashboard-grid">

@@ -383,6 +383,10 @@ def register_blueprints(app):
     from modules.contests import contests_bp
     app.register_blueprint(contests_bp)
 
+    # Rozdział gratisowych kart
+    from modules.gift_cards import gift_cards_bp
+    app.register_blueprint(gift_cards_bp)
+
     # Pupile (tamagotchi) — etap 1: same modele; trasy dochodzą w etapie 4
     from modules.pets import pets_bp, pets_admin_bp
     app.register_blueprint(pets_bp)
