@@ -90,7 +90,8 @@ def test_form_lists_set_bonus_and_order_gratis_once_each(client, admin, db, setu
     bonus, page = setup
     _entitled(db, make_user, make_order, bonus, page)
     html = client.get(BASE + '/nowa').get_data(as_text=True)
-    assert html.count('>Gratis</option>') == 1
+    assert html.count('<span>Gratis</span>') == 1
+    assert f'type="checkbox" name="bonus_product_ids" value="{bonus.id}"' in html
 
 
 def test_form_without_any_gratis_shows_hint(client, admin, db):
@@ -310,7 +311,7 @@ def test_form_lists_only_pages_with_gratis(client, admin, db, setup, make_user, 
     db.session.commit()
 
     html = client.get(BASE + '/nowa').get_data(as_text=True)
-    assert f'<option value="{page.id}"' in html
+    assert f'type="checkbox" name="offer_page_ids" value="{page.id}"' in html
     assert 'Strona z recznym gratisem' in html
     assert 'Strona bez gratisow' not in html
 
@@ -670,3 +671,12 @@ def test_detail_and_excel_show_pools_and_client_notes(client, admin, db, setup, 
     assert 'Benefit 100k:' in ola[header.index('Przydzielone karty')]
     summary = [v for row in _cells(wb['Podsumowanie']) for v in row if v]
     assert 'Benefit 100k' in summary and 'Gratis' in summary
+
+
+def test_edit_form_ticks_selected_page_and_gratis(client, admin, db, setup):
+    bonus, page = setup
+    c = _campaign(db, bonus, page)
+    html = client.get(f'{BASE}/{c.id}/edytuj').get_data(as_text=True)
+    assert f'name="offer_page_ids" value="{page.id}" checked' in html
+    assert f'name="bonus_product_ids" value="{bonus.id}" checked' in html
+    assert 'Ctrl/Cmd' not in html

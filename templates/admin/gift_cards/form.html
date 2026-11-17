@@ -36,22 +36,28 @@
             <h2>Strony ofert i gratisy</h2>
             {% if locked %}<p class="gc-hint">Strony ofert, gratisy i rodzaje kart można zmieniać tylko w szkicu.</p>{% endif %}
             <div class="gc-row">
-                <label class="gc-label" for="gcPages">Strony ofert (Ctrl/Cmd — kilka naraz)</label>
-                <select id="gcPages" name="offer_page_ids" multiple class="gc-select gc-select--multi" {% if locked %}disabled{% endif %}>
+                <span class="gc-label" id="gcPagesLabel">Strony ofert — zaznacz jedną lub kilka</span>
+                <div class="gc-checklist" id="gcPages" role="group" aria-labelledby="gcPagesLabel">
                     {% for page in pages %}
-                    <option value="{{ page.id }}" {% if page.id in data.page_ids %}selected{% endif %}>{{ page.name }}</option>
+                    <label class="gc-check">
+                        <input type="checkbox" name="offer_page_ids" value="{{ page.id }}"{% if page.id in data.page_ids %} checked{% endif %}{% if locked %} disabled{% endif %}>
+                        <span>{{ page.name }}</span>
+                    </label>
                     {% endfor %}
-                </select>
+                </div>
                 <p class="gc-hint">Widać tylko strony, które mają gratis — ustawiony w secie albo dany w zamówieniach.</p>
             </div>
             <div class="gc-row">
-                <label class="gc-label" for="gcProduct">Gratisy (Ctrl/Cmd — kilka naraz)</label>
+                <span class="gc-label" id="gcProductLabel">Gratisy — zaznacz jeden lub kilka</span>
                 {% if products %}
-                <select id="gcProduct" name="bonus_product_ids" multiple class="gc-select gc-select--multi" {% if locked %}disabled{% endif %}>
+                <div class="gc-checklist" id="gcProduct" role="group" aria-labelledby="gcProductLabel">
                     {% for product in products %}
-                    <option value="{{ product.id }}" {% if product.id in data.bonus_ids %}selected{% endif %}>{{ product.name|trim }}</option>
+                    <label class="gc-check">
+                        <input type="checkbox" name="bonus_product_ids" value="{{ product.id }}"{% if product.id in data.bonus_ids %} checked{% endif %}{% if locked %} disabled{% endif %}>
+                        <span>{{ product.name|trim }}</span>
+                    </label>
                     {% endfor %}
-                </select>
+                </div>
                 <p class="gc-hint">Każdy wybrany gratis to osobna pula kart (np. 50k i 100k). Klientka układa jeden ranking,
                     a karty rozdzielamy osobno w każdej puli.</p>
                 {% else %}

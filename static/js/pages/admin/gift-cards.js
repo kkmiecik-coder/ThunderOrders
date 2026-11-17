@@ -33,12 +33,16 @@
     });
 
     // Formularz akcji: pola ilości — po jednym na każdy wybrany gratis (pulę), w każdym wierszu rodzaju.
-    var productSelect = document.getElementById('gcProduct');
+    var productSelect = document.getElementById('gcProduct');  // lista pól do odhaczania gratisów
 
     function selectedProducts() {
         if (!productSelect) return [];
-        return Array.prototype.filter.call(productSelect.options, function (o) { return o.selected; })
-            .map(function (o) { return {id: o.value, name: o.textContent.trim()}; });
+        return Array.prototype.map.call(
+            productSelect.querySelectorAll('input[type="checkbox"]:checked'),
+            function (box) {
+                var label = box.closest('.gc-check');
+                return {id: box.value, name: (label ? label.textContent : box.value).trim()};
+            });
     }
 
     function syncQtyGroup(group, products) {
@@ -46,7 +50,7 @@
         Array.prototype.forEach.call(group.querySelectorAll('.gc-qty'), function (el) {
             existing[el.getAttribute('data-product-id')] = el;
         });
-        var disabled = productSelect && productSelect.disabled;
+        var disabled = !!(productSelect && productSelect.querySelector('input[type="checkbox"]:disabled'));
         products.forEach(function (product) {
             var el = existing[product.id];
             if (!el) {
