@@ -81,8 +81,10 @@
     {% if usage %}
     <section class="gc-card">
         <h2>Przydzielone / ilość</h2>
+        {% for group in usage %}
+        {% if several_pools %}<h3 class="gc-usage-pool">{{ group.pool.label }}</h3>{% endif %}
         <ul class="gc-usage">
-            {% for u in usage %}
+            {% for u in group['items'] %}
             <li class="gc-usage-item{% if u.over %} gc-usage-item--over{% endif %}">
                 <span class="gc-usage-name">{{ u.type.name }}</span>
                 <span class="gc-usage-count">{{ u.assigned }} / {{ u.quantity }}</span>
@@ -90,6 +92,7 @@
             </li>
             {% endfor %}
         </ul>
+        {% endfor %}
     </section>
     {% endif %}
 
@@ -98,13 +101,31 @@
         {% if quantities_editable %}
         <form method="post" action="{{ url_for('gift_cards.admin_quantities', cid=campaign.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            {% for t in campaign.card_types %}
-            <div class="gc-row">
-                <label class="gc-label" for="gcQty{{ t.id }}">{{ t.name }}</label>
-                <input type="number" min="0" step="1" id="gcQty{{ t.id }}" name="quantity_{{ t.id }}"
-                       class="gc-input gc-input--qty" value="{{ t.quantity if t.quantity is not none else '' }}" required>
+            <div class="gc-stock-wrap">
+            <table class="gc-stock-grid">
+                <thead>
+                    <tr>
+                        <th scope="col">Rodzaj karty</th>
+                        {% for pool in campaign.pools %}<th scope="col">{{ pool.label }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in campaign.card_types %}
+                    <tr>
+                        <th scope="row">{{ t.name }}</th>
+                        {% for pool in campaign.pools %}
+                        {% set q = stock.get((pool.id, t.id)) %}
+                        <td>
+                            <input type="number" min="0" step="1" name="quantity_{{ pool.id }}_{{ t.id }}"
+                                   class="gc-input gc-input--qty" value="{{ q if q is not none else '' }}"
+                                   aria-label="{{ t.name }} — {{ pool.label }}" required>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             </div>
-            {% endfor %}
             <div class="gc-actions">
                 <button type="submit" class="gc-btn">Zapisz ilości</button>
             </div>
@@ -117,7 +138,8 @@
         {% else %}
         <ul>
             {% for t in campaign.card_types %}
-            <li>{{ t.name }}{% if t.quantity is not none %} — {{ t.quantity }} szt.{% endif %}</li>
+            <li>{{ t.name }}{% for pool in campaign.pools %}{% set q = stock.get((pool.id, t.id)) %}{% if q is not none %}
+                — {% if several_pools %}{{ pool.label }}: {% endif %}{{ q }} szt.{% endif %}{% endfor %}</li>
             {% endfor %}
         </ul>
         {% endif %}
@@ -143,6 +165,10 @@
                     <td class="gc-name">
                         {{ r.user.full_name if r.user else '—' }}
                         {% if not r.entitled %}<span class="gc-tag gc-tag--dup">bez uprawnień</span>{% endif %}
+                        {% if several_pools and r.breakdown %}
+                        <div class="gc-hint">{% for pool, n in r.breakdown %}{{ pool.label }}: {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+                        {% endif %}
+                        {% if r.notes %}<div class="gc-notes"><strong>Uwagi:</strong> {{ r.notes }}</div>{% endif %}
                     </td>
                     <td class="gc-num">{{ r.total }}</td>
                     <td>
@@ -164,6 +190,7 @@
                                 {% else %}
                                 <span>{{ a.card_type.name }}</span>
                                 {% endif %}
+                                {% if several_pools %}<span class="gc-pool-tag">{{ a.pool.label }}</span>{% endif %}
                                 {% if a.rank_position %}<span class="gc-tag">wybór nr {{ a.rank_position }}</span>
                                 {% else %}<span class="gc-tag">bez rankingu</span>{% endif %}
                                 {% if a.is_duplicate %}<span class="gc-tag gc-tag--dup">powtórka</span>{% endif %}

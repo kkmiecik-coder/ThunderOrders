@@ -33,8 +33,8 @@
         </section>
 
         <section class="gc-card">
-            <h2>Strony ofert i produkt-gratis</h2>
-            {% if locked %}<p class="gc-hint">Strony ofert, produkt i rodzaje kart można zmieniać tylko w szkicu.</p>{% endif %}
+            <h2>Strony ofert i gratisy</h2>
+            {% if locked %}<p class="gc-hint">Strony ofert, gratisy i rodzaje kart można zmieniać tylko w szkicu.</p>{% endif %}
             <div class="gc-row">
                 <label class="gc-label" for="gcPages">Strony ofert (Ctrl/Cmd — kilka naraz)</label>
                 <select id="gcPages" name="offer_page_ids" multiple class="gc-select gc-select--multi" {% if locked %}disabled{% endif %}>
@@ -45,14 +45,15 @@
                 <p class="gc-hint">Widać tylko strony, które mają gratis — ustawiony w secie albo dany w zamówieniach.</p>
             </div>
             <div class="gc-row">
-                <label class="gc-label" for="gcProduct">Produkt-gratis</label>
+                <label class="gc-label" for="gcProduct">Gratisy (Ctrl/Cmd — kilka naraz)</label>
                 {% if products %}
-                <select id="gcProduct" name="bonus_product_id" class="gc-select" {% if locked %}disabled{% endif %}>
-                    <option value="">— wybierz —</option>
+                <select id="gcProduct" name="bonus_product_ids" multiple class="gc-select gc-select--multi" {% if locked %}disabled{% endif %}>
                     {% for product in products %}
-                    <option value="{{ product.id }}" {% if product.id == data.bonus_id %}selected{% endif %}>{{ product.name }}</option>
+                    <option value="{{ product.id }}" {% if product.id in data.bonus_ids %}selected{% endif %}>{{ product.name|trim }}</option>
                     {% endfor %}
                 </select>
+                <p class="gc-hint">Każdy wybrany gratis to osobna pula kart (np. 50k i 100k). Klientka układa jeden ranking,
+                    a karty rozdzielamy osobno w każdej puli.</p>
                 {% else %}
                 <p class="gc-hint">Nie ma jeszcze żadnych gratisów — ani ustawionych na stronach ofert, ani dodanych do zamówień. Dodaj gratis w sekcji set na stronie oferty.</p>
                 {% endif %}
@@ -61,16 +62,24 @@
 
         <section class="gc-card">
             <h2>Rodzaje kart</h2>
-            <p class="gc-hint gc-hint--lead">Ilość sztuk możesz wpisać od razu albo zostawić pustą i uzupełnić później
-                w szczegółach akcji, po zamknięciu zgłoszeń (zanim klikniesz „Rozdziel karty”).</p>
+            <p class="gc-hint gc-hint--lead">Ilość sztuk wpisujesz osobno dla każdego gratisu. Możesz to zrobić od razu
+                albo zostawić puste i uzupełnić później w szczegółach akcji, po zamknięciu zgłoszeń
+                (zanim klikniesz „Rozdziel karty”).</p>
             <div id="gcTypeList">
                 {% for row in data.rows %}
                 <div class="gc-type-row">
                     <input type="text" name="type_name" class="gc-input" maxlength="200" value="{{ row.name }}"
                            placeholder="Nazwa rodzaju karty" {% if locked %}disabled{% endif %}>
-                    <input type="number" name="type_quantity" class="gc-input gc-input--qty" min="0" step="1"
-                           inputmode="numeric" value="{{ row.raw_quantity }}" placeholder="Ilość"
-                           aria-label="Ilość sztuk" {% if locked %}disabled{% endif %}>
+                    <div class="gc-qty-group" data-gc-qty-group>
+                        {% for product in selected_products %}
+                        <label class="gc-qty" data-product-id="{{ product.id }}">
+                            <span class="gc-qty__label">{{ product.name|trim }}</span>
+                            <input type="number" name="type_quantity_{{ product.id }}" class="gc-input gc-input--qty" min="0" step="1"
+                                   inputmode="numeric" value="{{ (row.raw_quantities or {}).get(product.id, '') }}" placeholder="Ilość"
+                                   {% if locked %}disabled{% endif %}>
+                        </label>
+                        {% endfor %}
+                    </div>
                     <input type="hidden" name="type_existing_image" value="{{ row.existing_image }}">
                     {% if row.existing_image %}
                     <img class="gc-type-thumb" src="{{ url_for('static', filename=row.existing_image) }}" alt="">
@@ -87,8 +96,7 @@
             <template id="gcTypeTemplate">
                 <div class="gc-type-row">
                     <input type="text" name="type_name" class="gc-input" maxlength="200" placeholder="Nazwa rodzaju karty">
-                    <input type="number" name="type_quantity" class="gc-input gc-input--qty" min="0" step="1"
-                           inputmode="numeric" placeholder="Ilość" aria-label="Ilość sztuk">
+                    <div class="gc-qty-group" data-gc-qty-group></div>
                     <input type="hidden" name="type_existing_image" value="">
                     <input type="file" name="type_image" accept="image/*">
                     <button type="button" class="gc-btn gc-btn--danger" data-gc-remove-type>Usuń</button>

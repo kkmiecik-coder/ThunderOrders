@@ -12,10 +12,12 @@ from modules.gift_cards.emails import send_invites, send_results
 from modules.gift_cards.export import build_distribution_excel
 from modules.gift_cards.models import (
     STATUS_APPROVED, STATUS_CLOSED, STATUS_DRAFT, STATUS_OPEN, STATUS_DISTRIBUTED,
-    GiftAssignment, GiftCampaign, GiftCampaignPage, GiftCardType, GiftParticipant,
+    GiftAssignment, GiftCampaign, GiftCampaignPage, GiftCampaignPool, GiftCardType, GiftParticipant,
+    GiftPoolStock,
 )
 from modules.gift_cards.service import (
-    GiftCardsError, can_revert, compute_entitlements, distribution_problems, queue_order, queue_position,
+    GiftCardsError, can_revert, compute_entitlements, distribution_problems, pool_breakdown, queue_order,
+    queue_position,
     approve, revert_approval, run_distribution, swap_assignment, type_usage,
 )
 from modules.offers.models import OfferPage, OfferSection, OfferSetBonus
@@ -154,35 +156,41 @@ def _read_form(campaign=None):
         if raw.isdigit() and int(raw) not in page_ids and db.session.get(OfferPage, int(raw)):
             page_ids.append(int(raw))
 
-    bonus_id = request.form.get('bonus_product_id', type=int)
-    if bonus_id is not None and db.session.get(Product, bonus_id) is None:
-        bonus_id = None
+    bonus_ids = []
+    for raw in request.form.getlist('bonus_product_ids'):
+        if raw.isdigit() and int(raw) not in bonus_ids and db.session.get(Product, int(raw)):
+            bonus_ids.append(int(raw))
 
     names = [n.strip() for n in request.form.getlist('type_name')]
     allowed_images = {t.image_path for t in campaign.card_types if t.image_path} if campaign else set()
     existing = [v if v in allowed_images else '' for v in request.form.getlist('type_existing_image')]
     files = request.files.getlist('type_image')
-    raw_quantities = [q.strip() for q in request.form.getlist('type_quantity')]
+    # Ilości: osobna lista pól na każdy wybrany gratis (pulę), wyrównana z wierszami rodzajów.
+    raw_quantities = {pid: [q.strip() for q in request.form.getlist(f'type_quantity_{pid}')]
+                      for pid in bonus_ids}
     rows = []
     for i, type_name in enumerate(names):
         if not type_name:
             continue
-        raw_qty = raw_quantities[i] if i < len(raw_quantities) else ''
-        quantity = None
-        if raw_qty:
-            if raw_qty.isdigit():
-                quantity = int(raw_qty)
-            else:
-                errors.append(f'Ilość dla „{type_name}” musi być liczbą całkowitą od 0 (albo zostaw puste).')
+        quantities, raws = {}, {}
+        for pid in bonus_ids:
+            raw_qty = raw_quantities[pid][i] if i < len(raw_quantities[pid]) else ''
+            raws[pid] = raw_qty
+            quantities[pid] = None
+            if raw_qty:
+                if raw_qty.isdigit():
+                    quantities[pid] = int(raw_qty)
+                else:
+                    errors.append(f'Ilość dla „{type_name}” musi być liczbą całkowitą od 0 (albo zostaw puste).')
         rows.append({
             'name': type_name,
             'existing_image': existing[i] if i < len(existing) else '',
             'file': files[i] if i < len(files) else None,
-            'quantity': quantity,
-            'raw_quantity': raw_qty,
+            'quantities': quantities,
+            'raw_quantities': raws,
         })
     return {'name': name, 'race_at': race_at, 'raw_race': raw_race, 'page_ids': page_ids,
-            'bonus_id': bonus_id, 'rows': rows, 'errors': errors}
+            'bonus_ids': bonus_ids, 'rows': rows, 'errors': errors}
 
 
 def _pages_with_gratis(keep_ids=()):
@@ -203,21 +211,49 @@ def _pages_with_gratis(keep_ids=()):
     return OfferPage.query.filter(or_(*conditions)).order_by(OfferPage.created_at.desc()).all()
 
 
+def _sync_pools(campaign, bonus_ids):
+    """Pule akcji = wybrane gratisy, w tej kolejności; istniejące pule zostają (z ich ilościami)."""
+    existing = {pool.bonus_product_id: pool for pool in campaign.pools}
+    pools = []
+    for order, pid in enumerate(bonus_ids):
+        pool = existing.get(pid) or GiftCampaignPool(bonus_product_id=pid)
+        pool.sort_order = order
+        pools.append(pool)
+    campaign.pools = pools
+
+
 def _render_form(campaign, data=None):
     if data is None:
         data = {
             'name': campaign.name if campaign else '',
             'raw_race': format_pl_input(campaign.race_at) if campaign and campaign.race_at else '',
             'page_ids': campaign.offer_page_ids if campaign else [],
-            'bonus_id': campaign.bonus_product_id if campaign else None,
-            'rows': [{'name': t.name, 'existing_image': t.image_path or '',
-                      'raw_quantity': '' if t.quantity is None else str(t.quantity)}
-                     for t in campaign.card_types] if campaign else [],
+            'bonus_ids': campaign.bonus_product_ids if campaign else [],
+            'rows': [],
         }
+        if campaign:
+            stock = campaign.stock_map()
+            for t in campaign.card_types:
+                raws = {}
+                for pool in campaign.pools:
+                    if pool.bonus_product_id is not None:
+                        q = stock.get((pool.id, t.id))
+                        raws[pool.bonus_product_id] = '' if q is None else str(q)
+                data['rows'].append({'name': t.name, 'existing_image': t.image_path or '',
+                                     'raw_quantities': raws})
     keep = set(data['page_ids']) | (set(campaign.offer_page_ids) if campaign else set())
     pages = _pages_with_gratis(keep)
+    products = _bonus_products()
+    by_id = {p.id: p for p in products}
+    for pid in data['bonus_ids']:  # wybrany gratis zostaje na liście, nawet gdy zniknął z ofert
+        if pid not in by_id:
+            product = db.session.get(Product, pid)
+            if product:
+                by_id[pid] = product
+                products.append(product)
+    selected = [by_id[pid] for pid in data['bonus_ids'] if pid in by_id]
     return render_template('admin/gift_cards/form.html', campaign=campaign, data=data, pages=pages,
-                           products=_bonus_products(),
+                           products=products, selected_products=selected,
                            locked=bool(campaign and campaign.status != STATUS_DRAFT))
 
 
@@ -238,8 +274,8 @@ def admin_form(cid=None):
     if editing_structure:
         if not data['page_ids']:
             data['errors'].append('Wybierz co najmniej jedną stronę ofert.')
-        if data['bonus_id'] is None:
-            data['errors'].append('Wybierz produkt-gratis.')
+        if not data['bonus_ids']:
+            data['errors'].append('Wybierz co najmniej jeden produkt-gratis.')
         if not data['rows']:
             data['errors'].append('Dodaj co najmniej jeden rodzaj karty.')
     if data['errors']:
@@ -253,7 +289,7 @@ def admin_form(cid=None):
     campaign.name = data['name']
     campaign.race_at = data['race_at']
     if editing_structure:
-        campaign.bonus_product_id = data['bonus_id']
+        _sync_pools(campaign, data['bonus_ids'])
         wanted = set(data['page_ids'])
         for page_row in list(campaign.pages):
             if page_row.offer_page_id not in wanted:
@@ -266,11 +302,16 @@ def admin_form(cid=None):
         for old in campaign.card_types:
             if old.image_path and old.image_path not in kept:
                 _delete_type_image(old.image_path)
+        for pool in campaign.pools:
+            pool.stock = []
         new_types = []
+        pools_by_product = {pool.bonus_product_id: pool for pool in campaign.pools}
         for order, row in enumerate(data['rows']):
             image = _save_type_image(row['file']) or row['existing_image'] or None
-            new_types.append(GiftCardType(name=row['name'], image_path=image, sort_order=order,
-                                          quantity=row['quantity']))
+            card_type = GiftCardType(name=row['name'], image_path=image, sort_order=order)
+            for pid, quantity in row['quantities'].items():
+                GiftPoolStock(pool=pools_by_product[pid], card_type=card_type, quantity=quantity)
+            new_types.append(card_type)
         campaign.card_types = new_types
     db.session.commit()
     flash('Zapisano akcję.', 'success')
@@ -289,8 +330,9 @@ def admin_detail(cid):
     rows, entitlements, assignments, has_assignments = _detail_rows(campaign)
 
     entitled_total = sum(e.total for e in entitlements.values())
-    quantities = [t.quantity for t in campaign.card_types]
-    available = sum(q for q in quantities if isinstance(q, int)) if all(isinstance(q, int) for q in quantities) and quantities else None
+    stock = campaign.stock_map()
+    quantities = [stock.get((pool.id, t.id)) for pool in campaign.pools for t in campaign.card_types]
+    available = sum(quantities) if quantities and all(isinstance(q, int) for q in quantities) else None
     duplicates = sum(1 for lst in assignments.values() for a in lst if a.is_duplicate)
     revert_ok = can_revert(campaign) if campaign.status == STATUS_APPROVED else True
     usage = _usage(campaign) if has_assignments else []
@@ -299,7 +341,8 @@ def admin_detail(cid):
         entitled_total=entitled_total, available=available, duplicates=duplicates,
         revert_ok=revert_ok, status_label=STATUS_LABELS.get(campaign.status, campaign.status),
         quantities_editable=campaign.status in (STATUS_CLOSED, STATUS_DISTRIBUTED),
-        problems=distribution_problems(campaign), usage=usage,
+        problems=distribution_problems(campaign), usage=usage, stock=stock,
+        several_pools=len(campaign.pools) > 1,
     )
 
 
@@ -321,8 +364,12 @@ def admin_excel(cid):
 
 
 def _usage(campaign):
-    return [{'type': t, 'assigned': assigned, 'quantity': quantity, 'over': max(assigned - quantity, 0)}
-            for t, assigned, quantity in type_usage(campaign)]
+    """[{'pool', 'items': [{'type', 'assigned', 'quantity', 'over'}]}] — w kolejności pul i rodzajów."""
+    grouped = {}
+    for pool, t, assigned, quantity in type_usage(campaign):
+        grouped.setdefault(pool.id, {'pool': pool, 'items': []})['items'].append(
+            {'type': t, 'assigned': assigned, 'quantity': quantity, 'over': max(assigned - quantity, 0)})
+    return list(grouped.values())
 
 
 def _detail_rows(campaign):
@@ -343,9 +390,10 @@ def _detail_rows(campaign):
 
     has_assignments = campaign.status in (STATUS_DISTRIBUTED, STATUS_APPROVED)
     rows = []
+    pool_order = {pool.id: i for i, pool in enumerate(campaign.pools)}
     for index, uid in enumerate(uids, start=1):
         participant = participants.get(uid)
-        cards = assignments.get(uid, [])
+        cards = sorted(assignments.get(uid, []), key=lambda a: (pool_order.get(a.pool_id, 0), a.round_no, a.id))
         total = entitlements[uid].total if uid in entitlements else 0
         rows.append({
             'place': index if uid in entitlements else None,
@@ -356,6 +404,8 @@ def _detail_rows(campaign):
             'has_ranking': bool(participant and participant.ranking),
             'cards': cards,
             'missing': max(total - len(cards), 0) if has_assignments else 0,
+            'breakdown': pool_breakdown(campaign, entitlements.get(uid)),
+            'notes': (participant.notes or '').strip() if participant else '',
         })
     return rows, entitlements, assignments, has_assignments
 
@@ -372,7 +422,7 @@ def admin_publish(cid):
     if campaign.status != STATUS_DRAFT:
         flash('Akcja została już opublikowana.', 'error')
         return _detail_redirect(cid)
-    if not campaign.card_types or not campaign.pages or campaign.bonus_product_id is None:
+    if not campaign.card_types or not campaign.pages or not campaign.pools:
         flash('Uzupełnij strony ofert, produkt-gratis i rodzaje kart przed publikacją.', 'error')
         return _detail_redirect(cid)
     if campaign.race_at is None:
@@ -412,15 +462,24 @@ def admin_quantities(cid):
     if campaign.status not in (STATUS_CLOSED, STATUS_DISTRIBUTED):
         flash('Ilości można wpisać po zamknięciu zgłoszeń, przed zatwierdzeniem.', 'error')
         return _detail_redirect(cid)
+    several = len(campaign.pools) > 1
     values = {}
-    for card_type in campaign.card_types:
-        raw = (request.form.get(f'quantity_{card_type.id}') or '').strip()
-        if not raw.isdigit():
-            flash(f'Podaj ilość (liczbę całkowitą, od 0) dla: {card_type.name}.', 'error')
-            return _detail_redirect(cid)
-        values[card_type.id] = int(raw)
-    for card_type in campaign.card_types:
-        card_type.quantity = values[card_type.id]
+    for pool in campaign.pools:
+        for card_type in campaign.card_types:
+            raw = (request.form.get(f'quantity_{pool.id}_{card_type.id}') or '').strip()
+            if not raw.isdigit():
+                label = f'{card_type.name} ({pool.label})' if several else card_type.name
+                flash(f'Podaj ilość (liczbę całkowitą, od 0) dla: {label}.', 'error')
+                return _detail_redirect(cid)
+            values[(pool.id, card_type.id)] = int(raw)
+    rows = {(s.pool_id, s.card_type_id): s for pool in campaign.pools for s in pool.stock}
+    for pool in campaign.pools:
+        for card_type in campaign.card_types:
+            row = rows.get((pool.id, card_type.id))
+            if row is None:
+                row = GiftPoolStock(pool=pool, card_type=card_type)
+                db.session.add(row)  # SQLAlchemy 2: backref nie dodaje obiektu do sesji sam
+            row.quantity = values[(pool.id, card_type.id)]
     db.session.commit()
     flash('Zapisano ilości kart.', 'success')
     return _detail_redirect(cid)

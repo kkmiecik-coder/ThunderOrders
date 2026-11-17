@@ -32,13 +32,69 @@
         });
     });
 
+    // Formularz akcji: pola ilości — po jednym na każdy wybrany gratis (pulę), w każdym wierszu rodzaju.
+    var productSelect = document.getElementById('gcProduct');
+
+    function selectedProducts() {
+        if (!productSelect) return [];
+        return Array.prototype.filter.call(productSelect.options, function (o) { return o.selected; })
+            .map(function (o) { return {id: o.value, name: o.textContent.trim()}; });
+    }
+
+    function syncQtyGroup(group, products) {
+        var existing = {};
+        Array.prototype.forEach.call(group.querySelectorAll('.gc-qty'), function (el) {
+            existing[el.getAttribute('data-product-id')] = el;
+        });
+        var disabled = productSelect && productSelect.disabled;
+        products.forEach(function (product) {
+            var el = existing[product.id];
+            if (!el) {
+                el = document.createElement('label');
+                el.className = 'gc-qty';
+                el.setAttribute('data-product-id', product.id);
+                var caption = document.createElement('span');
+                caption.className = 'gc-qty__label';
+                caption.textContent = product.name;
+                var input = document.createElement('input');
+                input.type = 'number';
+                input.name = 'type_quantity_' + product.id;
+                input.className = 'gc-input gc-input--qty';
+                input.min = '0';
+                input.step = '1';
+                input.inputMode = 'numeric';
+                input.placeholder = 'Ilość';
+                input.disabled = !!disabled;
+                el.appendChild(caption);
+                el.appendChild(input);
+            }
+            delete existing[product.id];
+            group.appendChild(el);  // dopina w kolejności wyboru (istniejące elementy są przenoszone)
+        });
+        Object.keys(existing).forEach(function (id) { existing[id].remove(); });
+    }
+
+    function syncAllQty() {
+        var products = selectedProducts();
+        document.querySelectorAll('#gcTypeList [data-gc-qty-group]').forEach(function (group) {
+            syncQtyGroup(group, products);
+        });
+    }
+
+    if (productSelect) {
+        productSelect.addEventListener('change', syncAllQty);
+    }
+
     // Formularz akcji: dodawanie i usuwanie wierszy rodzajów kart.
     var addButton = document.getElementById('gcAddType');
     var list = document.getElementById('gcTypeList');
     var template = document.getElementById('gcTypeTemplate');
     if (addButton && list && template) {
         addButton.addEventListener('click', function () {
-            list.appendChild(template.content.cloneNode(true));
+            var fragment = template.content.cloneNode(true);
+            var group = fragment.querySelector('[data-gc-qty-group]');
+            if (group) syncQtyGroup(group, selectedProducts());
+            list.appendChild(fragment);
         });
     }
     if (list) {
