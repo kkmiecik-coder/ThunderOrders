@@ -79,7 +79,7 @@
 
             <!-- Strony sprzedaży (Collapsible Category) -->
             <li class="sidebar-item sidebar-category">
-                <div class="sidebar-category-header {% if request.endpoint in ['admin.offers_list', 'admin.offers_edit', 'admin.offers_settings', 'admin.offers_live', 'admin.offers_summary'] %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Strony sprzedaży">
+                <div class="sidebar-category-header {% if request.endpoint in ['admin.offers_list', 'admin.offers_edit', 'admin.offers_settings', 'admin.offers_live', 'admin.offers_summary'] or (request.endpoint and request.endpoint.startswith('gift_cards.admin_')) %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Strony sprzedaży">
                     <div class="sidebar-category-main">
                         <img src="{{ url_for('static', filename='img/icons/cart.svg') }}" alt="Strony sprzedaży" class="sidebar-icon">
                         <span class="sidebar-text">Strony sprzedaży</span>
@@ -94,6 +94,13 @@
                            class="sidebar-sublink {% if request.endpoint == 'admin.offers_list' or request.endpoint == 'admin.offers_edit' or request.endpoint == 'admin.offers_live' or request.endpoint == 'admin.offers_summary' %}active{% endif %}"
                            data-tooltip="Lista stron">
                             <span class="sidebar-text">Lista stron</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('gift_cards.admin_list') }}"
+                           class="sidebar-sublink {% if request.endpoint and request.endpoint.startswith('gift_cards.admin_') %}active{% endif %}"
+                           data-tooltip="Rozdział gratisów">
+                            <span class="sidebar-text">Rozdział gratisów</span>
                         </a>
                     </li>
                     <li class="sidebar-subitem">
@@ -178,14 +185,6 @@
                    data-tooltip="Konkursy">
                     <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Konkursy" class="sidebar-icon">
                     <span class="sidebar-text">Konkursy</span>
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="{{ url_for('gift_cards.admin_list') }}"
-                   class="sidebar-link {% if request.endpoint and request.endpoint.startswith('gift_cards.admin_') %}active{% endif %}"
-                   data-tooltip="Rozdział gratisów">
-                    <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Rozdział gratisów" class="sidebar-icon">
-                    <span class="sidebar-text">Rozdział gratisów</span>
                 </a>
             </li>
             <li class="sidebar-item">

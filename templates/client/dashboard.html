@@ -30,9 +30,6 @@
     <!-- Contest Hero Banner -->
     {% include 'client/_contest_widget.html' %}
 
-    <!-- Akcje gratisowych kart -->
-    {% include 'client/gift_cards/_dashboard_widget.html' %}
-
     <!-- Kafelki z metrykami -->
     <div class="dashboard-metrics">
         <!-- Rząd 1: Zamówienia -->
@@ -144,6 +141,9 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Akcje gratisowych kart (przy zamówieniach — to nie konkurs) -->
+    {% include 'client/gift_cards/_dashboard_widget.html' %}
 
     <!-- Grid: Wykres + Ostatnie zamówienia -->
     <div class="dashboard-grid">
