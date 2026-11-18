@@ -564,18 +564,42 @@ def test_excel_has_clients_and_summary(client, admin, db, setup, make_user, make
     assert type_a[2] == 2 and type_b[2] == 2  # wpisane ilości
 
 
-def test_excel_link_only_after_distribution(client, admin, db, setup, make_user, make_order):
+def test_excel_blocked_in_draft(client, admin, db, setup):
     bonus, page = setup
-    c = _campaign(db, bonus, page, status='zamknieta', quantities=[2, 2])
+    c = _campaign(db, bonus, page, status='szkic')
     html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
     assert f'{BASE}/{c.id}/excel' not in html
-    resp = client.get(f'{BASE}/{c.id}/excel')
-    assert resp.status_code == 302
+    assert client.get(f'{BASE}/{c.id}/excel').status_code == 302
 
-    c2, _, _ = _distributed(client, db, bonus, page, make_user, make_order)
-    html = client.get(f'{BASE}/{c2.id}').get_data(as_text=True)
-    assert f'{BASE}/{c2.id}/excel' in html
-    assert 'Pobierz Excel' in html
+
+def test_excel_available_when_open_without_assignments(client, admin, db, setup, make_user, make_order):
+    import json
+    from modules.gift_cards.models import GiftParticipant
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='otwarta', types=('San', 'Yunho'))
+    u, _ = _entitled(db, make_user, make_order, bonus, page, qty=2)
+    u.first_name, u.last_name = 'Ola', 'Nowak'
+    san, yunho = c.card_types
+    db.session.add(GiftParticipant(campaign_id=c.id, user_id=u.id, ranking_json=json.dumps([yunho.id, san.id]),
+                                   notes='Proszę o Yunho'))
+    db.session.commit()
+    assert f'{BASE}/{c.id}/excel' in client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    rows = _cells(_excel(client, c.id)['Klientki'])
+    header = next(row for row in rows if row and row[0] == 'Miejsce')
+    assert header.index('Ranking') == header.index('Kart') + 1
+    user_row = next(row for row in rows if 'Ola Nowak' in row)
+    assert user_row[header.index('Ranking')] == '1. Yunho, 2. San'
+    assert user_row[header.index('Kart')] == 2  # ile kart się należy — potrzebne przy rozdziale ręcznym
+    assert user_row[header.index('Przydzielone karty')] in (None, '')
+    assert user_row[header.index('Uwagi klientki')] == 'Proszę o Yunho'
+
+
+def test_excel_filename_prefix_by_kind(client, admin, db, setup):
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='zamknieta')
+    assert 'filename=gratisy_' in client.get(f'{BASE}/{c.id}/excel').headers['Content-Disposition']
+    c.kind = 'zakup'; db.session.commit()
+    assert 'filename=karty_' in client.get(f'{BASE}/{c.id}/excel').headers['Content-Disposition']
 
 
 def test_excel_requires_admin(client, login, make_user, db, setup):

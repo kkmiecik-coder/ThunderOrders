@@ -17,7 +17,7 @@
             {% if campaign.status != 'zatwierdzona' %}
             <a href="{{ url_for('gift_cards.admin_form', cid=campaign.id) }}" class="gc-btn">Edytuj</a>
             {% endif %}
-            {% if has_assignments %}
+            {% if campaign.status != 'szkic' %}
             <a href="{{ url_for('gift_cards.admin_excel', cid=campaign.id) }}" class="gc-btn">Pobierz Excel</a>
             {% endif %}
 

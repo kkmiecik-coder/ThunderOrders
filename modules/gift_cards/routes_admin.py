@@ -17,7 +17,7 @@ from modules.gift_cards.models import (
     GiftPoolStock,
 )
 from modules.gift_cards.service import (
-    GiftCardsError, can_revert, compute_entitlements, distribution_problems, pool_breakdown, queue_order,
+    GiftCardsError, _valid_ranking, can_revert, compute_entitlements, distribution_problems, pool_breakdown, queue_order,
     queue_position,
     approve, finish_manual, reopen_manual, revert_approval, run_distribution, swap_assignment, type_usage,
 )
@@ -389,14 +389,15 @@ def admin_detail(cid):
 @role_required('admin', 'mod')
 def admin_excel(cid):
     campaign = _get_campaign(cid)
-    rows, _, _, has_assignments = _detail_rows(campaign)
-    if not has_assignments:
-        flash('Plik Excel będzie dostępny po rozdzieleniu kart.', 'error')
+    if campaign.status == STATUS_DRAFT:
+        flash('Plik Excel będzie dostępny po opublikowaniu akcji.', 'error')
         return _detail_redirect(cid)
-    buffer = build_distribution_excel(campaign, rows, _usage(campaign),
+    rows, _, _, has_assignments = _detail_rows(campaign)
+    buffer = build_distribution_excel(campaign, rows, _usage(campaign) if has_assignments else [],
                                       STATUS_LABELS.get(campaign.status, campaign.status))
     safe = ''.join(ch for ch in campaign.name if ch.isalnum() or ch in ' -_').strip().replace(' ', '_')[:50]
-    filename = f'gratisy_{safe or campaign.id}_{to_pl(utcnow()).strftime("%Y%m%d")}.xlsx'
+    prefix = 'karty' if campaign.is_purchase else 'gratisy'
+    filename = f'{prefix}_{safe or campaign.id}_{to_pl(utcnow()).strftime("%Y%m%d")}.xlsx'
     return send_file(buffer, as_attachment=True, download_name=filename,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -427,6 +428,8 @@ def _detail_rows(campaign):
                     GiftParticipant.query.filter_by(campaign_id=campaign.id).all()}
 
     has_assignments = campaign.status in (STATUS_DISTRIBUTED, STATUS_APPROVED)
+    type_ids = [t.id for t in campaign.card_types]
+    type_names = {t.id: t.name for t in campaign.card_types}
     rows = []
     pool_order = {pool.id: i for i, pool in enumerate(campaign.pools)}
     for index, uid in enumerate(uids, start=1):
@@ -444,6 +447,8 @@ def _detail_rows(campaign):
             'missing': max(total - len(cards), 0) if has_assignments else 0,
             'breakdown': pool_breakdown(campaign, entitlements.get(uid)),
             'notes': (participant.notes or '').strip() if participant else '',
+            'ranking_text': ', '.join(f'{i}. {type_names[tid]}' for i, tid in
+                                      enumerate(_valid_ranking(participant, type_ids), start=1)),
         })
     return rows, entitlements, assignments, has_assignments
 
