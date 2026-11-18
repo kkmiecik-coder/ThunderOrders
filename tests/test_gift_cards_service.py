@@ -234,6 +234,100 @@ def test_label_none_for_non_bonus_item(db, make_user, make_order, make_product, 
     assert it.gift_cards_label is None
 
 
+
+# ---- Kupione produkty (rodzaj akcji „zakup”) ----
+
+@pytest.fixture
+def akcja_zakup(db, make_product, strona_sprzedazy):
+    from modules.gift_cards.models import GiftCampaign, GiftCampaignPage
+    produkt = make_product(name='Trading PC')
+    c = GiftCampaign(name='Trading', kind='zakup')
+    db.session.add(c); db.session.commit()
+    db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=strona_sprzedazy.id))
+    db.session.commit()
+    add_pool(db, c, produkt)
+    return c, produkt, strona_sprzedazy
+
+
+def test_purchase_entitlements_count_regular_items_only(db, make_user, make_order, akcja_zakup):
+    from modules.gift_cards.service import compute_entitlements
+    c, produkt, page = akcja_zakup
+    u = make_user()
+    o = make_order(u, offer_page_id=page.id)
+    _bonus(db, o, produkt, 3, is_bonus=False)
+    _bonus(db, o, produkt, 2, is_bonus=True)
+    assert compute_entitlements(c)[u.id].total == 3
+
+
+def test_gratis_campaign_ignores_regular_items_of_same_product(db, make_user, make_order, akcja):
+    from modules.gift_cards.service import compute_entitlements
+    c, bonus, page = akcja
+    u = make_user()
+    o = make_order(u, offer_page_id=page.id)
+    _bonus(db, o, bonus, 3, is_bonus=False)
+    _bonus(db, o, bonus, 2, is_bonus=True)
+    assert compute_entitlements(c)[u.id].total == 2
+
+
+def _zakup_rozdzielony(db, make_user, make_order, akcja_zakup):
+    from modules.gift_cards.service import run_distribution
+    c, produkt, page = akcja_zakup
+    u = make_user()
+    item = _bonus(db, make_order(u, offer_page_id=page.id), produkt, 1, is_bonus=False)
+    t = _typy(db, c, San=1, Yunho=1)
+    _ranking(db, c, u, [t['San'], t['Yunho']])
+    c.status = 'otwarta'; db.session.commit()
+    pending = item.gift_cards_label
+    c.status = 'zamknieta'; db.session.commit()
+    run_distribution(c)
+    return c, item, pending
+
+
+def test_purchase_label_pending_then_names_after_approve(db, make_user, make_order, akcja_zakup):
+    from modules.gift_cards.service import approve
+    c, item, pending = _zakup_rozdzielony(db, make_user, make_order, akcja_zakup)
+    assert pending == 'przydział w toku'
+    approve(c)
+    assert item.gift_cards_label == 'San'
+    assert item.client_gift_cards_label == 'San'
+
+
+def test_client_label_hidden_when_results_hidden(db, make_user, make_order, akcja_zakup):
+    from modules.gift_cards.service import approve
+    c, item, _ = _zakup_rozdzielony(db, make_user, make_order, akcja_zakup)
+    approve(c)
+    c.results_hidden = True; db.session.commit()
+    assert item.gift_cards_label == 'San'
+    assert item.client_gift_cards_label is None
+
+
+def test_purchase_item_in_open_campaign_has_link(db, make_user, make_order, akcja_zakup):
+    c, produkt, page = akcja_zakup
+    item = _bonus(db, make_order(make_user(), offer_page_id=page.id), produkt, 1, is_bonus=False)
+    c.status = 'otwarta'; db.session.commit()
+    assert item.open_gift_campaign == c
+
+
+def test_regular_item_label_no_extra_queries_without_purchase_campaigns(app, db, make_user, make_order,
+                                                                         make_product, akcja):
+    from sqlalchemy import event
+    c, bonus, page = akcja
+    c.status = 'otwarta'; db.session.commit()
+    o = make_order(make_user(), offer_page_id=page.id)
+    items = [_bonus(db, o, make_product(name=f'Album {i}'), 1, is_bonus=False) for i in range(5)]
+    for it in items:
+        db.session.refresh(it); it.order  # załaduj relacje przed liczeniem
+    queries = []
+    listener = lambda *args, **kw: queries.append(1)
+    with app.test_request_context():
+        event.listen(db.engine, 'before_cursor_execute', listener)
+        try:
+            labels = [it.gift_cards_label for it in items]
+        finally:
+            event.remove(db.engine, 'before_cursor_execute', listener)
+    assert labels == [None] * 5
+    assert len(queries) <= 1
+
 def test_revert_blocked_when_order_packed(db, make_user, make_order, akcja):
     from modules.gift_cards.service import GiftCardsError, approve, can_revert, revert_approval
     c, a, b, ia, ib, t = _dwoje_z_kartami(db, make_user, make_order, akcja)

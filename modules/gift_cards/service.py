@@ -9,7 +9,8 @@ from modules.orders.models import Order, OrderItem
 from modules.gift_cards.allocation import Person, allocate
 from modules.gift_cards.models import (
     GiftAssignment, GiftCampaign, GiftCardType, GiftParticipant, GiftRaceEntry,
-    STATUS_APPROVED, STATUS_CLOSED, STATUS_DISTRIBUTED, STATUS_OPEN,
+    GiftCampaignPool, KIND_GRATIS, KIND_PURCHASE,
+    STATUS_APPROVED, STATUS_CLOSED, STATUS_DISTRIBUTED, STATUS_DRAFT, STATUS_OPEN,
 )
 
 EXCLUDED_ORDER_STATUSES = ('anulowane', 'zwrocone')
@@ -45,7 +46,8 @@ def compute_entitlements(campaign) -> dict:
         db.session.query(OrderItem.id, OrderItem.quantity, OrderItem.product_id, Order.user_id, Order.created_at)
         .join(Order, Order.id == OrderItem.order_id)
         .filter(
-            OrderItem.is_bonus.is_(True),
+            # Gratisy liczymy z pozycji gratisowych, kupione produkty — ze zwykłych.
+            OrderItem.is_bonus.is_(campaign.kind != KIND_PURCHASE),
             OrderItem.product_id.in_(list(pool_of)),
             Order.offer_page_id.in_(page_ids),
             Order.status.notin_(EXCLUDED_ORDER_STATUSES),
@@ -318,29 +320,58 @@ def revert_approval(campaign):
     db.session.commit()
 
 
-def item_gift_label(item):
-    """Etykieta kart na pozycji gratisowej: nazwy rodzajów, "przydział w toku" albo None."""
-    if not item.is_bonus:
+def item_gift_label(item, for_client=False):
+    """Etykieta kart na pozycji zamówienia: nazwy rodzajów, "przydział w toku" albo None.
+
+    `for_client=True` — widok klientki: przy wyniku zatwierdzonym bez maili nic nie pokazujemy.
+    """
+    if not _may_belong_to_campaign(item):
         return None
     rows = (GiftAssignment.query.filter_by(order_item_id=item.id)
             .order_by(GiftAssignment.round_no, GiftAssignment.id).all())
     if rows and rows[0].campaign.status == STATUS_APPROVED:
+        if for_client and rows[0].campaign.results_hidden:
+            return None
         return ', '.join(r.card_type.name for r in rows)
 
     return 'przydział w toku' if _campaign_for_item(
         item, (STATUS_OPEN, STATUS_CLOSED, STATUS_DISTRIBUTED)) else None
 
 
+def _purchase_product_ids() -> set:
+    """Produkty z pul akcji „zakup” (poza szkicami) — raz na request, bo listy zamówień pytają o każdą pozycję."""
+    from flask import g, has_request_context
+
+    if has_request_context() and hasattr(g, '_gift_purchase_product_ids'):
+        return g._gift_purchase_product_ids
+    ids = {pid for (pid,) in db.session.query(GiftCampaignPool.bonus_product_id)
+           .join(GiftCampaign, GiftCampaign.id == GiftCampaignPool.campaign_id)
+           .filter(GiftCampaign.kind == KIND_PURCHASE, GiftCampaign.status != STATUS_DRAFT,
+                   GiftCampaignPool.bonus_product_id.isnot(None))}
+    if has_request_context():
+        g._gift_purchase_product_ids = ids
+    return ids
+
+
+def _may_belong_to_campaign(item) -> bool:
+    """Tani strażnik: pozycja gratisowa zawsze sprawdzana; zwykła tylko gdy jej produkt jest w akcji „zakup”."""
+    if item.product_id is None:
+        return False
+    return bool(item.is_bonus) or item.product_id in _purchase_product_ids()
+
+
 def _campaign_for_item(item, statuses):
-    """Akcja w danym statusie, do której należy pozycja gratisowa (ten sam produkt i strona oferty)."""
-    if not item.is_bonus:
+    """Akcja w danym statusie, do której należy pozycja: ten sam produkt i strona oferty, a rodzaj
+    akcji zgodny z pozycją (gratisowa → „gratis”, zwykła → „zakup”)."""
+    if not _may_belong_to_campaign(item):
         return None
     page_id = item.order.offer_page_id if item.order else None
-    if page_id is None or item.product_id is None:
+    if page_id is None:
         return None
     return (
         GiftCampaign.query
         .filter(GiftCampaign.pools.any(bonus_product_id=item.product_id),
+                GiftCampaign.kind == (KIND_GRATIS if item.is_bonus else KIND_PURCHASE),
                 GiftCampaign.status.in_(statuses),
                 GiftCampaign.pages.any(offer_page_id=page_id))
         .first()
@@ -348,5 +379,5 @@ def _campaign_for_item(item, statuses):
 
 
 def open_campaign_for_item(item):
-    """Otwarta akcja obejmująca pozycję gratisową (do linku na stronie zamówienia) albo None."""
+    """Otwarta akcja obejmująca pozycję (do linku na stronie zamówienia) albo None."""
     return _campaign_for_item(item, (STATUS_OPEN,))

@@ -67,7 +67,7 @@
                                     <span class="set-badge set-badge-ok" title="Złapany">✓</span>
                                 </span>
                             </div>
-                            {% set gl = item.gift_cards_label if item.is_bonus else None %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
+                            {% set gl = item.gift_cards_label %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
                             {% if item.product_sku or item.product_ean %}
                             <span class="product-codes">
                                 {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
@@ -165,7 +165,7 @@
                                     <span class="set-badge set-badge-fail" title="Poza setem">✗</span>
                                 </span>
                             </div>
-                            {% set gl = item.gift_cards_label if item.is_bonus else None %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
+                            {% set gl = item.gift_cards_label %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
                             <span class="product-codes text-outside-set">(poza setem)</span>
                             <!-- Mobile values row -->
                             <div class="mobile-values-row">
@@ -256,7 +256,7 @@
                                     <span class="set-badge set-badge-fail" title="Poza setem">✗</span>
                                 </span>
                             </div>
-                            {% set gl = item.gift_cards_label if item.is_bonus else None %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
+                            {% set gl = item.gift_cards_label %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
                             {% if item.product_sku or item.product_ean %}
                             <span class="product-codes text-outside-set">
                                 {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
@@ -404,7 +404,7 @@
                                     {% endif %}
                                 </span>
                             </div>
-                            {% set gl = item.gift_cards_label if item.is_bonus else None %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
+                            {% set gl = item.gift_cards_label %}{% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
                             {% if item.product_sku or item.product_ean or item.custom_sku %}
                             <span class="product-codes">
                                 {% if item.custom_sku %}SKU: {{ item.custom_sku }}{% endif %}
