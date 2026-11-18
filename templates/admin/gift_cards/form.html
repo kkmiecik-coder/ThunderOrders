@@ -33,42 +33,68 @@
         </section>
 
         <section class="gc-card">
-            <h2>Strony ofert i gratisy</h2>
-            {% if locked %}<p class="gc-hint">Strony ofert, gratisy i rodzaje kart można zmieniać tylko w szkicu.</p>{% endif %}
+            <h2>Co rozdzielamy</h2>
+            {% if locked %}<p class="gc-hint">Rodzaj akcji, strony ofert, produkty i rodzaje kart można zmieniać tylko w szkicu.</p>{% endif %}
             <div class="gc-row">
-                <span class="gc-label" id="gcPagesLabel">Strony ofert — zaznacz jedną lub kilka</span>
-                <div class="gc-checklist" id="gcPages" role="group" aria-labelledby="gcPagesLabel">
-                    {% for page in pages %}
-                    <label class="gc-check">
-                        <input type="checkbox" name="offer_page_ids" value="{{ page.id }}"{% if page.id in data.page_ids %} checked{% endif %}{% if locked %} disabled{% endif %}>
-                        <span>{{ page.name }}</span>
+                <div class="gc-kind-switch" role="radiogroup" aria-label="Rodzaj akcji">
+                    {% for k in kinds %}
+                    <label class="gc-kind-option">
+                        <input type="radio" name="kind" value="{{ k.value }}"{% if k.value == kind %} checked{% endif %}{% if locked %} disabled{% endif %}>
+                        <span>{{ k.label }}</span>
                     </label>
                     {% endfor %}
                 </div>
-                <p class="gc-hint">Widać tylko strony, które mają gratis — ustawiony w secie albo dany w zamówieniach.</p>
+                <p class="gc-hint">„Gratisy” — karty z gratisów dodanych do zamówień. „Kupione produkty” — karty z kupionych sztuk (np. trading pc): klientka ma tyle kart, ile sztuk kupiła.</p>
             </div>
-            <div class="gc-row">
-                <span class="gc-label" id="gcProductLabel">Gratisy — zaznacz jeden lub kilka</span>
-                {% if products %}
-                <div class="gc-checklist" id="gcProduct" role="group" aria-labelledby="gcProductLabel">
-                    {% for product in products %}
-                    <label class="gc-check">
-                        <input type="checkbox" name="bonus_product_ids" value="{{ product.id }}"{% if product.id in data.bonus_ids %} checked{% endif %}{% if locked %} disabled{% endif %}>
-                        <span>{{ product.name|trim }}</span>
-                    </label>
-                    {% endfor %}
+
+            {% for k in kinds %}
+            {% set active = k.value == kind %}
+            {% set off = locked or not active %}
+            <div class="gc-kind-block" data-gc-kind="{{ k.value }}"{% if not active %} hidden{% endif %}>
+                <div class="gc-row">
+                    <span class="gc-label" id="gcPagesLabel_{{ k.value }}">Strony ofert — zaznacz jedną lub kilka</span>
+                    <div class="gc-checklist" role="group" aria-labelledby="gcPagesLabel_{{ k.value }}">
+                        {% for page in k.pages %}
+                        <label class="gc-check">
+                            <input type="checkbox" name="offer_page_ids" value="{{ page.id }}"{% if active and page.id in data.page_ids %} checked{% endif %}{% if off %} disabled{% endif %}>
+                            <span>{{ page.name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% if k.value == 'gratis' %}
+                    <p class="gc-hint">Widać tylko strony, które mają gratis — ustawiony w secie albo dany w zamówieniach.</p>
+                    {% endif %}
                 </div>
-                <p class="gc-hint">Każdy wybrany gratis to osobna pula kart (np. 50k i 100k). Klientka układa jeden ranking,
-                    a karty rozdzielamy osobno w każdej puli.</p>
-                {% else %}
-                <p class="gc-hint">Nie ma jeszcze żadnych gratisów — ani ustawionych na stronach ofert, ani dodanych do zamówień. Dodaj gratis w sekcji set na stronie oferty.</p>
-                {% endif %}
+                <div class="gc-row">
+                    <span class="gc-label" id="gcProductLabel_{{ k.value }}">{% if k.value == 'gratis' %}Gratisy{% else %}Kupione produkty{% endif %} — zaznacz jeden lub kilka</span>
+                    {% if k.products %}
+                    {% if k.value == 'zakup' %}
+                    <input type="search" class="gc-input gc-product-search" placeholder="Szukaj produktu…" aria-label="Szukaj produktu"
+                           data-gc-filter{% if off %} disabled{% endif %}>
+                    {% endif %}
+                    <div class="gc-checklist gc-product-list" role="group" aria-labelledby="gcProductLabel_{{ k.value }}">
+                        {% for product in k.products %}
+                        <label class="gc-check">
+                            <input type="checkbox" name="bonus_product_ids" value="{{ product.id }}"{% if active and product.id in data.bonus_ids %} checked{% endif %}{% if off %} disabled{% endif %}>
+                            <span>{{ product.name|trim }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="gc-hint">Każdy wybrany {% if k.value == 'gratis' %}gratis{% else %}produkt{% endif %} to osobna pula kart (np. 50k i 100k). Klientka układa jeden ranking,
+                        a karty rozdzielamy osobno w każdej puli.</p>
+                    {% elif k.value == 'gratis' %}
+                    <p class="gc-hint">Nie ma jeszcze żadnych gratisów — ani ustawionych na stronach ofert, ani dodanych do zamówień. Dodaj gratis w sekcji set na stronie oferty.</p>
+                    {% else %}
+                    <p class="gc-hint">Nikt jeszcze nic nie kupił na stronach ofert.</p>
+                    {% endif %}
+                </div>
             </div>
+            {% endfor %}
         </section>
 
         <section class="gc-card">
             <h2>Rodzaje kart</h2>
-            <p class="gc-hint gc-hint--lead">Ilość sztuk wpisujesz osobno dla każdego gratisu. Możesz to zrobić od razu
+            <p class="gc-hint gc-hint--lead">Ilość sztuk wpisujesz osobno dla każdego gratisu / produktu. Możesz to zrobić od razu
                 albo zostawić puste i uzupełnić później w szczegółach akcji, po zamknięciu zgłoszeń
                 (zanim klikniesz „Rozdziel karty”).</p>
             <div id="gcTypeList">

@@ -32,13 +32,20 @@
         });
     });
 
-    // Formularz akcji: pola ilości — po jednym na każdy wybrany gratis (pulę), w każdym wierszu rodzaju.
-    var productSelect = document.getElementById('gcProduct');  // lista pól do odhaczania gratisów
+    // Formularz akcji: pola ilości — po jednym na każdy wybrany gratis/produkt (pulę), w każdym wierszu rodzaju.
+    var kindBlocks = document.querySelectorAll('[data-gc-kind]');
+    var productSelect = kindBlocks.length ? document.getElementById('giftCampaignForm') : null;
+
+    function activeProductList() {
+        var block = document.querySelector('[data-gc-kind]:not([hidden])');
+        return block ? block.querySelector('.gc-product-list') : null;
+    }
 
     function selectedProducts() {
-        if (!productSelect) return [];
+        var listEl = activeProductList();
+        if (!listEl) return [];
         return Array.prototype.map.call(
-            productSelect.querySelectorAll('input[type="checkbox"]:checked'),
+            listEl.querySelectorAll('input[type="checkbox"]:checked'),
             function (box) {
                 var label = box.closest('.gc-check');
                 return {id: box.value, name: (label ? label.textContent : box.value).trim()};
@@ -50,7 +57,8 @@
         Array.prototype.forEach.call(group.querySelectorAll('.gc-qty'), function (el) {
             existing[el.getAttribute('data-product-id')] = el;
         });
-        var disabled = !!(productSelect && productSelect.querySelector('input[type="checkbox"]:disabled'));
+        var listEl = activeProductList();
+        var disabled = !!(listEl && listEl.querySelector('input[type="checkbox"]:disabled'));
         products.forEach(function (product) {
             var el = existing[product.id];
             if (!el) {
@@ -86,7 +94,37 @@
     }
 
     if (productSelect) {
-        productSelect.addEventListener('change', syncAllQty);
+        productSelect.addEventListener('change', function (event) {
+            if (event.target.name === 'kind') {
+                switchKind(event.target.value);
+            } else if (event.target.closest('.gc-product-list')) {
+                syncAllQty();
+            }
+        });
+        // Wyszukiwarka produktów: chowa wiersze, których nazwa nie pasuje (bez rozróżniania wielkości liter).
+        productSelect.addEventListener('input', function (event) {
+            var search = event.target.closest('[data-gc-filter]');
+            if (!search) return;
+            var listEl = search.parentElement.querySelector('.gc-product-list');
+            var query = search.value.trim().toLowerCase();
+            if (!listEl) return;
+            Array.prototype.forEach.call(listEl.querySelectorAll('.gc-check'), function (row) {
+                row.hidden = query !== '' && row.textContent.toLowerCase().indexOf(query) === -1;
+            });
+        });
+    }
+
+    // Zmiana rodzaju akcji: pokazuje zestaw list tego rodzaju; pola ukrytego zestawu są wyłączone
+    // (nie trafiają do formularza), żeby nie wysłać stron/produktów z drugiego rodzaju.
+    function switchKind(kind) {
+        Array.prototype.forEach.call(kindBlocks, function (block) {
+            var active = block.getAttribute('data-gc-kind') === kind;
+            block.hidden = !active;
+            Array.prototype.forEach.call(block.querySelectorAll('input'), function (input) {
+                input.disabled = !active;
+            });
+        });
+        syncAllQty();
     }
 
     // Formularz akcji: dodawanie i usuwanie wierszy rodzajów kart.

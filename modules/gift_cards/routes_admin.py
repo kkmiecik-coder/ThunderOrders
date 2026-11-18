@@ -11,6 +11,7 @@ from modules.gift_cards import gift_cards_bp
 from modules.gift_cards.emails import send_invites, send_results
 from modules.gift_cards.export import build_distribution_excel
 from modules.gift_cards.models import (
+    KIND_GRATIS, KIND_PURCHASE,
     STATUS_APPROVED, STATUS_CLOSED, STATUS_DRAFT, STATUS_OPEN, STATUS_DISTRIBUTED, STATUS_FINISHED_MANUAL,
     GiftAssignment, GiftCampaign, GiftCampaignPage, GiftCampaignPool, GiftCardType, GiftParticipant,
     GiftPoolStock,
@@ -133,6 +134,21 @@ def _bonus_products():
             .order_by(Product.name).all())
 
 
+def _purchase_products(keep_ids=()):
+    """Produkty do wyboru w akcji „kupione produkty”: kupione (zwykłe pozycje) w zamówieniach ze stron ofert.
+
+    `keep_ids` — już wybrane produkty zostają na liście, nawet gdy nikt ich jeszcze nie kupił.
+    """
+    bought = (db.session.query(OrderItem.product_id)
+              .join(Order, Order.id == OrderItem.order_id)
+              .filter(OrderItem.is_bonus.is_(False), OrderItem.product_id.isnot(None),
+                      Order.offer_page_id.isnot(None)))
+    conditions = [Product.id.in_(bought)]
+    if keep_ids:
+        conditions.append(Product.id.in_(list(keep_ids)))
+    return Product.query.filter(or_(*conditions)).order_by(Product.name).all()
+
+
 def _read_form(campaign=None):
     """Odczyt pól formularza do słownika; błędy trafiają do listy errors.
 
@@ -140,6 +156,9 @@ def _read_form(campaign=None):
     inna wartość z formularza jest ignorowana (nie wolno wskazać dowolnego pliku).
     """
     errors = []
+    kind = request.form.get('kind')
+    if kind not in (KIND_GRATIS, KIND_PURCHASE):
+        kind = KIND_GRATIS
     name = (request.form.get('name') or '').strip()
     if not name:
         errors.append('Podaj nazwę akcji.')
@@ -190,7 +209,7 @@ def _read_form(campaign=None):
             'quantities': quantities,
             'raw_quantities': raws,
         })
-    return {'name': name, 'race_at': race_at, 'raw_race': raw_race, 'page_ids': page_ids,
+    return {'kind': kind, 'name': name, 'race_at': race_at, 'raw_race': raw_race, 'page_ids': page_ids,
             'bonus_ids': bonus_ids, 'rows': rows, 'errors': errors}
 
 
@@ -226,6 +245,7 @@ def _sync_pools(campaign, bonus_ids):
 def _render_form(campaign, data=None):
     if data is None:
         data = {
+            'kind': campaign.kind if campaign else KIND_GRATIS,
             'name': campaign.name if campaign else '',
             'raw_race': format_pl_input(campaign.race_at) if campaign and campaign.race_at else '',
             'page_ids': campaign.offer_page_ids if campaign else [],
@@ -242,20 +262,35 @@ def _render_form(campaign, data=None):
                         raws[pool.bonus_product_id] = '' if q is None else str(q)
                 data['rows'].append({'name': t.name, 'existing_image': t.image_path or '',
                                      'raw_quantities': raws})
+    locked = bool(campaign and campaign.status != STATUS_DRAFT)
+    kind = data['kind']
+    if locked:  # po publikacji rodzaj się nie zmienia — pokazujemy ten zapisany
+        kind = campaign.kind
     keep = set(data['page_ids']) | (set(campaign.offer_page_ids) if campaign else set())
-    pages = _pages_with_gratis(keep)
-    products = _bonus_products()
-    by_id = {p.id: p for p in products}
-    for pid in data['bonus_ids']:  # wybrany gratis zostaje na liście, nawet gdy zniknął z ofert
-        if pid not in by_id:
-            product = db.session.get(Product, pid)
-            if product:
-                by_id[pid] = product
-                products.append(product)
+    # Dwa zestawy list (gratisy / kupione produkty); formularz pokazuje zestaw wybranego rodzaju.
+    gratis_pages = _pages_with_gratis(keep if kind == KIND_GRATIS else ())
+    gratis_products = _bonus_products()
+    purchase_pages = OfferPage.query.order_by(OfferPage.created_at.desc()).all()
+    purchase_products = _purchase_products(data['bonus_ids'] if kind == KIND_PURCHASE else ())
+    if kind == KIND_GRATIS:
+        by_id = {p.id: p for p in gratis_products}
+        for pid in data['bonus_ids']:  # wybrany gratis zostaje na liście, nawet gdy zniknął z ofert
+            if pid not in by_id:
+                product = db.session.get(Product, pid)
+                if product:
+                    by_id[pid] = product
+                    gratis_products.append(product)
+    else:
+        by_id = {p.id: p for p in purchase_products}
     selected = [by_id[pid] for pid in data['bonus_ids'] if pid in by_id]
-    return render_template('admin/gift_cards/form.html', campaign=campaign, data=data, pages=pages,
-                           products=products, selected_products=selected,
-                           locked=bool(campaign and campaign.status != STATUS_DRAFT))
+    return render_template('admin/gift_cards/form.html', campaign=campaign, data=data, kind=kind,
+                           kinds=[
+                               {'value': KIND_GRATIS, 'label': 'Gratisy', 'pages': gratis_pages,
+                                'products': gratis_products},
+                               {'value': KIND_PURCHASE, 'label': 'Kupione produkty', 'pages': purchase_pages,
+                                'products': purchase_products},
+                           ],
+                           selected_products=selected, locked=locked)
 
 
 @gift_cards_bp.route('/admin/rozdzial-gratisow/nowa', methods=['GET', 'POST'])
@@ -276,7 +311,8 @@ def admin_form(cid=None):
         if not data['page_ids']:
             data['errors'].append('Wybierz co najmniej jedną stronę ofert.')
         if not data['bonus_ids']:
-            data['errors'].append('Wybierz co najmniej jeden produkt-gratis.')
+            data['errors'].append('Wybierz co najmniej jeden produkt-gratis.' if data['kind'] == KIND_GRATIS
+                                  else 'Wybierz co najmniej jeden kupiony produkt.')
         if not data['rows']:
             data['errors'].append('Dodaj co najmniej jeden rodzaj karty.')
     if data['errors']:
@@ -290,6 +326,7 @@ def admin_form(cid=None):
     campaign.name = data['name']
     campaign.race_at = data['race_at']
     if editing_structure:
+        campaign.kind = data['kind']
         _sync_pools(campaign, data['bonus_ids'])
         wanted = set(data['page_ids'])
         for page_row in list(campaign.pages):
