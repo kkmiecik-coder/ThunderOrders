@@ -357,3 +357,83 @@ def test_notes_forbidden_for_non_entitled(client, setup, make_user, login):
     c = setup[0]
     login(make_user())
     assert client.post(f'/gratisy/{c.id}/uwagi', data={'notes': 'x'}).status_code == 403
+
+
+# --- Wynik ukryty (zatwierdzenie bez maili), zakończenie bez rozdziału, kupione produkty ---
+
+def _approved_with_cards(db, setup, hidden):
+    from modules.gift_cards.models import GiftAssignment
+    c, t1, t2, user, item = setup
+    db.session.add_all([
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, pool_id=c.pools[0].id,
+                       card_type_id=t1.id, round_no=1),
+        GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id, pool_id=c.pools[0].id,
+                       card_type_id=t2.id, round_no=2),
+    ])
+    c.status = 'zatwierdzona'; c.results_hidden = hidden; db.session.commit()
+    return c, item
+
+
+def test_client_hidden_results_show_no_cards(client, setup, db):
+    c, _ = _approved_with_cards(db, setup, hidden=True)
+    html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
+    assert 'Dziękujemy za ranking' in html
+    assert 'gc-client-result' not in html and 'Brakuje' not in html
+
+
+def test_client_order_detail_hides_cards_when_hidden(client, setup, db):
+    c, item = _approved_with_cards(db, setup, hidden=True)
+    html = client.get(f'/client/orders/{item.order_id}').get_data(as_text=True)
+    assert 'gift-cards-line' not in html
+    assert item.gift_cards_label == 'San, Yunho'  # admin i pakowanie widzą
+
+
+def test_client_order_detail_shows_cards_when_visible(client, setup, db):
+    c, item = _approved_with_cards(db, setup, hidden=False)
+    html = client.get(f'/client/orders/{item.order_id}').get_data(as_text=True)
+    assert 'Karty: San, Yunho' in html
+
+
+def test_client_finished_manual_shows_thanks(client, setup, db):
+    c = setup[0]
+    c.status = 'zakonczona'; db.session.commit()
+    html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
+    assert 'Dziękujemy za ranking' in html and 'Trwa rozdział kart' not in html
+
+
+@pytest.fixture
+def zakup(db, make_user, make_product, make_order, strona_sprzedazy, login):
+    """Otwarta akcja „kupione produkty” z jedną klientką, która kupiła 2 sztuki."""
+    from modules.gift_cards.models import GiftCampaign, GiftCampaignPage
+    from modules.orders.models import OrderItem
+    produkt = make_product(name='Trading PC')
+    c = GiftCampaign(name='Trading', status='otwarta', kind='zakup', race_at=utcnow() - timedelta(minutes=1))
+    db.session.add(c); db.session.commit()
+    db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=strona_sprzedazy.id))
+    db.session.commit()
+    add_pool(db, c, produkt)
+    add_types(db, c, {'San': None, 'Yunho': None})
+    user = make_user()
+    order = make_order(user, offer_page_id=strona_sprzedazy.id)
+    item = OrderItem(order_id=order.id, product_id=produkt.id, quantity=2, price=10, total=20, is_bonus=False)
+    db.session.add(item); db.session.commit()
+    login(user)
+    return c, user, item
+
+
+def test_purchase_campaign_titles(app, client, db, zakup, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.emails import send_invites
+    c, user, item = zakup
+    html = client.get(f'/gratisy/{c.id}').get_data(as_text=True)
+    assert 'Twoje karty' in html and 'Gratisowe karty' not in html and '2 karty' in html
+    with app.test_request_context(), mail.record_messages() as out:
+        assert send_invites(c) == 1
+    assert out[0].subject.startswith('Twoje karty: Trading')
+    assert 'Gratisowe' not in out[0].html
+
+
+def test_purchase_order_item_links_to_open_campaign(client, db, zakup):
+    c, user, item = zakup
+    html = client.get(f'/client/orders/{item.order_id}').get_data(as_text=True)
+    assert f'/gratisy/{c.id}' in html and 'Wybierz swoje karty' in html

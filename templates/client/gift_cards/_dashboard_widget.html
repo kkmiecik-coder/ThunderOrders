@@ -4,11 +4,11 @@
 <div class="gc-dash{% if gc.is_open and gc.started and not gc.position %} gc-dash--live{% endif %}">
     <div class="gc-dash__icon" aria-hidden="true">🎴</div>
     <div class="gc-dash__body">
-        <div class="gc-dash__badge">Gratisowe karty</div>
+        <div class="gc-dash__badge">{{ gc.title }}</div>
         <h3 class="gc-dash__title">{{ gc.campaign.name }}</h3>
         <p class="gc-dash__text">{{ gc.entitled_text }}.
         {% if not gc.is_open %}
-            Zgłoszenia zamknięte — przydzielamy karty. Wynik dostaniesz mailem.
+            Zgłoszenia zamknięte — przydzielamy karty.{% if not gc.campaign.is_purchase %} Wynik dostaniesz mailem.{% endif %}
         {% elif gc.position %}
             Jesteś nr <strong>{{ gc.position }}</strong> w kolejce. Ranking możesz zmieniać do zamknięcia zgłoszeń.
         {% elif gc.started %}

@@ -5,10 +5,10 @@ from flask_login import current_user, login_required
 from sqlalchemy.exc import IntegrityError
 
 from extensions import db
-from modules.gift_cards.emails import pl_cards
+from modules.gift_cards.emails import campaign_title, pl_cards
 from modules.gift_cards.models import (
     GiftAssignment, GiftCampaign, GiftParticipant, GiftRaceEntry,
-    STATUS_APPROVED, STATUS_DRAFT, STATUS_OPEN,
+    STATUS_APPROVED, STATUS_DRAFT, STATUS_FINISHED_MANUAL, STATUS_OPEN,
 )
 from modules.gift_cards.service import _valid_ranking, compute_entitlements, pool_breakdown, queue_position
 from utils.timeutil import iso_utc, to_pl, utcnow
@@ -44,8 +44,12 @@ def client_campaign(cid):
     ranking = list(_valid_ranking(participant, [t.id for t in types]))
     position = {tid: i + 1 for i, tid in enumerate(ranking)}
 
+    # Wynik widać tylko po zatwierdzeniu z mailami; „bez maili” i „zakończona” — samo podziękowanie.
+    show_result = campaign.status == STATUS_APPROVED and not campaign.results_hidden
+    finished = campaign.status == STATUS_FINISHED_MANUAL or (
+        campaign.status == STATUS_APPROVED and campaign.results_hidden)
     assignments, shortage = [], 0
-    if campaign.status == STATUS_APPROVED:
+    if show_result:
         assignments = (GiftAssignment.query.filter_by(campaign_id=cid, user_id=current_user.id)
                        .order_by(GiftAssignment.round_no, GiftAssignment.id).all())
         shortage = max(0, total - len(assignments))
@@ -68,7 +72,8 @@ def client_campaign(cid):
         assignment_groups=[g for g in groups if g[1]],
         notes=(participant.notes or '') if participant else '', notes_max=NOTES_MAX,
         shortage_text=pl_cards(shortage) if shortage else None,
-        page_title='Gratisowe karty',
+        show_result=show_result, finished=finished,
+        page_title=campaign_title(campaign),
     )
 
 
