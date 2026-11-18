@@ -25,6 +25,16 @@ def test_participant_ranking_property(db, make_user, make_product):
     assert c.status == 'szkic'
 
 
+
+def test_campaign_defaults_kind_gratis_and_results_visible(db):
+    from modules.gift_cards.models import GiftCampaign
+    c = GiftCampaign(name='X'); db.session.add(c); db.session.commit()
+    assert c.kind == 'gratis'
+    assert c.results_hidden is False
+    assert c.is_purchase is False
+    z = GiftCampaign(name='Z', kind='zakup'); db.session.add(z); db.session.commit()
+    assert z.is_purchase is True
+
 # ---- Task 2: uprawnienia i kolejka ----
 
 @pytest.fixture
