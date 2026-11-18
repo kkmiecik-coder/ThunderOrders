@@ -17,7 +17,7 @@
             {% if campaign.status != 'zatwierdzona' %}
             <a href="{{ url_for('gift_cards.admin_form', cid=campaign.id) }}" class="gc-btn">Edytuj</a>
             {% endif %}
-            {% if has_assignments %}
+            {% if campaign.status != 'szkic' %}
             <a href="{{ url_for('gift_cards.admin_excel', cid=campaign.id) }}" class="gc-btn">Pobierz Excel</a>
             {% endif %}
 
@@ -33,11 +33,29 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="gc-btn gc-btn--primary">Zamknij zgłoszenia</button>
             </form>
+            {% elif campaign.status == 'zamknieta' %}
+            <form method="post" action="{{ url_for('gift_cards.admin_finish', cid=campaign.id) }}"
+                  data-gc-confirm="Zakończyć bez rozdziału? Sklep nic nie przydzieli ani nie wyśle — rozdzielasz sama z Excela.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="gc-btn">Zakończ bez rozdziału</button>
+            </form>
+            {% elif campaign.status == 'zakonczona' %}
+            <form method="post" action="{{ url_for('gift_cards.admin_reopen', cid=campaign.id) }}"
+                  data-gc-confirm="Cofnąć zakończenie? Akcja wróci do zamkniętych zgłoszeń i będzie można rozdzielić karty w sklepie.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="gc-btn">Wznów (cofnij zakończenie)</button>
+            </form>
             {% elif campaign.status == 'rozdzielona' %}
             <form method="post" action="{{ url_for('gift_cards.admin_approve', cid=campaign.id) }}"
                   data-gc-confirm="Zatwierdzić przydział i wysłać klientom maile z wynikiem?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="gc-btn gc-btn--primary" {% if problems %}disabled{% endif %}>Zatwierdź i wyślij wyniki</button>
+                <button type="submit" class="gc-btn gc-btn--primary" {% if problems %}disabled{% endif %}>Zatwierdź i wyślij maile</button>
+            </form>
+            <form method="post" action="{{ url_for('gift_cards.admin_approve', cid=campaign.id) }}"
+                  data-gc-confirm="Zatwierdzić bez maili? Klientki nie dostaną wiadomości i nie zobaczą przydziału.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="bez_maili" value="1">
+                <button type="submit" class="gc-btn" {% if problems %}disabled{% endif %}>Zatwierdź bez maili</button>
             </form>
             {% elif campaign.status == 'zatwierdzona' %}
             <form method="post" action="{{ url_for('gift_cards.admin_revert', cid=campaign.id) }}"
@@ -59,6 +77,12 @@
     </div>
     {% endif %}
 
+    {% if campaign.status == 'zatwierdzona' and campaign.results_hidden %}
+    <div class="gc-notice">Zatwierdzono bez maili — klientki nie widzą przydziału. Ty widzisz karty tutaj, przy zamówieniach i przy pakowaniu.</div>
+    {% endif %}
+    {% if campaign.status == 'zakonczona' %}
+    <div class="gc-notice">Akcja zakończona bez rozdziału — odpowiedzi klientek (kolejność, ranking, uwagi) są w pliku Excel.</div>
+    {% endif %}
     {% if campaign.status == 'zatwierdzona' and not revert_ok %}
     <div class="gc-notice">Nie można cofnąć zatwierdzenia: część zamówień z tego przydziału jest już spakowana lub wysłana.</div>
     {% endif %}

@@ -1,6 +1,6 @@
 {% extends "client/base_client.html" %}
 
-{% block title %}Gratisowe karty - ThunderOrders{% endblock %}
+{% block title %}{{ page_title or 'Gratisowe karty' }} - ThunderOrders{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/gift-cards.css') }}">
@@ -26,7 +26,7 @@
       {% endif %}
     </div>
 
-    {% if campaign.status == 'zatwierdzona' %}
+    {% if show_result %}
       <div class="gc-client-card">
         <h2 class="gc-client-h2">Twoje karty</h2>
         {% for pool, cards in assignment_groups %}
@@ -50,7 +50,9 @@
       {% if not is_open %}
         <div class="gc-client-card">
           <p class="gc-client-note">
-            Zapisy rankingu są zamknięte. Trwa rozdział kart — damy znać, gdy będzie gotowy.
+            {% if finished %}Zapisy są zamknięte. Dziękujemy za ranking!
+            {% elif campaign.is_purchase %}Zapisy rankingu są zamknięte. Trwa rozdział kart.
+            {% else %}Zapisy rankingu są zamknięte. Trwa rozdział kart — damy znać, gdy będzie gotowy.{% endif %}
           </p>
         </div>
       {% endif %}
@@ -83,7 +85,7 @@
         <h2 class="gc-client-h2">Twój ranking</h2>
         <p class="gc-client-note">
           Dla każdej karty wybierz miejsce — 1 oznacza kartę, którą chcesz najbardziej.
-          Każde miejsce wybierz tylko raz.{% if several_pools %} Ten sam ranking liczy się dla wszystkich Twoich gratisów.{% endif %}
+          Każde miejsce wybierz tylko raz.{% if several_pools %} Ten sam ranking liczy się dla wszystkich {% if campaign.is_purchase %}Twoich produktów{% else %}Twoich gratisów{% endif %}.{% endif %}
         </p>
         <div class="gc-client-grid-wrap">
           <table class="gc-client-grid">

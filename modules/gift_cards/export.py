@@ -67,12 +67,12 @@ def build_distribution_excel(campaign, rows, usage, status_label) -> BytesIO:
     # --- Arkusz 1: klientki ---
     ws = wb.active
     ws.title = 'Klientki'
-    labels = (['Miejsce', 'Imię i nazwisko', 'Kart', 'Przydzielone karty']
+    labels = (['Miejsce', 'Imię i nazwisko', 'Kart', 'Ranking', 'Przydzielone karty']
               + [f'{t.name} — {pool.label}' if several else t.name for pool, t in columns]
               + ['Powtórki', 'Brakuje', 'Uwagi klientki', 'Uwagi'])
     _title(ws, campaign, status_label, len(labels))
     _header(ws, 4, labels)
-    wrap_cols = {2, 4, len(labels) - 1, len(labels)}
+    wrap_cols = {2, 4, 5, len(labels) - 1, len(labels)}
     dup_col, missing_col = len(labels) - 3, len(labels) - 2
     r = 5
     for row in rows:
@@ -81,7 +81,10 @@ def build_distribution_excel(campaign, rows, usage, status_label) -> BytesIO:
         per_cell = Counter((a.pool_id, a.card_type_id) for a in cards)
         duplicates = sum(1 for a in cards if a.is_duplicate)
         # Bez maili — tylko imię i nazwisko (mail pojawi się wyłącznie, gdy konto nie ma imienia).
-        values = ([row['place'] or '', user.full_name if user else '', len(cards), _cards_text(cards, pools)]
+        values = ([row['place'] or '', user.full_name if user else '',
+                   # Ile kart się należy (osoba bez uprawnień — ile ma przydzielonych).
+                   row['total'] or len(cards), row.get('ranking_text') or '',
+                   _cards_text(cards, pools)]
                   + [per_cell.get((pool.id, t.id)) or None for pool, t in columns]
                   + [duplicates or None, row['missing'] or None, row.get('notes') or '',
                      '' if row['entitled'] else 'bez uprawnień (np. anulowane zamówienie)'])
@@ -95,8 +98,8 @@ def build_distribution_excel(campaign, rows, usage, status_label) -> BytesIO:
             ws.cell(row=r, column=missing_col).fill = _MISSING_FILL
         r += 1
 
-    widths = ([9, 28, 7, 44]
-              + [max(10, min(len(labels[4 + i]) + 2, 24)) for i in range(len(columns))]
+    widths = ([9, 28, 7, 34, 44]
+              + [max(10, min(len(labels[5 + i]) + 2, 24)) for i in range(len(columns))]
               + [10, 10, 36, 30])
     for col, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width

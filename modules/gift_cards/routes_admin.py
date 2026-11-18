@@ -11,14 +11,15 @@ from modules.gift_cards import gift_cards_bp
 from modules.gift_cards.emails import send_invites, send_results
 from modules.gift_cards.export import build_distribution_excel
 from modules.gift_cards.models import (
-    STATUS_APPROVED, STATUS_CLOSED, STATUS_DRAFT, STATUS_OPEN, STATUS_DISTRIBUTED,
+    KIND_GRATIS, KIND_PURCHASE,
+    STATUS_APPROVED, STATUS_CLOSED, STATUS_DRAFT, STATUS_OPEN, STATUS_DISTRIBUTED, STATUS_FINISHED_MANUAL,
     GiftAssignment, GiftCampaign, GiftCampaignPage, GiftCampaignPool, GiftCardType, GiftParticipant,
     GiftPoolStock,
 )
 from modules.gift_cards.service import (
-    GiftCardsError, can_revert, compute_entitlements, distribution_problems, pool_breakdown, queue_order,
+    GiftCardsError, _valid_ranking, can_revert, compute_entitlements, distribution_problems, pool_breakdown, queue_order,
     queue_position,
-    approve, revert_approval, run_distribution, swap_assignment, type_usage,
+    approve, finish_manual, reopen_manual, revert_approval, run_distribution, swap_assignment, type_usage,
 )
 from modules.offers.models import OfferPage, OfferSection, OfferSetBonus
 from modules.orders.models import Order, OrderItem
@@ -32,6 +33,7 @@ STATUS_LABELS = {
     STATUS_CLOSED: 'Zamknięta',
     STATUS_DISTRIBUTED: 'Rozdzielona',
     STATUS_APPROVED: 'Zatwierdzona',
+    STATUS_FINISHED_MANUAL: 'Zakończona (rozdział ręczny)',
 }
 
 
@@ -132,6 +134,21 @@ def _bonus_products():
             .order_by(Product.name).all())
 
 
+def _purchase_products(keep_ids=()):
+    """Produkty do wyboru w akcji „kupione produkty”: kupione (zwykłe pozycje) w zamówieniach ze stron ofert.
+
+    `keep_ids` — już wybrane produkty zostają na liście, nawet gdy nikt ich jeszcze nie kupił.
+    """
+    bought = (db.session.query(OrderItem.product_id)
+              .join(Order, Order.id == OrderItem.order_id)
+              .filter(OrderItem.is_bonus.is_(False), OrderItem.product_id.isnot(None),
+                      Order.offer_page_id.isnot(None)))
+    conditions = [Product.id.in_(bought)]
+    if keep_ids:
+        conditions.append(Product.id.in_(list(keep_ids)))
+    return Product.query.filter(or_(*conditions)).order_by(Product.name).all()
+
+
 def _read_form(campaign=None):
     """Odczyt pól formularza do słownika; błędy trafiają do listy errors.
 
@@ -139,6 +156,9 @@ def _read_form(campaign=None):
     inna wartość z formularza jest ignorowana (nie wolno wskazać dowolnego pliku).
     """
     errors = []
+    kind = request.form.get('kind')
+    if kind not in (KIND_GRATIS, KIND_PURCHASE):
+        kind = KIND_GRATIS
     name = (request.form.get('name') or '').strip()
     if not name:
         errors.append('Podaj nazwę akcji.')
@@ -189,7 +209,7 @@ def _read_form(campaign=None):
             'quantities': quantities,
             'raw_quantities': raws,
         })
-    return {'name': name, 'race_at': race_at, 'raw_race': raw_race, 'page_ids': page_ids,
+    return {'kind': kind, 'name': name, 'race_at': race_at, 'raw_race': raw_race, 'page_ids': page_ids,
             'bonus_ids': bonus_ids, 'rows': rows, 'errors': errors}
 
 
@@ -225,6 +245,7 @@ def _sync_pools(campaign, bonus_ids):
 def _render_form(campaign, data=None):
     if data is None:
         data = {
+            'kind': campaign.kind if campaign else KIND_GRATIS,
             'name': campaign.name if campaign else '',
             'raw_race': format_pl_input(campaign.race_at) if campaign and campaign.race_at else '',
             'page_ids': campaign.offer_page_ids if campaign else [],
@@ -241,20 +262,35 @@ def _render_form(campaign, data=None):
                         raws[pool.bonus_product_id] = '' if q is None else str(q)
                 data['rows'].append({'name': t.name, 'existing_image': t.image_path or '',
                                      'raw_quantities': raws})
+    locked = bool(campaign and campaign.status != STATUS_DRAFT)
+    kind = data['kind']
+    if locked:  # po publikacji rodzaj się nie zmienia — pokazujemy ten zapisany
+        kind = campaign.kind
     keep = set(data['page_ids']) | (set(campaign.offer_page_ids) if campaign else set())
-    pages = _pages_with_gratis(keep)
-    products = _bonus_products()
-    by_id = {p.id: p for p in products}
-    for pid in data['bonus_ids']:  # wybrany gratis zostaje na liście, nawet gdy zniknął z ofert
-        if pid not in by_id:
-            product = db.session.get(Product, pid)
-            if product:
-                by_id[pid] = product
-                products.append(product)
+    # Dwa zestawy list (gratisy / kupione produkty); formularz pokazuje zestaw wybranego rodzaju.
+    gratis_pages = _pages_with_gratis(keep if kind == KIND_GRATIS else ())
+    gratis_products = _bonus_products()
+    purchase_pages = OfferPage.query.order_by(OfferPage.created_at.desc()).all()
+    purchase_products = _purchase_products(data['bonus_ids'] if kind == KIND_PURCHASE else ())
+    if kind == KIND_GRATIS:
+        by_id = {p.id: p for p in gratis_products}
+        for pid in data['bonus_ids']:  # wybrany gratis zostaje na liście, nawet gdy zniknął z ofert
+            if pid not in by_id:
+                product = db.session.get(Product, pid)
+                if product:
+                    by_id[pid] = product
+                    gratis_products.append(product)
+    else:
+        by_id = {p.id: p for p in purchase_products}
     selected = [by_id[pid] for pid in data['bonus_ids'] if pid in by_id]
-    return render_template('admin/gift_cards/form.html', campaign=campaign, data=data, pages=pages,
-                           products=products, selected_products=selected,
-                           locked=bool(campaign and campaign.status != STATUS_DRAFT))
+    return render_template('admin/gift_cards/form.html', campaign=campaign, data=data, kind=kind,
+                           kinds=[
+                               {'value': KIND_GRATIS, 'label': 'Gratisy', 'pages': gratis_pages,
+                                'products': gratis_products},
+                               {'value': KIND_PURCHASE, 'label': 'Kupione produkty', 'pages': purchase_pages,
+                                'products': purchase_products},
+                           ],
+                           selected_products=selected, locked=locked)
 
 
 @gift_cards_bp.route('/admin/rozdzial-gratisow/nowa', methods=['GET', 'POST'])
@@ -275,7 +311,8 @@ def admin_form(cid=None):
         if not data['page_ids']:
             data['errors'].append('Wybierz co najmniej jedną stronę ofert.')
         if not data['bonus_ids']:
-            data['errors'].append('Wybierz co najmniej jeden produkt-gratis.')
+            data['errors'].append('Wybierz co najmniej jeden produkt-gratis.' if data['kind'] == KIND_GRATIS
+                                  else 'Wybierz co najmniej jeden kupiony produkt.')
         if not data['rows']:
             data['errors'].append('Dodaj co najmniej jeden rodzaj karty.')
     if data['errors']:
@@ -289,6 +326,7 @@ def admin_form(cid=None):
     campaign.name = data['name']
     campaign.race_at = data['race_at']
     if editing_structure:
+        campaign.kind = data['kind']
         _sync_pools(campaign, data['bonus_ids'])
         wanted = set(data['page_ids'])
         for page_row in list(campaign.pages):
@@ -351,14 +389,15 @@ def admin_detail(cid):
 @role_required('admin', 'mod')
 def admin_excel(cid):
     campaign = _get_campaign(cid)
-    rows, _, _, has_assignments = _detail_rows(campaign)
-    if not has_assignments:
-        flash('Plik Excel będzie dostępny po rozdzieleniu kart.', 'error')
+    if campaign.status == STATUS_DRAFT:
+        flash('Plik Excel będzie dostępny po opublikowaniu akcji.', 'error')
         return _detail_redirect(cid)
-    buffer = build_distribution_excel(campaign, rows, _usage(campaign),
+    rows, _, _, has_assignments = _detail_rows(campaign)
+    buffer = build_distribution_excel(campaign, rows, _usage(campaign) if has_assignments else [],
                                       STATUS_LABELS.get(campaign.status, campaign.status))
     safe = ''.join(ch for ch in campaign.name if ch.isalnum() or ch in ' -_').strip().replace(' ', '_')[:50]
-    filename = f'gratisy_{safe or campaign.id}_{to_pl(utcnow()).strftime("%Y%m%d")}.xlsx'
+    prefix = 'karty' if campaign.is_purchase else 'gratisy'
+    filename = f'{prefix}_{safe or campaign.id}_{to_pl(utcnow()).strftime("%Y%m%d")}.xlsx'
     return send_file(buffer, as_attachment=True, download_name=filename,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -389,6 +428,8 @@ def _detail_rows(campaign):
                     GiftParticipant.query.filter_by(campaign_id=campaign.id).all()}
 
     has_assignments = campaign.status in (STATUS_DISTRIBUTED, STATUS_APPROVED)
+    type_ids = [t.id for t in campaign.card_types]
+    type_names = {t.id: t.name for t in campaign.card_types}
     rows = []
     pool_order = {pool.id: i for i, pool in enumerate(campaign.pools)}
     for index, uid in enumerate(uids, start=1):
@@ -406,6 +447,8 @@ def _detail_rows(campaign):
             'missing': max(total - len(cards), 0) if has_assignments else 0,
             'breakdown': pool_breakdown(campaign, entitlements.get(uid)),
             'notes': (participant.notes or '').strip() if participant else '',
+            'ranking_text': ', '.join(f'{i}. {type_names[tid]}' for i, tid in
+                                      enumerate(_valid_ranking(participant, type_ids), start=1)),
         })
     return rows, entitlements, assignments, has_assignments
 
@@ -524,13 +567,45 @@ def admin_swap(cid):
 @role_required('admin', 'mod')
 def admin_approve(cid):
     campaign = _get_campaign(cid)
+    silent = request.form.get('bez_maili') == '1'
     try:
-        approve(campaign)
+        approve(campaign, hide_results=silent)
     except GiftCardsError as exc:
         flash(str(exc), 'error')
         return _detail_redirect(cid)
+    if silent:
+        flash('Zatwierdzono bez maili. Klientki nie widzą przydziału.', 'success')
+        return _detail_redirect(cid)
     sent = send_results(campaign)
     flash(f'Zatwierdzono. Wysłano {sent} maili z wynikiem.', 'success')
+    return _detail_redirect(cid)
+
+
+@gift_cards_bp.route('/admin/rozdzial-gratisow/<int:cid>/zakoncz', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_finish(cid):
+    campaign = _get_campaign(cid)
+    try:
+        finish_manual(campaign)
+    except GiftCardsError as exc:
+        flash(str(exc), 'error')
+        return _detail_redirect(cid)
+    flash('Akcja zakończona bez rozdziału. Odpowiedzi klientek są w pliku Excel.', 'success')
+    return _detail_redirect(cid)
+
+
+@gift_cards_bp.route('/admin/rozdzial-gratisow/<int:cid>/wznow', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_reopen(cid):
+    campaign = _get_campaign(cid)
+    try:
+        reopen_manual(campaign)
+    except GiftCardsError as exc:
+        flash(str(exc), 'error')
+        return _detail_redirect(cid)
+    flash('Cofnięto zakończenie — akcja znów ma zamknięte zgłoszenia.', 'success')
     return _detail_redirect(cid)
 
 

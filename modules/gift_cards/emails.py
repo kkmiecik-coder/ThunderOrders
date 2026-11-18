@@ -8,6 +8,11 @@ from utils.email_sender import prepare_email, send_email_batch
 from utils.timeutil import to_pl
 
 
+def campaign_title(campaign) -> str:
+    """Nagłówek akcji dla klientki: „Gratisowe karty” albo „Twoje karty” (kupione produkty)."""
+    return 'Twoje karty' if campaign.is_purchase else 'Gratisowe karty'
+
+
 def pl_cards(n: int) -> str:
     """„1 karta", „2 karty", „5 kart" (z wyjątkiem 12–14, które mają „kart")."""
     if n == 1:
@@ -61,8 +66,9 @@ def send_invites(campaign) -> int:
     for user in _recipients(entitlements):
         msg = prepare_email(
             to=user.email,
-            subject=f'Gratisowe karty: {campaign.name} - ThunderOrders',
+            subject=f'{campaign_title(campaign)}: {campaign.name} - ThunderOrders',
             template='gift_cards_invite',
+            title=campaign_title(campaign),
             user_name=user.first_name,
             campaign_name=campaign.name,
             entitled_text=entitled_summary(campaign, entitlements[user.id]),
@@ -87,14 +93,16 @@ def send_results(campaign) -> int:
     for a in assignments:
         by_user.setdefault(a.user_id, []).append(a)
     url = url_for('gift_cards.client_campaign', cid=campaign.id, _external=True)
+    result_title = 'Twoje karty' if campaign.is_purchase else 'Twoje gratisowe karty'
     messages = []
     for user in _recipients(entitlements):
         cards = by_user.get(user.id, [])
         missing = entitlements[user.id].total - len(cards)
         msg = prepare_email(
             to=user.email,
-            subject=f'Twoje gratisowe karty: {campaign.name} - ThunderOrders',
+            subject=f'{result_title}: {campaign.name} - ThunderOrders',
             template='gift_cards_result',
+            title=result_title,
             user_name=user.first_name,
             campaign_name=campaign.name,
             cards=cards_by_pool_text(campaign, cards),

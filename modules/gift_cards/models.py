@@ -8,6 +8,10 @@ STATUS_OPEN = 'otwarta'
 STATUS_CLOSED = 'zamknieta'
 STATUS_DISTRIBUTED = 'rozdzielona'
 STATUS_APPROVED = 'zatwierdzona'
+STATUS_FINISHED_MANUAL = 'zakonczona'  # zgłoszenia zebrane, rozdział robi admin ręcznie
+
+KIND_GRATIS = 'gratis'    # karty z gratisowych pozycji zamówień
+KIND_PURCHASE = 'zakup'   # karty z kupionych (zwykłych) pozycji zamówień
 
 
 class GiftCampaign(db.Model):
@@ -16,6 +20,9 @@ class GiftCampaign(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(20), nullable=False, default=STATUS_DRAFT)
+    kind = db.Column(db.String(10), nullable=False, default=KIND_GRATIS, server_default=KIND_GRATIS)
+    # Zatwierdzone bez maili: klientka nie widzi przydziału (admin i pakowanie widzą).
+    results_hidden = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
     race_at = db.Column(UTCDateTime, nullable=True)
     created_at = db.Column(UTCDateTime, default=utcnow, nullable=False)
     updated_at = db.Column(UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False)
@@ -32,6 +39,10 @@ class GiftCampaign(db.Model):
     race_entries = db.relationship('GiftRaceEntry', backref='campaign', cascade='all, delete-orphan',
                                    order_by='GiftRaceEntry.id')
     assignments = db.relationship('GiftAssignment', backref='campaign', cascade='all, delete-orphan')
+
+    @property
+    def is_purchase(self) -> bool:
+        return self.kind == KIND_PURCHASE
 
     @property
     def offer_page_ids(self):

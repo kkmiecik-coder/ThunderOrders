@@ -191,11 +191,11 @@
                                 </span>
                                 {%- endif -%}
                             </div>
-                            {% set gl = item.gift_cards_label if item.is_bonus else None %}
+                            {% set gl = item.client_gift_cards_label %}
                             {% if gl %}{% include 'components/_gift_cards_label.html' %}{% endif %}
-                            {% if item.is_bonus %}{% set gc_campaign = item.open_gift_campaign %}{% if gc_campaign %}
-                            <a class="gc-client-order-link" href="{{ url_for('gift_cards.client_campaign', cid=gc_campaign.id) }}">Wybierz swoje gratisowe karty →</a>
-                            {% endif %}{% endif %}
+                            {% set gc_campaign = item.open_gift_campaign %}{% if gc_campaign %}
+                            <a class="gc-client-order-link" href="{{ url_for('gift_cards.client_campaign', cid=gc_campaign.id) }}">Wybierz swoje {% if not gc_campaign.is_purchase %}gratisowe {% endif %}karty →</a>
+                            {% endif %}
                             {% if item.product_sku or item.product_ean %}
                             <span class="od-product-row__codes">
                                 {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}

@@ -1327,13 +1327,19 @@ class OrderItem(db.Model):
 
     @property
     def gift_cards_label(self):
-        """Karty przydzielone do pozycji gratisowej (lub "przydział w toku")."""
+        """Karty przydzielone do pozycji (lub "przydział w toku") — widok admina i pakowania."""
         from modules.gift_cards.service import item_gift_label
         return item_gift_label(self)
 
     @property
+    def client_gift_cards_label(self):
+        """Jak `gift_cards_label`, ale bez wyniku zatwierdzonego bez maili (widok klientki)."""
+        from modules.gift_cards.service import item_gift_label
+        return item_gift_label(self, for_client=True)
+
+    @property
     def open_gift_campaign(self):
-        """Otwarta akcja rozdziału gratisów obejmująca tę pozycję (lub None)."""
+        """Otwarta akcja rozdziału kart obejmująca tę pozycję (lub None)."""
         from modules.gift_cards.service import open_campaign_for_item
         return open_campaign_for_item(self)
 

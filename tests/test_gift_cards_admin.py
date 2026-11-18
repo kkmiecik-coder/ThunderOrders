@@ -82,8 +82,9 @@ def test_form_lists_products_given_as_gratis_in_orders(client, admin, db, make_u
     db.session.commit()
 
     html = client.get(BASE + '/nowa').get_data(as_text=True)
-    assert 'Gratis reczny' in html
-    assert 'Album zwykly' not in html
+    gratis_block = html.split('data-gc-kind="gratis"')[1].split('data-gc-kind="zakup"')[0]
+    assert 'Gratis reczny' in gratis_block
+    assert 'Album zwykly' not in gratis_block
 
 
 def test_form_lists_set_bonus_and_order_gratis_once_each(client, admin, db, setup, make_user, make_order):
@@ -230,7 +231,7 @@ def test_full_flow_close_quantities_distribute_approve(client, admin, db, setup,
     client.post(f'{BASE}/{c.id}/rozdziel')
     assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona'
     html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
-    assert 'Zatwierdź i wyślij wyniki' in html and 'data-assignment-id' in html
+    assert 'Zatwierdź i wyślij maile' in html and 'data-assignment-id' in html
     client.post(f'{BASE}/{c.id}/zatwierdz')
     assert db.session.get(GiftCampaign, c.id).status == 'zatwierdzona'
     db.session.refresh(item)
@@ -311,9 +312,10 @@ def test_form_lists_only_pages_with_gratis(client, admin, db, setup, make_user, 
     db.session.commit()
 
     html = client.get(BASE + '/nowa').get_data(as_text=True)
-    assert f'type="checkbox" name="offer_page_ids" value="{page.id}"' in html
-    assert 'Strona z recznym gratisem' in html
-    assert 'Strona bez gratisow' not in html
+    gratis_block = html.split('data-gc-kind="gratis"')[1].split('data-gc-kind="zakup"')[0]
+    assert f'type="checkbox" name="offer_page_ids" value="{page.id}"' in gratis_block
+    assert 'Strona z recznym gratisem' in gratis_block
+    assert 'Strona bez gratisow' not in gratis_block
 
 
 def test_edit_form_keeps_already_selected_page_without_gratis(client, admin, db, setup, make_user):
@@ -373,7 +375,7 @@ def test_cancelled_order_after_distribute_banner_and_approve_blocked(client, adm
     assert f'{u.full_name} — nie ma już uprawnień do kart' in html
     # Osoba bez uprawnień nadal widnieje w tabeli razem ze swoją kartą.
     assert html.count('bez uprawnień') == 1 and html.count('data-assignment-id') == 2
-    assert 'disabled>Zatwierdź i wyślij wyniki' in html
+    assert 'disabled>Zatwierdź i wyślij maile' in html and 'disabled>Zatwierdź bez maili' in html
     with mail.record_messages() as outbox:
         client.post(f'{BASE}/{c.id}/zatwierdz')
     assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona' and outbox == []
@@ -562,18 +564,42 @@ def test_excel_has_clients_and_summary(client, admin, db, setup, make_user, make
     assert type_a[2] == 2 and type_b[2] == 2  # wpisane ilości
 
 
-def test_excel_link_only_after_distribution(client, admin, db, setup, make_user, make_order):
+def test_excel_blocked_in_draft(client, admin, db, setup):
     bonus, page = setup
-    c = _campaign(db, bonus, page, status='zamknieta', quantities=[2, 2])
+    c = _campaign(db, bonus, page, status='szkic')
     html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
     assert f'{BASE}/{c.id}/excel' not in html
-    resp = client.get(f'{BASE}/{c.id}/excel')
-    assert resp.status_code == 302
+    assert client.get(f'{BASE}/{c.id}/excel').status_code == 302
 
-    c2, _, _ = _distributed(client, db, bonus, page, make_user, make_order)
-    html = client.get(f'{BASE}/{c2.id}').get_data(as_text=True)
-    assert f'{BASE}/{c2.id}/excel' in html
-    assert 'Pobierz Excel' in html
+
+def test_excel_available_when_open_without_assignments(client, admin, db, setup, make_user, make_order):
+    import json
+    from modules.gift_cards.models import GiftParticipant
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='otwarta', types=('San', 'Yunho'))
+    u, _ = _entitled(db, make_user, make_order, bonus, page, qty=2)
+    u.first_name, u.last_name = 'Ola', 'Nowak'
+    san, yunho = c.card_types
+    db.session.add(GiftParticipant(campaign_id=c.id, user_id=u.id, ranking_json=json.dumps([yunho.id, san.id]),
+                                   notes='Proszę o Yunho'))
+    db.session.commit()
+    assert f'{BASE}/{c.id}/excel' in client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    rows = _cells(_excel(client, c.id)['Klientki'])
+    header = next(row for row in rows if row and row[0] == 'Miejsce')
+    assert header.index('Ranking') == header.index('Kart') + 1
+    user_row = next(row for row in rows if 'Ola Nowak' in row)
+    assert user_row[header.index('Ranking')] == '1. Yunho, 2. San'
+    assert user_row[header.index('Kart')] == 2  # ile kart się należy — potrzebne przy rozdziale ręcznym
+    assert user_row[header.index('Przydzielone karty')] in (None, '')
+    assert user_row[header.index('Uwagi klientki')] == 'Proszę o Yunho'
+
+
+def test_excel_filename_prefix_by_kind(client, admin, db, setup):
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='zamknieta')
+    assert 'filename=gratisy_' in client.get(f'{BASE}/{c.id}/excel').headers['Content-Disposition']
+    c.kind = 'zakup'; db.session.commit()
+    assert 'filename=karty_' in client.get(f'{BASE}/{c.id}/excel').headers['Content-Disposition']
 
 
 def test_excel_requires_admin(client, login, make_user, db, setup):
@@ -680,3 +706,132 @@ def test_edit_form_ticks_selected_page_and_gratis(client, admin, db, setup):
     assert f'name="offer_page_ids" value="{page.id}" checked' in html
     assert f'name="bonus_product_ids" value="{bonus.id}" checked' in html
     assert 'Ctrl/Cmd' not in html
+
+
+# ---- Zatwierdzenie bez maili i zakończenie bez rozdziału ----
+
+def test_approve_without_mails_sends_nothing_and_hides(client, admin, db, setup, make_user, make_order,
+                                                       maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz', data={'bez_maili': '1'})
+    c = db.session.get(GiftCampaign, c.id)
+    assert c.status == 'zatwierdzona' and c.results_hidden is True
+    assert len(outbox) == 0
+
+
+def test_approve_with_mails_unchanged(client, admin, db, setup, make_user, make_order, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz')
+    c = db.session.get(GiftCampaign, c.id)
+    assert c.status == 'zatwierdzona' and c.results_hidden is False
+    assert len(outbox) == 2
+
+
+def test_revert_clears_hidden_then_approve_with_mails_sends(client, admin, db, setup, make_user, make_order,
+                                                            maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    client.post(f'{BASE}/{c.id}/zatwierdz', data={'bez_maili': '1'})
+    client.post(f'{BASE}/{c.id}/cofnij')
+    assert db.session.get(GiftCampaign, c.id).results_hidden is False
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz')
+    assert db.session.get(GiftCampaign, c.id).status == 'zatwierdzona'
+    assert len(outbox) == 2
+
+
+def test_finish_manual_only_from_closed(client, admin, db, setup):
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='otwarta')
+    client.post(f'{BASE}/{c.id}/zakoncz')
+    assert db.session.get(GiftCampaign, c.id).status == 'otwarta'
+    client.post(f'{BASE}/{c.id}/zamknij')
+    client.post(f'{BASE}/{c.id}/zakoncz')
+    assert db.session.get(GiftCampaign, c.id).status == 'zakonczona'
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert 'Zakończona (rozdział ręczny)' in html and 'Wznów' in html
+    client.post(f'{BASE}/{c.id}/wznow')
+    assert db.session.get(GiftCampaign, c.id).status == 'zamknieta'
+
+
+def test_detail_shows_both_approve_buttons_and_finish_button(client, admin, db, setup, make_user, make_order):
+    bonus, page = setup
+    closed = _campaign(db, bonus, page, status='zamknieta')
+    assert 'Zakończ bez rozdziału' in client.get(f'{BASE}/{closed.id}').get_data(as_text=True)
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert 'Zatwierdź i wyślij maile' in html and 'Zatwierdź bez maili' in html
+    assert 'name="bez_maili"' in html
+
+
+# ---- Rodzaj akcji w formularzu ----
+
+def _regular_purchase(db, make_user, make_order, product, page, qty=1):
+    from modules.orders.models import OrderItem
+    o = make_order(make_user(), offer_page_id=page.id)
+    db.session.add(OrderItem(order_id=o.id, product_id=product.id, quantity=qty, price=10, total=10 * qty,
+                             is_bonus=False))
+    db.session.commit()
+
+
+def test_form_saves_purchase_kind_and_products(client, admin, db, setup, make_product):
+    from modules.gift_cards.models import GiftCampaign
+    _, page = setup
+    pc = make_product(name='Trading PC')
+    client.post(BASE + '/nowa', data={
+        'name': 'Trading', 'kind': 'zakup', 'offer_page_ids': [page.id], 'bonus_product_ids': [pc.id],
+        'type_name': ['San'], 'type_existing_image': [''], f'type_quantity_{pc.id}': ['']})
+    c = GiftCampaign.query.filter_by(name='Trading').one()
+    assert c.kind == 'zakup' and c.bonus_product_ids == [pc.id]
+
+
+def test_kind_ignored_after_publish(client, admin, db, setup):
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='otwarta')
+    client.post(f'{BASE}/{c.id}/edytuj', data={'name': 'Nowa nazwa', 'kind': 'zakup'})
+    db.session.refresh(c)
+    assert c.name == 'Nowa nazwa' and c.kind == 'gratis'
+
+
+def test_purchase_product_list_contains_regular_bought_products(client, admin, db, setup, make_user,
+                                                                make_order, make_product):
+    _, page = setup
+    pc = make_product(name='Trading PC')
+    _regular_purchase(db, make_user, make_order, pc, page)
+    html = client.get(BASE + '/nowa').get_data(as_text=True)
+    purchase_block = html.split('data-gc-kind="zakup"')[1]
+    assert 'Trading PC' in purchase_block
+    assert 'Szukaj produktu' in purchase_block
+
+
+def test_invalid_kind_falls_back_to_gratis(client, admin, db, setup):
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    client.post(BASE + '/nowa', data={
+        'name': 'Dziwna', 'kind': 'cokolwiek', 'offer_page_ids': [page.id], 'bonus_product_ids': [bonus.id],
+        'type_name': ['San'], 'type_existing_image': ['']})
+    assert GiftCampaign.query.filter_by(name='Dziwna').one().kind == 'gratis'
+
+
+def test_edit_purchase_draft_shows_purchase_block_selected(client, admin, db, setup, make_product):
+    _, page = setup
+    pc = make_product(name='Trading PC')
+    from modules.gift_cards.models import GiftCampaign, GiftCampaignPage
+    c = GiftCampaign(name='T', kind='zakup'); db.session.add(c); db.session.commit()
+    db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=page.id)); db.session.commit()
+    add_pool(db, c, pc)
+    html = client.get(f'{BASE}/{c.id}/edytuj').get_data(as_text=True)
+    assert 'name="kind" value="zakup" checked' in html
+    purchase_block = html.split('data-gc-kind="zakup"')[1]
+    assert f'name="bonus_product_ids" value="{pc.id}" checked' in purchase_block

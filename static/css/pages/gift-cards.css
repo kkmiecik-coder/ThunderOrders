@@ -43,7 +43,7 @@
 }
 .gc-pill--otwarta { color: var(--info); border-color: var(--info); }
 .gc-pill--zamknieta, .gc-pill--rozdzielona { color: var(--warning); border-color: var(--warning); }
-.gc-pill--zatwierdzona { color: var(--success); border-color: var(--success); }
+.gc-pill--zatwierdzona, .gc-pill--zakonczona { color: var(--success); border-color: var(--success); }
 
 /* Tabele */
 .gc-table-card {
@@ -268,3 +268,14 @@
     .gc-dash { flex-wrap: wrap; padding: var(--space-4); }
     .gc-dash__cta { width: 100%; }
 }
+
+/* Formularz: wybór rodzaju akcji (gratisy / kupione produkty) i wyszukiwarka produktów */
+.gc-kind-switch { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.gc-kind-option { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4);
+    border: 1px solid var(--border-primary); border-radius: 10px; background: var(--bg-primary);
+    color: var(--text-primary); cursor: pointer; }
+.gc-kind-option input[type="radio"] { width: 18px; height: 18px; margin: 0; accent-color: var(--primary-color); cursor: pointer; }
+.gc-kind-option:has(input:checked) { border-color: var(--primary-color); box-shadow: 0 0 0 1px var(--primary-color); }
+.gc-kind-option:has(input:disabled) { cursor: not-allowed; opacity: 0.7; }
+.gc-product-search { margin-bottom: var(--space-2); }
+.gc-check[hidden] { display: none; }
