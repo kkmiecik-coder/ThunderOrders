@@ -269,6 +269,17 @@ def test_gratis_campaign_ignores_regular_items_of_same_product(db, make_user, ma
     assert compute_entitlements(c)[u.id].total == 2
 
 
+
+def test_zeroed_items_give_no_entitlement_label_or_link(db, make_user, make_order, akcja_zakup):
+    """Pozycja wyzerowana przy domykaniu oferty (quantity=0) nie daje kart, etykiety ani linku."""
+    from modules.gift_cards.service import compute_entitlements
+    c, produkt, page = akcja_zakup
+    u = make_user()
+    zero = _bonus(db, make_order(u, offer_page_id=page.id), produkt, 0, is_bonus=False)
+    c.status = 'otwarta'; db.session.commit()
+    assert u.id not in compute_entitlements(c)
+    assert zero.gift_cards_label is None and zero.open_gift_campaign is None
+
 def _zakup_rozdzielony(db, make_user, make_order, akcja_zakup):
     from modules.gift_cards.service import run_distribution
     c, produkt, page = akcja_zakup

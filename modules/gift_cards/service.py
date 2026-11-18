@@ -49,6 +49,7 @@ def compute_entitlements(campaign) -> dict:
             # Gratisy liczymy z pozycji gratisowych, kupione produkty — ze zwykłych.
             OrderItem.is_bonus.is_(campaign.kind != KIND_PURCHASE),
             OrderItem.product_id.in_(list(pool_of)),
+            OrderItem.quantity > 0,  # wyzerowane przy domykaniu oferty nie dają kart
             Order.offer_page_id.in_(page_ids),
             Order.status.notin_(EXCLUDED_ORDER_STATUSES),
         )
@@ -375,8 +376,8 @@ def _purchase_product_ids() -> set:
 
 def _may_belong_to_campaign(item) -> bool:
     """Tani strażnik: pozycja gratisowa zawsze sprawdzana; zwykła tylko gdy jej produkt jest w akcji „zakup”."""
-    if item.product_id is None:
-        return False
+    if item.product_id is None or not item.quantity or item.quantity <= 0:
+        return False  # wyzerowana pozycja (np. nie zmieściła się przy domykaniu oferty) nie ma kart
     return bool(item.is_bonus) or item.product_id in _purchase_product_ids()
 
 
