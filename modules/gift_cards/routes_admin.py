@@ -11,14 +11,14 @@ from modules.gift_cards import gift_cards_bp
 from modules.gift_cards.emails import send_invites, send_results
 from modules.gift_cards.export import build_distribution_excel
 from modules.gift_cards.models import (
-    STATUS_APPROVED, STATUS_CLOSED, STATUS_DRAFT, STATUS_OPEN, STATUS_DISTRIBUTED,
+    STATUS_APPROVED, STATUS_CLOSED, STATUS_DRAFT, STATUS_OPEN, STATUS_DISTRIBUTED, STATUS_FINISHED_MANUAL,
     GiftAssignment, GiftCampaign, GiftCampaignPage, GiftCampaignPool, GiftCardType, GiftParticipant,
     GiftPoolStock,
 )
 from modules.gift_cards.service import (
     GiftCardsError, can_revert, compute_entitlements, distribution_problems, pool_breakdown, queue_order,
     queue_position,
-    approve, revert_approval, run_distribution, swap_assignment, type_usage,
+    approve, finish_manual, reopen_manual, revert_approval, run_distribution, swap_assignment, type_usage,
 )
 from modules.offers.models import OfferPage, OfferSection, OfferSetBonus
 from modules.orders.models import Order, OrderItem
@@ -32,6 +32,7 @@ STATUS_LABELS = {
     STATUS_CLOSED: 'Zamknięta',
     STATUS_DISTRIBUTED: 'Rozdzielona',
     STATUS_APPROVED: 'Zatwierdzona',
+    STATUS_FINISHED_MANUAL: 'Zakończona (rozdział ręczny)',
 }
 
 
@@ -524,13 +525,45 @@ def admin_swap(cid):
 @role_required('admin', 'mod')
 def admin_approve(cid):
     campaign = _get_campaign(cid)
+    silent = request.form.get('bez_maili') == '1'
     try:
-        approve(campaign)
+        approve(campaign, hide_results=silent)
     except GiftCardsError as exc:
         flash(str(exc), 'error')
         return _detail_redirect(cid)
+    if silent:
+        flash('Zatwierdzono bez maili. Klientki nie widzą przydziału.', 'success')
+        return _detail_redirect(cid)
     sent = send_results(campaign)
     flash(f'Zatwierdzono. Wysłano {sent} maili z wynikiem.', 'success')
+    return _detail_redirect(cid)
+
+
+@gift_cards_bp.route('/admin/rozdzial-gratisow/<int:cid>/zakoncz', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_finish(cid):
+    campaign = _get_campaign(cid)
+    try:
+        finish_manual(campaign)
+    except GiftCardsError as exc:
+        flash(str(exc), 'error')
+        return _detail_redirect(cid)
+    flash('Akcja zakończona bez rozdziału. Odpowiedzi klientek są w pliku Excel.', 'success')
+    return _detail_redirect(cid)
+
+
+@gift_cards_bp.route('/admin/rozdzial-gratisow/<int:cid>/wznow', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_reopen(cid):
+    campaign = _get_campaign(cid)
+    try:
+        reopen_manual(campaign)
+    except GiftCardsError as exc:
+        flash(str(exc), 'error')
+        return _detail_redirect(cid)
+    flash('Cofnięto zakończenie — akcja znów ma zamknięte zgłoszenia.', 'success')
     return _detail_redirect(cid)
 
 

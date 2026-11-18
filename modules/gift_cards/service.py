@@ -10,7 +10,7 @@ from modules.gift_cards.allocation import Person, allocate
 from modules.gift_cards.models import (
     GiftAssignment, GiftCampaign, GiftCardType, GiftParticipant, GiftRaceEntry,
     GiftCampaignPool, KIND_GRATIS, KIND_PURCHASE,
-    STATUS_APPROVED, STATUS_CLOSED, STATUS_DISTRIBUTED, STATUS_DRAFT, STATUS_OPEN,
+    STATUS_APPROVED, STATUS_CLOSED, STATUS_DISTRIBUTED, STATUS_DRAFT, STATUS_FINISHED_MANUAL, STATUS_OPEN,
 )
 
 EXCLUDED_ORDER_STATUSES = ('anulowane', 'zwrocone')
@@ -284,7 +284,8 @@ def swap_assignment(assignment_id, new_type_id):
     db.session.commit()
 
 
-def approve(campaign):
+def approve(campaign, hide_results=False):
+    """Zatwierdza przydział. `hide_results=True` — bez maili, klientka nie zobaczy wyniku."""
     if campaign.status != STATUS_DISTRIBUTED:
         raise GiftCardsError('Zatwierdzić można tylko rozdzieloną akcję.')
     if _entitlement_problems(campaign):
@@ -293,7 +294,8 @@ def approve(campaign):
         raise GiftCardsError('Część rodzajów ma więcej przydziałów niż sztuk — popraw zamiany albo ilości.')
     # Warunkowa zmiana statusu: przy dwóch równoczesnych kliknięciach tylko jedno przejdzie.
     changed = (GiftCampaign.query.filter_by(id=campaign.id, status=STATUS_DISTRIBUTED)
-               .update({'status': STATUS_APPROVED}, synchronize_session=False))
+               .update({'status': STATUS_APPROVED, 'results_hidden': bool(hide_results)},
+                       synchronize_session=False))
     db.session.commit()
     if changed != 1:
         raise GiftCardsError('Ta akcja została już zatwierdzona.')
@@ -317,6 +319,23 @@ def revert_approval(campaign):
     if not can_revert(campaign):
         raise GiftCardsError('Nie można cofnąć: część zamówień jest już spakowana lub wysłana.')
     campaign.status = STATUS_DISTRIBUTED
+    campaign.results_hidden = False
+    db.session.commit()
+
+
+def finish_manual(campaign):
+    """Zamknięta akcja → „zakończona”: admin rozdziela sam z Excela, sklep nic nie liczy ani nie wysyła."""
+    if campaign.status != STATUS_CLOSED:
+        raise GiftCardsError('Bez rozdziału można zakończyć tylko akcję z zamkniętymi zgłoszeniami.')
+    campaign.status = STATUS_FINISHED_MANUAL
+    db.session.commit()
+
+
+def reopen_manual(campaign):
+    """Cofnięcie „zakończ bez rozdziału” — akcja wraca do zamkniętych zgłoszeń."""
+    if campaign.status != STATUS_FINISHED_MANUAL:
+        raise GiftCardsError('Ta akcja nie jest zakończona bez rozdziału.')
+    campaign.status = STATUS_CLOSED
     db.session.commit()
 
 

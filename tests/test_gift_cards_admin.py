@@ -230,7 +230,7 @@ def test_full_flow_close_quantities_distribute_approve(client, admin, db, setup,
     client.post(f'{BASE}/{c.id}/rozdziel')
     assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona'
     html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
-    assert 'Zatwierdź i wyślij wyniki' in html and 'data-assignment-id' in html
+    assert 'Zatwierdź i wyślij maile' in html and 'data-assignment-id' in html
     client.post(f'{BASE}/{c.id}/zatwierdz')
     assert db.session.get(GiftCampaign, c.id).status == 'zatwierdzona'
     db.session.refresh(item)
@@ -373,7 +373,7 @@ def test_cancelled_order_after_distribute_banner_and_approve_blocked(client, adm
     assert f'{u.full_name} — nie ma już uprawnień do kart' in html
     # Osoba bez uprawnień nadal widnieje w tabeli razem ze swoją kartą.
     assert html.count('bez uprawnień') == 1 and html.count('data-assignment-id') == 2
-    assert 'disabled>Zatwierdź i wyślij wyniki' in html
+    assert 'disabled>Zatwierdź i wyślij maile' in html and 'disabled>Zatwierdź bez maili' in html
     with mail.record_messages() as outbox:
         client.post(f'{BASE}/{c.id}/zatwierdz')
     assert db.session.get(GiftCampaign, c.id).status == 'rozdzielona' and outbox == []
@@ -680,3 +680,70 @@ def test_edit_form_ticks_selected_page_and_gratis(client, admin, db, setup):
     assert f'name="offer_page_ids" value="{page.id}" checked' in html
     assert f'name="bonus_product_ids" value="{bonus.id}" checked' in html
     assert 'Ctrl/Cmd' not in html
+
+
+# ---- Zatwierdzenie bez maili i zakończenie bez rozdziału ----
+
+def test_approve_without_mails_sends_nothing_and_hides(client, admin, db, setup, make_user, make_order,
+                                                       maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz', data={'bez_maili': '1'})
+    c = db.session.get(GiftCampaign, c.id)
+    assert c.status == 'zatwierdzona' and c.results_hidden is True
+    assert len(outbox) == 0
+
+
+def test_approve_with_mails_unchanged(client, admin, db, setup, make_user, make_order, maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz')
+    c = db.session.get(GiftCampaign, c.id)
+    assert c.status == 'zatwierdzona' and c.results_hidden is False
+    assert len(outbox) == 2
+
+
+def test_revert_clears_hidden_then_approve_with_mails_sends(client, admin, db, setup, make_user, make_order,
+                                                            maile_synchronicznie):
+    from extensions import mail
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    client.post(f'{BASE}/{c.id}/zatwierdz', data={'bez_maili': '1'})
+    client.post(f'{BASE}/{c.id}/cofnij')
+    assert db.session.get(GiftCampaign, c.id).results_hidden is False
+    with mail.record_messages() as outbox:
+        client.post(f'{BASE}/{c.id}/zatwierdz')
+    assert db.session.get(GiftCampaign, c.id).status == 'zatwierdzona'
+    assert len(outbox) == 2
+
+
+def test_finish_manual_only_from_closed(client, admin, db, setup):
+    from modules.gift_cards.models import GiftCampaign
+    bonus, page = setup
+    c = _campaign(db, bonus, page, status='otwarta')
+    client.post(f'{BASE}/{c.id}/zakoncz')
+    assert db.session.get(GiftCampaign, c.id).status == 'otwarta'
+    client.post(f'{BASE}/{c.id}/zamknij')
+    client.post(f'{BASE}/{c.id}/zakoncz')
+    assert db.session.get(GiftCampaign, c.id).status == 'zakonczona'
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert 'Zakończona (rozdział ręczny)' in html and 'Wznów' in html
+    client.post(f'{BASE}/{c.id}/wznow')
+    assert db.session.get(GiftCampaign, c.id).status == 'zamknieta'
+
+
+def test_detail_shows_both_approve_buttons_and_finish_button(client, admin, db, setup, make_user, make_order):
+    bonus, page = setup
+    closed = _campaign(db, bonus, page, status='zamknieta')
+    assert 'Zakończ bez rozdziału' in client.get(f'{BASE}/{closed.id}').get_data(as_text=True)
+    c, u, item = _distributed(client, db, bonus, page, make_user, make_order)
+    html = client.get(f'{BASE}/{c.id}').get_data(as_text=True)
+    assert 'Zatwierdź i wyślij maile' in html and 'Zatwierdź bez maili' in html
+    assert 'name="bez_maili"' in html

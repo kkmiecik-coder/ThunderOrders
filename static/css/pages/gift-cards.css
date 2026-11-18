@@ -43,7 +43,7 @@
 }
 .gc-pill--otwarta { color: var(--info); border-color: var(--info); }
 .gc-pill--zamknieta, .gc-pill--rozdzielona { color: var(--warning); border-color: var(--warning); }
-.gc-pill--zatwierdzona { color: var(--success); border-color: var(--success); }
+.gc-pill--zatwierdzona, .gc-pill--zakonczona { color: var(--success); border-color: var(--success); }
 
 /* Tabele */
 .gc-table-card {
