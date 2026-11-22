@@ -172,12 +172,12 @@ def test_update_changes_fields_and_validates(db, on_hand_type, upload_dir, admin
     )
     p = create_quick_product('Album', '10', '1', [_jpeg()], admin)
 
-    update_quick_product(p, 'Album 2', '59,00', '5')
+    update_quick_product(p, {'name': 'Album 2', 'sale_price': '59,00', 'quantity': '5'})
     db.session.refresh(p)
     assert (p.name, p.sale_price, p.quantity) == ('Album 2', Decimal('59.00'), 5)
 
     with pytest.raises(QuickAddError):
-        update_quick_product(p, '  ', '59', '5')
+        update_quick_product(p, {'name': '  ', 'sale_price': '59', 'quantity': '5'})
     db.session.refresh(p)
     assert p.name == 'Album 2'
 

@@ -135,3 +135,25 @@ def test_quick_add_page_has_optional_description(db, client, as_admin, on_hand_t
     html = client.get('/admin/products/quick-add').get_data(as_text=True)
     assert 'id="qa-description"' in html
     assert 'maxlength="1000"' in html
+
+
+def test_update_with_only_name_keeps_stock_changed_by_a_sale(db, client, as_admin, on_hand_type, upload_dir):
+    """Klientka kupiła 1 z 2 sztuk; poprawka literówki w nazwie nie może przywrócić stanu 2."""
+    from modules.products.models import Product
+    pid = _post_create(client, quantity='2').get_json()['product']['id']
+    p = db.session.get(Product, pid)
+    p.quantity = 1   # sprzedaż w sklepie
+    db.session.commit()
+
+    resp = client.post(f'/admin/products/quick-add/{pid}/update', json={'name': 'Album poprawiony'})
+
+    assert resp.status_code == 200
+    db.session.refresh(p)
+    assert (p.name, p.quantity, p.sale_price) == ('Album poprawiony', 1, Decimal('49.99'))
+
+
+def test_update_with_no_fields_is_400(db, client, as_admin, on_hand_type, upload_dir):
+    pid = _post_create(client).get_json()['product']['id']
+    resp = client.post(f'/admin/products/quick-add/{pid}/update', json={})
+    assert resp.status_code == 400
+    assert resp.get_json()['error'] == 'Nic nie zostało zmienione'

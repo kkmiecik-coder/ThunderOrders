@@ -133,13 +133,21 @@ def create_quick_product(name, price_raw, quantity_raw, files, user, description
     return product
 
 
-def update_quick_product(product, name, price_raw, quantity_raw):
-    name = _clean_name(name)
-    price = parse_price(price_raw)
-    quantity = parse_quantity(quantity_raw)
-    product.name = name
-    product.sale_price = price
-    product.quantity = quantity
+def update_quick_product(product, changes):
+    """Zmienia TYLKO pola obecne w `changes` (name / sale_price / quantity).
+
+    Produkt jest w sklepie od chwili dodania, więc stan mógł już spaść po zakupie.
+    Poprawka literówki w nazwie nie może nadpisać ilości starą wartością z ekranu.
+    """
+    fields = {k: changes[k] for k in ('name', 'sale_price', 'quantity') if k in changes}
+    if not fields:
+        raise QuickAddError('Nic nie zostało zmienione')
+    if 'name' in fields:
+        product.name = _clean_name(fields['name'])
+    if 'sale_price' in fields:
+        product.sale_price = parse_price(fields['sale_price'])
+    if 'quantity' in fields:
+        product.quantity = parse_quantity(fields['quantity'])
     product.calculate_margin()
     db.session.commit()
     return product

@@ -58,7 +58,7 @@ def quick_add_update(product_id):
     product = _editable_or_404(product_id)
     data = request.get_json(silent=True) or {}
     try:
-        update_quick_product(product, data.get('name'), data.get('sale_price'), data.get('quantity'))
+        update_quick_product(product, data if isinstance(data, dict) else {})
     except QuickAddError as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 400

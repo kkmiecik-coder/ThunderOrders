@@ -35,6 +35,15 @@
     var photoSeq = 0;
     var round = [];       // produkty z tej rundy (kształt z serialize_quick_product)
     var saving = false;
+    var pending = 0;      // zdjęcia jeszcze w trakcie zmniejszania
+    var generation = 0;   // rośnie przy czyszczeniu formularza — spóźnione zdjęcia są wtedy odrzucane
+
+    function updateSubmitState() {
+        submitBtn.disabled = saving || pending > 0;
+        photosInput.disabled = saving;
+        submitBtn.textContent = saving ? 'Zapisuję…'
+            : (pending > 0 ? 'Przygotowuję zdjęcia…' : 'Dodaj i następny');
+    }
 
     function toast(msg, type) {
         if (typeof window.showToast === 'function') window.showToast(msg, type);
@@ -121,18 +130,26 @@
         var files = Array.prototype.slice.call(photosInput.files || []);
         photosInput.value = '';
         if (!files.length) return;
-        var free = maxPhotos - photos.length;
+        var free = maxPhotos - photos.length - pending;
         if (files.length > free) {
             toast('Maksymalnie ' + maxPhotos + ' zdjęć', 'warning');
             files = files.slice(0, Math.max(0, free));
         }
+        if (!files.length) return;
+        var gen = generation;
+        pending += files.length;
+        updateSubmitState();
         files.reduce(function (chain, file) {
             return chain.then(function () {
                 return shrink(file).then(function (blob) {
+                    if (gen !== generation) return;
                     photos.push({ blob: blob, url: URL.createObjectURL(blob) });
                     renderPreviews();
                 }).catch(function () {
-                    toast('Nie udało się odczytać zdjęcia', 'error');
+                    if (gen === generation) toast('Nie udało się odczytać zdjęcia', 'error');
+                }).then(function () {
+                    pending -= 1;
+                    updateSubmitState();
                 });
             });
         }, Promise.resolve());
@@ -148,6 +165,7 @@
     });
 
     function clearForm() {
+        generation += 1;
         photos.forEach(function (p) { URL.revokeObjectURL(p.url); });
         photos = [];
         renderPreviews();
@@ -161,7 +179,7 @@
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
-        if (saving) return;
+        if (saving || pending > 0) return;
         if (!photos.length) { toast('Dodaj co najmniej jedno zdjęcie', 'warning'); return; }
         if (!nameInput.value.trim()) { toast('Podaj nazwę', 'warning'); nameInput.focus(); return; }
         if (!priceInput.value.trim()) { toast('Podaj poprawną cenę', 'warning'); priceInput.focus(); return; }
@@ -177,8 +195,7 @@
         });
 
         saving = true;
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Zapisuję…';
+        updateSubmitState();
 
         fetch(createUrl, {
             method: 'POST',
@@ -204,8 +221,7 @@
             toast('Nie udało się zapisać — sprawdź internet i spróbuj ponownie', 'error');
         }).then(function () {
             saving = false;
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Dodaj i następny';
+            updateSubmitState();
         });
     });
 
@@ -287,6 +303,10 @@
         var save = el('button', 'qa-btn qa-btn-primary', 'Zapisz');
         save.type = 'button';
         save.dataset.action = 'save';
+        // Zapamiętane wartości startowe: wysyłamy tylko pola, które naprawdę zmieniła.
+        // Produkt jest już w sklepie — ilość mogła spaść po zakupie i nie wolno jej
+        // nadpisać starą liczbą z ekranu przy poprawce samej nazwy.
+        [n, pr, q].forEach(function (inp) { inp.dataset.original = inp.value; });
         box.appendChild(n); box.appendChild(row); box.appendChild(save);
         li.appendChild(box);
         n.focus();
@@ -346,8 +366,13 @@
             var box = li.querySelector('.qa-edit');
             var body = {};
             box.querySelectorAll('input[data-field]').forEach(function (inp) {
-                body[inp.dataset.field] = inp.value;
+                if (inp.value !== inp.dataset.original) body[inp.dataset.field] = inp.value;
             });
+            if (!Object.keys(body).length) {
+                box.remove();
+                toast('Nic nie zostało zmienione', 'info');
+                return;
+            }
             btn.disabled = true;
             postJson(baseUrl + '/' + id + '/update', body).then(function (res) {
                 if (res.ok && res.data.success) {
