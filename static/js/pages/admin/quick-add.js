@@ -16,9 +16,10 @@
     var form = document.getElementById('qa-form');
     if (!form) return;
 
-    var photosInput = document.getElementById('qa-photos');
+    var photosInput = document.getElementById('qa-photos');   // galeria (kilka naraz)
+    var cameraInput = document.getElementById('qa-camera');   // aparat (osobny przycisk — Android przy `multiple` chowa aparat)
+    var photoInputs = [photosInput, cameraInput].filter(Boolean);
     var previews = document.getElementById('qa-previews');
-    var photoLabel = document.getElementById('qa-photo-label');
     var nameInput = document.getElementById('qa-name');
     var priceInput = document.getElementById('qa-price');
     var qtyInput = document.getElementById('qa-quantity');
@@ -40,7 +41,7 @@
 
     function updateSubmitState() {
         submitBtn.disabled = saving || pending > 0;
-        photosInput.disabled = saving;
+        photoInputs.forEach(function (input) { input.disabled = saving; });
         submitBtn.textContent = saving ? 'Zapisuję…'
             : (pending > 0 ? 'Przygotowuję zdjęcia…' : 'Dodaj i następny');
     }
@@ -123,12 +124,11 @@
             box.appendChild(rm);
             previews.appendChild(box);
         });
-        photoLabel.textContent = photos.length ? 'Dodaj kolejne zdjęcie' : 'Zrób / wybierz zdjęcie';
     }
 
-    photosInput.addEventListener('change', function () {
-        var files = Array.prototype.slice.call(photosInput.files || []);
-        photosInput.value = '';
+    function onPhotosChosen(input) {
+        var files = Array.prototype.slice.call(input.files || []);
+        input.value = '';
         if (!files.length) return;
         var free = maxPhotos - photos.length - pending;
         if (files.length > free) {
@@ -153,6 +153,10 @@
                 });
             });
         }, Promise.resolve());
+    }
+
+    photoInputs.forEach(function (input) {
+        input.addEventListener('change', function () { onPhotosChosen(input); });
     });
 
     previews.addEventListener('click', function (e) {

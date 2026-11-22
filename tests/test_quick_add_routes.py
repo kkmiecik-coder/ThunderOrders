@@ -110,9 +110,17 @@ def test_update_and_hide_404_for_non_on_hand(db, client, as_admin, on_hand_type,
 
 def test_quick_add_page_renders_form(db, client, as_admin, on_hand_type):
     html = client.get('/admin/products/quick-add').get_data(as_text=True)
-    assert 'id="qa-photos"' in html
-    assert 'accept="image/*"' in html
-    assert 'capture' not in html.split('id="qa-photos"')[1].split('>')[0]
+    # Galeria: wiele zdjęć naraz, bez wymuszania aparatu
+    gallery = html.split('id="qa-photos"')[1].split('>')[0]
+    assert 'accept="image/*"' in gallery
+    assert 'multiple' in gallery
+    assert 'capture' not in gallery
+    # Aparat: osobny przycisk — Android przy `multiple` chowa opcję aparatu
+    camera = html.split('id="qa-camera"')[1].split('>')[0]
+    assert 'accept="image/*"' in camera
+    assert 'capture="environment"' in camera
+    assert 'multiple' not in camera
+    assert 'Zrób zdjęcie' in html and 'Z galerii' in html
     assert 'Dodaj i następny' in html
     assert 'quick-add.js' in html
     assert 'quick-add.css' in html
