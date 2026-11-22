@@ -458,6 +458,7 @@ def verify_email(token):
 
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])  # parytet z /api/mobile/v1/auth/forgot-password
 def forgot_password():
     """
     Strona zapomniałem hasła (zunifikowany szablon)
@@ -473,7 +474,9 @@ def forgot_password():
         email = form.email.data.lower().strip()
         user = User.get_by_email(email)
 
-        if user:
+        # Cooldown per e-mail: ponowne żądanie w ciągu 60 s nie tworzy nowego tokenu
+        # (nowy unieważniałby link z pierwszego maila) ani nie wysyła kolejnego maila.
+        if user and user.can_resend_password_reset_link():
             # Wygeneruj token resetu hasła (ważny 1h)
             user.generate_password_reset_token(expires_in=3600)
             db.session.commit()
