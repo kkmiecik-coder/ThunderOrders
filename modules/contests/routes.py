@@ -371,6 +371,15 @@ def client_contest():
 @contests_bp.route('/konkurs/spin', methods=['POST'])
 @login_required
 def client_spin():
+    # Atomowo (TOCTOU): równoległe POST-y tego samego klienta serializujemy
+    # blokadą wiersza usera, a WSZYSTKIE sprawdzenia robimy dopiero po niej.
+    # Najpierw zamykamy transakcję z dotychczasowych odczytów (np. load_user) —
+    # na MariaDB (REPEATABLE READ) odczyty po blokadzie widzą wtedy świeże dane,
+    # łącznie ze spinem zapisanym przez równoległe żądanie.
+    user_id = current_user.id
+    db.session.commit()
+    cu.lock_user_for_spin(user_id)
+
     c = cu.get_active_contest()
     if c is None:
         return jsonify(success=False, error='Brak aktywnego konkursu.'), 200
@@ -383,7 +392,6 @@ def client_spin():
         return jsonify(success=False, error='Następny los dostępny później.',
                        next_spin_at=iso_utc(nxt)), 200
 
-    # TODO: przy większym ruchu rozważyć blokadę DB na podwójny spin w oknie cooldownu (TOCTOU)
     tickets = cu.draw_ticket_count(c)  # rozkład skośny ku ticket_min (wyższe rzadsze)
     db.session.add(ContestSpin(contest_id=c.id, user_id=current_user.id, tickets_won=tickets))
     db.session.commit()

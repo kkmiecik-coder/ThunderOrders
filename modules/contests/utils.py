@@ -79,6 +79,23 @@ def spins_open(contest):
     return True
 
 
+def _user_lock_query(user_id):
+    """SELECT id FROM users WHERE id=:id FOR UPDATE (blokada wiersza na MariaDB)."""
+    from sqlalchemy import select
+    from modules.auth.models import User
+    return select(User.id).where(User.id == user_id).with_for_update()
+
+
+def lock_user_for_spin(user_id):
+    """Blokuje wiersz usera do końca bieżącej transakcji.
+
+    Serializuje równoległe spiny tego samego klienta: drugie żądanie czeka
+    tu, aż pierwsze zrobi commit, i dopiero wtedy sprawdza cooldown.
+    (SQLite w testach ignoruje FOR UPDATE.)
+    """
+    db.session.execute(_user_lock_query(user_id))
+
+
 def can_spin(contest, user):
     if not spins_open(contest):
         return False
