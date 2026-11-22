@@ -399,6 +399,12 @@ def _process_csv_import_internal(import_id):
     db.session.commit()
 
     try:
+        from modules.imports.temp_files import is_safe_temp_path, safe_remove
+
+        # Czytamy wyłącznie pliki z katalogu tymczasowego importu
+        if not is_safe_temp_path(csv_import.temp_file_path):
+            raise ValueError('Nieprawidłowa ścieżka pliku tymczasowego')
+
         # Detect encoding and delimiter
         encoding = detect_encoding(csv_import.temp_file_path)
         delimiter = detect_delimiter(csv_import.temp_file_path, encoding)
@@ -505,8 +511,7 @@ def _process_csv_import_internal(import_id):
         print(f"[CSV Import] Success: {csv_import.successful_rows}, Failed: {csv_import.failed_rows}")
 
         # Delete temp file
-        if os.path.exists(csv_import.temp_file_path):
-            os.remove(csv_import.temp_file_path)
+        if safe_remove(csv_import.temp_file_path):
             print(f"[CSV Import] Temp file deleted: {csv_import.temp_file_path}")
 
     except Exception as e:

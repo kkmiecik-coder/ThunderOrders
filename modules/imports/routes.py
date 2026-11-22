@@ -3,11 +3,9 @@ CSV Import Routes
 API endpoints for CSV import functionality
 """
 import os
-import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from werkzeug.utils import secure_filename
 from extensions import db
 from modules.imports.models import CsvImport
 from modules.imports.csv_processor import (
@@ -15,6 +13,7 @@ from modules.imports.csv_processor import (
     auto_map_columns,
     process_csv_import
 )
+from modules.imports import temp_files
 from utils.decorators import role_required
 
 
@@ -22,7 +21,7 @@ imports_bp = Blueprint('imports', __name__)
 
 
 # Configuration
-UPLOAD_FOLDER = 'static/uploads/csv/temp'
+# Katalog tymczasowy: modules/imports/temp_files.get_temp_dir() (poza static/)
 ALLOWED_EXTENSIONS = {'csv'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
@@ -63,14 +62,12 @@ def upload_csv():
         if file_size > MAX_FILE_SIZE:
             return jsonify({'success': False, 'error': 'Plik za duży. Maksymalny rozmiar: 5MB'}), 400
 
-        # Create upload folder if not exists
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        # Create upload folder if not exists (poza publicznym static/)
+        os.makedirs(temp_files.get_temp_dir(), exist_ok=True)
 
-        # Generate unique filename
-        temp_file_id = str(uuid.uuid4())
-        filename = secure_filename(file.filename)
-        temp_filename = f"{current_user.id}_{temp_file_id}_{filename}"
-        temp_path = os.path.join(UPLOAD_FOLDER, temp_filename)
+        # Ścieżkę buduje serwer; klient dostaje tylko temp_file_id
+        temp_file_id = temp_files.new_temp_file_id()
+        temp_path = temp_files.build_temp_path(current_user.id, temp_file_id)
 
         # Save file
         file.save(temp_path)
@@ -84,7 +81,6 @@ def upload_csv():
         return jsonify({
             'success': True,
             'temp_file_id': temp_file_id,
-            'temp_path': temp_path,
             'columns': preview_data['columns'],
             'preview_rows': preview_data['preview_rows'],
             'total_rows': preview_data['total_rows'],
@@ -95,8 +91,8 @@ def upload_csv():
 
     except Exception as e:
         # Clean up temp file if exists
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
+        if 'temp_path' in locals():
+            temp_files.safe_remove(temp_path)
 
         return jsonify({'success': False, 'error': f'Błąd parsowania pliku: {str(e)}'}), 500
 
@@ -109,7 +105,7 @@ def start_import():
     Start CSV import process
 
     Request body:
-        - temp_file_path: Path to temp file
+        - temp_file_id: identyfikator pliku wydany przez /upload (NIE ścieżka)
         - has_headers: Boolean
         - match_column: 'id', 'sku', or 'ean'
         - column_mapping: Dictionary {csv_col: product_field}
@@ -119,9 +115,11 @@ def start_import():
         JSON with import_id
     """
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
 
-        temp_file_path = data.get('temp_file_path')
+        # Ścieżkę odtwarza serwer z wydanego przy uploadzie id (plik tylko
+        # bieżącego usera, tylko w katalogu tymczasowym importu)
+        temp_file_path = temp_files.build_temp_path(current_user.id, data.get('temp_file_id'))
         has_headers = data.get('has_headers', True)
         skip_empty_values = data.get('skip_empty_values', True)
         match_column = data.get('match_column', 'sku')
@@ -130,7 +128,8 @@ def start_import():
         filename = data.get('filename', 'import.csv')
 
         # Validate
-        if not temp_file_path or not os.path.exists(temp_file_path):
+        if (not temp_file_path or not temp_files.is_safe_temp_path(temp_file_path)
+                or not os.path.isfile(temp_file_path)):
             return jsonify({'success': False, 'error': 'Plik tymczasowy nie istnieje'}), 400
 
         if not column_mapping:
@@ -146,9 +145,9 @@ def start_import():
                                       .offset(15).all()
 
         for old_import in old_imports:
-            # Delete temp file if exists
-            if old_import.temp_file_path and os.path.exists(old_import.temp_file_path):
-                os.remove(old_import.temp_file_path)
+            # Delete temp file if exists — tylko z katalogu tymczasowego importu
+            if old_import.temp_file_path:
+                temp_files.safe_remove(old_import.temp_file_path)
             db.session.delete(old_import)
 
         db.session.commit()
