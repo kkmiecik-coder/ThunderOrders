@@ -2725,3 +2725,42 @@
               box-shadow 0.5s ease,
               backdrop-filter 0.5s ease;
 }
+
+/* Przycisk „Szybkie dodawanie” (ekran on hand na telefon) — tylko na szerszym ekranie.
+   Na telefonie pasek .toolbar-left się nie zawija, a każdy dodatkowy przycisk
+   ściska pole wyszukiwania (przy 375 px zostawało 23 px). Tam wejściem jest dolny
+   pasek: Magazyn → Szybkie dodawanie. */
+.btn-quick-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.btn-quick-add:hover {
+  background: var(--primary-hover);
+  color: var(--white);
+}
+
+[data-theme="dark"] .btn-quick-add,
+[data-theme="dark"] .btn-quick-add:hover {
+  color: var(--white);
+}
+
+@media (max-width: 768px) {
+  .btn-quick-add {
+    display: none;
+  }
+}
