@@ -44,6 +44,12 @@
     pointer-events: none;
 }
 
+.qa-photo-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
 .qa-photo-btn {
     display: flex;
     align-items: center;
