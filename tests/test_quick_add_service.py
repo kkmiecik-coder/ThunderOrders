@@ -212,3 +212,27 @@ def test_serialize_quick_product(db, on_hand_type, upload_dir, admin):
     assert data['quantity'] == 3
     assert data['is_active'] is True
     assert data['thumb_url'].startswith('/static/uploads/products/compressed/')
+
+
+# --- opis (opcjonalny) ---
+
+def test_create_without_description_leaves_it_empty(db, on_hand_type, upload_dir, admin):
+    from modules.products.quick_add_service import create_quick_product
+    p = create_quick_product('Album', '10', '1', [_jpeg()], admin, description='   ')
+    assert p.description is None
+
+
+def test_create_saves_description_as_safe_html_with_line_breaks(db, on_hand_type, upload_dir, admin):
+    from modules.products.quick_add_service import create_quick_product
+    p = create_quick_product('Album', '10', '1', [_jpeg()], admin,
+                             description='Stan: idealny\nBez karty <b>gratis</b>')
+    assert p.description == 'Stan: idealny<br>Bez karty &lt;b&gt;gratis&lt;/b&gt;'
+
+
+def test_create_rejects_too_long_description(db, on_hand_type, upload_dir, admin):
+    from modules.products.models import Product
+    from modules.products.quick_add_service import create_quick_product, QuickAddError
+    with pytest.raises(QuickAddError) as exc:
+        create_quick_product('Album', '10', '1', [_jpeg()], admin, description='x' * 1001)
+    assert str(exc.value) == 'Opis jest za długi (maks. 1000 znaków)'
+    assert Product.query.count() == 0

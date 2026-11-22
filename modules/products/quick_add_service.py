@@ -10,6 +10,7 @@ import os
 from decimal import Decimal, InvalidOperation
 
 from flask import current_app, url_for
+from markupsafe import escape
 
 from extensions import db
 from modules.client.shop_service import ON_HAND_SLUG, get_on_hand_type
@@ -19,6 +20,7 @@ from utils.image_processor import get_image_settings, process_upload
 
 
 NAME_MAX_LEN = 255
+DESCRIPTION_MAX_LEN = 1000
 
 
 class QuickAddError(ValueError):
@@ -53,6 +55,18 @@ def _clean_name(name):
     return name
 
 
+def _clean_description(text):
+    """Zwykły tekst z telefonu → bezpieczny HTML (sklep wyświetla opis przez |safe,
+    bo zwykły formularz ma edytor HTML). Enter → <br>."""
+    text = (text or '').strip()
+    if not text:
+        return None
+    if len(text) > DESCRIPTION_MAX_LEN:
+        raise QuickAddError(f'Opis jest za długi (maks. {DESCRIPTION_MAX_LEN} znaków)')
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    return '<br>'.join(str(escape(line)) for line in lines)
+
+
 def _remove_saved_files(upload_folder, filenames):
     for filename in filenames:
         for sub in ('original', 'compressed'):
@@ -64,8 +78,9 @@ def _remove_saved_files(upload_folder, filenames):
                 current_app.logger.warning(f'Nie udało się usunąć pliku {path}')
 
 
-def create_quick_product(name, price_raw, quantity_raw, files, user):
+def create_quick_product(name, price_raw, quantity_raw, files, user, description=None):
     name = _clean_name(name)
+    description = _clean_description(description)
     price = parse_price(price_raw)
     quantity = parse_quantity(quantity_raw)
 
@@ -84,6 +99,7 @@ def create_quick_product(name, price_raw, quantity_raw, files, user):
         name=name,
         sale_price=price,
         quantity=quantity,
+        description=description,
         product_type_id=on_hand_type.id,
         is_active=True,
         is_gratis=False,

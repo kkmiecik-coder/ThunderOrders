@@ -155,6 +155,18 @@
     background: var(--bg-hover);
 }
 
+.qa-textarea {
+    min-height: 88px;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.4;
+}
+
+.qa-optional {
+    font-weight: 400;
+    color: var(--text-tertiary);
+}
+
 .qa-row {
     display: flex;
     gap: 12px;

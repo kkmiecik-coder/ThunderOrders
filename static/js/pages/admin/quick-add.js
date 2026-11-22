@@ -22,6 +22,7 @@
     var nameInput = document.getElementById('qa-name');
     var priceInput = document.getElementById('qa-price');
     var qtyInput = document.getElementById('qa-quantity');
+    var descInput = document.getElementById('qa-description');
     var submitBtn = document.getElementById('qa-submit');
     var list = document.getElementById('qa-list');
     var listEmpty = document.getElementById('qa-list-empty');
@@ -153,6 +154,7 @@
         nameInput.value = '';
         priceInput.value = '';
         qtyInput.value = '1';
+        descInput.value = '';
     }
 
     // ---------- zapis ----------
@@ -168,6 +170,7 @@
         fd.append('name', nameInput.value);
         fd.append('sale_price', priceInput.value);
         fd.append('quantity', qtyInput.value);
+        fd.append('description', descInput.value);
         photos.forEach(function (p) {
             photoSeq += 1;
             fd.append('images', p.blob, 'zdjecie-' + photoSeq + '.jpg');

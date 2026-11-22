@@ -8,6 +8,7 @@ Karolina wystawia dużo rzeczy on hand, wszystko z telefonu: robi zdjęcie, wpis
 ## Cele
 - Osobny ekran w panelu admina, robiony pod telefon (mobile-first), dostępny dla `admin` i `mod`.
 - Pola: zdjęcie (aparat albo galeria), nazwa, cena sprzedaży, ilość (domyślnie 1).
+- Opcjonalne pole „Krótki opis” (dodane na prośbę Karoliny w trakcie budowy, 2026-11-22): maks. 1000 znaków, zwykły tekst zapisywany jako bezpieczny HTML (Enter → nowa linia), bo sklep wyświetla opis jako HTML. Poprawka opisu z listy rundy — w zwykłym formularzu produktu.
 - Po zapisie produkt od razu jest w sklepie: typ `on-hand`, `is_active=True`, podana ilość.
 - Formularz czyści się po zapisie i jest gotowy na kolejną rzecz.
 - Pod formularzem lista rzeczy dodanych w tej rundzie (miniatura, nazwa, cena, ilość) z możliwością szybkiej poprawki nazwy, ceny i ilości oraz ukrycia pomyłki.

@@ -44,6 +44,7 @@ def quick_add_create():
             request.form.get('quantity'),
             files,
             current_user,
+            description=request.form.get('description'),
         )
     except QuickAddError as e:
         return jsonify({'success': False, 'error': str(e)}), 400

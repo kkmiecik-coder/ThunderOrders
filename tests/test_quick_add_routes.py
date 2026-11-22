@@ -123,3 +123,15 @@ def test_quick_add_page_renders_form(db, client, as_admin, on_hand_type):
 def test_menu_and_products_list_link_to_quick_add(db, client, as_admin, on_hand_type):
     html = client.get('/admin/products/').get_data(as_text=True)
     assert html.count('/admin/products/quick-add') >= 2  # menu + przycisk na liście
+
+
+def test_create_passes_description(db, client, as_admin, on_hand_type, upload_dir):
+    from modules.products.models import Product
+    pid = _post_create(client, description='Nowy, w folii').get_json()['product']['id']
+    assert db.session.get(Product, pid).description == 'Nowy, w folii'
+
+
+def test_quick_add_page_has_optional_description(db, client, as_admin, on_hand_type):
+    html = client.get('/admin/products/quick-add').get_data(as_text=True)
+    assert 'id="qa-description"' in html
+    assert 'maxlength="1000"' in html
