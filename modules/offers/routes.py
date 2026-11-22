@@ -444,10 +444,9 @@ def reserve(token):
     if not current_user.is_authenticated:
         return jsonify({'success': False, 'error': 'login_required'}), 401
 
-    from .reservation import reserve_product
-    from .models import OfferSection, OfferSetItem
-    from modules.products.models import Product, VariantGroup, variant_products
-    from extensions import db
+    from .reservation import (
+        reserve_product, get_section_max_for_product, parse_product_id,
+    )
 
     page = OfferPage.get_by_token(token)
     if not page:
@@ -457,7 +456,12 @@ def reserve(token):
     if _gate is not None:
         return _gate
 
-    data = request.get_json()
+    # Koniec sprzedaży pilnowany po stronie serwera (status zmienia się leniwie)
+    if not page.can_order:
+        return jsonify({'success': False, 'error': 'page_not_active',
+                        'message': 'Sprzedaż nie jest aktywna'}), 403
+
+    data = request.get_json(silent=True) or {}
     session_id = data.get('session_id')
     product_id = data.get('product_id')
     quantity = data.get('quantity', 1)
@@ -466,58 +470,9 @@ def reserve(token):
     if not session_id or not product_id:
         return jsonify({'success': False, 'error': 'missing_params'}), 400
 
-    section_max = None
-
-    # 1. Check direct product section
-    section = OfferSection.query.filter_by(
-        offer_page_id=page.id,
-        section_type='product',
-        product_id=product_id
-    ).first()
-
-    if section:
-        section_max = section.max_quantity
-    else:
-        # 2. Check if product belongs to a variant_group section (not in set)
-        # First find which variant groups this product belongs to
-        product_vg_ids = db.session.query(variant_products.c.variant_group_id).filter(
-            variant_products.c.product_id == product_id
-        ).all()
-        product_vg_ids = [vg_id for (vg_id,) in product_vg_ids]
-
-        if product_vg_ids:
-            # Check if any of these variant groups has a direct section
-            vg_section = OfferSection.query.filter(
-                OfferSection.offer_page_id == page.id,
-                OfferSection.section_type == 'variant_group',
-                OfferSection.variant_group_id.in_(product_vg_ids)
-            ).first()
-
-            if vg_section:
-                section_max = vg_section.max_quantity
-
-        if section_max is None:
-            # 3. Check if product is directly in a set (via set_items)
-            set_item = OfferSetItem.query.join(OfferSection).filter(
-                OfferSection.offer_page_id == page.id,
-                OfferSection.section_type == 'set',
-                OfferSetItem.product_id == product_id
-            ).first()
-
-            if set_item:
-                # Use set's max_sets limit (ARCHITECTURE: 1 set = 1 of each product)
-                section_max = set_item.section.set_max_sets
-            elif product_vg_ids:
-                # 4. Check if product's variant group is in a set
-                set_item_vg = OfferSetItem.query.join(OfferSection).filter(
-                    OfferSection.offer_page_id == page.id,
-                    OfferSection.section_type == 'set',
-                    OfferSetItem.variant_group_id.in_(product_vg_ids)
-                ).first()
-                if set_item_vg:
-                    section_max = set_item_vg.section.set_max_sets
-
-    # section_max = None means unlimited (will be treated as float('inf') in reserve_product)
+    # section_max = None means unlimited; produkt spoza strony odrzuca reserve_product
+    _pid = parse_product_id(product_id)
+    section_max = get_section_max_for_product(page.id, _pid) if _pid else None
 
     success, result = reserve_product(
         session_id=session_id,
@@ -538,7 +493,16 @@ def reserve(token):
             pass
         return jsonify({'success': True, **result})
     else:
-        return jsonify({'success': False, **result}), 409
+        status = _RESERVE_ERR_STATUS.get(result.get('error'), 409)
+        return jsonify({'success': False, **result}), status
+
+
+# Kody błędów reserve_product -> status HTTP (reszta, np. brak dostępności -> 409)
+_RESERVE_ERR_STATUS = {
+    'invalid_quantity': 400,
+    'product_not_on_page': 400,
+    'page_not_active': 403,
+}
 
 
 @offers_bp.route('/<token>/release', methods=['POST'])
@@ -571,13 +535,15 @@ def release(token):
         quantity=quantity
     )
 
-    if success:
-        try:
-            from .socket_events import emit_reservations_update, broadcast_availability_update
-            emit_reservations_update(page.id)
-            broadcast_availability_update(page.id)
-        except Exception:
-            pass
+    if not success:
+        return jsonify({'success': False, **result}), 400
+
+    try:
+        from .socket_events import emit_reservations_update, broadcast_availability_update
+        emit_reservations_update(page.id)
+        broadcast_availability_update(page.id)
+    except Exception:
+        pass
 
     return jsonify({'success': True, **result})
 
@@ -800,8 +766,8 @@ def place_order(token):
     if _gate is not None:
         return _gate
 
-    # Check if page is active
-    if not page.is_active:
+    # Check if page is active (także po dacie końca — status zmienia się leniwie)
+    if not page.can_order:
         return jsonify({'success': False, 'error': 'page_not_active', 'message': 'Sprzedaż nie jest aktywna'}), 403
 
     data = request.get_json()

@@ -15,6 +15,62 @@ RESERVATION_DURATION = 120  # 2 minuty w sekundach
 EXTENSION_DURATION = 60     # 1 minuta w sekundach
 
 
+def parse_quantity(value, default=1):
+    """Ilość z wejścia klienta -> int >= 1 albo None (niepoprawna).
+
+    Odrzuca ułamki ('1.5', 1.5), wartości <= 0 i śmieci. None/'' -> `default`.
+    Ta sama walidacja co w mobile (`parse_int(min_value=1)`), plus odrzucenie
+    ułamków — `int(1.5)` po cichu ucięłoby ilość.
+    """
+    from modules.api_mobile.validators import parse_int, ValidationError
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, float):
+        if not value.is_integer():
+            return None
+    elif isinstance(value, str) and '.' in value:
+        return None
+    try:
+        result = parse_int(value, 'quantity', default=default, min_value=1)
+    except ValidationError:
+        return None
+    return result
+
+
+def parse_product_id(value):
+    """product_id z wejścia klienta -> int >= 1 albo None."""
+    from modules.api_mobile.validators import parse_int, ValidationError
+    if isinstance(value, (bool, float)):
+        return None
+    try:
+        return parse_int(value, 'product_id', required=True, min_value=1)
+    except ValidationError:
+        return None
+
+
+def is_product_on_page(page_id, product_id):
+    """Czy produkt jest wystawiony na stronie (sekcja produktu, grupy wariantów lub setu).
+
+    Ta sama mapa, z której strona liczy dostępność — produkt spoza niej nie może
+    być rezerwowany ani zamówiony przez tę stronę.
+    """
+    return product_id in get_section_products_map(page_id)
+
+
+INVALID_QUANTITY = {
+    'error': 'invalid_quantity',
+    'message': 'Nieprawidłowa ilość — podaj liczbę całkowitą większą od zera.',
+}
+PRODUCT_NOT_ON_PAGE = {
+    'error': 'product_not_on_page',
+    'message': 'Produkt nie jest dostępny na tej stronie.',
+}
+PAGE_NOT_ACTIVE = {
+    'error': 'page_not_active',
+    'message': 'Sprzedaż nie jest aktywna.',
+}
+
+
 def cleanup_expired_reservations(page_id, auto_commit=True):
     """
     Lazy cleanup - usuwa wygasłe rezerwacje dla danej strony ofertowej
@@ -158,7 +214,22 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None,
         tuple: (success: bool, data: dict)
     """
     import logging
+    from .models import OfferPage
     logger = logging.getLogger(__name__)
+
+    # Walidacja wejścia — wspólna dla weba (HTTP), Socket.IO i apki mobilnej.
+    quantity = parse_quantity(quantity)
+    if quantity is None:
+        return False, dict(INVALID_QUANTITY)
+    product_id = parse_product_id(product_id)
+    if product_id is None:
+        return False, dict(PRODUCT_NOT_ON_PAGE)
+
+    page = db.session.get(OfferPage, page_id)
+    if not page or not page.can_order:
+        return False, dict(PAGE_NOT_ACTIVE)
+    if not is_product_on_page(page.id, product_id):
+        return False, dict(PRODUCT_NOT_ON_PAGE)
 
     for attempt in range(3):
         result = _reserve_product_attempt(
@@ -337,6 +408,11 @@ def release_product(session_id, page_id, product_id, quantity, user_id=None):
     Returns:
         tuple: (success: bool, data: dict)
     """
+    # Ujemna ilość "zwolnienia" zwiększałaby rezerwację z pominięciem limitu sekcji.
+    quantity = parse_quantity(quantity)
+    if quantity is None:
+        return False, dict(INVALID_QUANTITY)
+
     query = OfferReservation.query.filter_by(
         session_id=session_id,
         offer_page_id=page_id,

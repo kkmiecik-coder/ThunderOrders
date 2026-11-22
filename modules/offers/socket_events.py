@@ -432,6 +432,51 @@ def _schedule_expiry_timer_internal(page_id, app):
 
 
 # =============================================
+# TOŻSAMOŚĆ POŁĄCZENIA (anti-spoofing)
+# =============================================
+
+def _resolve_socket_user(sid):
+    """Zalogowany użytkownik dla danego sid — WYŁĄCZNIE ze źródeł po stronie serwera.
+
+    - Apka mobilna: sid uwierzytelniony JWT przy `connect` (modules/api_mobile/ws.py).
+    - Web: sesja Flask-Login (cookie) — `current_user`.
+    Payloadowy `user_id` od przeglądarki NIE jest nigdy brany pod uwagę: każdy mógł
+    wpisać cudzy id i rezerwować na cudze konto / przejmować cudzą sesję.
+
+    Returns:
+        User | None
+    """
+    from modules.auth.models import User
+
+    try:
+        from modules.api_mobile.ws import get_ws_user
+        jwt_uid = get_ws_user(sid)
+    except Exception:
+        jwt_uid = None
+    if jwt_uid is not None:
+        user = db.session.get(User, int(jwt_uid))
+        return user if user is not None and user.is_active else None
+
+    try:
+        from flask_login import current_user
+        if current_user and current_user.is_authenticated:
+            return current_user._get_current_object()
+    except Exception:
+        pass
+    return None
+
+
+def _parse_id(value):
+    """Id z payloadu -> int albo None (zamiast wyjątku przy śmieciowym wejściu)."""
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+# =============================================
 # EVENT HANDLERS — ISTNIEJĄCE (visitor + admin)
 # =============================================
 
@@ -469,11 +514,18 @@ def handle_join_offer_admin(data):
 
     Data: { page_id: int }
     """
-    page_id = data.get('page_id')
+    page_id = _parse_id((data or {}).get('page_id'))
     sid = flask_request.sid
 
     if not page_id:
         emit('error', {'message': 'Invalid page_id'})
+        return
+
+    # Pokój LIVE dashboardu dostaje imiona i nazwiska klientów z rezerwacjami —
+    # tylko admin/mod (parytet z trasą HTTP dashboardu LIVE).
+    user = _resolve_socket_user(sid)
+    if user is None or user.role not in ('admin', 'mod'):
+        emit('error', {'message': 'Brak uprawnień'})
         return
 
     room = _get_admin_room(page_id)
@@ -500,48 +552,43 @@ def handle_join_offer_reservation(data):
     """
     Klient dołącza do systemu rezerwacji offer (z deduplikacją).
 
-    Data: { page_id, session_id, user_id (or null), token }
+    Data: { page_id, session_id, token } — ewentualny `user_id` w payloadzie jest
+    IGNOROWANY; tożsamość pochodzi z sesji Flask-Login (web) lub JWT (apka).
     Return (ack): { success, products: {...}, session: {...} }
     """
     try:
         from .models import OfferPage
+        from .access import user_can_access_offer_page
         from .reservation import (
             get_availability_snapshot, get_section_products_map
         )
 
         page_id = data.get('page_id')
         session_id = data.get('session_id')
-        user_id = data.get('user_id')
         token = data.get('token')
         sid = flask_request.sid
-
-        # E9: dla połączeń aplikacji mobilnej (sid uwierzytelniony JWT przy connect)
-        # tożsamość pochodzi WYŁĄCZNIE z tokenu — payloadowy user_id jest ignorowany
-        # (anti-spoofing) i wpinamy się w ten sam mechanizm user_session/takeover co web.
-        # Web sids NIE są JWT-związane → get_ws_user zwraca None → payload user_id jak dziś.
-        try:
-            from modules.api_mobile.ws import get_ws_user
-            _jwt_uid = get_ws_user(sid)
-            if _jwt_uid is not None:
-                user_id = _jwt_uid
-        except Exception:
-            pass
 
         if not page_id or not session_id or not token:
             return {'success': False, 'error': 'missing_params'}
 
-        # Safety net: blokada rezerwacji dla niezalogowanych
-        if not user_id:
+        # Tożsamość WYŁĄCZNIE po stronie serwera: apka -> JWT związany z sid,
+        # web -> sesja Flask-Login. Payloadowy `user_id` jest ignorowany (anti-spoofing).
+        user = _resolve_socket_user(sid)
+        if user is None:
             return {'success': False, 'error': 'login_required'}
+        user_id = user.id
 
-        # Normalizacja typów (JS może wysłać string lub int)
-        page_id = int(page_id)
-        if user_id:
-            user_id = int(user_id)
+        page_id = _parse_id(page_id)
+        if page_id is None:
+            return {'success': False, 'error': 'invalid_page'}
 
-        # Walidacja tokena strony
+        # Walidacja tokena strony + koniec sprzedaży (także po dacie końca)
         page = OfferPage.get_by_token(token)
-        if not page or page.id != page_id or not page.is_active:
+        if not page or page.id != page_id or not page.can_order:
+            return {'success': False, 'error': 'invalid_page'}
+
+        # Strona prywatna — ta sama bramka odbiorców co trasa HTTP
+        if not user_can_access_offer_page(page, user):
             return {'success': False, 'error': 'invalid_page'}
 
         transferred_from_session = None
@@ -683,15 +730,19 @@ def handle_reserve_product(data):
     if not page_id or not session_id or not product_id:
         return {'success': False, 'error': 'missing_params'}
 
-    # Normalizacja typów (JS może wysłać string)
-    page_id = int(page_id)
-    product_id = int(product_id)
-    quantity = int(quantity)
+    # Normalizacja typów (JS może wysłać string). Ilość i product_id waliduje
+    # reserve_product (>= 1, produkt z tej strony, strona otwarta).
+    page_id = _parse_id(page_id)
 
     # Walidacja — czy ten sid jest zarejestrowany
     client = get_state().get_client(sid)
     if not client or client.get('role') != 'reservation':
         return {'success': False, 'error': 'not_connected'}
+
+    # Rezerwować można tylko na stronie, do której sid dołączył (tam przeszedł
+    # bramkę tokena, końca sprzedaży i odbiorców strony prywatnej).
+    if page_id is None or _parse_id(client.get('page_id')) != page_id:
+        return {'success': False, 'error': 'invalid_page'}
 
     # Safety net: blokada rezerwacji dla niezalogowanych
     if not client.get('user_id'):
@@ -699,7 +750,8 @@ def handle_reserve_product(data):
 
     try:
         # Oblicz section_max
-        section_max = get_section_max_for_product(page_id, product_id)
+        _pid = _parse_id(product_id)
+        section_max = get_section_max_for_product(page_id, _pid) if _pid else None
 
         # Wywołaj istniejącą logikę rezerwacji (SELECT FOR UPDATE)
         success, result = reserve_product(
@@ -750,13 +802,16 @@ def handle_release_product(data):
     if not page_id or not session_id or not product_id:
         return
 
-    # Normalizacja typów
-    page_id = int(page_id)
-    product_id = int(product_id)
-    quantity = int(quantity)
+    # Normalizacja typów (ilość >= 1 waliduje release_product)
+    page_id = _parse_id(page_id)
+    product_id = _parse_id(product_id)
+    if page_id is None or product_id is None:
+        return
 
     client = get_state().get_client(sid)
     if not client or client.get('role') != 'reservation':
+        return
+    if _parse_id(client.get('page_id')) != page_id:
         return
 
     success, result = release_product(
@@ -789,11 +844,13 @@ def handle_extend_reservation(data):
         return {'success': False, 'error': 'missing_params'}
 
     # Normalizacja typów
-    page_id = int(page_id)
+    page_id = _parse_id(page_id)
 
     client = get_state().get_client(sid)
     if not client or client.get('role') != 'reservation':
         return {'success': False, 'error': 'not_connected'}
+    if page_id is None or _parse_id(client.get('page_id')) != page_id:
+        return {'success': False, 'error': 'invalid_page'}
 
     success, result = extend_reservation(
         session_id=session_id,
