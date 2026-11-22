@@ -1,3 +1,59 @@
 {% extends "admin/base_admin.html" %}
+
 {% block title %}Szybkie dodawanie - Magazyn{% endblock %}
-{% block content %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/quick-add.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="qa-page">
+    <div class="qa-header">
+        <h1 class="qa-title">Szybkie dodawanie on hand</h1>
+        <p class="qa-subtitle">Zdjęcie, nazwa, cena i ilość. Produkt od razu trafia do sklepu.</p>
+    </div>
+
+    <form id="qa-form" class="qa-card" novalidate
+          data-max-photos="{{ max_photos }}"
+          data-create-url="{{ url_for('products.quick_add_create') }}"
+          data-base-url="{{ url_for('products.quick_add') }}">
+
+        <label for="qa-photos" class="qa-photo-btn">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span id="qa-photo-label">Zrób / wybierz zdjęcie</span>
+        </label>
+        <input type="file" id="qa-photos" class="qa-file-input" accept="image/*" multiple>
+
+        <div id="qa-previews" class="qa-previews"></div>
+
+        <label class="qa-label" for="qa-name">Nazwa</label>
+        <input type="text" id="qa-name" class="qa-input" maxlength="255" autocomplete="off" autocapitalize="sentences">
+
+        <div class="qa-row">
+            <div class="qa-col">
+                <label class="qa-label" for="qa-price">Cena (zł)</label>
+                <input type="text" id="qa-price" class="qa-input" inputmode="decimal" autocomplete="off" placeholder="0,00">
+            </div>
+            <div class="qa-col qa-col-small">
+                <label class="qa-label" for="qa-quantity">Ilość</label>
+                <input type="number" id="qa-quantity" class="qa-input" min="1" step="1" value="1" inputmode="numeric">
+            </div>
+        </div>
+
+        <button type="submit" id="qa-submit" class="qa-submit">Dodaj i następny</button>
+    </form>
+
+    <div class="qa-round">
+        <h2 class="qa-round-title">Dodane w tej rundzie</h2>
+        <p id="qa-list-empty" class="qa-list-empty">Jeszcze nic. Dodane rzeczy pojawią się tutaj.</p>
+        <ul id="qa-list" class="qa-list"></ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/quick-add.js') }}"></script>
+{% endblock %}

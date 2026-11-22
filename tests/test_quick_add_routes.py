@@ -106,3 +106,20 @@ def test_update_and_hide_404_for_non_on_hand(db, client, as_admin, on_hand_type,
     assert client.post('/admin/products/quick-add/999999/hide').status_code == 404
     db.session.refresh(other)
     assert other.name == 'Preorder' and other.is_active is True
+
+
+def test_quick_add_page_renders_form(db, client, as_admin, on_hand_type):
+    html = client.get('/admin/products/quick-add').get_data(as_text=True)
+    assert 'id="qa-photos"' in html
+    assert 'accept="image/*"' in html
+    assert 'capture' not in html.split('id="qa-photos"')[1].split('>')[0]
+    assert 'Dodaj i następny' in html
+    assert 'quick-add.js' in html
+    assert 'quick-add.css' in html
+    assert 'data-max-photos="10"' in html
+    assert 'inputmode="decimal"' in html
+
+
+def test_menu_and_products_list_link_to_quick_add(db, client, as_admin, on_hand_type):
+    html = client.get('/admin/products/').get_data(as_text=True)
+    assert html.count('/admin/products/quick-add') >= 2  # menu + przycisk na liście

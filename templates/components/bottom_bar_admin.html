@@ -21,7 +21,7 @@
         <span class="pwa-bar-label">Szukaj</span>
     </button>
 
-    <button class="pwa-bar-item {% if request.endpoint in ['products.list_products', 'products.stock_orders', 'products.warehouse_settings'] %}active{% endif %}"
+    <button class="pwa-bar-item {% if request.endpoint in ['products.list_products', 'products.quick_add', 'products.stock_orders', 'products.warehouse_settings'] %}active{% endif %}"
             data-sheet="admin-warehouse" aria-label="Magazyn">
         <img src="{{ url_for('static', filename='img/icons/warehouse.svg') }}" alt="" class="pwa-bar-icon">
         <span class="pwa-bar-label">Magazyn</span>
@@ -70,6 +70,10 @@
         <li><a href="{{ url_for('products.list_products') }}" class="pwa-sheet-item {% if request.endpoint == 'products.list_products' %}active{% endif %}">
             <img src="{{ url_for('static', filename='img/icons/products.svg') }}" alt="" class="pwa-sheet-icon">
             <span>Lista produktów</span>
+        </a></li>
+        <li><a href="{{ url_for('products.quick_add') }}" class="pwa-sheet-item {% if request.endpoint == 'products.quick_add' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/products.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Szybkie dodawanie</span>
         </a></li>
         <li><a href="{{ url_for('products.stock_orders') }}" class="pwa-sheet-item {% if request.endpoint == 'products.stock_orders' %}active{% endif %}">
             <img src="{{ url_for('static', filename='img/icons/warehouse.svg') }}" alt="" class="pwa-sheet-icon">

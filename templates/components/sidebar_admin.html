@@ -115,7 +115,7 @@
 
             <!-- Magazyn (Collapsible Category) -->
             <li class="sidebar-item sidebar-category">
-                <div class="sidebar-category-header {% if request.endpoint in ['products.list_products', 'products.stock_orders', 'products.warehouse_settings'] %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Magazyn">
+                <div class="sidebar-category-header {% if request.endpoint in ['products.list_products', 'products.quick_add', 'products.stock_orders', 'products.warehouse_settings'] %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Magazyn">
                     <div class="sidebar-category-main">
                         <img src="{{ url_for('static', filename='img/icons/warehouse.svg') }}" alt="Magazyn" class="sidebar-icon">
                         <span class="sidebar-text">Magazyn</span>
@@ -130,6 +130,13 @@
                            class="sidebar-sublink {% if request.endpoint == 'products.list_products' %}active{% endif %}"
                            data-tooltip="Lista produktów">
                             <span class="sidebar-text">Lista produktów</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('products.quick_add') }}"
+                           class="sidebar-sublink {% if request.endpoint == 'products.quick_add' %}active{% endif %}"
+                           data-tooltip="Szybkie dodawanie">
+                            <span class="sidebar-text">Szybkie dodawanie</span>
                         </a>
                     </li>
                     <li class="sidebar-subitem">
