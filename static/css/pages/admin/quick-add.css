@@ -1,0 +1,324 @@
+/* Szybkie dodawanie on hand — ekran pod telefon.
+   Kolory wyłącznie ze zmiennych (variables.css), więc ciemny motyw działa sam;
+   jawne nadpisania [data-theme="dark"] tylko tam, gdzie zmienna nie wystarcza. */
+
+.qa-page {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px 16px 96px;
+    box-sizing: border-box;
+}
+
+.qa-header {
+    margin-bottom: 16px;
+}
+
+.qa-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+}
+
+.qa-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.qa-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.qa-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.qa-photo-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 56px;
+    border: 2px dashed var(--primary-color);
+    border-radius: 12px;
+    color: var(--primary-color);
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.qa-photo-btn:active,
+.qa-photo-btn:hover {
+    background: var(--bg-hover);
+}
+
+.qa-previews {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.qa-previews:empty {
+    display: none;
+}
+
+.qa-preview {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-primary);
+}
+
+.qa-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.qa-preview-main {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+.qa-preview-remove {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 4px;
+}
+
+.qa-preview-remove span {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--white);
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+}
+
+.qa-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
+.qa-input {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    font-size: 16px; /* 16px = iOS nie przybliża ekranu przy fokusie */
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    box-sizing: border-box;
+}
+
+.qa-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .qa-input {
+    background: var(--bg-hover);
+}
+
+.qa-textarea {
+    min-height: 88px;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.4;
+}
+
+.qa-optional {
+    font-weight: 400;
+    color: var(--text-tertiary);
+}
+
+.qa-row {
+    display: flex;
+    gap: 12px;
+}
+
+.qa-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.qa-col-small {
+    flex: 0 0 96px;
+}
+
+.qa-submit {
+    margin-top: 12px;
+    min-height: 52px;
+    border: none;
+    border-radius: 12px;
+    background: var(--primary-color);
+    color: var(--white);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.qa-submit:hover {
+    background: var(--primary-hover);
+}
+
+.qa-submit:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.qa-round {
+    margin-top: 24px;
+}
+
+.qa-round-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+}
+
+.qa-list-empty {
+    color: var(--text-tertiary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.qa-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.qa-item {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.qa-item-hidden {
+    opacity: 0.55;
+}
+
+.qa-item-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.qa-item-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--bg-hover);
+}
+
+.qa-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.qa-item-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.qa-item-meta {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.qa-item-badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+}
+
+.qa-item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.qa-btn {
+    flex: 1;
+    min-height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--border-primary);
+    background: transparent;
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.qa-btn:hover {
+    background: var(--bg-hover);
+}
+
+.qa-btn-danger {
+    color: var(--error);
+}
+
+.qa-btn-primary {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--white);
+}
+
+.qa-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
