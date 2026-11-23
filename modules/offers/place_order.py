@@ -11,7 +11,10 @@ from decimal import Decimal
 from sqlalchemy.exc import OperationalError
 from extensions import db
 from .models import OfferReservation, OfferPage, OfferSetBonus, OfferBonusRequiredProduct
-from .reservation import cleanup_expired_reservations
+from .reservation import (
+    cleanup_expired_reservations, get_section_products_map, parse_quantity,
+    INVALID_QUANTITY, PRODUCT_NOT_ON_PAGE, PAGE_NOT_ACTIVE,
+)
 from modules.orders.models import Order, OrderItem
 from modules.orders.utils import (
     assign_order_number, get_order_prefix, order_number_placeholder,
@@ -206,6 +209,11 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
     if full_set_items is None:
         full_set_items = []
 
+    # 0. Koniec sprzedaży pilnowany w serwisie (wspólnym dla weba i apki) — status
+    #    zmienia się leniwie, więc po ends_at sam 'active' nie wystarcza.
+    if not page.can_order:
+        return False, dict(PAGE_NOT_ACTIVE)
+
     # 1. Cleanup expired reservations
     cleanup_expired_reservations(page.id)
 
@@ -218,8 +226,27 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         reservations_q = reservations_q.filter(OfferReservation.user_id == user.id)
     reservations = reservations_q.all()
 
-    # Filter full set items to only those with quantity > 0
-    full_set_items = [fs for fs in full_set_items if fs.get('product_id') and fs.get('quantity', 0) > 0]
+    # Każda pozycja musi mieć ilość >= 1 i produkt wystawiony na TEJ stronie —
+    # inaczej ujemna ilość daje ujemną kwotę, a obcy produkt dałoby się zamówić
+    # z katalogu przez dowolną stronę.
+    if reservations:
+        page_product_ids = set(get_section_products_map(page.id).keys())
+        for reservation in reservations:
+            if not isinstance(reservation.quantity, int) or reservation.quantity < 1:
+                return False, dict(INVALID_QUANTITY)
+            if reservation.product_id not in page_product_ids:
+                return False, {**PRODUCT_NOT_ON_PAGE, 'product_id': reservation.product_id}
+
+    # Filter full set items to only those with a valid quantity >= 1
+    _valid_full_set_items = []
+    for fs in full_set_items:
+        if not isinstance(fs, dict) or not fs.get('product_id'):
+            continue
+        fs_qty = parse_quantity(fs.get('quantity'), default=None)
+        if fs_qty is None:
+            continue
+        _valid_full_set_items.append({**fs, 'quantity': fs_qty})
+    full_set_items = _valid_full_set_items
 
     # Check if there are any items to order (reservations OR full set items)
     if not reservations and not full_set_items:
@@ -823,9 +850,19 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
         from flask_login import current_user as _cu
         user = _cu._get_current_object()
 
+    # 0. Koniec sprzedaży pilnowany w serwisie (status zmienia się leniwie)
+    if not page.can_order:
+        return False, dict(PAGE_NOT_ACTIVE)
+
     # 1. Validate cart items
     if not cart_items:
         return False, {'error': 'empty_cart', 'message': 'Koszyk jest pusty'}
+
+    # Ilość: liczba całkowita >= 1 (śmieci/ułamki/ujemne odpadają jak quantity=0)
+    cart_items = [
+        {**item, 'quantity': parse_quantity(item.get('quantity'), default=None) or 0}
+        for item in cart_items if isinstance(item, dict)
+    ]
 
     # Filter valid items (przynależność: pre-order tylko na produkty z sekcji strony —
     # obcy product_id traktowany jak nieistniejący; wszystkie obce -> empty_cart)

@@ -152,8 +152,13 @@ class OfferPage(db.Model):
 
     @property
     def can_order(self):
-        """Czy można składać zamówienia"""
-        return self.status == 'active'
+        """Czy można teraz rezerwować i składać zamówienia.
+
+        Status przełącza się na 'ended' leniwie (check_and_update_status przy wejściu
+        na stronę), więc sam status 'active' nie wystarcza — po `ends_at` sprzedaż
+        jest zamknięta niezależnie od zapisanego statusu.
+        """
+        return self.status == 'active' and not self.is_after_end
 
     # ============================================
     # Date Helpers

@@ -244,9 +244,17 @@ def _connect_app(app, user):
     return socketio.test_client(app, auth={'token': _access_token(app, user)})
 
 
-def _connect_web(app):
-    """Połączenie webowe: BEZ tokenu (parytet) — sid NIE jest JWT-związany."""
-    return socketio.test_client(app)
+def _connect_web(app, user):
+    """Połączenie webowe: BEZ tokenu (parytet) — sid NIE jest JWT-związany.
+
+    Tożsamość weba pochodzi z sesji Flask-Login (cookie), nie z payloadowego
+    user_id — stąd logowanie przez osobnego klienta testowego per połączenie.
+    """
+    fc = app.test_client()
+    with fc.session_transaction() as sess:
+        sess['_user_id'] = str(user.id)
+        sess['_fresh'] = True
+    return socketio.test_client(app, flask_test_client=fc)
 
 
 def _join(tc, page, session_id, user_id):
@@ -316,8 +324,8 @@ def test_ws_web_session_id_takeover_unchanged(app, db, make_user, make_product):
     prod = make_product()
     _add_product_section(db, page, prod, max_quantity=10)
 
-    web1 = _connect_web(app)
-    web2 = _connect_web(app)
+    web1 = _connect_web(app, u)
+    web2 = _connect_web(app, u)
     assert not (u.id in _bound_uids())  # web nie jest JWT-wiązany
 
     assert _join(web1, page, 'shared-S', user_id=u.id)['success'] is True
@@ -329,7 +337,7 @@ def test_ws_web_session_id_takeover_unchanged(app, db, make_user, make_product):
 
     assert _reserve(web2, page, 'shared-S', prod, quantity=1)['success'] is True
     r = _reservation(page, prod)
-    assert r.user_id == u.id              # payload user_id użyty (brak JWT)
+    assert r.user_id == u.id              # z sesji Flask-Login (brak JWT)
     assert r.session_id == 'shared-S'
     web1.disconnect()
     web2.disconnect()
@@ -345,8 +353,8 @@ def test_ws_cross_device_takeover_app_takes_over_web(app, db, make_user, make_pr
     prod = make_product()
     _add_product_section(db, page, prod, max_quantity=10)
 
-    # (1) web (bez JWT) rezerwuje qty=2 na 'web-S' z payload user_id=U.
-    web = _connect_web(app)
+    # (1) web (bez JWT, sesja Flask-Login usera U) rezerwuje qty=2 na 'web-S'.
+    web = _connect_web(app, u)
     assert _join(web, page, 'web-S', user_id=u.id)['success'] is True
     assert _reserve(web, page, 'web-S', prod, quantity=2)['success'] is True
     web.get_received()  # wyczyść bufor przed takeover
@@ -393,7 +401,7 @@ def test_ws_cross_device_takeover_web_takes_over_app(app, db, make_user, make_pr
     apk.get_received()
 
     # (2) web (bez JWT) joinuje 'web-S' z payload user_id=U → przejmuje sesję apki.
-    web = _connect_web(app)
+    web = _connect_web(app, u)
     assert _join(web, page, 'web-S', user_id=u.id)['success'] is True
 
     assert 'force_disconnect' in _names(apk.get_received())
@@ -415,12 +423,12 @@ def test_ws_web_reserve_still_works_1to1(app, db, make_user, make_product):
     prod = make_product()
     _add_product_section(db, page, prod, max_quantity=10)
 
-    web = _connect_web(app)
+    web = _connect_web(app, u)
     assert _join(web, page, 'web-S', user_id=u.id)['success'] is True
     assert _reserve(web, page, 'web-S', prod, quantity=3)['success'] is True
 
     r = _reservation(page, prod)
-    assert r.user_id == u.id              # payload user_id (brak JWT) — jak przed E9
+    assert r.user_id == u.id              # z sesji Flask-Login (brak JWT)
     assert r.session_id == 'web-S'
     assert r.quantity == 3
     web.disconnect()
@@ -449,7 +457,7 @@ def test_ws_app_receives_availability_broadcast(app, db, make_user, make_product
     apk.get_received()  # wyczyść bufor inicjalizacji (visitor_count/availability)
 
     # Drugi klient (web) dołącza i rezerwuje — wyzwala broadcast_availability_update.
-    web = _connect_web(app)
+    web = _connect_web(app, u_web)
     assert _join(web, page, 'web-res-S', user_id=u_web.id)['success'] is True
     web.get_received()  # wyczyść
     assert _reserve(web, page, 'web-res-S', prod, quantity=1)['success'] is True
@@ -473,7 +481,7 @@ def test_ws_web_also_receives_broadcast_from_app_reserve(app, db, make_user, mak
     _add_product_section(db, page, prod, max_quantity=10)
 
     # Web-klient dołącza jako obserwator.
-    web = _connect_web(app)
+    web = _connect_web(app, u_web)
     assert _join(web, page, 'web-listen-S', user_id=u_web.id)['success'] is True
     web.get_received()  # wyczyść bufor inicjalizacji
 
