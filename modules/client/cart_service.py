@@ -33,6 +33,31 @@ CartResult = namedtuple('CartResult', 'ok code message status extras')
 # Koszyk
 # ---------------------------------------------------------------------------
 
+INVALID_QUANTITY_MSG = 'Ilość musi być liczbą całkowitą większą od zera.'
+
+
+def _parse_quantity(value, min_value=None):
+    """Ilość -> int (bez cichego ucinania ułamków). Zwraca None, gdy niepoprawna.
+
+    Odrzuca bool, ułamki (1.5, '2.5'), teksty i None; float całkowity (2.0) OK.
+    Liczby całkowite parsuje wspólny walidator z mobilnego API (parse_int).
+    """
+    # import lokalny — modules.api_mobile importuje ten serwis (unikamy cyklu)
+    from modules.api_mobile.validators import parse_int, ValidationError
+
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, float):
+        if not value.is_integer():
+            return None
+        value = int(value)
+    elif not isinstance(value, (int, str)):
+        return None
+    try:
+        return parse_int(value, 'quantity', required=True, min_value=min_value)
+    except ValidationError:
+        return None
+
 def get_cart_count(user_id):
     """Return total quantity of items in user's cart."""
     return db.session.query(
@@ -79,6 +104,10 @@ def add_to_cart(user_id, product_id, quantity):
     """Dodaj produkt do koszyka (scala z istniejącą pozycją)."""
     if not product_id:
         return CartResult(False, 'missing_product_id', 'Brak ID produktu.', 400, None)
+
+    quantity = _parse_quantity(quantity, min_value=1)
+    if quantity is None:
+        return CartResult(False, 'invalid_quantity', INVALID_QUANTITY_MSG, 400, None)
 
     product = db.session.get(Product, product_id)
     if not product or not product.is_active:
@@ -135,9 +164,8 @@ def add_to_cart(user_id, product_id, quantity):
 
 def update_cart_item(user_id, item_id, quantity):
     """Zmień ilość pozycji koszyka (quantity<=0 usuwa pozycję)."""
-    try:
-        quantity = int(quantity)
-    except (ValueError, TypeError):
+    quantity = _parse_quantity(quantity)
+    if quantity is None:
         return CartResult(False, 'invalid_quantity', 'Ilość musi być liczbą.', 400, None)
 
     if not item_id:
@@ -222,6 +250,14 @@ def place_order_on_hand(user_id, create_shipping=False, address_id=None):
                 'available': 0,
             })
             continue
+        if item.quantity is None or item.quantity < 1:
+            # obrona w głębi: ujemna ilość obniżyłaby sumę i ZWIĘKSZYŁA stan
+            stock_errors.append({
+                'product_id': product.id,
+                'error': f'{product.name} — nieprawidłowa ilość w koszyku.',
+                'available': product.quantity,
+            })
+            continue
         if product.quantity == 0:
             stock_errors.append({
                 'product_id': product.id,
@@ -282,6 +318,10 @@ def place_order_on_hand(user_id, create_shipping=False, address_id=None):
         total_items_count = 0
         for item in items:
             product = Product.query.with_for_update().get(item.product_id)
+            if item.quantity < 1:
+                db.session.rollback()
+                return CheckoutResult(False, 'invalid_quantity', INVALID_QUANTITY_MSG,
+                                      400, None, None, None)
             if not product or product.quantity < item.quantity:
                 db.session.rollback()
                 return CheckoutResult(

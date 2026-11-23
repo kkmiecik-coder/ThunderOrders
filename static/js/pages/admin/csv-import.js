@@ -4,7 +4,6 @@
  */
 
 // Global variables
-let currentTempFilePath = null;
 let currentTempFileId = null;
 let currentFileName = null;
 let currentColumns = [];
@@ -269,7 +268,6 @@ function handleFileUpload(file) {
     .then(data => {
         if (data.success) {
             // Store data
-            currentTempFilePath = data.temp_path;
             currentTempFileId = data.temp_file_id;
             currentFileName = file.name;
             currentColumns = data.columns;
@@ -627,7 +625,7 @@ function startCsvImport() {
             'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({
-            temp_file_path: currentTempFilePath,
+            temp_file_id: currentTempFileId,
             has_headers: hasHeaders,
             skip_empty_values: skipEmptyValues,
             match_column: matchColumn,

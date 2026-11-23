@@ -8,6 +8,7 @@
 /static/uploads/csv/*
 !/static/uploads/csv/templates/
 /uploads/payment_confirmations
+/uploads/csv_import_temp
 /docs
 /*.md
 /static/payment_proofs
