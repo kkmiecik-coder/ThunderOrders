@@ -154,7 +154,8 @@ def create_app(config_name=None):
     def load_user(user_id):
         # Import tutaj aby uniknąć circular imports
         from modules.auth.models import User
-        return db.session.get(User, int(user_id))
+        # Odrzuca konta nieaktywne i sesje sprzed zmiany hasła (odcisk w identyfikatorze sesji).
+        return User.load_user_from_session_id(user_id)
 
     # Rejestracja blueprintów (modułów)
     register_blueprints(app)

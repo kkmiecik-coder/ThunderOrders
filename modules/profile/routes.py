@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from modules.profile import profile_bp
 from modules.profile.models import AvatarSeries, Avatar
 from modules.auth.models import User
+from modules.auth.sessions import refresh_session_after_password_change
 from extensions import db
 from utils.decorators import admin_required
 from utils.image_processor import process_avatar, delete_avatar_file, delete_avatar_series_folder
@@ -137,6 +138,8 @@ def change_password():
     try:
         current_user.set_password(new_password)
         db.session.commit()
+        # Nowy odcisk hasła kończy pozostałe sesje — bieżącą odświeżamy, żeby nie wylogować.
+        refresh_session_after_password_change(current_user)
 
         if is_ajax:
             return jsonify({'success': True, 'message': 'Hasło zostało zmienione.'})

@@ -6,6 +6,8 @@ Model użytkownika z metodami autentykacji
 from datetime import date, timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+import hashlib
+import hmac
 import secrets
 import random
 
@@ -76,6 +78,12 @@ class User(UserMixin, db.Model):
     email_verification_token = db.Column(db.String(255), index=True)
     password_reset_token = db.Column(db.String(255), index=True)
     password_reset_expires = db.Column(UTCDateTime)
+    # Kiedy wysłano ostatni link resetu (web) — cooldown, by ponowne kliknięcie
+    # „wyślij" nie podmieniało tokenu (i nie unieważniało linku z pierwszego maila).
+    password_reset_sent_at = db.Column(UTCDateTime, nullable=True)
+    # Kiedy hasło zostało ZMIENIONE (nie pierwsze ustawienie). NULL = nie zmieniane od
+    # wdrożenia odcisków sesji — tylko wtedy akceptujemy stare sesje bez odcisku.
+    password_changed_at = db.Column(UTCDateTime, nullable=True)
 
     # New 6-digit code verification system
     email_verification_code = db.Column(db.String(6))
@@ -160,8 +168,17 @@ class User(UserMixin, db.Model):
         Args:
             password (str): Hasło w plain text
         """
+        # Zmiana (a nie pierwsze ustawienie) hasła kończy wszystkie sesje sprzed niej —
+        # także stare sesje bez odcisku hasła (patrz password_fingerprint / get_id).
+        if self.password_hash:
+            self.password_changed_at = utcnow()
         # Użyj pbkdf2:sha256 dla kompatybilności z Python 3.9
         self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+
+    def password_fingerprint(self):
+        """Krótki skrót hasha hasła — osadzany w sesji webowej, ciasteczku „zapamiętaj mnie"
+        i tokenach mobilnych. Zmiana hasła zmienia odcisk, więc unieważnia je wszystkie."""
+        return hashlib.sha256((self.password_hash or '').encode()).hexdigest()[:16]
 
     def check_password(self, password):
         """
@@ -237,7 +254,14 @@ class User(UserMixin, db.Model):
         """
         self.password_reset_token = secrets.token_urlsafe(32)
         self.password_reset_expires = utcnow() + timedelta(seconds=expires_in)
+        self.password_reset_sent_at = utcnow()
         return self.password_reset_token
+
+    def can_resend_password_reset_link(self, cooldown=60):
+        """Czy można wysłać nowy link resetu (cooldown jak w kodzie mobilnym: 60 s)."""
+        if not self.password_reset_token or not self.password_reset_sent_at:
+            return True
+        return (utcnow() - self.password_reset_sent_at).total_seconds() >= cooldown
 
     def verify_password_reset_token(self, token):
         """
@@ -733,8 +757,34 @@ class User(UserMixin, db.Model):
     # ============================================
 
     def get_id(self):
-        """Zwraca ID użytkownika jako string (wymagane przez Flask-Login)"""
-        return str(self.id)
+        """Identyfikator do sesji i ciasteczka „zapamiętaj mnie" (Flask-Login): `<id>:<odcisk hasła>`.
+
+        Zmiana hasła zmienia odcisk, więc wszystkie wcześniejsze sesje/ciasteczka przestają
+        pasować (weryfikuje to `load_user_from_session_id`).
+        """
+        return f'{self.id}:{self.password_fingerprint()}'
+
+    @classmethod
+    def load_user_from_session_id(cls, session_id):
+        """user_loader Flask-Login: zwraca użytkownika albo None (= wylogowany).
+
+        Odrzuca konta nieaktywne (dezaktywowane przez admina, w trakcie usuwania) oraz
+        sesje z nieaktualnym odciskiem hasła. Stare sesje sprzed wdrożenia (sam `<id>`)
+        są akceptowane, dopóki hasło nie zostało zmienione — wdrożenie nikogo nie wylogowuje.
+        """
+        raw_id, sep, fingerprint = str(session_id).partition(':')
+        try:
+            user = db.session.get(cls, int(raw_id))
+        except (TypeError, ValueError):
+            return None
+        if user is None or not user.is_active:
+            return None
+        if sep:
+            if not hmac.compare_digest(fingerprint, user.password_fingerprint()):
+                return None
+        elif user.password_changed_at is not None:
+            return None
+        return user
 
     @property
     def is_authenticated(self):

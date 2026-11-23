@@ -1,6 +1,5 @@
 """Trasy auth + meta (health, app-version) dla mobilnego API."""
 
-import hashlib
 import re
 from datetime import datetime, timezone
 
@@ -33,7 +32,7 @@ def _validate_password(password):
 
 def _password_fingerprint(user):
     """Skrót hasła osadzany w tokenach — zmiana hasła unieważnia refresh tokeny."""
-    return hashlib.sha256((user.password_hash or '').encode()).hexdigest()[:16]
+    return user.password_fingerprint()  # ten sam odcisk co w sesji webowej
 
 
 def _issue_tokens(user, refresh=True):

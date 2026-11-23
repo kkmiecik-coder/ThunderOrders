@@ -55,7 +55,8 @@ WYKLUCZONE: dict[str, list[str]] = {
     # created_at: default=datetime.utcnow; last_used_at: push_manager `datetime.utcnow()`
     'push_subscriptions': ['created_at', 'last_used_at'],
     # jedyny zapis: api/analytics.py `analytics_consent_date = datetime.now()` (poza NULL przy anonimizacji)
-    'users': ['analytics_consent_date'],
+    # password_*: kolumny z c4f1a9e7b2d5 (po migracji czasu) — od początku UTCDateTime/utcnow
+    'users': ['analytics_consent_date', 'password_changed_at', 'password_reset_sent_at'],
 }
 
 
