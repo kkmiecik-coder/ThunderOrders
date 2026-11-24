@@ -124,3 +124,46 @@
 [data-theme="dark"] .searchable-select-empty {
     color: rgba(255, 255, 255, 0.5);
 }
+
+/* ==========================================
+   Pola wyboru produktu (sekcja Produkt, produkt w secie,
+   wymagany produkt w bonusie) — ta sama wyszukiwarka
+   ========================================== */
+
+/* Trigger jako wygodny cel dotykowy (min. 44px) */
+.custom-select-wrapper .custom-select-display {
+    min-height: 44px;
+    box-sizing: border-box;
+}
+
+/* Kafelek produktu w secie (150px) — pole na całą szerokość, mniejsza czcionka */
+.set-item .custom-select-wrapper {
+    width: 100%;
+    min-width: 0;
+}
+
+.set-item .custom-select-display {
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+/* Wiersz wymaganego produktu w bonusie — pole zajmuje wolne miejsce */
+.bonus-required-item .custom-select-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Na ekranach dotykowych pozycje listy też min. 44px,
+   a pole wpisywania 16px (iOS nie przybliża wtedy strony) */
+@media (pointer: coarse) {
+    .searchable-select-option {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    .searchable-select-input {
+        min-height: 44px;
+        font-size: 16px;
+    }
+}

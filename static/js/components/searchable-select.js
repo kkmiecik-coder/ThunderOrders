@@ -14,6 +14,28 @@
     let openWrapper = null;
     let openPanelEl = null;
 
+    // Minimalna szerokość panelu — wąskie pola (np. kafelek produktu w secie)
+    // dostają szerszą listę, żeby długie nazwy produktów były czytelne.
+    const PANEL_MIN_WIDTH = 320;
+    const VIEWPORT_MARGIN = 8;
+
+    // Tekst do porównań: małe litery, bez polskich znaków i akcentów
+    // ("łódź" == "lodz"), żeby wpisywanie było wygodne.
+    function normalize(text) {
+        return (text || '')
+            .toLowerCase()
+            .replace(/ł/g, 'l')
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '');
+    }
+
+    // Każde wpisane słowo musi wystąpić (w dowolnej kolejności):
+    // "bts ver a" znajdzie "BTS - Album (Ver. A)".
+    function matchesQuery(haystack, query) {
+        const words = normalize(query).split(/\s+/).filter(Boolean);
+        return words.every(function (w) { return haystack.indexOf(w) !== -1; });
+    }
+
     function getSelect(wrapper) {
         return wrapper.querySelector('select.searchable-select');
     }
@@ -41,8 +63,13 @@
         const spaceBelow = window.innerHeight - rect.bottom - gap;
         const spaceAbove = rect.top - gap;
 
-        panel.style.left = rect.left + 'px';
-        panel.style.width = rect.width + 'px';
+        const maxWidth = window.innerWidth - 2 * VIEWPORT_MARGIN;
+        const width = Math.min(Math.max(rect.width, PANEL_MIN_WIDTH), maxWidth);
+        // Nie wychodź poza prawą/lewą krawędź ekranu.
+        const left = Math.max(VIEWPORT_MARGIN,
+            Math.min(rect.left, window.innerWidth - VIEWPORT_MARGIN - width));
+        panel.style.left = left + 'px';
+        panel.style.width = width + 'px';
 
         // Zdjęcie ograniczenia maxHeight (pomiar niżej) usuwa overflow listy, przez co
         // przeglądarka zeruje jej scrollTop. Zapamiętaj pozycję, by ją odtworzyć na końcu.
@@ -117,18 +144,22 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'searchable-select-input';
-        input.placeholder = 'Szukaj...';
+        input.placeholder = select.dataset.searchPlaceholder || 'Szukaj...';
+        input.setAttribute('autocomplete', 'off');
         searchWrap.appendChild(input);
 
         const list = document.createElement('ul');
         list.className = 'searchable-select-options';
 
-        // Buduj opcje na zywo z natywnego selecta (pomijaj placeholder z pustym value)
+        // Buduj opcje na zywo z natywnego selecta (pomijaj placeholder z pustym value
+        // oraz opcje wyłączone — np. produkt wybrany już w innej sekcji).
         Array.from(select.options).forEach(function (opt) {
             if (!opt.value) return;
+            if (opt.disabled && opt.value !== select.value) return;
             const li = document.createElement('li');
             li.className = 'searchable-select-option';
             li.dataset.value = opt.value;
+            li.dataset.search = normalize(opt.text + ' ' + (opt.dataset.sku || ''));
             li.textContent = opt.text;
             if (opt.value === select.value) li.classList.add('is-selected');
             list.appendChild(li);
@@ -150,6 +181,10 @@
         positionPanel(wrapper, panel);
         input.focus();
 
+        // Przy długiej liście pokaż od razu aktualnie wybrany produkt.
+        const selectedLi = list.querySelector('.searchable-select-option.is-selected');
+        if (selectedLi) selectedLi.scrollIntoView({ block: 'nearest' });
+
         // Panel jest fixed -> przy scrollu/resize repozycjonuj go za triggerem.
         // 'true' = faza przechwytywania, żeby łapać też scroll zagnieżdżonych kontenerów.
         window.addEventListener('scroll', handleViewportChange, true);
@@ -163,10 +198,10 @@
         }
 
         function filter() {
-            const q = input.value.trim().toLowerCase();
+            const q = input.value;
             let any = false;
             list.querySelectorAll('.searchable-select-option').forEach(function (li) {
-                const match = li.textContent.toLowerCase().indexOf(q) !== -1;
+                const match = matchesQuery(li.dataset.search, q);
                 li.style.display = match ? '' : 'none';
                 li.classList.remove('is-highlighted');
                 if (match) any = true;
@@ -202,7 +237,9 @@
                 setHighlight(Math.max(highlighted - 1, 0));
             } else if (e.key === 'Enter') {
                 e.preventDefault();
-                if (highlighted >= 0 && opts[highlighted]) choose(opts[highlighted]);
+                // Enter bez strzałek wybiera pierwszy pasujący wynik.
+                const target = highlighted >= 0 ? opts[highlighted] : opts[0];
+                if (target) choose(target);
             } else if (e.key === 'Escape') {
                 e.preventDefault();
                 closePanel();

@@ -404,16 +404,24 @@
                                 </div>
                                 <div class="product-select-wrapper">
                                     <label>Produkt</label>
-                                    <select class="form-select product-select" data-product-id="{{ section.product_id or '' }}" onchange="updateProductThumbnail(this)">
-                                        <option value="">Wybierz produkt...</option>
-                                        {% for product in products %}
-                                        <option value="{{ product.id }}"
-                                                data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}"
-                                                {% if section.product_id == product.id %}selected{% endif %}>
-                                            {{ product.name }} {% if product.sku %}({{ product.sku }}){% endif %}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="custom-select-wrapper">
+                                        <select class="form-select product-select searchable-select" data-search-placeholder="Szukaj po nazwie lub SKU..." data-product-id="{{ section.product_id or '' }}" onchange="updateProductThumbnail(this)">
+                                            <option value="">Wybierz produkt...</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}" data-sku="{{ product.sku or '' }}"
+                                                    data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}"
+                                                    {% if section.product_id == product.id %}selected{% endif %}>
+                                                {{ product.name }} {% if product.sku %}({{ product.sku }}){% endif %}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="custom-select-display">
+                                            <span class="selected-text">Wybierz produkt...</span>
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="qty-counters-inline">
                                     <div class="qty-counter-group">
@@ -591,16 +599,24 @@
                                             </div>
                                             {% endif %}
                                         </div>
-                                        <select class="form-select set-item-product" onchange="updateSetItemThumbnail(this)">
-                                            <option value="">Wybierz produkt...</option>
-                                            {% for product in products %}
-                                            <option value="{{ product.id }}"
-                                                    data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}"
-                                                    {% if item.product_id == product.id %}selected{% endif %}>
-                                                {{ product.name }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
+                                        <div class="custom-select-wrapper">
+                                            <select class="form-select set-item-product searchable-select" data-search-placeholder="Szukaj po nazwie lub SKU..." onchange="updateSetItemThumbnail(this)">
+                                                <option value="">Wybierz produkt...</option>
+                                                {% for product in products %}
+                                                <option value="{{ product.id }}" data-sku="{{ product.sku or '' }}"
+                                                        data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}"
+                                                        {% if item.product_id == product.id %}selected{% endif %}>
+                                                    {{ product.name }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="custom-select-display">
+                                                <span class="selected-text">Wybierz produkt...</span>
+                                                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                    <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                                </svg>
+                                            </div>
+                                        </div>
                                         <span class="set-item-badge badge-product">Produkt</span>
                                         <button type="button" class="btn-remove-item" onclick="removeSetItem(this)">
                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -625,7 +641,7 @@
                                         <select class="form-select set-product-select searchable-select" onchange="markDirty(); updateSetProductPreview(this)">
                                             <option value="">Wybierz produkt...</option>
                                             {% for product in products %}
-                                            <option value="{{ product.id }}"
+                                            <option value="{{ product.id }}" data-sku="{{ product.sku or '' }}"
                                                     data-name="{{ product.name }}"
                                                     data-price="{{ '%.2f'|format(product.sale_price) }}"
                                                     data-image="{% if product.primary_image %}{{ url_for('static', filename=product.primary_image.path_compressed) }}{% endif %}"
@@ -725,12 +741,20 @@
                                                     <div class="bonus-required-list">
                                                         {% for rp in bonus.required_products %}
                                                         <div class="bonus-required-item">
-                                                            <select class="form-select bonus-req-product" onchange="markDirty()">
-                                                                <option value="">Wybierz...</option>
-                                                                {% for product in products %}
-                                                                <option value="{{ product.id }}" {% if rp.product_id == product.id %}selected{% endif %}>{{ product.name }}</option>
-                                                                {% endfor %}
-                                                            </select>
+                                                            <div class="custom-select-wrapper">
+                                                                <select class="form-select bonus-req-product searchable-select" data-search-placeholder="Szukaj po nazwie lub SKU..." onchange="markDirty()">
+                                                                    <option value="">Wybierz...</option>
+                                                                    {% for product in products %}
+                                                                    <option value="{{ product.id }}" data-sku="{{ product.sku or '' }}" {% if rp.product_id == product.id %}selected{% endif %}>{{ product.name }}</option>
+                                                                    {% endfor %}
+                                                                </select>
+                                                                <div class="custom-select-display">
+                                                                    <span class="selected-text">Wybierz...</span>
+                                                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                                        <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
                                                             <input type="number" class="form-input bonus-req-min-qty" value="{{ rp.min_quantity }}" min="1" onchange="markDirty()">
                                                             <button type="button" class="btn-remove-req-product" onclick="removeBonusRequiredProduct(this)">
                                                                 <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
@@ -907,12 +931,20 @@
                                             {% if bonus %}
                                             {% for rp in bonus.required_products %}
                                             <div class="bonus-required-item">
-                                                <select class="form-select bonus-req-product" onchange="markDirty()">
-                                                    <option value="">Wybierz...</option>
-                                                    {% for product in products %}
-                                                    <option value="{{ product.id }}" {% if rp.product_id == product.id %}selected{% endif %}>{{ product.name }}</option>
-                                                    {% endfor %}
-                                                </select>
+                                                <div class="custom-select-wrapper">
+                                                    <select class="form-select bonus-req-product searchable-select" data-search-placeholder="Szukaj po nazwie lub SKU..." onchange="markDirty()">
+                                                        <option value="">Wybierz...</option>
+                                                        {% for product in products %}
+                                                        <option value="{{ product.id }}" data-sku="{{ product.sku or '' }}" {% if rp.product_id == product.id %}selected{% endif %}>{{ product.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <div class="custom-select-display">
+                                                        <span class="selected-text">Wybierz...</span>
+                                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                            <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                                        </svg>
+                                                    </div>
+                                                </div>
                                                 <input type="number" class="form-input bonus-req-min-qty" value="{{ rp.min_quantity }}" min="1" onchange="markDirty()">
                                                 <button type="button" class="btn-remove-req-product" onclick="removeBonusRequiredProduct(this)">
                                                     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
@@ -1006,7 +1038,7 @@
 <!-- Product Select Template (hidden) -->
 <template id="productOptionTemplate">
     {% for product in products %}
-    <option value="{{ product.id }}"
+    <option value="{{ product.id }}" data-sku="{{ product.sku or '' }}"
             data-name="{{ product.name }}"
             data-price="{{ '%.2f'|format(product.sale_price) }}"
             data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}">

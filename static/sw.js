@@ -7,7 +7,7 @@
  * przejścia między stronami natywnie.
  */
 
-const CACHE_VERSION = 'thunderorders-v51';
+const CACHE_VERSION = 'thunderorders-v52';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 
 // Assets to pre-cache on install
