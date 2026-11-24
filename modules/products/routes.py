@@ -4268,7 +4268,7 @@ def _allocate_product_shipping_fifo(product_id):
       • partie ustawione w kolejności ich utworzenia (created_at).
     Zwraca {order_id: Decimal koszt_wysyłki_tego_produktu}.
     """
-    from modules.orders.models import Order
+    from modules.orders.models import Order, fifo_order_by
     from modules.products.models import PolandOrder, PolandOrderItem
     from decimal import Decimal
 
@@ -4305,7 +4305,7 @@ def _allocate_product_shipping_fifo(product_id):
     client_orders = (
         Order.query
         .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
-        .order_by(Order.created_at.asc(), Order.id.asc())
+        .order_by(*fifo_order_by())
         .all()
     )
 
@@ -4341,7 +4341,7 @@ def _batch_allocation_for_range(product_id, batch_start, batch_end, cache=None):
     `order.items` w pętli niżej) pod kluczem 'client_orders'. Domyślnie None =
     zachowanie jak dotąd, własne zapytanie przy każdym wywołaniu.
     """
-    from modules.orders.models import Order
+    from modules.orders.models import Order, fifo_order_by
     from sqlalchemy.orm import selectinload
 
     if cache is not None and cache.get('client_orders') is not None:
@@ -4351,7 +4351,7 @@ def _batch_allocation_for_range(product_id, batch_start, batch_end, cache=None):
             Order.query
             .options(selectinload(Order.items))
             .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
-            .order_by(Order.created_at.asc(), Order.id.asc())
+            .order_by(*fifo_order_by())
             .all()
         )
         if cache is not None:
