@@ -105,3 +105,155 @@ def przepisz_cale_zamowienie(order, nowa_klientka, admin):
         zrodlo=order, cel=order, poprzednia=poprzednia, cale=True,
         pozycje=[(i.product_name, i.quantity) for i in order.items],
     )
+
+
+# ------------------------------------------------------------------ wybrane pozycje
+
+# Pola pozycji kopiowane do nowej pozycji przy przepisaniu części sztuk.
+POLA_POZYCJI = (
+    'product_id', 'custom_name', 'custom_sku', 'is_custom', 'is_full_set', 'selected_size',
+    'price', 'wms_status', 'is_set_fulfilled', 'set_section_id', 'set_number', 'is_bonus',
+    'bonus_source_section_id',
+)
+
+ETAPY_PRZENOSZONE = ('product', 'korean_shipping', 'customs_vat')
+
+
+def _ma_gift_cards(item):
+    from modules.gift_cards.models import GiftAssignment
+    return GiftAssignment.query.filter_by(order_item_id=item.id).first() is not None
+
+
+def czy_pozycja_prosta(item):
+    """Czy z pozycji można przepisać część sztuk.
+
+    Tylko gdy wszystkie sztuki są „takie same”: bez częściowej realizacji, bez
+    samych incl-i, bez zebranych w magazynie sztuk i bez przydziałów gift cards —
+    inaczej nie wiadomo, które sztuki przechodzą.
+    """
+    if item.is_set_fulfilled is False:
+        return False
+    if item.fulfilled_quantity is not None and item.fulfilled_quantity != item.quantity:
+        return False
+    if (item.incl_only_quantity or 0) > 0 or (item.picked_quantity or 0) > 0:
+        return False
+    return not _ma_gift_cards(item)
+
+
+def _waliduj_wybor(order, wybor):
+    """Zwraca [(item, ilosc)] albo rzuca TransferError."""
+    if not wybor:
+        raise TransferError('Zaznacz przynajmniej jedną pozycję do przepisania.')
+    pozycje = {i.id: i for i in order.items}
+    wynik, widziane = [], set()
+    for item_id, ilosc in wybor:
+        item = pozycje.get(item_id)
+        if item is None or item_id in widziane:
+            raise TransferError('Wybrana pozycja nie należy do tego zamówienia.')
+        widziane.add(item_id)
+        if not isinstance(ilosc, int) or ilosc < 1 or ilosc > item.quantity:
+            raise TransferError(
+                f'Nieprawidłowa ilość dla „{item.product_name}” (można od 1 do {item.quantity}).')
+        if ilosc < item.quantity and not czy_pozycja_prosta(item):
+            raise TransferError(
+                f'Z pozycji „{item.product_name}” można przepisać tylko całą pozycję '
+                f'({item.quantity} szt.) — to set, gift card albo częściowa realizacja.')
+        wynik.append((item, ilosc))
+    if len(wynik) == len(pozycje) and all(ilosc == item.quantity for item, ilosc in wynik):
+        raise TransferError('Zaznaczono wszystko — użyj opcji „Całe zamówienie”.')
+    return wynik
+
+
+def _sprawdz_oczekujace_wplaty(order):
+    for conf in order.payment_confirmations:
+        if conf.payment_stage in ETAPY_PRZENOSZONE and conf.status == 'pending':
+            raise TransferError(
+                f'Klientka ma wpłatę „{conf.stage_display_name}”, która czeka na sprawdzenie. '
+                'Zatwierdź ją albo odrzuć, zanim przepiszesz kartę razem z wpłatą.')
+
+
+def _nowe_zamowienie(order, nowa_klientka, admin):
+    from modules.orders.models import Order
+    from modules.orders.utils import assign_order_number, order_number_placeholder
+
+    nowe = Order(
+        order_number=order_number_placeholder(),
+        user_id=nowa_klientka.id,
+        order_type=order.order_type,
+        status=order.status,
+        offer_page_id=order.offer_page_id,
+        offer_page_name=order.offer_page_name,
+        payment_stages=order.payment_stages,
+        created_by_admin_id=admin.id,
+        fifo_anchor_order_id=order.fifo_anchor_order_id or order.id,
+        total_amount=0,
+        paid_amount=0,
+        shipping_cost=0,
+        proxy_shipping_cost=0,
+        customs_vat_sale_cost=None,
+    )
+    nowe.created_at = order.created_at
+    db.session.add(nowe)
+    db.session.flush()
+    assign_order_number(nowe, order.order_type or 'on_hand')
+    return nowe
+
+
+def _przenies_pozycje(wybrane, nowe):
+    """Przenosi sztuki do zamówienia `nowe`. Zwraca [(pozycja_docelowa, ilosc, kwota_e1)]."""
+    from decimal import Decimal
+    from modules.orders.models import OrderItem
+
+    przeniesione = []
+    for item, ilosc in wybrane:
+        if ilosc == item.quantity:
+            kwota = Decimal(str(item.total or 0))
+            item.order_id = nowe.id
+            item.order = nowe
+            przeniesione.append((item, ilosc, kwota))
+            continue
+        cena = Decimal(str(item.price))
+        nowa = OrderItem(order_id=nowe.id, quantity=ilosc, total=cena * ilosc,
+                         **{pole: getattr(item, pole) for pole in POLA_POZYCJI})
+        item.quantity -= ilosc
+        item.total = cena * item.quantity
+        db.session.add(nowa)
+        przeniesione.append((nowa, ilosc, cena * ilosc))
+    db.session.flush()
+    return przeniesione
+
+
+def przepisz_pozycje(order, nowa_klientka, admin, wybor, wplata_za_karta):
+    """Przenosi wybrane sztuki do NOWEGO zamówienia nowej klientki.
+
+    wybor: [(order_item_id, ilosc)]. Nowe zamówienie przejmuje datę i miejsce
+    w kolejce FIFO oryginału (kotwica). wplata_za_karta=True przenosi opłaconą
+    część kwoty; False zostawia wpłatę u dotychczasowej klientki.
+    """
+    _sprawdz_cel(order, nowa_klientka)
+    wybrane = _waliduj_wybor(order, wybor)
+    if wplata_za_karta:
+        _sprawdz_oczekujace_wplaty(order)
+    poprzednia = order.user
+
+    nowe = _nowe_zamowienie(order, nowa_klientka, admin)
+    przeniesione = _przenies_pozycje(wybrane, nowe)
+    _przenies_gift_cards([poz for poz, _, _ in przeniesione], nowa_klientka)
+
+    db.session.expire(order, ['items'])
+    order.recalculate_total_amount()
+    nowe.recalculate_total_amount()
+
+    pozycje = [(poz.product_name, ilosc) for poz, ilosc, _ in przeniesione]
+    opis_pozycji = ', '.join(f'{nazwa} ×{ilosc}' for nazwa, ilosc in pozycje)
+    opis_wplaty = ('wpłata poszła razem z kartą' if wplata_za_karta
+                   else 'wpłata została u poprzedniej klientki')
+    tresc = (f'Przepisano z {order.order_number} ({_opis_klientki(poprzednia)}) '
+             f'do {nowe.order_number} ({_opis_klientki(nowa_klientka)}): {opis_pozycji}; '
+             f'{opis_wplaty}.')
+    _komentarz(order, admin, tresc)
+    _komentarz(nowe, admin, tresc)
+    db.session.flush()
+
+    return WynikPrzepisania(zrodlo=order, cel=nowe, poprzednia=poprzednia, pozycje=pozycje,
+                            wplata_poszla=bool(wplata_za_karta), cale=False)

@@ -197,3 +197,163 @@ def test_bez_blokad_zwraca_none(db, make_product, make_order, ania):
     a = zamowienie_klientki(db, None, make_order, [(p.id, 1, 30)], user=ania)
 
     assert sprawdz_blokady(a) is None
+
+
+# ---------------------------------------------------------------- wybrane pozycje
+
+def _pozycje(order):
+    from modules.orders.models import OrderItem
+    return OrderItem.query.filter_by(order_id=order.id).order_by(OrderItem.id).all()
+
+
+def test_pozycja_w_calosci_trafia_do_nowego_zamowienia(db, make_product, make_order,
+                                                         ania, basia, admin):
+    from modules.orders.transfer import przepisz_pozycje
+
+    p1, p2 = make_product(), make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p1.id, 1, 60), (p2.id, 1, 40)], user=ania,
+                            status='oczekujace', payment_stages=4, offer_page_name='Drop')
+    karta = _pozycje(a)[1]
+
+    wynik = przepisz_pozycje(a, basia, admin, [(karta.id, 1)], wplata_za_karta=False)
+    db.session.commit()
+    b = wynik.cel
+
+    assert b.id != a.id and b.user_id == basia.id
+    assert (b.order_type, b.status, b.offer_page_id, b.payment_stages, b.offer_page_name) == \
+        ('exclusive', 'oczekujace', 1, 4, 'Drop')
+    assert b.created_at == a.created_at
+    assert b.fifo_anchor_order_id == a.id
+    assert b.order_number == f'EX/{b.id}'
+    assert b.created_by_admin_id == admin.id
+    assert karta.order_id == b.id
+    assert a.total_amount == Decimal('60') and b.total_amount == Decimal('40')
+    assert wynik.pozycje == [(karta.product_name, 1)]
+
+
+def test_czesc_sztuk_dzieli_pozycje(db, make_product, make_order, ania, basia, admin):
+    from modules.orders.transfer import przepisz_pozycje
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania)
+    item = _pozycje(a)[0]
+    item.selected_size = 'M'
+    db.session.commit()
+
+    b = przepisz_pozycje(a, basia, admin, [(item.id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert (item.quantity, item.total) == (1, Decimal('30'))
+    [nowa] = _pozycje(b)
+    assert (nowa.product_id, nowa.quantity, nowa.price, nowa.total, nowa.selected_size) == \
+        (p.id, 1, Decimal('30'), Decimal('30'), 'M')
+    assert a.total_amount == Decimal('30') and b.total_amount == Decimal('30')
+
+
+def test_lancuch_kotwicy(db, make_product, make_order, make_user, ania, basia, admin):
+    from modules.orders.transfer import przepisz_pozycje
+
+    celina = make_user(email='celina@example.com')
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 3, 30)], user=ania)
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 2)], wplata_za_karta=False).cel
+    db.session.commit()
+    c = przepisz_pozycje(b, celina, admin, [(_pozycje(b)[0].id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert c.fifo_anchor_order_id == a.id
+    assert c.created_at == a.created_at
+
+
+def test_komentarz_w_obu_zamowieniach(db, make_product, make_order, ania, basia, admin):
+    from modules.orders.models import OrderComment
+    from modules.orders.transfer import przepisz_pozycje
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania)
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=True).cel
+    db.session.commit()
+
+    for o in (a, b):
+        [k] = OrderComment.query.filter_by(order_id=o.id).all()
+        assert k.is_internal and a.order_number in k.comment and b.order_number in k.comment
+        assert 'wpłata poszła razem z kartą' in k.comment
+
+
+@pytest.mark.parametrize('wybor_fn', [
+    lambda items: [],                                          # pusty wybór
+    lambda items: [(items[0].id, 2), (items[1].id, 1)],        # wszystko
+    lambda items: [(items[0].id, 0)],                          # ilość 0
+    lambda items: [(items[0].id, 3)],                          # ponad ilość
+    lambda items: [(999999, 1)],                               # obca pozycja
+])
+def test_walidacja_wyboru(db, make_product, make_order, ania, basia, admin, wybor_fn):
+    from modules.orders.transfer import TransferError, przepisz_pozycje
+
+    p1, p2 = make_product(), make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p1.id, 2, 30), (p2.id, 1, 10)], user=ania)
+
+    with pytest.raises(TransferError):
+        przepisz_pozycje(a, basia, admin, wybor_fn(_pozycje(a)), wplata_za_karta=False)
+
+
+@pytest.mark.parametrize('ustaw', [
+    lambda i: setattr(i, 'incl_only_quantity', 1),
+    lambda i: setattr(i, 'fulfilled_quantity', 1),
+    lambda i: setattr(i, 'picked_quantity', 1),
+])
+def test_czesc_sztuk_tylko_dla_prostej_pozycji(db, make_product, make_order, ania, basia, admin,
+                                              ustaw):
+    from modules.orders.transfer import TransferError, przepisz_pozycje
+
+    p1, p2 = make_product(), make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p1.id, 2, 30), (p2.id, 1, 10)], user=ania)
+    item = _pozycje(a)[0]
+    ustaw(item)
+    db.session.commit()
+
+    with pytest.raises(TransferError, match='całą pozycję'):
+        przepisz_pozycje(a, basia, admin, [(item.id, 1)], wplata_za_karta=False)
+    # w całości wolno
+    przepisz_pozycje(a, basia, admin, [(item.id, 2)], wplata_za_karta=False)
+
+
+def test_czesc_sztuk_z_gift_card_zablokowana(db, make_product, make_order, strona_sprzedazy,
+                                            ania, basia, admin):
+    from modules.orders.transfer import TransferError, przepisz_pozycje
+
+    p1, p2 = make_product(), make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p1.id, 2, 30), (p2.id, 1, 10)], user=ania)
+    item = _pozycje(a)[0]
+    przydzial = przydzial_gift_card(db, make_product, strona_sprzedazy, ania, item)
+
+    with pytest.raises(TransferError, match='całą pozycję'):
+        przepisz_pozycje(a, basia, admin, [(item.id, 1)], wplata_za_karta=False)
+
+    przepisz_pozycje(a, basia, admin, [(item.id, 2)], wplata_za_karta=False)
+    db.session.commit()
+    assert przydzial.user_id == basia.id
+
+
+def test_wplata_za_karta_blokowana_przy_oczekujacym(db, make_product, make_order,
+                                                     ania, basia, admin):
+    from modules.orders.transfer import TransferError, przepisz_pozycje
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania)
+    _potwierdzenie(db, a, 'product', 60, status='pending')
+    item = _pozycje(a)[0]
+
+    with pytest.raises(TransferError, match='czeka na sprawdzenie'):
+        przepisz_pozycje(a, basia, admin, [(item.id, 1)], wplata_za_karta=True)
+    przepisz_pozycje(a, basia, admin, [(item.id, 1)], wplata_za_karta=False)
+
+
+def test_pozycje_respektuja_blokady(db, make_product, make_order, ania, basia, admin):
+    from modules.orders.transfer import TransferError, przepisz_pozycje
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania, status='wyslane')
+
+    with pytest.raises(TransferError):
+        przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=False)
