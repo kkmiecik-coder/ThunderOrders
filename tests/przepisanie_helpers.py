@@ -47,3 +47,24 @@ def partia(db, product_id, ilosc, created_at, koszt=None, stawka_cla=None, statu
     db.session.add(pi)
     db.session.commit()
     return pi
+
+
+def przydzial_gift_card(db, make_product, strona, user, item):
+    """Akcja gift cards z jednym przydziałem karty do pozycji `item` klientki `user`."""
+    from datetime import timedelta
+    from modules.gift_cards.models import GiftAssignment, GiftCampaign, GiftCampaignPage
+    from tests.gift_helpers import add_pool, add_types
+    from utils.timeutil import utcnow
+
+    c = GiftCampaign(name='Akcja', status='zatwierdzona', race_at=utcnow() - timedelta(minutes=1))
+    db.session.add(c)
+    db.session.commit()
+    db.session.add(GiftCampaignPage(campaign_id=c.id, offer_page_id=strona.id))
+    db.session.commit()
+    add_pool(db, c, make_product(name='Gratis'))
+    typ = add_types(db, c, {'San': 1})['San']
+    przydzial = GiftAssignment(campaign_id=c.id, user_id=user.id, order_item_id=item.id,
+                               pool_id=c.pools[0].id, card_type_id=typ.id, round_no=1)
+    db.session.add(przydzial)
+    db.session.commit()
+    return przydzial
