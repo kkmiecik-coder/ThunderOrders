@@ -520,10 +520,18 @@ function getSectionTemplate(type) {
                             </div>
                             <div class="product-select-wrapper">
                                 <label>Produkt</label>
-                                <select class="form-select product-select" onchange="updateProductThumbnail(this)">
-                                    <option value="">Wybierz produkt...</option>
-                                    ${productOptions}
-                                </select>
+                                <div class="custom-select-wrapper">
+                                    <select class="form-select product-select searchable-select" data-search-placeholder="Szukaj po nazwie lub SKU..." onchange="updateProductThumbnail(this)">
+                                        <option value="">Wybierz produkt...</option>
+                                        ${productOptions}
+                                    </select>
+                                    <div class="custom-select-display">
+                                        <span class="selected-text">Wybierz produkt...</span>
+                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                        </svg>
+                                    </div>
+                                </div>
                             </div>
                             <div class="qty-counters-inline">
                                 <div class="qty-counter-group">
@@ -874,10 +882,18 @@ function addSetItem(btn) {
                     </svg>
                 </div>
             </div>
-            <select class="form-select set-item-product" onchange="updateSetItemThumbnail(this); updateProductDropdowns(); updateSetButtons(this.closest('.section-card[data-section-type=\\'set\\']'));">
-                <option value="">Wybierz produkt...</option>
-                ${productOptions}
-            </select>
+            <div class="custom-select-wrapper">
+                <select class="form-select set-item-product searchable-select" data-search-placeholder="Szukaj po nazwie lub SKU..." onchange="updateSetItemThumbnail(this); updateProductDropdowns(); updateSetButtons(this.closest('.section-card[data-section-type=\\'set\\']'));">
+                    <option value="">Wybierz produkt...</option>
+                    ${productOptions}
+                </select>
+                <div class="custom-select-display">
+                    <span class="selected-text">Wybierz produkt...</span>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </div>
+            </div>
             <span class="set-item-badge badge-product">Produkt</span>
             <button type="button" class="btn-remove-item" onclick="removeSetItem(this)">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -2909,10 +2925,18 @@ function addBonusRequiredProduct(btn) {
 
     const html = `
     <div class="bonus-required-item">
-        <select class="form-select bonus-req-product" onchange="markDirty()">
-            <option value="">Wybierz...</option>
-            ${productOptions}
-        </select>
+        <div class="custom-select-wrapper">
+            <select class="form-select bonus-req-product searchable-select" data-search-placeholder="Szukaj po nazwie lub SKU..." onchange="markDirty()">
+                <option value="">Wybierz...</option>
+                ${productOptions}
+            </select>
+            <div class="custom-select-display">
+                <span class="selected-text">Wybierz...</span>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </div>
+        </div>
         <input type="number" class="form-input bonus-req-min-qty" value="1" min="1" style="width: 60px;" onchange="markDirty()">
         <button type="button" class="btn-remove-req-product" onclick="removeBonusRequiredProduct(this)">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
