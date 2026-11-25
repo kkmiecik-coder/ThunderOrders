@@ -120,6 +120,7 @@ def record_bulk_payment_proofs(user, order_stages, saved_filename, payment_metho
                 existing = None
             if existing:
                 existing.proof_file = saved_filename
+                existing.proof_hidden_for_client = False   # własny dowód — widoczny
                 existing.uploaded_at = now
                 existing.status = 'pending'
                 existing.rejection_reason = None

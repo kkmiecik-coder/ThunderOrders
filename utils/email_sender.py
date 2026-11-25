@@ -689,6 +689,32 @@ def send_admin_created_order_email(user_email, user_name, admin_name, order_numb
     )
 
 
+def send_order_transferred_to_email(user_email, user_name, order_number, pozycje, cale,
+                                    do_zaplaty, order_url, log_context=None):
+    """Mail do klientki, na którą przepisano zamówienie albo pozycje."""
+    return send_email(
+        to=user_email,
+        subject=f'Zamówienie {order_number} przepisane na Ciebie - ThunderOrders',
+        template='order_transferred_to',
+        log_context=log_context,
+        user_name=user_name, order_number=order_number, pozycje=pozycje, cale=cale,
+        do_zaplaty=do_zaplaty, order_url=order_url,
+    )
+
+
+def send_order_transferred_from_email(user_email, user_name, order_number, pozycje, cale,
+                                      order_url, log_context=None):
+    """Mail do klientki, z której zamówienia przepisano — bez danych nowej właścicielki."""
+    return send_email(
+        to=user_email,
+        subject=f'Przepisanie z zamówienia {order_number} - ThunderOrders',
+        template='order_transferred_from',
+        log_context=log_context,
+        user_name=user_name, order_number=order_number, pozycje=pozycje, cale=cale,
+        order_url=order_url,
+    )
+
+
 def send_order_status_change_email(user_email, user_name, order_number, old_status, new_status,
                                    log_context=None):
     """

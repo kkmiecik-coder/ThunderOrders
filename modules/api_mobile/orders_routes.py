@@ -85,7 +85,9 @@ def _stage_entry(stage, stage_index, name, amount, status, can_upload, deadline,
         'can_upload': bool(can_upload),
         'deadline': iso_utc(deadline),
         'has_proof': bool(conf.has_proof) if conf else False,
-        'proof_url': _proof_url(conf.proof_file) if (conf and conf.proof_file) else None,  # [D1=a]
+        'proof_url': (_proof_url(conf.proof_file)
+                      if (conf and conf.proof_file and not conf.proof_hidden_for_client)
+                      else None),  # [D1=a]; ukryty = dowód poprzedniej właścicielki
         'rejection_reason': conf.rejection_reason if conf else None,
     }
 

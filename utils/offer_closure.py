@@ -13,7 +13,7 @@ from decimal import Decimal
 from flask import current_app, url_for
 from extensions import db
 from modules.offers.models import OfferPage, OfferSection, OfferSetItem
-from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirmation
+from modules.orders.models import Order, OrderItem, OrderComment, PaymentConfirmation, fifo_klucz, fifo_order_by
 from modules.auth.models import User
 from utils.transfer_title import render_transfer_title
 from utils.closure_settings import get_closure_statuses
@@ -58,7 +58,7 @@ def calculate_set_fulfillment(page_id):
     # Pobierz wszystkie zamówienia dla tej strony (bez anulowanych)
     orders = Order.query.filter_by(offer_page_id=page_id).filter(
         Order.status != 'anulowane'
-    ).order_by(Order.created_at.asc()).all()
+    ).order_by(*fifo_order_by()).all()
 
     result = {
         'page_id': page_id,
@@ -133,6 +133,7 @@ def process_set_section(section, orders):
                         'order_item': item,
                         'quantity': item.quantity,
                         'created_at': order.created_at,
+                        'fifo': fifo_klucz(order),
                     })
 
     # Oblicz liczbę dostępnych kompletnych setów
@@ -170,7 +171,7 @@ def process_set_section(section, orders):
         fulfilled_so_far = 0
         orders_for_product = sorted(
             product_orders.get(product_id, []),
-            key=lambda x: (x['created_at'], x['order_id'])
+            key=lambda x: x['fifo']
         )
 
         for po in orders_for_product:

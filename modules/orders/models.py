@@ -212,6 +212,15 @@ class Order(db.Model):
     # ShippingRequest.delivery_reminder_sent_at.
     pickup_reminder_sent_at = db.Column(UTCDateTime, nullable=True)
 
+    # Kotwica kolejki FIFO partii z Korei — ustawiana przy przepisaniu pozycji na inną
+    # klientkę (modules/orders/transfer.py). Nowe zamówienie przejmuje created_at
+    # oryginału, ale created_at ma dokładność do sekundy i przy LIVE remisy rozstrzyga
+    # id — nowe zamówienie (największe id) stanęłoby za wszystkimi z tej sekundy.
+    # Kotwica = id zamówienia, za którym ma stać; patrz fifo_order_by()/fifo_klucz().
+    # NULL = zwykłe zamówienie, kolejność jak dotąd.
+    fifo_anchor_order_id = db.Column(
+        db.Integer, db.ForeignKey('orders.id', ondelete='SET NULL'), nullable=True, index=True)
+
     # Relationships
     items = db.relationship('OrderItem', back_populates='order', cascade='all, delete-orphan')
     comments = db.relationship('OrderComment', back_populates='order', cascade='all, delete-orphan', order_by='OrderComment.created_at.desc()')
@@ -1249,6 +1258,27 @@ class Order(db.Model):
                 total += Decimal(str(item.total))
         self.total_amount = total
 
+
+def fifo_order_by():
+    """Klucz kolejki FIFO zamówień klientów (partie z Korei) dla `order_by`.
+
+    (created_at, kotwica-lub-id, id): zamówienie bez kotwicy sortuje się dokładnie
+    jak dawniej (created_at, id); przepisane zamówienie z kotwicą A staje tuż za A,
+    przed zamówieniami z tej samej sekundy złożonymi po A.
+    """
+    return (
+        Order.created_at.asc(),
+        func.coalesce(Order.fifo_anchor_order_id, Order.id).asc(),
+        Order.id.asc(),
+    )
+
+
+def fifo_klucz(order):
+    """Ten sam klucz co fifo_order_by(), do sortowania obiektów w Pythonie."""
+    kotwica = order.fifo_anchor_order_id if order.fifo_anchor_order_id is not None else order.id
+    return (order.created_at, kotwica, order.id)
+
+
 class OrderItem(db.Model):
     """
     Order line items - products in order.
@@ -2166,6 +2196,12 @@ class PaymentConfirmation(db.Model):
         comment="Status: 'pending', 'approved', 'rejected'"
     )
     rejection_reason = db.Column(db.Text, nullable=True, comment="Powód odrzucenia (admin)")
+
+    # Dowód wgrała poprzednia właścicielka zamówienia (przepisanie całego zamówienia,
+    # modules/orders/transfer.py) — są na nim jej dane bankowe, więc obecna klientka
+    # go nie widzi. Admin widzi zawsze.
+    proof_hidden_for_client = db.Column(
+        db.Boolean, nullable=False, default=False, server_default=db.text('0'))
 
     # Timestamps
     created_at = db.Column(UTCDateTime, nullable=False, default=utcnow)

@@ -634,6 +634,16 @@
                             </div>
                             <div class="email-notif-item">
                                 <div class="email-notif-info">
+                                    <div class="email-notif-name">Przepisanie zamówienia</div>
+                                    <div class="email-notif-desc">Email do obu klientek, gdy przepiszesz zamówienie lub kartę na inną osobę</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_order_transferred" {{ 'checked' if email_notif_config.get('notify_order_transferred', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
                                     <div class="email-notif-name">Zamówienie u dostawcy</div>
                                     <div class="email-notif-desc">Email gdy produkt został zamówiony u dostawcy</div>
                                 </div>
