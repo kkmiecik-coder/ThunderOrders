@@ -74,3 +74,24 @@ def test_aplikacja_nie_poda_ukrytego_dowodu(client, db, make_user, make_order, p
     etapy = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h).get_json()['data']
     produkt = next(e for e in etapy['payment_stages'] if e['stage'] == 'product')
     assert produkt['proof_url'] is None
+
+
+def test_nowy_dowod_klientki_zdejmuje_ukrycie(db, make_user, make_order):
+    """Basia wgrywa własny dowód w miejsce odrzuconego, ukrytego dowodu Ani — swój widzi."""
+    from modules.client.payment_confirmation_service import record_bulk_payment_proofs
+    from modules.orders.models import PaymentConfirmation
+
+    basia = make_user()
+    o = make_order(basia, order_type='on_hand', status='nowe', shipping_cost=Decimal('10.00'))
+    conf = PaymentConfirmation(order_id=o.id, payment_stage='domestic_shipping',
+                               amount=Decimal('10'), status='rejected', proof_file='ania.png',
+                               proof_hidden_for_client=True)
+    db.session.add(conf)
+    db.session.commit()
+
+    record_bulk_payment_proofs(basia, [{'order_id': o.id, 'stages': ['domestic_shipping']}],
+                               'basia.png', None)
+    db.session.refresh(conf)
+
+    assert conf.proof_file == 'basia.png'
+    assert conf.proof_hidden_for_client is False
