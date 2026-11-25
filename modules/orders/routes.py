@@ -5443,6 +5443,9 @@ def serve_payment_proof(filename):
         order = confirmation.order
         if not order or order.user_id != current_user.id:
             abort(403)
+        # Dowód poprzedniej właścicielki przepisanego zamówienia (jej dane bankowe).
+        if confirmation.proof_hidden_for_client:
+            abort(403)
     else:
         abort(403)
 

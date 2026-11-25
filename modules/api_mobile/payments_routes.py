@@ -56,7 +56,8 @@ def _proof_url(filename):
 def serve_proof_mobile(filename):
     filename = secure_filename(filename)                      # traversal-guard
     conf = PaymentConfirmation.query.filter_by(proof_file=filename).first()
-    if conf is None or conf.order is None or conf.order.user_id != int(get_jwt_identity()):
+    if (conf is None or conf.order is None or conf.order.user_id != int(get_jwt_identity())
+            or conf.proof_hidden_for_client):   # dowód poprzedniej właścicielki (przepisanie)
         return json_err('not_found', 'Plik nie istnieje.', 404)
     folder = os.path.join(current_app.root_path, 'uploads', 'payment_confirmations')
     return send_from_directory(folder, filename)
