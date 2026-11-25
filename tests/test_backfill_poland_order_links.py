@@ -180,5 +180,123 @@ def test_raport_zamowien_od_razu_zaleglych(db, make_product, klientka, partia):
 
     linie = []
     skrypt.wypisz(plan, out=linie.append)
-    assert any('od razu po terminie' in l and '1 zamówień' in l for l in linie)
+    assert any('od razu PO TERMINIE' in l and '1 zamówień' in l for l in linie)
     assert bez_kosztu.id not in plan.od_razu_zalegle
+
+
+NOWY = datetime(2026, 12, 2, 22, 59, tzinfo=timezone.utc)   # 2.12.2026 23:59 czasu polskiego
+MINIONY = datetime(2026, 11, 22, 22, 59, tzinfo=timezone.utc)
+PRZYSZLY = datetime(2026, 12, 20, 22, 59, tzinfo=timezone.utc)
+
+
+def test_nowy_termin_tylko_dla_minionych_i_niepustych(db, make_product, klientka, partia):
+    from modules.products.models import PolandOrder
+    p = make_product()
+    klientka(p.id, 3, datetime(2026, 7, 1, tzinfo=timezone.utc))
+    a = partia(p.id, 1, datetime(2026, 9, 1, tzinfo=timezone.utc),
+               payment_deadline=MINIONY, customs_payment_deadline=MINIONY)
+    b = partia(p.id, 1, datetime(2026, 9, 2, tzinfo=timezone.utc),
+               payment_deadline=MINIONY, customs_payment_deadline=None)
+    c = partia(p.id, 1, datetime(2026, 9, 3, tzinfo=timezone.utc),
+               payment_deadline=PRZYSZLY, customs_payment_deadline=MINIONY)
+
+    plan = skrypt.zaplanuj(od=OD, now=TERAZ, nowy_termin=NOWY)
+
+    assert sorted((t.poland_order_id, t.pole) for t in plan.zmiany_terminow) == sorted([
+        (a.poland_order_id, 'payment_deadline'), (a.poland_order_id, 'customs_payment_deadline'),
+        (b.poland_order_id, 'payment_deadline'),
+        (c.poland_order_id, 'customs_payment_deadline'),
+    ])
+    # tryb próbny niczego nie zmienia
+    db.session.expire_all()
+    assert db.session.get(PolandOrder, a.poland_order_id).payment_deadline == MINIONY
+
+    skrypt.zastosuj(plan)
+    db.session.expire_all()
+    pa = db.session.get(PolandOrder, a.poland_order_id)
+    pb = db.session.get(PolandOrder, b.poland_order_id)
+    pc = db.session.get(PolandOrder, c.poland_order_id)
+    assert (pa.payment_deadline, pa.customs_payment_deadline) == (NOWY, NOWY)
+    assert (pb.payment_deadline, pb.customs_payment_deadline) == (NOWY, None)
+    assert (pc.payment_deadline, pc.customs_payment_deadline) == (PRZYSZLY, NOWY)
+
+    drugi = skrypt.zaplanuj(od=OD, now=TERAZ, nowy_termin=NOWY)
+    assert drugi.zmiany == [] and drugi.zmiany_terminow == []
+
+
+def test_nowy_termin_zamienia_zaleglosc_na_przypomnienie(db, make_user, make_product, partia):
+    from modules.orders.models import OrderItem
+    from modules.orders.payment_overdue_service import get_order_overdue_stages
+    p = make_product()
+    klientka = make_user()
+    zamowienia = []
+    for i in range(2):   # ta sama klientka, dwa zamówienia
+        from modules.orders.models import Order
+        o = Order(order_number=f'PO/NT{i}', user_id=klientka.id, status='nowe', total_amount=100,
+                  offer_page_id=1, order_type='pre_order', payment_stages=4,
+                  proxy_shipping_cost=Decimal('10.00'),
+                  customs_vat_sale_cost=Decimal('5.00'),
+                  created_at=datetime(2026, 7, 1, i, tzinfo=timezone.utc))
+        db.session.add(o)
+        db.session.flush()
+        db.session.add(OrderItem(order_id=o.id, product_id=p.id, quantity=1,
+                                 price=Decimal('100'), total=Decimal('100')))
+        zamowienia.append(o)
+    db.session.commit()
+    partia(p.id, 2, datetime(2026, 11, 13, tzinfo=timezone.utc),
+           payment_deadline=MINIONY, customs_payment_deadline=MINIONY)
+
+    bez = skrypt.zaplanuj(od=OD, now=TERAZ)
+    assert len(bez.od_razu_zalegle) == 2 and bez.przypomnienia == {}
+
+    plan = skrypt.zaplanuj(od=OD, now=TERAZ, nowy_termin=NOWY)
+    assert plan.od_razu_zalegle == {}
+    assert set(plan.przypomnienia) == {o.id for o in zamowienia}
+    assert {e['stage'] for e in plan.przypomnienia[zamowienia[0].id]} == {'shipping_kr', 'customs_vat'}
+
+    linie = []
+    skrypt.wypisz(plan, out=linie.append)
+    assert any('dostanie: 2 zamówień, 1 klientek, łącznie 30.00 zł' in l for l in linie)
+    assert any(l.startswith('TERMIN') and '22.11.2026 23:59 -> 02.12.2026 23:59' in l for l in linie)
+
+    skrypt.zastosuj(plan)
+    db.session.expire_all()
+    o = db.session.get(Order, zamowienia[0].id)
+    assert o.get_shipping_kr_deadline() == NOWY
+    assert o.get_customs_vat_deadline() == NOWY
+    assert get_order_overdue_stages(o, now=TERAZ) == []
+
+
+def test_stare_logi_przypomnien_raportowane_a_null_nie_blokuje(db, make_product, klientka, partia):
+    from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
+    p = make_product()
+    o = klientka(p.id, 1, datetime(2026, 7, 1, tzinfo=timezone.utc),
+                 payment_stages=4, proxy_shipping_cost=Decimal('10.00'))
+    partia(p.id, 1, datetime(2026, 11, 13, tzinfo=timezone.utc), payment_deadline=MINIONY)
+    r24 = PaymentReminderConfig(reminder_type='before_deadline', hours=24, payment_stage='product')
+    r5 = PaymentReminderConfig(reminder_type='before_deadline', hours=5, payment_stage='product')
+    db.session.add_all([r24, r5])
+    db.session.flush()
+    db.session.add(PaymentReminderLog(order_id=o.id, config_id=r24.id, stage='shipping_kr'))
+    db.session.add(PaymentReminderLog(order_id=o.id, config_id=r5.id, stage=None))  # sprzed migracji
+    db.session.commit()
+
+    plan = skrypt.zaplanuj(od=OD, now=TERAZ, nowy_termin=NOWY)
+
+    assert plan.zablokowane_logami == {(o.id, 'shipping_kr'): [24]}
+
+
+def test_zastosuj_nie_nadpisuje_terminu_zmienionego_w_miedzyczasie(db, make_product, klientka, partia):
+    from modules.products.models import PolandOrder
+    p = make_product()
+    klientka(p.id, 1, datetime(2026, 7, 1, tzinfo=timezone.utc))
+    poz = partia(p.id, 1, datetime(2026, 11, 13, tzinfo=timezone.utc), payment_deadline=MINIONY)
+
+    plan = skrypt.zaplanuj(od=OD, now=TERAZ, nowy_termin=NOWY)
+    partia_db = db.session.get(PolandOrder, poz.poland_order_id)
+    partia_db.payment_deadline = PRZYSZLY      # ktoś zmienił ręcznie po próbie
+    db.session.commit()
+
+    skrypt.zastosuj(plan)
+    db.session.expire_all()
+    assert db.session.get(PolandOrder, poz.poland_order_id).payment_deadline == PRZYSZLY
