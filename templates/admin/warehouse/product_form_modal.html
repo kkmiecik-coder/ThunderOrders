@@ -130,7 +130,7 @@
                             <div class="tag-option"
                                  data-tag-id="{{ tag_id }}"
                                  data-tag-name="{{ tag_name }}"
-                                 onclick="selectTag('{{ tag_id }}', '{{ tag_name }}')">
+                                 onclick="selectTag('{{ tag_id }}', {{ tag_name|tojson|forceescape }})">
                                 {{ tag_name }}
                             </div>
                             {% endfor %}
@@ -330,7 +330,7 @@
                             <span class="size-pick-badge size-option"
                                  data-size-id="{{ size_id }}"
                                  data-size-name="{{ size_name }}"
-                                 onclick="selectSize('{{ size_id }}', '{{ size_name }}')">
+                                 onclick="selectSize('{{ size_id }}', {{ size_name|tojson|forceescape }})">
                                 {{ size_name }}
                             </span>
                             {% endfor %}

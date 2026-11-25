@@ -227,7 +227,7 @@
                                     </div>
                                     <div class="payment-method-col-actions">
                                         <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.to_dict()|tojson }})'>Edytuj</button>
-                                        <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, '{{ method.name }}')">Usuń</button>
+                                        <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, {{ method.name|tojson|forceescape }})">Usuń</button>
                                     </div>
                                 </div>
                             {% endfor %}
