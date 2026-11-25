@@ -314,3 +314,49 @@ def test_create_group_proxy_order_polska_persists_allocations(client, db, make_u
     links = PolandOrderItemOrder.query.filter_by(order_id=order.id).all()
     assert len(links) == 1
     assert links[0].quantity == 2
+
+
+def test_allocation_ignores_microseconds_lost_by_mariadb(db, make_user, make_product, make_order):
+    """Regresja (PRX/PL/12 … PRX/PL/55): partia nie może liczyć SAMEJ SIEBIE jako
+    „wcześniejszej".
+
+    Endpoint tworzy PolandOrder, robi flush i od razu woła przydział — bez commitu,
+    więc `poland_order.created_at` w Pythonie ma mikrosekundy (utcnow()). Kolumna
+    `datetime` w MariaDB je obcina, więc w bazie siedzi pełna sekunda. Porównanie
+    `PolandOrder.created_at < poland_order.created_at` było wtedy PRAWDZIWE dla tej
+    samej partii: jej własne sztuki trafiały do `batch_start`, okno przesuwało się
+    o własną ilość i zwykle wypadało za ostatnim klientem → zero powiązań.
+
+    SQLite trzyma mikrosekundy, więc symulujemy obcięcie: w bazie pełna sekunda,
+    w obiekcie (bez oznaczania go jako zmieniony) ta sama sekunda + 567 ms.
+    """
+    from sqlalchemy.orm.attributes import set_committed_value
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem
+    from modules.products.routes import _allocate_batch_units_to_orders
+
+    p = make_product()
+    base = datetime(2026, 11, 15, 13, 0, 0, tzinfo=timezone.utc)
+    o1 = _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=1))
+    _client_order(db, make_user, make_order, p.id, 1, base + timedelta(minutes=2))
+
+    proxy = ProxyOrder(order_number='PRX/MS1', order_type='proxy')
+    db.session.add(proxy)
+    db.session.flush()
+    proxy_item = ProxyOrderItem(proxy_order_id=proxy.id, product_id=p.id, quantity=1,
+                                 unit_price=Decimal('100'), total_price=Decimal('100'))
+    db.session.add(proxy_item)
+    db.session.flush()
+
+    w_bazie = datetime(2026, 11, 15, 13, 8, 34, tzinfo=timezone.utc)
+    poland_order = PolandOrder(order_number='PRX/PL/MS1', proxy_order_id=proxy.id,
+                               status='zamowione', created_at=w_bazie)
+    db.session.add(poland_order)
+    db.session.flush()
+    set_committed_value(poland_order, 'created_at', w_bazie.replace(microsecond=567000))
+
+    poland_item = PolandOrderItem(poland_order_id=poland_order.id, proxy_order_item_id=proxy_item.id,
+                                   product_id=p.id, quantity=1)
+    db.session.add(poland_item)
+    db.session.flush()
+
+    assert _allocate_batch_units_to_orders(poland_item) == [(o1.id, 1)]
