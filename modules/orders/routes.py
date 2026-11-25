@@ -36,6 +36,7 @@ from modules.orders.utils import (
     calculate_order_total, get_order_summary, zaloguj_blad_z_identyfikatorem
 )
 from modules.orders.wms_utils import COURIER_NAMES
+from modules.orders.transfer import czy_pozycja_prosta, sprawdz_blokady
 from extensions import db
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
@@ -579,6 +580,11 @@ def admin_detail(order_id):
         set_probabilities=set_probabilities,
         action_config=ORDER_ACTION_CONFIG,
         payment_stage_labels=PAYMENT_STAGE_LABELS,
+        transfer_block_reason=sprawdz_blokady(order),
+        transfer_items=[{
+            'id': i.id, 'name': i.product_name_with_size, 'quantity': i.quantity,
+            'simple': czy_pozycja_prosta(i),
+        } for i in order.items],
         page_title=f'Zamówienie {order.order_number}'
     )
 
@@ -928,6 +934,79 @@ def admin_update_payment(order_id):
 # ====================
 # UPDATE ORDER FIELD ENDPOINT
 # ====================
+
+@orders_bp.route('/admin/orders/<int:order_id>/transfer', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_transfer_order(order_id):
+    """Przepisanie całego zamówienia albo wybranych pozycji na inną klientkę.
+
+    Body JSON: {client_id, mode: 'whole'|'items', items: [{item_id, quantity}],
+    payment_follows: bool, notify: bool}. Logika: modules/orders/transfer.py.
+    """
+    from modules.auth.models import User
+    from modules.orders.transfer import (TransferError, przepisz_cale_zamowienie,
+                                         przepisz_pozycje)
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    order = Order.query.get_or_404(order_id)
+    data = request.get_json(silent=True) or {}
+
+    def blad(komunikat):
+        return jsonify({'success': False, 'message': komunikat}), 400
+
+    try:
+        client_id = int(data.get('client_id'))
+    except (TypeError, ValueError):
+        return blad('Wybierz klientkę, na którą chcesz przepisać zamówienie.')
+    nowa_klientka = db.session.get(User, client_id)
+
+    mode = data.get('mode')
+    try:
+        if mode == 'whole':
+            wynik = przepisz_cale_zamowienie(order, nowa_klientka, current_user)
+        elif mode == 'items':
+            try:
+                wybor = [(int(x['item_id']), int(x['quantity'])) for x in (data.get('items') or [])]
+            except (TypeError, ValueError, KeyError):
+                return blad('Nieprawidłowa lista pozycji.')
+            wynik = przepisz_pozycje(order, nowa_klientka, current_user, wybor,
+                                     wplata_za_karta=bool(data.get('payment_follows', True)))
+        else:
+            return blad('Nieznany tryb przepisania.')
+        db.session.commit()
+    except TransferError as e:
+        db.session.rollback()
+        return blad(str(e))
+
+    log_activity(
+        user=current_user, action='order_transferred', entity_type='order', entity_id=order.id,
+        old_value={'user_id': wynik.poprzednia.id, 'order_number': wynik.zrodlo.order_number},
+        new_value={'user_id': wynik.cel.user_id, 'order_number': wynik.cel.order_number,
+                   'cale': wynik.cale, 'wplata_poszla': wynik.wplata_poszla,
+                   'pozycje': [[nazwa, ilosc] for nazwa, ilosc in wynik.pozycje]},
+    )
+
+    if data.get('notify', True):
+        # Błąd wysyłki nie cofa przepisania — zamówienie jest już zapisane.
+        try:
+            EmailManager.notify_order_transferred(wynik)
+            PushManager.notify_order_transferred(wynik)
+        except Exception as e:
+            current_app.logger.error(f'Powiadomienia o przepisaniu {order.order_number}: {e}')
+
+    if wynik.cale:
+        komunikat = f'Zamówienie {order.order_number} przepisane na {nowa_klientka.full_name}.'
+    else:
+        komunikat = (f'Przepisano do nowego zamówienia {wynik.cel.order_number} '
+                     f'({nowa_klientka.full_name}).')
+    return jsonify({
+        'success': True,
+        'message': komunikat,
+        'redirect_url': url_for('orders.admin_detail', order_id=wynik.cel.id),
+    })
+
 
 @orders_bp.route('/admin/orders/<int:order_id>/update-field', methods=['POST'])
 @login_required

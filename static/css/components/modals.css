@@ -6733,3 +6733,214 @@ html.pet-rig-rm .pets-window { transition: none; animation: none; }
     .pets-album { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .pets-album__card { padding: 12px 8px; }
 }
+
+/* ============================================
+   Modal: Przepisz na inną klientkę (admin/orders/detail)
+   ============================================ */
+.transfer-step {
+    margin-bottom: 20px;
+}
+
+.transfer-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary, #212121);
+}
+
+.transfer-client-results {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.transfer-client-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    background: var(--bg-primary, #ffffff);
+    color: var(--text-primary, #212121);
+    text-align: left;
+    cursor: pointer;
+    margin-bottom: 6px;
+}
+
+.transfer-client-item:hover,
+.transfer-client-item:focus-visible {
+    border-color: #7B2CBF;
+    background: #f3e5f5;
+}
+
+.transfer-client-item-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.transfer-client-item-email {
+    font-size: 12px;
+    color: var(--text-secondary, #616161);
+}
+
+.transfer-client-chosen {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #f3e5f5;
+    color: #4a148c;
+    font-weight: 600;
+}
+
+.transfer-link-btn {
+    min-height: 44px;
+    padding: 0 8px;
+    border: none;
+    background: none;
+    color: #7B2CBF;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.transfer-empty {
+    padding: 12px;
+    font-size: 14px;
+    color: var(--text-secondary, #616161);
+}
+
+.transfer-mode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.transfer-mode-option,
+.transfer-toggle,
+.transfer-item-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    cursor: pointer;
+    color: var(--text-primary, #212121);
+}
+
+.transfer-mode-option {
+    padding: 0 12px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+}
+
+.transfer-mode-option input,
+.transfer-toggle input,
+.transfer-item-check input {
+    width: 20px;
+    height: 20px;
+    accent-color: #7B2CBF;
+}
+
+.transfer-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.transfer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: var(--bg-secondary, #f5f5f5);
+}
+
+.transfer-item-check {
+    flex: 1;
+    min-width: 0;
+}
+
+.transfer-item-name {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+.transfer-modal .transfer-item-qty {
+    width: 64px;
+    min-height: 44px;
+    text-align: center;
+}
+
+.transfer-item-qty[readonly] {
+    opacity: 0.6;
+}
+
+.transfer-item-of {
+    font-size: 13px;
+    color: var(--text-secondary, #616161);
+    white-space: nowrap;
+}
+
+.transfer-hint {
+    margin: 4px 0 8px 0;
+    font-size: 13px;
+    color: var(--text-secondary, #616161);
+}
+
+.transfer-block-reason {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+    color: var(--text-secondary, #616161);
+}
+
+[data-theme="dark"] .transfer-label,
+[data-theme="dark"] .transfer-mode-option,
+[data-theme="dark"] .transfer-toggle,
+[data-theme="dark"] .transfer-item-check {
+    color: #f3f4f6;
+}
+
+[data-theme="dark"] .transfer-client-item {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f3f4f6;
+}
+
+[data-theme="dark"] .transfer-client-item:hover,
+[data-theme="dark"] .transfer-client-item:focus-visible {
+    background: rgba(157, 78, 221, 0.18);
+    border-color: #9d4edd;
+}
+
+[data-theme="dark"] .transfer-client-item-email,
+[data-theme="dark"] .transfer-empty,
+[data-theme="dark"] .transfer-item-of,
+[data-theme="dark"] .transfer-hint,
+[data-theme="dark"] .transfer-block-reason {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+[data-theme="dark"] .transfer-client-chosen {
+    background: rgba(157, 78, 221, 0.18);
+    color: #e0aaff;
+}
+
+[data-theme="dark"] .transfer-link-btn {
+    color: #e0aaff;
+}
+
+[data-theme="dark"] .transfer-mode-option {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .transfer-item {
+    background: rgba(255, 255, 255, 0.04);
+}

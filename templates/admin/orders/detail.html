@@ -964,6 +964,20 @@
                             </svg>
                             Zabierz do WMS
                         </button>
+                        {% if transfer_block_reason %}
+                        <button class="btn btn-secondary btn-sm" type="button" disabled
+                                title="{{ transfer_block_reason }}">
+                            Przepisz na inną klientkę
+                        </button>
+                        <p class="transfer-block-reason">{{ transfer_block_reason }}</p>
+                        {% else %}
+                        <button class="btn btn-secondary btn-sm" type="button" onclick="openTransferModal()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>
+                            </svg>
+                            Przepisz na inną klientkę
+                        </button>
+                        {% endif %}
                         {% if current_user.is_admin %}
                         <button class="btn btn-danger btn-sm" onclick="confirmDeleteOrder({{ order.id }}, '{{ order.order_number }}')">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
@@ -1656,6 +1670,80 @@
 </div>
 {% endif %}
 
+<!-- Modal: Przepisz na inną klientkę -->
+<div class="modal-overlay" id="transferOrderModal" data-order-id="{{ order.id }}"
+     data-order-number="{{ order.order_number }}">
+    <div class="modal-container modal-sm transfer-modal">
+        <div class="modal-header">
+            <h2>Przepisz na inną klientkę</h2>
+            <button type="button" class="modal-close" onclick="closeTransferModal()" aria-label="Zamknij">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="transfer-step">
+                <label class="transfer-label" for="transferClientSearch">1. Nowa klientka</label>
+                <div id="transferClientChosen" class="transfer-client-chosen" hidden>
+                    <span id="transferClientName"></span>
+                    <button type="button" class="transfer-link-btn" onclick="resetTransferClient()">Zmień</button>
+                </div>
+                <div id="transferClientPicker">
+                    <input type="text" id="transferClientSearch" class="form-control"
+                           placeholder="Imię, nazwisko lub e-mail (min. 3 znaki)" autocomplete="off">
+                    <div id="transferClientResults" class="transfer-client-results"></div>
+                </div>
+            </div>
+
+            <div class="transfer-step">
+                <span class="transfer-label">2. Co przepisać</span>
+                <div class="transfer-mode">
+                    <label class="transfer-mode-option">
+                        <input type="radio" name="transferMode" value="items" checked> Wybrane pozycje
+                    </label>
+                    <label class="transfer-mode-option">
+                        <input type="radio" name="transferMode" value="whole"> Całe zamówienie
+                    </label>
+                </div>
+                <div id="transferItems" class="transfer-items">
+                    {% for it in transfer_items %}
+                    <div class="transfer-item" data-item-id="{{ it.id }}" data-max="{{ it.quantity }}">
+                        <label class="transfer-item-check">
+                            <input type="checkbox" class="transfer-item-checkbox">
+                            <span class="transfer-item-name">{{ it.name }}</span>
+                        </label>
+                        <input type="number" class="form-control transfer-item-qty" min="1"
+                               max="{{ it.quantity }}" value="{{ it.quantity }}"
+                               {% if not it.simple or it.quantity == 1 %}readonly title="Tę pozycję można przepisać tylko w całości"{% endif %}
+                               aria-label="Ilość do przepisania">
+                        <span class="transfer-item-of">/ {{ it.quantity }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p id="transferWholeInfo" class="transfer-hint" hidden>
+                    Zmieniamy tylko klientkę: numer, data, wpłaty i koszty zostają w tym zamówieniu.
+                    Adres i notatka poprzedniej klientki zostaną usunięte z zamówienia.
+                </p>
+            </div>
+
+            <div class="transfer-step">
+                <label class="transfer-toggle" id="transferPaymentRow">
+                    <input type="checkbox" id="transferPaymentFollows" checked>
+                    <span>Wpłata idzie razem z kartą</span>
+                </label>
+                <p class="transfer-hint" id="transferPaymentHint">
+                    Odznacz, jeśli wpłata ma zostać u poprzedniej klientki — nowa klientka zapłaci wtedy od nowa.
+                </p>
+                <label class="transfer-toggle">
+                    <input type="checkbox" id="transferNotify" checked>
+                    <span>Powiadom klientki (mail i push)</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeTransferModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" id="transferSubmit" onclick="submitTransfer()">Przepisz</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: Dodaj produkt gratisowy -->
 <div class="modal-overlay" id="gratisModal">
     <div class="modal-container modal-sm gratis-modal">
@@ -1840,6 +1928,7 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/pages/admin/order-detail.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/order-transfer.js') }}"></script>
 <script>
 function toggleSection(button) {
     const section = button.closest('.collapsible-section');
