@@ -217,6 +217,11 @@ def _przenies_pozycje(wybrane, nowe):
                          **{pole: getattr(item, pole) for pole in POLA_POZYCJI})
         item.quantity -= ilosc
         item.total = cena * item.quantity
+        if item.fulfilled_quantity is not None:
+            # Pozycja prosta = zrealizowana w całości (albo bez licznika) — po podziale
+            # obie części dalej są zrealizowane w całości.
+            item.fulfilled_quantity = item.quantity
+            nowa.fulfilled_quantity = ilosc
         db.session.add(nowa)
         przeniesione.append((nowa, ilosc, cena * ilosc))
     db.session.flush()

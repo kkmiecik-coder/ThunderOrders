@@ -536,3 +536,24 @@ def test_bez_powiazan_partii_dziala(db, make_product, make_order, ania, basia, a
     db.session.commit()
 
     assert PolandOrderItemOrder.query.filter_by(order_id=b.id).count() == 0
+
+
+def test_czesc_sztuk_zrealizowanej_pozycji_dzieli_licznik(db, make_product, make_order,
+                                                          ania, basia, admin):
+    """Pozycja zrealizowana w całości (fulfilled_quantity == quantity) po podziale
+    nadal jest zrealizowana w całości po obu stronach."""
+    from modules.orders.transfer import przepisz_pozycje
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 3, 30)], user=ania)
+    item = _pozycje(a)[0]
+    item.fulfilled_quantity = 3
+    item.is_set_fulfilled = True
+    db.session.commit()
+
+    b = przepisz_pozycje(a, basia, admin, [(item.id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    [nowa] = _pozycje(b)
+    assert (item.quantity, item.fulfilled_quantity) == (2, 2)
+    assert (nowa.quantity, nowa.fulfilled_quantity, nowa.is_set_fulfilled) == (1, 1, True)
