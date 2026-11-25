@@ -1096,6 +1096,33 @@ class PushManager:
             notification_type='order_status_changes'
         )
 
+    @staticmethod
+    def notify_order_transferred(wynik):
+        """Push po przepisaniu zamówienia — do obu klientek (bez danych nowej u poprzedniej)."""
+        from flask import url_for
+        cel, zrodlo, poprzednia = wynik.cel, wynik.zrodlo, wynik.poprzednia
+        opis = ', '.join(f'{nazwa} ×{ilosc}' for nazwa, ilosc in wynik.pozycje)
+
+        PushManager._fire_and_forget(
+            user_id=cel.user_id,
+            title=f'Przepisano na Ciebie: {cel.order_number}',
+            body=f'{opis}. Sprawdź szczegóły zamówienia.',
+            url=url_for('orders.client_detail', order_id=cel.id, _external=True),
+            tag=f'order-transferred-to-{cel.id}',
+            notification_type='order_status_changes',
+        )
+        if poprzednia:
+            PushManager._fire_and_forget(
+                user_id=poprzednia.id,
+                title=f'Przepisano na inną osobę: {zrodlo.order_number}',
+                body=(f'Zamówienie {zrodlo.order_number} przepisano na inną osobę.' if wynik.cale
+                      else f'{opis} — przepisane na inną osobę.'),
+                url=(url_for('orders.client_list', _external=True) if wynik.cale
+                     else url_for('orders.client_detail', order_id=zrodlo.id, _external=True)),
+                tag=f'order-transferred-from-{zrodlo.id}',
+                notification_type='order_status_changes',
+            )
+
     # ========================================
     # TRACKING
     # ========================================

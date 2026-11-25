@@ -408,6 +408,47 @@ class EmailManager:
             )
 
     @staticmethod
+    def notify_order_transferred(wynik):
+        """Maile po przepisaniu zamówienia (modules/orders/transfer.py).
+
+        Nowa właścicielka: numer zamówienia, pozycje, kwota do zapłaty.
+        Poprzednia: co przepisano — bez imienia i maila nowej klientki.
+        """
+        if not EmailManager.is_email_enabled('notify_order_transferred'):
+            current_app.logger.info("Email notification 'notify_order_transferred' is disabled, skipping")
+            return
+
+        from flask import url_for
+        from utils.email_sender import (send_order_transferred_from_email,
+                                        send_order_transferred_to_email)
+
+        cel, zrodlo, poprzednia = wynik.cel, wynik.zrodlo, wynik.poprzednia
+        try:
+            if cel.user and cel.user.email:
+                send_order_transferred_to_email(
+                    user_email=cel.user.email,
+                    user_name=cel.user.first_name or cel.user.full_name,
+                    order_number=cel.order_number,
+                    pozycje=wynik.pozycje,
+                    cale=wynik.cale,
+                    do_zaplaty=float(cel.remaining_to_pay),
+                    order_url=url_for('orders.client_detail', order_id=cel.id, _external=True),
+                    log_context=kontekst_zamowienia(cel),
+                )
+            if poprzednia and poprzednia.email:
+                send_order_transferred_from_email(
+                    user_email=poprzednia.email,
+                    user_name=poprzednia.first_name or poprzednia.full_name,
+                    order_number=zrodlo.order_number,
+                    pozycje=wynik.pozycje,
+                    cale=wynik.cale,
+                    order_url=url_for('orders.client_detail', order_id=zrodlo.id, _external=True),
+                    log_context=kontekst_zamowienia(zrodlo),
+                )
+        except Exception as e:
+            current_app.logger.error(f"Failed to send order transferred emails for {cel.order_number}: {e}")
+
+    @staticmethod
     def notify_packing_photo(order, consolidation_note=None):
         """
         Wysyła email ze zdjęciem spakowanej paczki do klienta.
