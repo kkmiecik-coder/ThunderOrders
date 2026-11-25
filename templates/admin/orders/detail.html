@@ -932,7 +932,7 @@
                                              data-value="{{ status.slug }}"
                                              data-name="{{ status.name }}"
                                              data-color="{{ status.color }}"
-                                             onclick="selectStatus('{{ status.slug }}', '{{ status.name }}', '{{ status.color }}')">
+                                             onclick="selectStatus('{{ status.slug }}', {{ status.name|tojson|forceescape }}, '{{ status.color }}')">
                                             <span class="status-color-box" style="background-color: {{ status.color }}"></span>
                                             <span class="status-option-name">{{ status.name }}</span>
                                             {% if status.slug == order.status %}

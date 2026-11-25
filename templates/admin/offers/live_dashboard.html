@@ -85,7 +85,7 @@
                 </button>
                 {% if current_user.role == 'admin' %}
                 <!-- Close completely -->
-                <button type="button" class="btn-action btn-close-complete" onclick="openCloseModal({{ page.id }}, '{{ page.name }}', '{{ page.page_type }}')" title="Zamknij całkowicie">
+                <button type="button" class="btn-action btn-close-complete" onclick="openCloseModal({{ page.id }}, {{ page.name|tojson|forceescape }}, '{{ page.page_type }}')" title="Zamknij całkowicie">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
                     </svg>

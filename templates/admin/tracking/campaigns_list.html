@@ -100,7 +100,7 @@
                                         </svg>
                                     </a>
                                     <button type="button" class="qrt-btn-icon qrt-btn-warning"
-                                            onclick="resetVisits({{ campaign.id }}, '{{ campaign.name|e }}', {{ campaign.total_visits }})"
+                                            onclick="resetVisits({{ campaign.id }}, {{ campaign.name|tojson|forceescape }}, {{ campaign.total_visits }})"
                                             title="Resetuj wizyty">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="1 4 1 10 7 10"></polyline>
@@ -108,7 +108,7 @@
                                         </svg>
                                     </button>
                                     <button type="button" class="qrt-btn-icon qrt-btn-danger"
-                                            onclick="deleteCampaign({{ campaign.id }}, '{{ campaign.name|e }}')"
+                                            onclick="deleteCampaign({{ campaign.id }}, {{ campaign.name|tojson|forceescape }})"
                                             title="Usuń">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="3 6 5 6 21 6"></polyline>

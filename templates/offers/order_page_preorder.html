@@ -175,7 +175,7 @@
                                     <input type="number" class="qty-input" value="1" min="1" data-product-id="{{ section.product.id }}">
                                     <button type="button" class="qty-btn qty-plus" onclick="adjustPreorderQty(this, 1)">+</button>
                                 </div>
-                                <button type="button" class="btn-add-to-cart" onclick="addToPreorderCart({{ section.product.id }}, '{{ section.product.name|e }}', {{ section.product.sale_price }}, this)">
+                                <button type="button" class="btn-add-to-cart" onclick="addToPreorderCart({{ section.product.id }}, {{ section.product.name|tojson|forceescape }}, {{ section.product.sale_price }}, this)">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
                                     </svg>
@@ -260,7 +260,7 @@
                                     <span class="variant-product-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
                                 </div>
                                 <div class="variant-product-action">
-                                    <button type="button" class="btn-add-to-cart btn-add-to-cart-sm" onclick="addToPreorderCart({{ product.id }}, '{{ product.name|e }}', {{ product.sale_price }}, this)">
+                                    <button type="button" class="btn-add-to-cart btn-add-to-cart-sm" onclick="addToPreorderCart({{ product.id }}, {{ product.name|tojson|forceescape }}, {{ product.sale_price }}, this)">
                                         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                             <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
                                         </svg>
