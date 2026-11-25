@@ -4384,9 +4384,23 @@ def _allocate_batch_units_to_orders(poland_item):
     Zwraca listę (order_id, ilość), w kolejności FIFO zamówień klientów.
     """
     from modules.products.models import PolandOrder
+    from sqlalchemy.orm import aliased
 
     product_id = poland_item.product_id
     poland_order = poland_item.poland_order
+
+    # Czas utworzenia partii bierzemy Z BAZY, nie z obiektu. Endpoint woła tę
+    # funkcję zaraz po flush, gdy `poland_order.created_at` ma jeszcze mikrosekundy
+    # z utcnow(), a kolumna `datetime` w MariaDB je obcina. Porównanie z wartością
+    # z Pythona uznawało partię za „wcześniejszą od samej siebie" — jej sztuki
+    # wpadały do batch_start i okno FIFO przesuwało się poza klientów
+    # (brak powiązań od PRX/PL/12).
+    ta_partia = aliased(PolandOrder)  # alias: podzapytanie nie skoreluje się z joinem niżej
+    created_at_w_bazie = (
+        db.session.query(ta_partia.created_at)
+        .filter(ta_partia.id == poland_order.id)
+        .scalar_subquery()
+    )
 
     earlier_items = (
         PolandOrderItem.query
@@ -4395,9 +4409,9 @@ def _allocate_batch_units_to_orders(poland_item):
             PolandOrderItem.product_id == product_id,
             PolandOrder.status != 'anulowane',
             db.or_(
-                PolandOrder.created_at < poland_order.created_at,
+                PolandOrder.created_at < created_at_w_bazie,
                 db.and_(
-                    PolandOrder.created_at == poland_order.created_at,
+                    PolandOrder.created_at == created_at_w_bazie,
                     PolandOrder.id < poland_order.id,
                 ),
                 db.and_(
