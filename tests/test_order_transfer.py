@@ -357,3 +357,182 @@ def test_pozycje_respektuja_blokady(db, make_product, make_order, ania, basia, a
 
     with pytest.raises(TransferError):
         przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=False)
+
+
+# ---------------------------------------------------------------- koszty, wpłaty, partie
+
+def test_e2_przechodzi_i_suma_zachowana(db, make_product, make_order, make_user,
+                                        ania, basia, admin):
+    """Ania (2 szt.) i Celina (1 szt.) w tej samej sekundzie; partie 2 szt. po 10 zł
+    i 1 szt. po 30 zł. Basia przejmuje 1 szt. Ani i staje za Anią — dostaje sztukę
+    z tańszej partii, Celina zostaje przy swoich 30 zł."""
+    from datetime import timedelta
+    from modules.orders.transfer import przepisz_pozycje
+    from tests.przepisanie_helpers import partia
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania,
+                            payment_stages=4, proxy_shipping_cost=20)
+    c = zamowienie_klientki(db, make_user, make_order, [(p.id, 1, 30)],
+                            payment_stages=4, proxy_shipping_cost=30)
+    partia(db, p.id, 2, T0 + timedelta(hours=1), koszt=20)
+    partia(db, p.id, 1, T0 + timedelta(hours=2), koszt=30)
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert b.proxy_shipping_cost == Decimal('10.00')
+    assert a.proxy_shipping_cost == Decimal('10.00')
+    assert c.proxy_shipping_cost == Decimal('30.00')
+
+
+def test_e2_przyciete_do_kosztu_ani(db, make_product, make_order, ania, basia, admin):
+    """Ręcznie wyzerowany koszt u Ani — nie robimy z niego wartości ujemnej."""
+    from datetime import timedelta
+    from modules.orders.transfer import przepisz_pozycje
+    from tests.przepisanie_helpers import partia
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania,
+                            payment_stages=4, proxy_shipping_cost=0)
+    partia(db, p.id, 2, T0 + timedelta(hours=1), koszt=20)
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert a.proxy_shipping_cost == Decimal('0') and b.proxy_shipping_cost == Decimal('0')
+
+
+def test_e3_wg_stawki(db, make_product, make_order, ania, basia, admin):
+    from datetime import timedelta
+    from modules.orders.transfer import przepisz_pozycje
+    from tests.przepisanie_helpers import partia
+
+    karta, album = make_product(), make_product()
+    a = zamowienie_klientki(db, None, make_order, [(karta.id, 1, 40), (album.id, 1, 60)],
+                            user=ania, customs_vat_sale_cost=Decimal('9.20'))
+    partia(db, karta.id, 1, T0 + timedelta(hours=1), stawka_cla=23)
+    pozycja_karty = _pozycje(a)[0]
+
+    b = przepisz_pozycje(a, basia, admin, [(pozycja_karty.id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert b.customs_vat_sale_cost == Decimal('9.20')
+    assert a.customs_vat_sale_cost == Decimal('0.00')
+
+
+def test_e3_null_zostaje_null(db, make_product, make_order, ania, basia, admin):
+    from datetime import timedelta
+    from modules.orders.transfer import przepisz_pozycje
+    from tests.przepisanie_helpers import partia
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 40)], user=ania)
+    partia(db, p.id, 2, T0 + timedelta(hours=1), stawka_cla=23)
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert a.customs_vat_sale_cost is None and b.customs_vat_sale_cost is None
+
+
+def test_wplata_idzie_za_karta(db, make_product, make_order, ania, basia, admin):
+    from datetime import timedelta
+    from modules.orders.models import PaymentConfirmation
+    from modules.orders.transfer import przepisz_pozycje
+    from tests.przepisanie_helpers import partia
+
+    p1, p2 = make_product(), make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p1.id, 1, 60), (p2.id, 1, 40)], user=ania,
+                            payment_stages=4, proxy_shipping_cost=15, paid_amount=115)
+    partia(db, p2.id, 1, T0 + timedelta(hours=1), koszt=15)
+    e1 = _potwierdzenie(db, a, 'product', 100, plik='ania.png')
+    e2 = _potwierdzenie(db, a, 'korean_shipping', 15)
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[1].id, 1)], wplata_za_karta=True).cel
+    db.session.commit()
+
+    assert e1.amount == Decimal('60.00') and e2.amount == Decimal('0.00')
+    assert a.paid_amount == Decimal('60.00')
+    confs = {c.payment_stage: c for c in PaymentConfirmation.query.filter_by(order_id=b.id)}
+    assert set(confs) == {'product', 'korean_shipping'}
+    assert confs['product'].amount == Decimal('40.00')
+    assert confs['korean_shipping'].amount == Decimal('15.00')
+    assert all(c.status == 'approved' and c.proof_file is None for c in confs.values())
+    assert b.paid_amount == Decimal('55.00')
+    assert a.paid_amount + b.paid_amount == Decimal('115')
+
+
+def test_wplata_zostaje_u_ani(db, make_product, make_order, ania, basia, admin):
+    from modules.orders.models import PaymentConfirmation
+    from modules.orders.transfer import przepisz_pozycje
+
+    p1, p2 = make_product(), make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p1.id, 1, 60), (p2.id, 1, 40)], user=ania,
+                            paid_amount=100)
+    e1 = _potwierdzenie(db, a, 'product', 100)
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[1].id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert a.paid_amount == Decimal('100') and e1.amount == Decimal('100')
+    assert b.paid_amount == Decimal('0')
+    assert PaymentConfirmation.query.filter_by(order_id=b.id).count() == 0
+
+
+def test_wplata_tylko_z_zatwierdzonych(db, make_product, make_order, ania, basia, admin):
+    """Odrzucone potwierdzenie to nie wpłata — nic nie przechodzi."""
+    from modules.orders.models import PaymentConfirmation
+    from modules.orders.transfer import przepisz_pozycje
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania)
+    _potwierdzenie(db, a, 'product', 60, status='rejected')
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=True).cel
+    db.session.commit()
+
+    assert PaymentConfirmation.query.filter_by(order_id=b.id).count() == 0
+    assert b.paid_amount == Decimal('0')
+
+
+def test_powiazania_partii_przeniesione(db, make_product, make_order, ania, basia, admin):
+    from datetime import timedelta
+    from modules.products.models import PolandOrderItemOrder
+    from modules.orders.transfer import przepisz_pozycje
+    from tests.przepisanie_helpers import partia
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 3, 30)], user=ania)
+    pierwsza = partia(db, p.id, 2, T0 + timedelta(hours=1))
+    druga = partia(db, p.id, 1, T0 + timedelta(hours=2))
+    db.session.add_all([
+        PolandOrderItemOrder(poland_order_item_id=pierwsza.id, order_id=a.id, quantity=2),
+        PolandOrderItemOrder(poland_order_item_id=druga.id, order_id=a.id, quantity=1),
+    ])
+    db.session.commit()
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 2)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    def mapa(order):
+        return {l.poland_order_item_id: l.quantity
+                for l in PolandOrderItemOrder.query.filter_by(order_id=order.id)}
+    assert mapa(a) == {pierwsza.id: 1}
+    assert mapa(b) == {pierwsza.id: 1, druga.id: 1}
+
+
+def test_bez_powiazan_partii_dziala(db, make_product, make_order, ania, basia, admin):
+    from datetime import timedelta
+    from modules.products.models import PolandOrderItemOrder
+    from modules.orders.transfer import przepisz_pozycje
+    from tests.przepisanie_helpers import partia
+
+    p = make_product()
+    a = zamowienie_klientki(db, None, make_order, [(p.id, 2, 30)], user=ania)
+    partia(db, p.id, 2, T0 + timedelta(hours=1))
+
+    b = przepisz_pozycje(a, basia, admin, [(_pozycje(a)[0].id, 1)], wplata_za_karta=False).cel
+    db.session.commit()
+
+    assert PolandOrderItemOrder.query.filter_by(order_id=b.id).count() == 0
