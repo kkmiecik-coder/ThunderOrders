@@ -597,9 +597,14 @@ def get_section_products_map(page_id):
             product_limit = section.set_max_sets
             set_items = OfferSetItem.query.filter_by(section_id=section.id).all()
 
+            # Produkt-komplet (OT8) nie jest kartą setu — kupuje się go jako pełny
+            # set (place_order: full_set_items), bez rezerwacji. Patrz
+            # OfferSetItem.get_products().
+            komplet_id = section.set_product_id
             for set_item in set_items:
                 if set_item.product_id:
-                    section_products[set_item.product_id] = product_limit
+                    if set_item.product_id != komplet_id:
+                        section_products[set_item.product_id] = product_limit
                 elif set_item.variant_group_id:
                     vg_products = Product.query.join(
                         Product.variant_groups
@@ -608,7 +613,8 @@ def get_section_products_map(page_id):
                         Product.is_active == True
                     ).all()
                     for product in vg_products:
-                        section_products[product.id] = product_limit
+                        if product.id != komplet_id:
+                            section_products[product.id] = product_limit
 
     return section_products
 
