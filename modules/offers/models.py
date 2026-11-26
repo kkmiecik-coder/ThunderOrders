@@ -606,12 +606,20 @@ class OfferSetItem(db.Model):
         Zwraca listę produktów dla tego elementu.
         Dla pojedynczego produktu - [product]
         Dla grupy wariantowej - wszystkie produkty z grupy
+
+        Produkt-komplet sekcji (set_product_id, np. OT8) nigdy nie jest kartą setu,
+        nawet gdy trafił do tej samej grupy wariantów co członkowie. Inaczej
+        macierz traktuje go jak „dziewiątego członka” i set nie jest kompletny,
+        dopóki ktoś nie kupi OT8 (przypadek GH6 Makestar 3.0, 26.11.2026).
         """
+        komplet_id = self.section.set_product_id if self.section else None
         if self.product:
-            return [self.product]
+            produkty = [self.product]
         elif self.variant_group:
-            return [p for p in self.variant_group.products if p.is_active]
-        return []
+            produkty = [p for p in self.variant_group.products if p.is_active]
+        else:
+            return []
+        return [p for p in produkty if komplet_id is None or p.id != komplet_id]
 
     @property
     def display_name(self):
